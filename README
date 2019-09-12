@@ -1,3 +1,15 @@
+Description.
+============
+
+The Libeufin Sandbox aims at implementing the server side of multiple
+banking protocols currently used in the European Union.  Notably, the
+EBICS, FinTS, and the major protocols that banks will employ to respect
+the PSD2 regulation: https://ec.europa.eu/info/law/payment-services-psd-2-directive-eu-2015-2366_en
+
+
+Building and running the sandbox.
+=================================
+
 The sandox must be exported as JAR in order to be run.
 The following command exports the JAR in GNU/Linux systems.
 
