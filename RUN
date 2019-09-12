@@ -1,0 +1,14 @@
+The sandox must be exported as JAR in order to be run.
+The following command exports the JAR in GNU/Linux systems.
+
+$ cd <this repository>
+$ ./gradlew jar
+
+If the previous step worked, then a new JAR file should
+be located under <this repository>/build/libs/sandbox-$VERSION.jar,
+where $VERSION reflects the value of the 'version' global
+variable from <this repository>/build.gradle.
+
+The following command runs the sandbox:
+
+$ java -jar <this repository>/build/libs/sandbox-$VERSION.jar
