@@ -12,3 +12,8 @@ variable from <this repository>/build.gradle.
 The following command runs the sandbox:
 
 $ java -jar <this repository>/build/libs/sandbox-$VERSION.jar
+
+MS Windows users.
+=================
+The steps to follow are the same as in GNU/Linux systems, except
+that the command "gradlew.bat jar" would produce the JAR file.
