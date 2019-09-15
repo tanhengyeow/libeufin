@@ -1,12 +1,12 @@
 import org.junit.Test;
+import tech.libeufin.XMLManagement;
+
 import static org.junit.Assert.*;
 
 public class XMLManagementTest {
 
     @Test
     public void XMLManagementTest(){
-        XMLManagement xmlm = new XMLManagement();
-        xmlm.printtheline();
-        assertEquals(4, 4);
+        XMLManagement xm = new XMLManagement();
     }
 }

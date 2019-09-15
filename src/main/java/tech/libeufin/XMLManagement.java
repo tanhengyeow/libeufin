@@ -25,25 +25,19 @@ public class XMLManagement {
      * Load all the XSDs from disk.
      */
     public XMLManagement(){
-        ClassLoader classLoader = ClassLoader.getSystemClassLoader();
+        ClassLoader classLoader = this.getClass().getClassLoader();
 
         File ebics_hev_file = new File(classLoader.getResource("ebics_hev.xsd").getFile());
-        // other schemas in other similar lines ..
-
-        /* Ideally, there will be a method that return some "iterable"
-         * object for all the files in the resources directory. */
-
-        Source schemas[] = {
-                new StreamSource(ebics_hev_file)
+        Source schemas[] = {new StreamSource(ebics_hev_file)
                 // other StreamSources for other schemas here ..
         };
-        SchemaFactory sf = SchemaFactory.newInstance(XMLConstants.W3C_XML_SCHEMA_INSTANCE_NS_URI);
 
-        try{
-            this.bundle = sf.newSchema(schemas;
+        try {
+            SchemaFactory sf = SchemaFactory.newInstance(XMLConstants.W3C_XML_SCHEMA_NS_URI);
+            this.bundle = sf.newSchema(schemas);
             this.validator = this.bundle.newValidator();
-        } catch (IOException e){
-            System.out.println("Could not import all XSDs from disk" + "(" + e + ")");
+        } catch (SAXException e) {
+            System.out.println("SAX exception shall never happen here " + "(" + e + ")");
         }
     }
 
