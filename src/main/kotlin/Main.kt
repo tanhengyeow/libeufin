@@ -26,14 +26,17 @@ import io.ktor.response.*
 import io.ktor.routing.*
 import io.ktor.server.engine.*
 import io.ktor.server.netty.*
+import tech.libeufin.XMLManagement;
 
 fun main(args: Array<String>) {
+    var xmlprocess = XMLManagement();
+
     val server = embeddedServer(Netty, port = 5000) {
         routing {
             get("/") {
                 call.respondText("Hello LibEuFin!", ContentType.Text.Plain)
             }
-            post("/log") {
+            post("/") {
                 val body: String = call.receiveText()
                 println("Body: $body")
                 call.respondText("Your request has been logged.", ContentType.Text.Plain)
