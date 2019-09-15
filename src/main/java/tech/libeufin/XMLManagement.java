@@ -25,13 +25,22 @@ public class XMLManagement {
      * Load all the XSDs from disk.
      */
     public XMLManagement(){
+        ClassLoader classLoader = ClassLoader.getSystemClassLoader();
 
-        Source ebics_hev_file = new StreamSource(new File("resources/ebics_hev.xsd"));
-        Source xsds[] = {ebics_hev_file};
-        SchemaFactory sf = new SchemaFactory.newInstance(XMLConstants.W3C_XML_SCHEMA_INSTANCE_NS_URI);
+        File ebics_hev_file = new File(classLoader.getResource("ebics_hev.xsd").getFile());
+        // other schemas in other similar lines ..
+
+        /* Ideally, there will be a method that return some "iterable"
+         * object for all the files in the resources directory. */
+
+        Source schemas[] = {
+                new StreamSource(ebics_hev_file)
+                // other StreamSources for other schemas here ..
+        };
+        SchemaFactory sf = SchemaFactory.newInstance(XMLConstants.W3C_XML_SCHEMA_INSTANCE_NS_URI);
 
         try{
-            this.bundle = sf.newSchema(xsds);
+            this.bundle = sf.newSchema(schemas;
             this.validator = this.bundle.newValidator();
         } catch (IOException e){
             System.out.println("Could not import all XSDs from disk" + "(" + e + ")");
@@ -47,6 +56,6 @@ public class XMLManagement {
             System.out.println("Could not pass XML to validator.");
             return false;
         }
-
+        return true;
     }
 };
