@@ -23,5 +23,7 @@ public class XMLManagementTest {
         InputStream is = new ByteArrayInputStream("<InvalidXML>".getBytes());
         Source ebics_from_string = new StreamSource(is);
         assertFalse(xm.validate(ebics_from_string));
+
+        assertFalse(xm.validate("<moreInvalidXML>"));
     }
 }

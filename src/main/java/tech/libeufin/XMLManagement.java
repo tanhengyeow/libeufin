@@ -7,6 +7,8 @@ import javax.xml.transform.stream.StreamSource;
 import javax.xml.transform.Source;
 import javax.xml.validation.*; // has SchemaFactory
 import java.io.File;
+import java.io.ByteArrayInputStream;
+import java.io.InputStream;
 
 /**
  * This class takes care of importing XSDs and validate
@@ -58,4 +60,16 @@ public class XMLManagement {
         }
         return true;
     }
+
+    /**
+     * Craft object to be passed to the XML validator.
+     * @param xmlString XML body, as read from the POST body.
+     * @return InputStream object, as wanted by the validator.
+     */
+    public boolean validate(String xmlString){
+        InputStream xmlInputStream = new ByteArrayInputStream(xmlString.getBytes());
+        Source xmlSource = new StreamSource(xmlInputStream);
+        return this.validate(xmlSource);
+    }
+
 };

@@ -27,10 +27,12 @@ import io.ktor.routing.*
 import io.ktor.server.engine.*
 import io.ktor.server.netty.*
 import tech.libeufin.XMLManagement;
+import java.io.ByteArrayInputStream
+import java.io.InputStream
+
 
 fun main(args: Array<String>) {
-    var xmlprocess = XMLManagement();
-
+    var xmlProcess = XMLManagement();
     val server = embeddedServer(Netty, port = 5000) {
         routing {
             get("/") {
@@ -39,7 +41,14 @@ fun main(args: Array<String>) {
             post("/") {
                 val body: String = call.receiveText()
                 println("Body: $body")
-                call.respondText("Your request has been logged.", ContentType.Text.Plain)
+                val isValid = xmlProcess.validate(body)
+                call.response.header("Content-Type", "application/xml")
+                if (isValid){
+                    call.respond(HttpStatusCode.OK, xmlResponseObject)
+                }
+                else {
+                    call.respond(HttpStatusCode.BadRequest, xmlResponseObject)
+                }
             }
         }
     }
