@@ -41,10 +41,16 @@ public class XMLManagement {
         }
     }
 
+    /**
+     *
+     * @param xmlDoc the XML document to validate
+     * @return true when validation passes, false otherwise
+     */
     public boolean validate(Source xmlDoc){
         try{
             this.validator.validate(xmlDoc);
         } catch (SAXException e) {
+            System.out.println("Validation did not pass " + e);
             return false;
         } catch (IOException e) {
             System.out.println("Could not pass XML to validator.");
