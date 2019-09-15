@@ -21,6 +21,7 @@ package tech.libeufin
 
 import io.ktor.application.*
 import io.ktor.http.*
+import io.ktor.request.receiveText
 import io.ktor.response.*
 import io.ktor.routing.*
 import io.ktor.server.engine.*
@@ -31,6 +32,11 @@ fun main(args: Array<String>) {
         routing {
             get("/") {
                 call.respondText("Hello LibEuFin!", ContentType.Text.Plain)
+            }
+            post("/log") {
+                val body: String = call.receiveText()
+                println("Body: $body")
+                call.respondText("Your request has been logged.", ContentType.Text.Plain)
             }
         }
     }
