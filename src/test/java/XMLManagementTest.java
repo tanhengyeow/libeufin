@@ -11,7 +11,7 @@ public class XMLManagementTest {
     public void XMLManagementTest(){
         XMLManagement xm = new XMLManagement();
         ClassLoader classLoader = this.getClass().getClassLoader();
-        Source ebics_hev_sample = new StreamSource(classLoader.getResourceAsStream("ebics_hev.xsd"));
+        Source ebics_hev_sample = new StreamSource(classLoader.getResourceAsStream("ebics_hev.xml"));
         assertTrue(xm.validate(ebics_hev_sample));
     }
 }
