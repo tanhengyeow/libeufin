@@ -43,12 +43,22 @@ fun main(args: Array<String>) {
                 println("Body: $body")
                 val isValid = xmlProcess.validate(body)
                 call.response.header("Content-Type", "application/xml")
+
+                /*if (!isValid) {
+                    /* Return "invalid request" */
+                }
+
+                if (!knownType) {
+
+                    /* Log to console and return "unknown type" */
+                }
+
                 if (isValid){
                     call.respond(HttpStatusCode.OK, xmlResponseObject)
                 }
                 else {
                     call.respond(HttpStatusCode.BadRequest, xmlResponseObject)
-                }
+                }*/
             }
         }
     }
