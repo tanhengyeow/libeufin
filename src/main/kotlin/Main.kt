@@ -29,7 +29,9 @@ import io.ktor.server.netty.*
 import tech.libeufin.XMLManagement;
 import java.io.ByteArrayInputStream
 import java.io.InputStream
+import org.w3c.dom.Document;
 
+val knownTypes = arrayOf("ebicsHEVRequest")
 
 fun main(args: Array<String>) {
     var xmlProcess = XMLManagement();
@@ -44,21 +46,26 @@ fun main(args: Array<String>) {
                 val isValid = xmlProcess.validate(body)
                 call.response.header("Content-Type", "application/xml")
 
-                /*if (!isValid) {
-                    /* Return "invalid request" */
+                if (!isValid) {
+                    call.respond(HttpStatusCode(400, "Invalid request"));
                 }
 
-                if (!knownType) {
+                val bodyDocument = XMLManagement.parseStringIntoDOM(body)
+                if (null == bodyDocument)
+                {
+                    /* Should never happen.  */
+                    System.out.println("A valid document failed to parse into DOM!")
+                    call.respond(HttpStatusCode(500, "Internal server error"));
+                }
 
+                if (bodyDocument.documentElement !in knownTypes) {
                     /* Log to console and return "unknown type" */
+                    System.out.println("Unknown message, just logging it!")
+                    call.respond(HttpStatusCode(400, "Not found"));
                 }
 
-                if (isValid){
-                    call.respond(HttpStatusCode.OK, xmlResponseObject)
-                }
-                else {
-                    call.respond(HttpStatusCode.BadRequest, xmlResponseObject)
-                }*/
+                /* Generate response here.  */
+
             }
         }
     }
