@@ -6,6 +6,7 @@ import org.xml.sax.SAXException;
 import java.io.*;
 import javax.xml.XMLConstants;
 import javax.xml.bind.JAXBContext;
+import javax.xml.bind.JAXBElement;
 import javax.xml.bind.JAXBException;
 import javax.xml.bind.Marshaller;
 import javax.xml.parsers.ParserConfigurationException;
@@ -17,6 +18,7 @@ import javax.xml.validation.*; // has SchemaFactory
 import javax.xml.parsers.DocumentBuilder;
 import javax.xml.parsers.DocumentBuilderFactory;
 import org.w3c.dom.Document;
+import tech.libeufin.messages.HEVResponseDataType;
 
 /**
  * This class takes care of importing XSDs and validate
@@ -56,7 +58,7 @@ public class XMLManagement {
      * @param xmlString the string to parse.
      * @return the DOM representing @a xmlString
      */
-    static public Document parseStringIntoDOM(String xmlString) {
+    static public Document parseStringIntoDom(String xmlString) {
 
         DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
 
@@ -112,16 +114,16 @@ public class XMLManagement {
 
     /**
      * Return the DOM representation of the Java object, using the JAXB
-     * interface.
+     * interface.  FIXME: narrow input type to JAXB type!
      *
      * @param object to be transformed into DOM.  Typically, the object
      *               has already got its setters called.
      * @return the DOM Document, or null (if errors occur).
      */
-    static public Document parseObjectIntoDocument(Object object) {
+    static public Document convertJaxbToDom(JAXBElement<?> object) {
 
         try {
-            JAXBContext jc = JAXBContext.newInstance(object.getClass());
+            JAXBContext jc = JAXBContext.newInstance("tech.libeufin.messages");
 
             /* Make the target document.  */
             DocumentBuilderFactory dbf = DocumentBuilderFactory.newInstance();
@@ -144,6 +146,7 @@ public class XMLManagement {
 
     /**
      * Extract String from DOM.
+     *
      * @param document the DOM to extract the string from.
      * @return the final String, or null if errors occur.
      */
@@ -172,5 +175,28 @@ public class XMLManagement {
         }
 
         return null;
+    }
+
+    /**
+     * Extract String from JAXB.
+     *
+     * @param object the JAXB instance
+     * @return String representation of @a object, or null if errors occur
+     */
+    public static String getStringFromJaxb(JAXBElement<?> object){
+        try {
+            JAXBContext jc = JAXBContext.newInstance("tech.libeufin.messages");
+            StringWriter sw = new StringWriter();
+
+            /* Getting the string.  */
+            Marshaller m = jc.createMarshaller();
+            m.marshal(object, sw);
+            m.setProperty(Marshaller.JAXB_FORMATTED_OUTPUT, Boolean.TRUE);
+
+            return sw.toString();
+        } catch (JAXBException e) {
+            e.printStackTrace();
+            return null;
+        }
     }
 };

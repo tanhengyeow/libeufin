@@ -5,14 +5,14 @@ import tech.libeufin.XMLManagement;
 import java.io.ByteArrayInputStream;
 import java.io.File;
 import java.io.InputStream;
+import javax.xml.bind.JAXBElement;
 import javax.xml.bind.annotation.XmlRootElement;
 import javax.xml.transform.Source;
 import javax.xml.transform.stream.StreamSource;
 import static org.junit.Assert.*;
 import org.w3c.dom.Document;
-
-@XmlRootElement(name="SimpleJAXBTest")
-class SimpleJAXBTest {}
+import tech.libeufin.messages.HEVResponse;
+import tech.libeufin.messages.HEVResponseDataType;
 
 public class XMLManagementTest {
 
@@ -33,17 +33,14 @@ public class XMLManagementTest {
         assertFalse(xm.validate("<moreInvalidXML>"));
 
         /* Parse XML string into DOM */
-        Document document = xm.parseStringIntoDOM("<root></root>");
+        Document document = xm.parseStringIntoDom("<root></root>");
         Element documentElement = document.getDocumentElement();
-        assertTrue("root" == documentElement.getTagName());
+        assertTrue("root".equals(documentElement.getTagName()));
 
         /* Make XML DOM from Java object (JAXB) */
-        Document simpleRoot = xm.parseObjectIntoDocument(new SimpleJAXBTest());
-        Element simpleRootDocumentElement = simpleRoot.getDocumentElement();
-        assertTrue("SimpleJAXBTest" == simpleRootDocumentElement.getTagName());
-
-        /* Serialize the DOM into string.  */
-        String simpleRootString = XMLManagement.getStringFromDocument(simpleRoot);
-        System.out.println(simpleRootString);
+        HEVResponse hr = new HEVResponse("rc", "rt");
+        JAXBElement<HEVResponseDataType> hrObject = hr.makeHEVResponse();
+        Document hevDocument = XMLManagement.convertJaxbToDom(hrObject);
+        assertTrue("ns2:ebicsHEVResponse".equals(hevDocument.getDocumentElement().getTagName()));
     }
 }

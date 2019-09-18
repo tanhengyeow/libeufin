@@ -30,8 +30,7 @@ import tech.libeufin.XMLManagement;
 import java.io.ByteArrayInputStream
 import java.io.InputStream
 import org.w3c.dom.Document;
-
-val knownTypes = arrayOf("ebicsHEVRequest")
+import kotlin.reflect.jvm.internal.impl.load.kotlin.JvmType
 
 fun main(args: Array<String>) {
     var xmlProcess = XMLManagement();
@@ -50,7 +49,7 @@ fun main(args: Array<String>) {
                     call.respond(HttpStatusCode(400, "Invalid request"));
                 }
 
-                val bodyDocument = XMLManagement.parseStringIntoDOM(body)
+                val bodyDocument = XMLManagement.parseStringIntoDom(body)
                 if (null == bodyDocument)
                 {
                     /* Should never happen.  */
@@ -58,13 +57,15 @@ fun main(args: Array<String>) {
                     call.respond(HttpStatusCode(500, "Internal server error"));
                 }
 
-                if (bodyDocument.documentElement !in knownTypes) {
+                /* FIXME: Check if that's a known type! */
+                if (true) {
                     /* Log to console and return "unknown type" */
                     System.out.println("Unknown message, just logging it!")
                     call.respond(HttpStatusCode(400, "Not found"));
                 }
 
                 /* Generate response here.  */
+
 
             }
         }
