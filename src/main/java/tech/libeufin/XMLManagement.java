@@ -38,9 +38,8 @@ public class XMLManagement {
      */
     public XMLManagement(){
         ClassLoader classLoader = this.getClass().getClassLoader();
-
-        File ebics_hev_file = new File(classLoader.getResource("ebics_hev.xsd").getFile());
-        Source schemas[] = {new StreamSource(ebics_hev_file)
+        InputStream ebics_hev_path = classLoader.getResourceAsStream("ebics_hev.xsd");
+        Source schemas[] = {new StreamSource(ebics_hev_path)
                 // other StreamSources for other schemas here ..
         };
 
@@ -49,7 +48,7 @@ public class XMLManagement {
             this.bundle = sf.newSchema(schemas);
             this.validator = this.bundle.newValidator();
         } catch (SAXException e) {
-            System.out.println("SAX exception shall never happen here " + "(" + e + ")");
+            e.printStackTrace();
         }
     }
 
