@@ -21,6 +21,7 @@ package tech.libeufin
 
 import io.ktor.application.*
 import io.ktor.http.*
+import io.ktor.http.content.TextContent
 import io.ktor.request.receiveText
 import io.ktor.response.*
 import io.ktor.routing.*
@@ -30,6 +31,7 @@ import tech.libeufin.XMLManagement;
 import java.io.ByteArrayInputStream
 import java.io.InputStream
 import org.w3c.dom.Document;
+import tech.libeufin.messages.HEVResponse
 import kotlin.reflect.jvm.internal.impl.load.kotlin.JvmType
 
 fun main(args: Array<String>) {
@@ -43,10 +45,12 @@ fun main(args: Array<String>) {
                 val body: String = call.receiveText()
                 println("Body: $body")
                 val isValid = xmlProcess.validate(body)
-                call.response.header("Content-Type", "application/xml")
 
                 if (!isValid) {
-                    call.respond(HttpStatusCode(400, "Invalid request"));
+                    System.out.println("Invalid request received")
+                    call.respondText(contentType = ContentType.Application.Xml,
+                                     status = HttpStatusCode.BadRequest) {"Bad request"};
+                    return@post
                 }
 
                 val bodyDocument = XMLManagement.parseStringIntoDom(body)
@@ -54,18 +58,27 @@ fun main(args: Array<String>) {
                 {
                     /* Should never happen.  */
                     System.out.println("A valid document failed to parse into DOM!")
-                    call.respond(HttpStatusCode(500, "Internal server error"));
+                    call.respondText(contentType = ContentType.Application.Xml,
+                        status = HttpStatusCode.InternalServerError) {"Internal server error"};
+                    return@post
                 }
 
-                /* FIXME: Check if that's a known type! */
-                if (true) {
-                    /* Log to console and return "unknown type" */
-                    System.out.println("Unknown message, just logging it!")
-                    call.respond(HttpStatusCode(400, "Not found"));
+                if ("ebicsHEVRequest" == bodyDocument.documentElement.tagName)
+                {
+                    /* known type, and already valid here! */
+                    val hevResponse: HEVResponse = HEVResponse("rc", "rt")
+                    val responseText: String = XMLManagement.getStringFromJaxb(hevResponse.makeHEVResponse())
+
+                    call.respondText(contentType = ContentType.Application.Xml,
+                        status = HttpStatusCode.OK) {responseText};
+                    return@post
                 }
 
-                /* Generate response here.  */
-
+                /* Log to console and return "unknown type" */
+                System.out.println("Unknown message, just logging it!")
+                call.respondText(contentType = ContentType.Application.Xml,
+                    status = HttpStatusCode.NotFound) {"Not found"};
+                return@post
 
             }
         }
