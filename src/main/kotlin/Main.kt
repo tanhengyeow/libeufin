@@ -21,33 +21,31 @@ package tech.libeufin
 
 import io.ktor.application.*
 import io.ktor.http.*
-import io.ktor.http.content.TextContent
 import io.ktor.request.receiveText
 import io.ktor.response.*
 import io.ktor.routing.*
 import io.ktor.server.engine.*
 import io.ktor.server.netty.*
-import tech.libeufin.XMLManagement;
-import java.io.ByteArrayInputStream
-import java.io.InputStream
-import org.w3c.dom.Document;
 import tech.libeufin.messages.HEVResponse
-import kotlin.reflect.jvm.internal.impl.load.kotlin.JvmType
 
 fun main(args: Array<String>) {
     var xmlProcess = XMLManagement();
+    var logger = GetLogger.getLogger()
+
     val server = embeddedServer(Netty, port = 5000) {
         routing {
             get("/") {
+                logger.debug("GET: not implemented")
                 call.respondText("Hello LibEuFin!", ContentType.Text.Plain)
             }
             post("/") {
                 val body: String = call.receiveText()
-                println("Body: $body")
+                logger.debug("Body: $body")
+
                 val isValid = xmlProcess.validate(body)
 
                 if (!isValid) {
-                    System.out.println("Invalid request received")
+                    logger.error("Invalid request received")
                     call.respondText(contentType = ContentType.Application.Xml,
                                      status = HttpStatusCode.BadRequest) {"Bad request"};
                     return@post
@@ -57,7 +55,7 @@ fun main(args: Array<String>) {
                 if (null == bodyDocument)
                 {
                     /* Should never happen.  */
-                    System.out.println("A valid document failed to parse into DOM!")
+                    logger.error("A valid document failed to parse into DOM!")
                     call.respondText(contentType = ContentType.Application.Xml,
                         status = HttpStatusCode.InternalServerError) {"Internal server error"};
                     return@post
@@ -75,7 +73,7 @@ fun main(args: Array<String>) {
                 }
 
                 /* Log to console and return "unknown type" */
-                System.out.println("Unknown message, just logging it!")
+                // logger.info("Unknown message, just logging it!")
                 call.respondText(contentType = ContentType.Application.Xml,
                     status = HttpStatusCode.NotFound) {"Not found"};
                 return@post
