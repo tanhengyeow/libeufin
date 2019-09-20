@@ -18,7 +18,9 @@ import javax.xml.validation.*; // has SchemaFactory
 import javax.xml.parsers.DocumentBuilder;
 import javax.xml.parsers.DocumentBuilderFactory;
 import org.w3c.dom.Document;
+import sun.misc.IOUtils
 import tech.libeufin.messages.HEVResponseDataType;
+import java.util.stream.Collectors
 
 /**
  * This class takes care of importing XSDs and validate
@@ -39,9 +41,7 @@ public class XMLManagement() {
 
         try {
             val sf = SchemaFactory.newInstance(XMLConstants.W3C_XML_SCHEMA_NS_URI);
-            // bundle = sf.newSchema(schemas);
-            // validator = bundle.newValidator();
-            sf.newSchema()
+            sf.newSchema(schemas)
         } catch (e: SAXException) {
             e.printStackTrace();
             null
@@ -54,21 +54,14 @@ public class XMLManagement() {
      * @param xmlString the string to parse.
      * @return the DOM representing @a xmlString
      */
-    // static public Document parseStringIntoDom(String xmlString) {
     fun parseStringIntoDom(xmlString: String): Document? {
 
-        // DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
         val factory = DocumentBuilderFactory.newInstance()
+        factory.isNamespaceAware = true
 
         try {
-
-            // InputStream xmlInputStream = new ByteArrayInputStream(xmlString.getBytes());
             val xmlInputStream = ByteArrayInputStream(xmlString.toByteArray())
-            // Source xmlSource = new StreamSource(xmlInputStream);
-
-            // DocumentBuilder builder = factory.newDocumentBuilder();
-            val builder = factory.newDocumentBuilder();
-            // Document document = builder.parse(new InputSource(xmlInputStream));
+            val builder = factory.newDocumentBuilder()
             val document = builder.parse(InputSource(xmlInputStream));
 
             return document;
@@ -89,9 +82,11 @@ public class XMLManagement() {
      * @return true when validation passes, false otherwise
      */
     // public boolean validate(Source xmlDoc){
-    fun validate(xmlDoc: Source): Boolean {
-        try{
-            validator?.validate(xmlDoc);
+    private fun validate(xmlDoc: StreamSource): Boolean {
+        try {
+            validator?.validate(xmlDoc)
+
+
         } catch (e: SAXException) {
             e.printStackTrace()
             return false;
@@ -99,7 +94,7 @@ public class XMLManagement() {
             e.printStackTrace()
             return false;
         }
-        return true;
+        return true
     }
 
     /**
@@ -107,12 +102,10 @@ public class XMLManagement() {
      * @param xmlString XML body, as read from the POST body.
      * @return InputStream object, as wanted by the validator.
      */
-    fun validate(xmlString: String): Boolean {
-        // InputStream xmlInputStream = new ByteArrayInputStream(xmlString.getBytes());
-        val xmlInputStream = ByteArrayInputStream(xmlString.toByteArray())
-        // Source xmlSource = new StreamSource(xmlInputStream);
-        val xmlSource = StreamSource(xmlInputStream)
-        return validate(xmlSource);
+    fun validateFromString(xmlString: java.lang.String): Boolean {
+        val xmlInputStream: InputStream = ByteArrayInputStream(xmlString.bytes)
+        var xmlSource: StreamSource = StreamSource(xmlInputStream)
+        return this.validate(xmlSource)
     }
 
     /**
@@ -123,23 +116,17 @@ public class XMLManagement() {
      *               has already got its setters called.
      * @return the DOM Document, or null (if errors occur).
      */
-    // static public Document convertJaxbToDom(JAXBElement<?> object) {
     fun convertJaxbToDom(obj: JAXBElement<Unit>): Document? {
 
         try {
-            // JAXBContext jc = JAXBContext.newInstance("tech.libeufin.messages");
             val jc = JAXBContext.newInstance("tech.libeufin.messages");
 
             /* Make the target document.  */
-            // DocumentBuilderFactory dbf = DocumentBuilderFactory.newInstance();
             val dbf = DocumentBuilderFactory.newInstance()
-            // DocumentBuilder db = dbf.newDocumentBuilder();
             val db = dbf.newDocumentBuilder();
-            // Document document = db.newDocument();
             val document = db.newDocument();
 
             /* Marshalling the object into the document.  */
-            // Marshaller m = jc.createMarshaller();
             val m = jc.createMarshaller()
             m.marshal(obj, document); // document absorbed XML!
             return document;
@@ -159,29 +146,21 @@ public class XMLManagement() {
      * @param document the DOM to extract the string from.
      * @return the final String, or null if errors occur.
      */
-    // static public String getStringFromDocument(Document document){
     fun getStringFromDocument(document: Document): String? {
 
         try {
             /* Make Transformer.  */
-            // TransformerFactory tf = TransformerFactory.newInstance();
             val tf = TransformerFactory.newInstance();
             val t = tf.newTransformer();
-            // Transformer t = tf.newTransformer();
-            // t.setOutputProperty(OutputKeys.OMIT_XML_DECLARATION, "yes");
+
             t.setOutputProperty(OutputKeys.INDENT, "no");
 
             /* Make string writer.  */
             val sw = StringWriter();
-            // StringWriter sw = new StringWriter();
 
             /* Extract string.  */
-            // t.transform(new DOMSource(document), new StreamResult(sw));
             t.transform(DOMSource(document), StreamResult(sw))
-            // String output = sw.toString();
-            val output = sw.toString()
-
-            return output;
+            return sw.toString()
 
         } catch (e: TransformerConfigurationException) {
             e.printStackTrace()
@@ -197,16 +176,12 @@ public class XMLManagement() {
      * @param object the JAXB instance
      * @return String representation of @a object, or null if errors occur
      */
-    // public static String getStringFromJaxb(JAXBElement<?> object){
     fun <T>getStringFromJaxb(obj: JAXBElement<T>): String? {
         try {
-            // JAXBContext jc = JAXBContext.newInstance("tech.libeufin.messages");
             val jc = JAXBContext.newInstance("tech.libeufin.messages")
-            // StringWriter sw = new StringWriter();
             val sw = StringWriter();
 
             /* Getting the string.  */
-            // Marshaller m = jc.createMarshaller();
             val m = jc.createMarshaller();
             m.marshal(obj, sw);
             m.setProperty(Marshaller.JAXB_FORMATTED_OUTPUT, true);

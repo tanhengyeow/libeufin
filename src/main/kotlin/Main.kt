@@ -28,6 +28,7 @@ import io.ktor.server.engine.*
 import io.ktor.server.netty.*
 import tech.libeufin.messages.HEVResponse
 import tech.libeufin.messages.HEVResponseDataType
+import javax.swing.text.Document
 import javax.xml.bind.JAXBElement
 
 fun main(args: Array<String>) {
@@ -44,7 +45,7 @@ fun main(args: Array<String>) {
                 val body: String = call.receiveText()
                 logger.debug("Body: $body")
 
-                val isValid = xmlProcess.validate(body)
+                val isValid = xmlProcess.validateFromString(body as java.lang.String)
 
                 if (!isValid) {
                     logger.error("Invalid request received")
@@ -53,7 +54,7 @@ fun main(args: Array<String>) {
                     return@post
                 }
 
-                val bodyDocument = xmlProcess.parseStringIntoDom(body)
+                val bodyDocument = xmlProcess.parseStringIntoDom(body) as org.w3c.dom.Document
                 if (null == bodyDocument)
                 {
                     /* Should never happen.  */
@@ -62,8 +63,9 @@ fun main(args: Array<String>) {
                         status = HttpStatusCode.InternalServerError) {"Internal server error"};
                     return@post
                 }
+                logger.info(bodyDocument.documentElement.localName)
 
-                if ("ebicsHEVRequest" == bodyDocument.documentElement.tagName)
+                if ("ebicsHEVRequest" == bodyDocument.documentElement.localName)
                 {
                     /* known type, and already valid here! */
                     val hevResponse: HEVResponse = HEVResponse("rc", "rt")
@@ -77,7 +79,7 @@ fun main(args: Array<String>) {
                 }
 
                 /* Log to console and return "unknown type" */
-                // logger.info("Unknown message, just logging it!")
+                logger.info("Unknown message, just logging it!")
                 call.respondText(contentType = ContentType.Application.Xml,
                     status = HttpStatusCode.NotFound) {"Not found"};
                 return@post
