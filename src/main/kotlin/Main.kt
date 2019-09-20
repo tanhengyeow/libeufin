@@ -30,7 +30,7 @@ import tech.libeufin.messages.HEVResponse
 
 fun main(args: Array<String>) {
     var xmlProcess = XMLManagement();
-    var logger = GetLogger.getLogger()
+    var logger = getLogger()
 
     val server = embeddedServer(Netty, port = 5000) {
         routing {
