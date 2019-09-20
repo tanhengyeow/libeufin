@@ -14,6 +14,10 @@ public class HEVResponse {
         this.value.setSystemReturnCode(srt);
     }
 
+    /**
+     * Instantiate the root element.
+     * @return the JAXB object.
+     */
     public JAXBElement<HEVResponseDataType> makeHEVResponse(){
         ObjectFactory of = new ObjectFactory();
         return of.createEbicsHEVResponse(this.value);

@@ -27,6 +27,8 @@ import io.ktor.routing.*
 import io.ktor.server.engine.*
 import io.ktor.server.netty.*
 import tech.libeufin.messages.HEVResponse
+import tech.libeufin.messages.HEVResponseDataType
+import javax.xml.bind.JAXBElement
 
 fun main(args: Array<String>) {
     var xmlProcess = XMLManagement();
@@ -51,7 +53,7 @@ fun main(args: Array<String>) {
                     return@post
                 }
 
-                val bodyDocument = XMLManagement.parseStringIntoDom(body)
+                val bodyDocument = xmlProcess.parseStringIntoDom(body)
                 if (null == bodyDocument)
                 {
                     /* Should never happen.  */
@@ -65,10 +67,12 @@ fun main(args: Array<String>) {
                 {
                     /* known type, and already valid here! */
                     val hevResponse: HEVResponse = HEVResponse("rc", "rt")
-                    val responseText: String = XMLManagement.getStringFromJaxb(hevResponse.makeHEVResponse())
+                    val jaxbHEV: JAXBElement<HEVResponseDataType> = hevResponse.makeHEVResponse()
 
+                    val responseText: String? = xmlProcess.getStringFromJaxb(jaxbHEV)
+                    // FIXME: check if String is actually non-NULL!
                     call.respondText(contentType = ContentType.Application.Xml,
-                        status = HttpStatusCode.OK) {responseText};
+                        status = HttpStatusCode.OK) {responseText.toString()};
                     return@post
                 }
 
