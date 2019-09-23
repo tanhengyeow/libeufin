@@ -29,7 +29,6 @@ import io.ktor.server.netty.*
 import tech.libeufin.messages.HEVResponse
 import tech.libeufin.messages.HEVResponseDataType
 import tech.libeufin.messages.ProtocolAndVersion
-import javax.swing.text.Document
 import javax.xml.bind.JAXBElement
 
 fun main(args: Array<String>) {

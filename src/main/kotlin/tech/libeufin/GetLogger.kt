@@ -8,12 +8,14 @@ import ch.qos.logback.classic.Logger;
 import ch.qos.logback.classic.LoggerContext;
 
 fun getLogger(): Logger {
-    val fa = FileAppender<ILoggingEvent>()
-    val lc = LoggerFactory.getILoggerFactory()
-    fa.setContext(lc as LoggerContext)
-    fa.setFile("server.log");
+    val lc = LoggerFactory.getILoggerFactory() as LoggerContext
     val logger: Logger = LoggerFactory.getLogger("libeufin-sandbox") as Logger
+    val fa = FileAppender<ILoggingEvent>()
+
+    fa.context = lc
+    fa.file = "server.log"
+    fa.start()
     logger.addAppender(fa);
-    logger.setLevel(Level.DEBUG);
+    logger.level = Level.DEBUG
     return logger;
     }
