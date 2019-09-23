@@ -29,9 +29,11 @@ import io.ktor.server.netty.*
 import tech.libeufin.messages.HEVResponse
 import tech.libeufin.messages.HEVResponseDataType
 import tech.libeufin.messages.ProtocolAndVersion
+import tech.libeufin.tech.libeufin.db
 import javax.xml.bind.JAXBElement
 
 fun main(args: Array<String>) {
+
     var xmlProcess = XMLManagement();
     var logger = getLogger()
 
