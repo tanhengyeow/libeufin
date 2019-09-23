@@ -27,6 +27,18 @@ compileTestKotlin {
     kotlinOptions.jvmTarget = "1.8"
 }
 
+compileJava {
+    options.compilerArgs += ["--add-modules", "java.xml.bind"]
+}
+
+compileTestJava {
+    options.compilerArgs += ["--add-modules", "java.xml.bind"]
+}
+
+test {
+    jvmArgs += ["--add-modules", "java.xml.bind"]
+}
+
 jar {
 
     manifest {
