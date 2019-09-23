@@ -14,13 +14,9 @@ import javax.xml.transform.*;
 import javax.xml.transform.dom.DOMSource;
 import javax.xml.transform.stream.StreamResult;
 import javax.xml.transform.stream.StreamSource;
-import javax.xml.validation.*; // has SchemaFactory
-import javax.xml.parsers.DocumentBuilder;
+import javax.xml.validation.*; // has SchemaFactory()
 import javax.xml.parsers.DocumentBuilderFactory;
 import org.w3c.dom.Document;
-import sun.misc.IOUtils
-import tech.libeufin.messages.HEVResponseDataType;
-import java.util.stream.Collectors
 
 /**
  * This class takes care of importing XSDs and validate

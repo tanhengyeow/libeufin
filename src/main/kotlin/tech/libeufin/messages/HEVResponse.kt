@@ -1,38 +1,33 @@
-package tech.libeufin.messages;
+package tech.libeufin.messages
 
-import javax.xml.bind.JAXBElement;
+import javax.xml.bind.JAXBElement
 
 
-/*public class HEVResponse {
-    HEVResponseDataType value;
+class HEVResponse(
+    returnCode: String,
+    reportText: String,
+    protocolAndVersion: Array<ProtocolAndVersion>?) {
 
-    public HEVResponse(String returnCode, String reportText){
-        SystemReturnCodeType srt = new SystemReturnCodeType();
-        srt.setReturnCode(returnCode);
-        srt.setReportText(reportText);
-        this.value = new HEVResponseDataType();
-        this.value.setSystemReturnCode(srt);
-    }
+    constructor(
+        returnCode: String,
+        reportText: String
+    ) : this(returnCode, reportText, null)
 
-    /**
-     * Instantiate the root element.
-     * @return the JAXB object.
-     */
-    public JAXBElement<HEVResponseDataType> makeHEVResponse(){
-        ObjectFactory of = new ObjectFactory();
-        return of.createEbicsHEVResponse(this.value);
-    }
-}*/
-
-class HEVResponse(returnCode: String, reportText: String) {
-
-    val value = {
-        // SystemReturnCodeType srt = new SystemReturnCodeType();
+    val value: HEVResponseDataType = {
         val srt = SystemReturnCodeType()
         srt.setReturnCode(returnCode);
         srt.setReportText(reportText);
         val value = HEVResponseDataType();
         value.setSystemReturnCode(srt);
+
+        if (null != protocolAndVersion) {
+            protocolAndVersion.forEach {
+                val entry = HEVResponseDataType.VersionNumber()
+                entry.setProtocolVersion(it.protocol)
+                entry.setValue(it.version)
+                value.getVersionNumber().add(entry)
+            }
+        }
         value
     }()
 

@@ -28,6 +28,7 @@ import io.ktor.server.engine.*
 import io.ktor.server.netty.*
 import tech.libeufin.messages.HEVResponse
 import tech.libeufin.messages.HEVResponseDataType
+import tech.libeufin.messages.ProtocolAndVersion
 import javax.swing.text.Document
 import javax.xml.bind.JAXBElement
 
@@ -40,6 +41,7 @@ fun main(args: Array<String>) {
             get("/") {
                 logger.debug("GET: not implemented")
                 call.respondText("Hello LibEuFin!", ContentType.Text.Plain)
+                return@get
             }
             post("/") {
                 val body: String = call.receiveText()
@@ -67,10 +69,16 @@ fun main(args: Array<String>) {
 
                 if ("ebicsHEVRequest" == bodyDocument.documentElement.localName)
                 {
-                    /* known type, and already valid here! */
-                    val hevResponse: HEVResponse = HEVResponse("rc", "rt")
-                    val jaxbHEV: JAXBElement<HEVResponseDataType> = hevResponse.makeHEVResponse()
+                    val hevResponse: HEVResponse = HEVResponse(
+                        "000000",
+                        "EBICS_OK",
+                        arrayOf(
+                            ProtocolAndVersion("H003", "02.40"),
+                            ProtocolAndVersion("H004", "02.50")
+                        )
+                    )
 
+                    val jaxbHEV: JAXBElement<HEVResponseDataType> = hevResponse.makeHEVResponse()
                     val responseText: String? = xmlProcess.getStringFromJaxb(jaxbHEV)
                     // FIXME: check if String is actually non-NULL!
                     call.respondText(contentType = ContentType.Application.Xml,
