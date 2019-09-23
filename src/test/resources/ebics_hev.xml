@@ -1,4 +1,4 @@
 <?xml version="1.0" encoding="utf-8"?>
 <ebics:ebicsHEVRequest xmlns:ebics="http://www.ebics.org/H000">
-    <ebics:HostID>bern</ebics:HostID>
+    <ebics:HostID>EBIXQUAL</ebics:HostID>
 </ebics:ebicsHEVRequest>
