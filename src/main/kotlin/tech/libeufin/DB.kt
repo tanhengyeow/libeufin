@@ -10,6 +10,7 @@ object SignKeys: IntIdTable(){
 
 fun db() {
     Database.connect("jdbc:h2:mem:test", driver = "org.h2.Driver")
+
     transaction {
         addLogger(StdOutSqlLogger)
         SchemaUtils.create(SignKeys)

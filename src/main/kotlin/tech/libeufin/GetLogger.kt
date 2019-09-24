@@ -15,7 +15,7 @@ fun getLogger(): Logger {
     fa.context = lc
     fa.file = "server.log"
     fa.start()
-    logger.addAppender(fa);
+    logger.addAppender(fa)
     logger.level = Level.DEBUG
-    return logger;
-    }
+    return logger
+}

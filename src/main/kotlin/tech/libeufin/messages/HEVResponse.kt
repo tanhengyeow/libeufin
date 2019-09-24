@@ -13,21 +13,20 @@ class HEVResponse(
         reportText: String
     ) : this(returnCode, reportText, null)
 
-    val value: HEVResponseDataType = {
+    private val value: HEVResponseDataType = {
         val srt = SystemReturnCodeType()
         srt.setReturnCode(returnCode);
         srt.setReportText(reportText);
         val value = HEVResponseDataType();
         value.setSystemReturnCode(srt);
 
-        if (null != protocolAndVersion) {
-            protocolAndVersion.forEach {
-                val entry = HEVResponseDataType.VersionNumber()
-                entry.setProtocolVersion(it.protocol)
-                entry.setValue(it.version)
-                value.getVersionNumber().add(entry)
-            }
+        protocolAndVersion?.forEach {
+            val entry = HEVResponseDataType.VersionNumber()
+            entry.setProtocolVersion(it.protocol)
+            entry.setValue(it.version)
+            value.getVersionNumber().add(entry)
         }
+
         value
     }()
 

@@ -26,15 +26,15 @@ import io.ktor.response.*
 import io.ktor.routing.*
 import io.ktor.server.engine.*
 import io.ktor.server.netty.*
+import org.w3c.dom.Document
 import tech.libeufin.messages.HEVResponse
 import tech.libeufin.messages.HEVResponseDataType
 import tech.libeufin.messages.ProtocolAndVersion
-import tech.libeufin.tech.libeufin.db
 import javax.xml.bind.JAXBElement
 
-fun main(args: Array<String>) {
+fun main( ) {
 
-    var xmlProcess = XMLManagement();
+    var xmlProcess = XMLTransform()
     var logger = getLogger()
 
     val server = embeddedServer(Netty, port = 5000) {
@@ -48,29 +48,27 @@ fun main(args: Array<String>) {
                 val body: String = call.receiveText()
                 logger.debug("Body: $body")
 
-                val isValid = xmlProcess.validateFromString(body as java.lang.String)
+                val isValid = xmlProcess.validateFromString(body)
 
                 if (!isValid) {
                     logger.error("Invalid request received")
                     call.respondText(contentType = ContentType.Application.Xml,
-                                     status = HttpStatusCode.BadRequest) {"Bad request"};
+                                     status = HttpStatusCode.BadRequest) {"Bad request"}
                     return@post
                 }
 
-                val bodyDocument = xmlProcess.parseStringIntoDom(body) as org.w3c.dom.Document
-                if (null == bodyDocument)
-                {
+                val bodyDocument: Document? = xmlProcess.parseStringIntoDom(body)
+                if (null == bodyDocument) {
                     /* Should never happen.  */
                     logger.error("A valid document failed to parse into DOM!")
                     call.respondText(contentType = ContentType.Application.Xml,
-                        status = HttpStatusCode.InternalServerError) {"Internal server error"};
+                        status = HttpStatusCode.InternalServerError) {"Internal server error"}
                     return@post
                 }
                 logger.info(bodyDocument.documentElement.localName)
 
-                if ("ebicsHEVRequest" == bodyDocument.documentElement.localName)
-                {
-                    val hevResponse: HEVResponse = HEVResponse(
+                if ("ebicsHEVRequest" == bodyDocument.documentElement.localName) {
+                    val hevResponse = HEVResponse(
                         "000000",
                         "EBICS_OK",
                         arrayOf(
@@ -83,14 +81,14 @@ fun main(args: Array<String>) {
                     val responseText: String? = xmlProcess.getStringFromJaxb(jaxbHEV)
                     // FIXME: check if String is actually non-NULL!
                     call.respondText(contentType = ContentType.Application.Xml,
-                        status = HttpStatusCode.OK) {responseText.toString()};
+                        status = HttpStatusCode.OK) {responseText.toString()}
                     return@post
                 }
 
                 /* Log to console and return "unknown type" */
                 logger.info("Unknown message, just logging it!")
                 call.respondText(contentType = ContentType.Application.Xml,
-                    status = HttpStatusCode.NotFound) {"Not found"};
+                    status = HttpStatusCode.NotFound) {"Not found"}
                 return@post
 
             }
