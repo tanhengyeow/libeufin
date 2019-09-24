@@ -32,6 +32,8 @@ import tech.libeufin.messages.HEVResponseDataType
 import tech.libeufin.messages.ProtocolAndVersion
 import javax.xml.bind.JAXBElement
 
+enum class Foo {BAR, BAZ}
+
 fun main() {
 
     var xmlProcess = XMLTransform()
