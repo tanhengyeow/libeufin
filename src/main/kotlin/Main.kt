@@ -32,7 +32,7 @@ import tech.libeufin.messages.HEVResponseDataType
 import tech.libeufin.messages.ProtocolAndVersion
 import javax.xml.bind.JAXBElement
 
-fun main( ) {
+fun main() {
 
     var xmlProcess = XMLTransform()
     var logger = getLogger()
