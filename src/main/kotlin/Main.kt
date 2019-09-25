@@ -69,30 +69,32 @@ fun main() {
                 }
                 logger.info(bodyDocument.documentElement.localName)
 
-                if ("ebicsHEVRequest" == bodyDocument.documentElement.localName) {
-                    val hevResponse = HEVResponse(
-                        "000000",
-                        "EBICS_OK",
-                        arrayOf(
-                            ProtocolAndVersion("H003", "02.40"),
-                            ProtocolAndVersion("H004", "02.50")
+                when (bodyDocument.documentElement.localName) {
+                    "ebicsHEVRequest" -> {
+                        val hevResponse = HEVResponse(
+                            "000000",
+                            "EBICS_OK",
+                            arrayOf(
+                                ProtocolAndVersion("H003", "02.40"),
+                                ProtocolAndVersion("H004", "02.50")
+                            )
                         )
-                    )
-
-                    val jaxbHEV: JAXBElement<HEVResponseDataType> = hevResponse.makeHEVResponse()
-                    val responseText: String? = xmlProcess.getStringFromJaxb(jaxbHEV)
-                    // FIXME: check if String is actually non-NULL!
-                    call.respondText(contentType = ContentType.Application.Xml,
-                        status = HttpStatusCode.OK) {responseText.toString()}
-                    return@post
+    
+                        val jaxbHEV: JAXBElement<HEVResponseDataType> = hevResponse.makeHEVResponse()
+                        val responseText: String? = xmlProcess.getStringFromJaxb(jaxbHEV)
+                        // FIXME: check if String is actually non-NULL!
+                        call.respondText(contentType = ContentType.Application.Xml,
+                            status = HttpStatusCode.OK) {responseText.toString()}
+                        return@post
+                    }
+                    else -> {
+                        /* Log to console and return "unknown type" */
+                        logger.info("Unknown message, just logging it!")
+                        call.respondText(contentType = ContentType.Application.Xml,
+                            status = HttpStatusCode.NotFound) {"Not found"}
+                        return@post
+                    }
                 }
-
-                /* Log to console and return "unknown type" */
-                logger.info("Unknown message, just logging it!")
-                call.respondText(contentType = ContentType.Application.Xml,
-                    status = HttpStatusCode.NotFound) {"Not found"}
-                return@post
-
             }
         }
     }
