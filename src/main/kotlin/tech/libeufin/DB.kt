@@ -108,7 +108,11 @@ object Subscriber: IntIdTable(){
  */
 object EBICSPublicKEy: IntIdTable(){
     val pub = binary("pub", PUBLIC_KEY_MAX_LENGTH)
-    val state = stringLiteral("state")
+    val state = customEnumeration(
+        "state",
+        "ENUM('MISSING', 'NEW', 'RELEASED')",
+        {KeyStates.values()[it as Int]},
+        {it.name})
 }
 
 /**
@@ -116,11 +120,6 @@ object EBICSPublicKEy: IntIdTable(){
  */
 object EBICSPrivateKEy: IntIdTable(){
     val pub = binary("priv", PRIV_KEY_MAX_LENGTH)
-    val state = customEnumeration(
-        "state",
-        "ENUM('MISSING', 'NEW', 'RELEASED')",
-        {KeyStates.values()[it as Int]},
-        {it.name})
 }
 
 fun db() {
