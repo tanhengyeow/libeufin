@@ -72,13 +72,9 @@ fun main() {
                     logger.info("name:: ->> " + body.name)
 
                     transaction {
-                        createSubscriber()
-                    }
-
-                    transaction {
                         BankCustomers.insert {
                             it[name] = body.name
-                            // it[ebicsSubscrber] = createSubscriber().id
+                            it[ebicsSubscriber] = createSubscriber().id
                         }
                     }
 

@@ -71,11 +71,11 @@ enum class KeyStates {
 object BankCustomers: IntIdTable() {
     // Customer ID is the default 'id' field provided by the constructor.
     val name = varchar("name", CUSTOMER_NAME_MAX_LENGTH)
-    // val ebicsSubscrber = reference("ebicsSubscriber", EbicsUsers)
+    val ebicsSubscriber = reference("ebicsSubscriber", EbicsUsers)
 }
 
 /**
- * The following three tables define IDs that make a EBCIS
+ * The following tables define IDs that make a EBCIS
  * 'subscriber' exist.  Each EBICS subscriber is the tuple:
  *
  * - UserID, the human who is performing a EBICS task.
