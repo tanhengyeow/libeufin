@@ -1,5 +1,8 @@
-package tech.libeufin.messages
+package tech.libeufin
 
+import tech.libeufin.messages.HEVResponseDataType
+import tech.libeufin.messages.ObjectFactory
+import tech.libeufin.messages.SystemReturnCodeType
 import javax.xml.bind.JAXBElement
 
 

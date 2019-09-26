@@ -4,7 +4,7 @@ import org.jetbrains.exposed.dao.IntIdTable
 import org.jetbrains.exposed.sql.*
 import org.jetbrains.exposed.sql.transactions.transaction
 
-const val CUSTOMER_ID_MAX_LENGTH = 20
+const val CUSTOMER_NAME_MAX_LENGTH = 20
 const val SUBSCRIBER_ID_MAX_LENGTH = 10
 const val PUBLIC_KEY_MAX_LENGTH = 256 // FIXME review this value!
 const val PRIV_KEY_MAX_LENGTH = 512 // FIXME review this value!
@@ -67,9 +67,8 @@ enum class KeyStates {
  * its customers.
  */
 object Customer: IntIdTable() {
-    val customerId: Column<String> = varchar(
-        "customerId",
-        CUSTOMER_ID_MAX_LENGTH).primaryKey()
+    // Customer ID is the default 'id' field provided by the constructor.
+    val name = varchar("name", CUSTOMER_NAME_MAX_LENGTH)
     val ebicsUserId = reference("ebicsUserId", EbicsUsers)
 }
 

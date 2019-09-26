@@ -19,18 +19,22 @@
 
 package tech.libeufin
 
+import io.ktor.gson.*
 import io.ktor.application.*
+import io.ktor.features.CallLogging
 import io.ktor.http.*
+import io.ktor.request.receive
 import io.ktor.request.receiveText
 import io.ktor.response.*
 import io.ktor.routing.*
 import io.ktor.server.engine.*
 import io.ktor.server.netty.*
 import org.w3c.dom.Document
-import tech.libeufin.messages.HEVResponse
 import tech.libeufin.messages.HEVResponseDataType
-import tech.libeufin.messages.ProtocolAndVersion
 import javax.xml.bind.JAXBElement
+import io.ktor.features.*
+import io.netty.handler.codec.http.HttpContent
+import java.text.*
 
 enum class Foo {BAR, BAZ}
 
@@ -40,13 +44,53 @@ fun main() {
     var logger = getLogger()
 
     val server = embeddedServer(Netty, port = 5000) {
+
+        install(CallLogging)
+        install(ContentNegotiation){
+            gson {
+                setDateFormat(DateFormat.LONG)
+                setPrettyPrinting()
+            }
+
+        }
+
         routing {
             get("/") {
                 logger.debug("GET: not implemented")
                 call.respondText("Hello LibEuFin!", ContentType.Text.Plain)
                 return@get
             }
-            post("/") {
+
+            post("/admin/customers") {
+
+                // parse JSON
+                try {
+                    val body = call.receive<Customer>()
+                    logger.info(body.toString())
+
+                } catch (e: Exception) {
+                    e.printStackTrace()
+                    // return error, FIXME: distinguish between server and client error!
+                    call.respond(
+                        HttpStatusCode.BadRequest,
+                        SandboxError(e.message.toString())
+                    )
+                    return@post
+                }
+
+
+
+                // create table entries: customer + user + partner + system.
+
+                // return response
+            }
+
+            get("/admin/customers/:id") {
+
+                // query DB and return JSON object.
+            }
+
+            post("/ebicsweb") {
                 val body: String = call.receiveText()
                 logger.debug("Body: $body")
 
