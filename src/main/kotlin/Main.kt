@@ -35,6 +35,7 @@ import javax.xml.bind.JAXBElement
 import io.ktor.features.*
 import io.netty.handler.codec.http.HttpContent
 import org.jetbrains.exposed.sql.insert
+import org.jetbrains.exposed.sql.insertAndGetId
 import org.jetbrains.exposed.sql.transactions.transaction
 import tech.libeufin.tech.libeufin.BankCustomers
 import tech.libeufin.tech.libeufin.createSubscriber
@@ -64,18 +65,20 @@ fun main() {
             }
 
             post("/admin/customers") {
-
-                // parse JSON
+                var returnId: Int = -1
                 try {
-                    val body = call.receive<Customer>()
+
+                    val body = call.receive<CustomerRequest>()
                     logger.info(body.toString())
-                    logger.info("name:: ->> " + body.name)
+
 
                     transaction {
-                        BankCustomers.insert {
+                        val newId = BankCustomers.insertAndGetId {
                             it[name] = body.name
                             it[ebicsSubscriber] = createSubscriber().id
                         }
+
+                        returnId = newId.value
                     }
 
                 } catch (e: Exception) {
@@ -87,7 +90,11 @@ fun main() {
                     return@post
                 }
 
-                call.respondText { "Successful user creation!\n" }
+                call.respond(
+                    HttpStatusCode.OK,
+                    CustomerResponse(id=returnId)
+                )
+
                 return@post
             }
 

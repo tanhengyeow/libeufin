@@ -11,8 +11,12 @@ data class SandboxError (
 /**
  * Request for POST /admin/customers
  */
-data class Customer (
+data class CustomerRequest (
     val name: String
+)
+
+data class CustomerResponse (
+    val id: Int
 )
 
 /**
