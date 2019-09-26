@@ -87,8 +87,7 @@ fun main() {
                     return@post
                 }
 
-                call.respondText { "Your stuff got created" }
-
+                call.respondText { "Successful user creation!\n" }
                 return@post
             }
 
