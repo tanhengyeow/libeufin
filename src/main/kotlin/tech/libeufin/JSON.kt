@@ -23,6 +23,7 @@ data class CustomerResponse (
  * Response for GET /admin/customers/:id
  */
 data class CustomerInfo (
+    val name: String,
     val customerEbicsInfo: CustomerEbicsInfo
 )
 

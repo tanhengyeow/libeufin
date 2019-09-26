@@ -34,15 +34,9 @@ import tech.libeufin.messages.HEVResponseDataType
 import javax.xml.bind.JAXBElement
 import io.ktor.features.*
 import io.netty.handler.codec.http.HttpContent
-import org.jetbrains.exposed.sql.Query
-import org.jetbrains.exposed.sql.insert
-import org.jetbrains.exposed.sql.insertAndGetId
-import org.jetbrains.exposed.sql.select
+import org.jetbrains.exposed.sql.*
 import org.jetbrains.exposed.sql.transactions.transaction
-import tech.libeufin.tech.libeufin.BankCustomer
-import tech.libeufin.tech.libeufin.BankCustomers
-import tech.libeufin.tech.libeufin.createSubscriber
-import tech.libeufin.tech.libeufin.dbCreateTables
+import tech.libeufin.tech.libeufin.*
 import java.lang.NumberFormatException
 import java.text.*
 
@@ -105,7 +99,8 @@ fun main() {
             get("/admin/customers/{id}") {
 
                 var id = -1
-                var result = -1
+                var tmp: CustomerInfo? = null
+                var result: ResultRow? = null
 
                 try {
                     id = call.parameters["id"]!!.toInt()
@@ -116,12 +111,32 @@ fun main() {
                         SandboxError(e.message.toString())
                     )
                 }
+
                 transaction {
-                    val result = BankCustomers.select{BankCustomers.id eq 1}
+                    val singleton = BankCustomers.select { BankCustomers.id eq id }
+                    result = singleton.firstOrNull()
+
+                    if (null != result)
+                        tmp = CustomerInfo(
+                            result?.get(BankCustomers.name) as String,
+                            customerEbicsInfo = CustomerEbicsInfo(
+                                result?.get(BankCustomers.ebicsSubscriber)?.value as Int
+                        )
+                    )
+
                 }
+
+                if (null == result) {
+                    call.respond(
+                        HttpStatusCode.NotFound,
+                        SandboxError("id $id not found")
+                    )
+                    return@get
+                }
+
                 call.respond(
                     HttpStatusCode.OK,
-                    CustomerInfo(customerEbicsInfo = CustomerEbicsInfo(0))
+                    tmp as CustomerInfo
                 )
             }
 
