@@ -62,8 +62,6 @@ enum class KeyStates {
     RELEASED
 }
 
-
-
 /**
  * This table information *not* related to EBICS, for all
  * its customers.
@@ -72,7 +70,52 @@ object Customer: IntIdTable() {
     val customerId: Column<String> = varchar(
         "customerId",
         CUSTOMER_ID_MAX_LENGTH).primaryKey()
+    val ebicsUserId = reference("ebicsUserId", EbicsUsers)
 }
+
+/**
+ * The following three tables define IDs that make a EBCIS
+ * 'subscriber' exist.  Each EBICS subscriber is the tuple:
+ *
+ * - UserID, the human who is performing a EBICS task.
+ * - PartnerID, the legal entity that signed a formal agreement with the financial institution.
+ * - SystemID, (optional) the machine that is handling the EBICS task on behalf of the UserID.
+ */
+
+/**
+ * Table for UserID.
+ */
+object EbicsUsers: IntIdTable() {
+    // For simplicity, this entity is implemented by the
+    // 'id' field provided by the table constructor by default.
+}
+
+/**
+ * Table for UserID.
+ */
+object EbicsPartners: IntIdTable() {
+    // For simplicity, this entity is implemented by the
+    // 'id' field provided by the table constructor by default.
+}
+
+/**
+ * Table for UserID.
+ */
+object EbicsSystems: IntIdTable() {
+    // For simplicity, this entity is implemented by the
+    // 'id' field provided by the table constructor by default.
+}
+
+/**
+ * Subscribers table.  This table associates users with partners
+ * and systems.  Each value can appear multiple times in the same column.
+ */
+object EbicsSubscribers: IntIdTable() {
+    val userId = reference("UserId", EbicsUsers)
+    val partnerId = reference("PartnerId", EbicsPartners)
+    val systemId = reference("SystemId", EbicsSystems)
+}
+
 
 /**
  * This table maps customers with EBICS subscribers.
