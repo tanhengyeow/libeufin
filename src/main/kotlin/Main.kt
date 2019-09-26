@@ -34,26 +34,28 @@ import tech.libeufin.messages.HEVResponseDataType
 import javax.xml.bind.JAXBElement
 import io.ktor.features.*
 import io.netty.handler.codec.http.HttpContent
+import org.jetbrains.exposed.sql.insert
+import org.jetbrains.exposed.sql.transactions.transaction
+import tech.libeufin.tech.libeufin.BankCustomers
+import tech.libeufin.tech.libeufin.createSubscriber
+import tech.libeufin.tech.libeufin.dbCreateTables
 import java.text.*
-
-enum class Foo {BAR, BAZ}
 
 fun main() {
 
     var xmlProcess = XMLTransform()
     var logger = getLogger()
+    dbCreateTables()
 
     val server = embeddedServer(Netty, port = 5000) {
 
         install(CallLogging)
-        install(ContentNegotiation){
+        install(ContentNegotiation) {
             gson {
                 setDateFormat(DateFormat.LONG)
                 setPrettyPrinting()
             }
-
         }
-
         routing {
             get("/") {
                 logger.debug("GET: not implemented")
@@ -67,10 +69,21 @@ fun main() {
                 try {
                     val body = call.receive<Customer>()
                     logger.info(body.toString())
+                    logger.info("name:: ->> " + body.name)
+
+                    transaction {
+                        createSubscriber()
+                    }
+
+                    transaction {
+                        BankCustomers.insert {
+                            it[name] = body.name
+                            // it[ebicsSubscrber] = createSubscriber().id
+                        }
+                    }
 
                 } catch (e: Exception) {
                     e.printStackTrace()
-                    // return error, FIXME: distinguish between server and client error!
                     call.respond(
                         HttpStatusCode.BadRequest,
                         SandboxError(e.message.toString())
@@ -78,11 +91,9 @@ fun main() {
                     return@post
                 }
 
+                call.respondText { "Your stuff got created" }
 
-
-                // create table entries: customer + user + partner + system.
-
-                // return response
+                return@post
             }
 
             get("/admin/customers/:id") {
@@ -98,8 +109,10 @@ fun main() {
 
                 if (!isValid) {
                     logger.error("Invalid request received")
-                    call.respondText(contentType = ContentType.Application.Xml,
-                                     status = HttpStatusCode.BadRequest) {"Bad request"}
+                    call.respondText(
+                        contentType = ContentType.Application.Xml,
+                        status = HttpStatusCode.BadRequest
+                    ) { "Bad request" }
                     return@post
                 }
 
@@ -107,8 +120,10 @@ fun main() {
                 if (null == bodyDocument) {
                     /* Should never happen.  */
                     logger.error("A valid document failed to parse into DOM!")
-                    call.respondText(contentType = ContentType.Application.Xml,
-                        status = HttpStatusCode.InternalServerError) {"Internal server error"}
+                    call.respondText(
+                        contentType = ContentType.Application.Xml,
+                        status = HttpStatusCode.InternalServerError
+                    ) { "Internal server error" }
                     return@post
                 }
                 logger.info(bodyDocument.documentElement.localName)
@@ -123,19 +138,23 @@ fun main() {
                                 ProtocolAndVersion("H004", "02.50")
                             )
                         )
-    
+
                         val jaxbHEV: JAXBElement<HEVResponseDataType> = hevResponse.makeHEVResponse()
                         val responseText: String? = xmlProcess.getStringFromJaxb(jaxbHEV)
                         // FIXME: check if String is actually non-NULL!
-                        call.respondText(contentType = ContentType.Application.Xml,
-                            status = HttpStatusCode.OK) {responseText.toString()}
+                        call.respondText(
+                            contentType = ContentType.Application.Xml,
+                            status = HttpStatusCode.OK
+                        ) { responseText.toString() }
                         return@post
                     }
                     else -> {
                         /* Log to console and return "unknown type" */
                         logger.info("Unknown message, just logging it!")
-                        call.respondText(contentType = ContentType.Application.Xml,
-                            status = HttpStatusCode.NotFound) {"Not found"}
+                        call.respondText(
+                            contentType = ContentType.Application.Xml,
+                            status = HttpStatusCode.NotFound
+                        ) { "Not found" }
                         return@post
                     }
                 }

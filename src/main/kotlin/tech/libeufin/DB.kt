@@ -1,6 +1,7 @@
 package tech.libeufin.tech.libeufin
 
-import org.jetbrains.exposed.dao.IntIdTable
+import com.sun.org.apache.bcel.internal.generic.NEW
+import org.jetbrains.exposed.dao.*
 import org.jetbrains.exposed.sql.*
 import org.jetbrains.exposed.sql.transactions.transaction
 
@@ -8,6 +9,7 @@ const val CUSTOMER_NAME_MAX_LENGTH = 20
 const val SUBSCRIBER_ID_MAX_LENGTH = 10
 const val PUBLIC_KEY_MAX_LENGTH = 256 // FIXME review this value!
 const val PRIV_KEY_MAX_LENGTH = 512 // FIXME review this value!
+const val SQL_ENUM_SUBSCRIBER_STATES = "ENUM('NEW', 'PARTIALLI_INITIALIZED_INI', 'PARTIALLY_INITIALIZED_HIA', 'INITIALIZED', 'READY')"
 
 /**
  * All the states to give a subscriber.
@@ -66,10 +68,10 @@ enum class KeyStates {
  * This table information *not* related to EBICS, for all
  * its customers.
  */
-object Customer: IntIdTable() {
+object BankCustomers: IntIdTable() {
     // Customer ID is the default 'id' field provided by the constructor.
     val name = varchar("name", CUSTOMER_NAME_MAX_LENGTH)
-    val ebicsUserId = reference("ebicsUserId", EbicsUsers)
+    // val ebicsSubscrber = reference("ebicsSubscriber", EbicsUsers)
 }
 
 /**
@@ -89,6 +91,10 @@ object EbicsUsers: IntIdTable() {
     // 'id' field provided by the table constructor by default.
 }
 
+class EbicsUser(id: EntityID<Int>) : IntEntity(id) {
+    companion object : IntEntityClass<EbicsUser>(EbicsUsers)
+}
+
 /**
  * Table for UserID.
  */
@@ -97,12 +103,22 @@ object EbicsPartners: IntIdTable() {
     // 'id' field provided by the table constructor by default.
 }
 
+
+class EbicsPartner(id: EntityID<Int>) : IntEntity(id) {
+    companion object : IntEntityClass<EbicsPartner>(EbicsPartners)
+}
+
+
 /**
  * Table for UserID.
  */
 object EbicsSystems: IntIdTable() {
     // For simplicity, this entity is implemented by the
     // 'id' field provided by the table constructor by default.
+}
+
+class EbicsSystem(id: EntityID<Int>) : IntEntity(id) {
+    companion object : IntEntityClass<EbicsSystem>(EbicsSystems)
 }
 
 /**
@@ -113,42 +129,50 @@ object EbicsSubscribers: IntIdTable() {
     val userId = reference("UserId", EbicsUsers)
     val partnerId = reference("PartnerId", EbicsPartners)
     val systemId = reference("SystemId", EbicsSystems)
-}
 
-
-/**
- * This table maps customers with EBICS subscribers.
- */
-object CustomerSubscriberMap: IntIdTable(){
-    val customerId = reference("customerId", Customer)
-    val subscriberId = reference("subscriberId", Subscriber)
-}
-
-/**
- * This table defines a EBICS subscriber.
- */
-object Subscriber: IntIdTable(){
-    // is EBICS 'subscriber' ID?
-    val subscriberId: Column<String> = varchar(
-        "subscriberId",
-        SUBSCRIBER_ID_MAX_LENGTH).primaryKey()
+    val signatureKey = reference("signatureKey", EbicsPublicKey).nullable()
+    val encryptionKey = reference("encryptionKey", EbicsPublicKey).nullable()
+    val authorizationKey = reference("authorizationKey", EbicsPublicKey).nullable()
 
     val state = customEnumeration(
         "state",
-        "ENUM('NEW', 'PARTIALLI_INITIALIZED_INI', 'PARTIALLY_INITIALIZED_HIA', 'INITIALIZED', 'READY')",
+        SQL_ENUM_SUBSCRIBER_STATES,
         {SubscriberStates.values()[it as Int]},
-        {it.name}
-    )
-
-    val signatureKey = reference("signatureKey", EBICSPublicKEy)
-    val encryptionKey = reference("encryptionKey", EBICSPublicKEy)
-    val authorizationKey = reference("authorizationKey", EBICSPublicKEy)
+        {it.name})
 }
+
+class EbicsSubscriber(id: EntityID<Int>) : IntEntity(id) {
+    companion object : IntEntityClass<EbicsSubscriber>(EbicsSubscribers)
+
+    var userId by EbicsUser referencedOn EbicsSubscribers.userId
+    var partnerId by EbicsPartner referencedOn EbicsSubscribers.partnerId
+    var systemId by EbicsSystem referencedOn EbicsSubscribers.systemId
+
+    var signatureKey by EbicsPublicKey.id
+    var encryptionKey by EbicsPublicKey.id
+    var authorizationKey by EbicsPublicKey.id
+    var state by EbicsSubscribers.state
+}
+
+/**
+ * Helper function that makes a new subscriber
+ * @return new object
+ */
+fun createSubscriber() : EbicsSubscriber {
+
+    return EbicsSubscriber.new {
+        userId = EbicsUser.new {  }
+        partnerId = EbicsPartner.new { }
+        systemId = EbicsSystem.new {  }
+        state = SubscriberStates.NEW
+    }
+}
+
 
 /**
  * This table stores RSA public keys.
  */
-object EBICSPublicKEy: IntIdTable(){
+object EbicsPublicKey: IntIdTable() {
     val pub = binary("pub", PUBLIC_KEY_MAX_LENGTH)
     val state = customEnumeration(
         "state",
@@ -160,14 +184,22 @@ object EBICSPublicKEy: IntIdTable(){
 /**
  * This table stores RSA private keys.
  */
-object EBICSPrivateKEy: IntIdTable(){
+object EbicsPrivateKEy: IntIdTable() {
     val pub = binary("priv", PRIV_KEY_MAX_LENGTH)
 }
 
-fun db() {
-    Database.connect("jdbc:h2:mem:test", driver = "org.h2.Driver")
+fun dbCreateTables() {
+    Database.connect("jdbc:h2:mem:test;DB_CLOSE_DELAY=-1", driver = "org.h2.Driver")
 
     transaction {
         addLogger(StdOutSqlLogger)
+
+        SchemaUtils.create(
+            BankCustomers,
+            EbicsUsers,
+            EbicsPartners,
+            EbicsSystems,
+            EbicsSubscribers
+        )
     }
 }
