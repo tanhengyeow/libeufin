@@ -74,6 +74,13 @@ object BankCustomers: IntIdTable() {
     val ebicsSubscriber = reference("ebicsSubscriber", EbicsUsers)
 }
 
+class BankCustomer(id: EntityID<Int>) : IntEntity(id) {
+    companion object : IntEntityClass<BankCustomer>(BankCustomers)
+
+    var name by BankCustomers.name
+    var ebicsSubscriber by EbicsSubscriber referencedOn BankCustomers.ebicsSubscriber
+}
+
 /**
  * The following tables define IDs that make a EBCIS
  * 'subscriber' exist.  Each EBICS subscriber is the tuple:

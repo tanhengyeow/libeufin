@@ -34,12 +34,16 @@ import tech.libeufin.messages.HEVResponseDataType
 import javax.xml.bind.JAXBElement
 import io.ktor.features.*
 import io.netty.handler.codec.http.HttpContent
+import org.jetbrains.exposed.sql.Query
 import org.jetbrains.exposed.sql.insert
 import org.jetbrains.exposed.sql.insertAndGetId
+import org.jetbrains.exposed.sql.select
 import org.jetbrains.exposed.sql.transactions.transaction
+import tech.libeufin.tech.libeufin.BankCustomer
 import tech.libeufin.tech.libeufin.BankCustomers
 import tech.libeufin.tech.libeufin.createSubscriber
 import tech.libeufin.tech.libeufin.dbCreateTables
+import java.lang.NumberFormatException
 import java.text.*
 
 fun main() {
@@ -65,20 +69,20 @@ fun main() {
             }
 
             post("/admin/customers") {
-                var returnId: Int = -1
+
+                var returnId = 0
                 try {
 
                     val body = call.receive<CustomerRequest>()
                     logger.info(body.toString())
 
-
                     transaction {
-                        val newId = BankCustomers.insertAndGetId {
+                        val newBankCustomer = BankCustomers.insertAndGetId {
                             it[name] = body.name
                             it[ebicsSubscriber] = createSubscriber().id
                         }
 
-                        returnId = newId.value
+                        returnId = newBankCustomer.value
                     }
 
                 } catch (e: Exception) {
@@ -92,15 +96,33 @@ fun main() {
 
                 call.respond(
                     HttpStatusCode.OK,
-                    CustomerResponse(id=returnId)
+                    CustomerResponse(id = returnId)
                 )
 
                 return@post
             }
 
-            get("/admin/customers/:id") {
+            get("/admin/customers/{id}") {
 
-                // query DB and return JSON object.
+                var id = -1
+                var result = -1
+
+                try {
+                    id = call.parameters["id"]!!.toInt()
+                    logger.info("Querying ID: $id")
+                } catch (e: NumberFormatException) {
+                    call.respond(
+                        HttpStatusCode.BadRequest,
+                        SandboxError(e.message.toString())
+                    )
+                }
+                transaction {
+                    val result = BankCustomers.select{BankCustomers.id eq 1}
+                }
+                call.respond(
+                    HttpStatusCode.OK,
+                    CustomerInfo(customerEbicsInfo = CustomerEbicsInfo(0))
+                )
             }
 
             post("/ebicsweb") {
