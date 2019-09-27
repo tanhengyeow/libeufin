@@ -1,6 +1,5 @@
 package tech.libeufin.tech.libeufin
 
-import com.sun.org.apache.bcel.internal.generic.NEW
 import org.jetbrains.exposed.dao.*
 import org.jetbrains.exposed.sql.*
 import org.jetbrains.exposed.sql.transactions.transaction

@@ -33,8 +33,6 @@ import org.w3c.dom.Document
 import tech.libeufin.messages.HEVResponseDataType
 import javax.xml.bind.JAXBElement
 import io.ktor.features.*
-import io.netty.handler.codec.http.HttpContent
-import org.jetbrains.exposed.sql.*
 import org.jetbrains.exposed.sql.transactions.transaction
 import tech.libeufin.tech.libeufin.*
 import java.lang.NumberFormatException
@@ -63,22 +61,8 @@ fun main() {
             }
 
             post("/admin/customers") {
-
-                var returnId = 0
-                try {
-
-                    val body = call.receive<CustomerRequest>()
-                    logger.info(body.toString())
-
-                    transaction {
-                        val newBankCustomer = BankCustomers.insertAndGetId {
-                            it[name] = body.name
-                            it[ebicsSubscriber] = createSubscriber().id
-                        }
-
-                        returnId = newBankCustomer.value
-                    }
-
+                val body = try {
+                    call.receive<CustomerRequest>()
                 } catch (e: Exception) {
                     e.printStackTrace()
                     call.respond(
@@ -86,6 +70,26 @@ fun main() {
                         SandboxError(e.message.toString())
                     )
                     return@post
+                }
+                logger.info(body.toString())
+
+                val returnId = transaction {
+                    val myUserId = EbicsUser.new { }
+                    val myPartnerId = EbicsPartner.new { }
+                    val mySystemId = EbicsSystem.new { }
+                    val subscriber = EbicsSubscriber.new {
+                        userId = myUserId
+                        partnerId = myPartnerId
+                        systemId = mySystemId
+                        state = SubscriberStates.NEW
+                    }
+                    println("subscriber ID: ${subscriber.id.value}")
+                    val customer = BankCustomer.new {
+                        name = body.name
+                        ebicsSubscriber = subscriber
+                    }
+                    println("name: ${customer.name}")
+                    return@transaction customer.id.value
                 }
 
                 call.respond(
@@ -98,32 +102,20 @@ fun main() {
 
             get("/admin/customers/{id}") {
 
-                var id = -1
-                var tmp: CustomerInfo? = null
-                var result: ResultRow? = null
-
-                try {
-                    id = call.parameters["id"]!!.toInt()
-                    logger.info("Querying ID: $id")
+                val id: Int = try {
+                    call.parameters["id"]!!.toInt()
                 } catch (e: NumberFormatException) {
                     call.respond(
                         HttpStatusCode.BadRequest,
                         SandboxError(e.message.toString())
                     )
+                    return@get
                 }
 
-                transaction {
-                    val singleton = BankCustomers.select { BankCustomers.id eq id }
-                    result = singleton.firstOrNull()
+                logger.info("Querying ID: $id")
 
-                    if (null != result)
-                        tmp = CustomerInfo(
-                            result?.get(BankCustomers.name) as String,
-                            customerEbicsInfo = CustomerEbicsInfo(
-                                result?.get(BankCustomers.ebicsSubscriber)?.value as Int
-                        )
-                    )
-
+                val result = transaction {
+                    BankCustomer.findById(id)
                 }
 
                 if (null == result) {
@@ -134,9 +126,16 @@ fun main() {
                     return@get
                 }
 
+                val tmp = CustomerInfo(
+                    result.name,
+                    customerEbicsInfo = CustomerEbicsInfo(
+                        result.ebicsSubscriber.userId.id.value
+                    )
+                )
+
                 call.respond(
                     HttpStatusCode.OK,
-                    tmp as CustomerInfo
+                    tmp
                 )
             }
 
