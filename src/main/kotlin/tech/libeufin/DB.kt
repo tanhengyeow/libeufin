@@ -70,7 +70,7 @@ enum class KeyStates {
 object BankCustomers: IntIdTable() {
     // Customer ID is the default 'id' field provided by the constructor.
     val name = varchar("name", CUSTOMER_NAME_MAX_LENGTH)
-    val ebicsSubscriber = reference("ebicsSubscriber", EbicsUsers)
+    val ebicsSubscriber = reference("ebicsSubscriber", EbicsSubscribers)
 }
 
 class BankCustomer(id: EntityID<Int>) : IntEntity(id) {
