@@ -40,8 +40,8 @@ import java.text.*
 
 fun main() {
 
-    var xmlProcess = XMLTransform()
-    var logger = getLogger()
+    val xmlProcess = XMLTransform()
+    val logger = getLogger()
     dbCreateTables()
 
     val server = embeddedServer(Netty, port = 5000) {
@@ -114,11 +114,17 @@ fun main() {
 
                 logger.info("Querying ID: $id")
 
-                val result = transaction {
-                    BankCustomer.findById(id)
+                val customerInfo = transaction {
+                    val customer = BankCustomer.findById(id) ?: return@transaction null
+                    CustomerInfo(
+                        customer.name,
+                        customerEbicsInfo = CustomerEbicsInfo(
+                            customer.ebicsSubscriber.userId.id.value
+                        )
+                    )
                 }
 
-                if (null == result) {
+                if (null == customerInfo) {
                     call.respond(
                         HttpStatusCode.NotFound,
                         SandboxError("id $id not found")
@@ -126,17 +132,7 @@ fun main() {
                     return@get
                 }
 
-                val tmp = CustomerInfo(
-                    result.name,
-                    customerEbicsInfo = CustomerEbicsInfo(
-                        result.ebicsSubscriber.userId.id.value
-                    )
-                )
-
-                call.respond(
-                    HttpStatusCode.OK,
-                    tmp
-                )
+                call.respond(HttpStatusCode.OK, customerInfo)
             }
 
             post("/ebicsweb") {
