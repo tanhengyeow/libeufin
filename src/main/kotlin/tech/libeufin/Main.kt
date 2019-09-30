@@ -161,7 +161,7 @@ fun main() {
                     return@post
                 }
 
-                logger.info(bodyDocument.documentElement.localName)
+                logger.info("Processing", bodyDocument.documentElement.localName)
 
                 when (bodyDocument.documentElement.localName) {
                     "ebicsHEVRequest" -> {
