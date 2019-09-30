@@ -116,6 +116,21 @@ class XMLTransform {
     }
 
     /**
+     * Validates the DOM against the Schema(s) of this object.
+     * @param domDocument DOM to validate
+     * @return true/false if the document is valid/invalid
+     */
+    fun validateFromDom(domDocument: Document): Boolean {
+        try {
+            validator?.validate(DOMSource(domDocument))
+        } catch (e: SAXException) {
+            e.printStackTrace()
+            return false
+        }
+        return true
+    }
+
+    /**
      * Craft object to be passed to the XML validator.
      * @param xmlString XML body, as read from the POST body.
      * @return InputStream object, as wanted by the validator.
@@ -205,7 +220,7 @@ class XMLTransform {
 
         } catch (e: JAXBException) {
             e.printStackTrace()
-            return null
+            return "Bank fatal error."
         }
 
         return sw.toString()

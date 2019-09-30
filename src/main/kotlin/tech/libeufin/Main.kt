@@ -141,28 +141,26 @@ fun main() {
             post("/ebicsweb") {
                 val body: String = call.receiveText()
                 logger.debug("Body: $body")
+                val bodyDocument: Document? = xmlProcess.parseStringIntoDom(body)
 
-                val isValid = xmlProcess.validateFromString(body)
+                if (bodyDocument == null) {
+                    call.respondText(
+                        contentType = ContentType.Application.Xml,
+                        status = HttpStatusCode.BadRequest
+                    ) { "Bad request / Could not parse the body" }
+                    return@post
 
-                if (!isValid) {
+                }
+
+                if (!xmlProcess.validateFromDom(bodyDocument)) {
                     logger.error("Invalid request received")
                     call.respondText(
                         contentType = ContentType.Application.Xml,
                         status = HttpStatusCode.BadRequest
-                    ) { "Bad request" }
+                    ) { "Bad request / invalid document" }
                     return@post
                 }
 
-                val bodyDocument: Document? = xmlProcess.parseStringIntoDom(body)
-                if (null == bodyDocument) {
-                    /* Should never happen.  */
-                    logger.error("A valid document failed to parse into DOM!")
-                    call.respondText(
-                        contentType = ContentType.Application.Xml,
-                        status = HttpStatusCode.InternalServerError
-                    ) { "Internal server error" }
-                    return@post
-                }
                 logger.info(bodyDocument.documentElement.localName)
 
                 when (bodyDocument.documentElement.localName) {
@@ -178,7 +176,7 @@ fun main() {
 
                         val jaxbHEV: JAXBElement<HEVResponseDataType> = hevResponse.makeHEVResponse()
                         val responseText: String? = xmlProcess.getStringFromJaxb(jaxbHEV)
-                        // FIXME: check if String is actually non-NULL!
+
                         call.respondText(
                             contentType = ContentType.Application.Xml,
                             status = HttpStatusCode.OK
