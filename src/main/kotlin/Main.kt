@@ -1,42 +1,46 @@
-/**
- * This file is part of LIBEUFIN.
+/*
+ * This file is part of LibEuFin.
  * Copyright (C) 2019 Stanisci and Dold.
 
- * LIBEUFIN is free software; you can redistribute it and/or modify
+ * LibEuFin is free software; you can redistribute it and/or modify
  * it under the terms of the GNU Affero General Public License as
  * published by the Free Software Foundation; either version 3, or
  * (at your option) any later version.
 
- * LIBEUFIN is distributed in the hope that it will be useful, but
+ * LibEuFin is distributed in the hope that it will be useful, but
  * WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
  * or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU Affero General
  * Public License for more details.
 
  * You should have received a copy of the GNU Affero General Public
- * License along with LIBEUFIN; see the file COPYING.  If not, see
+ * License along with LibEuFin; see the file COPYING.  If not, see
  * <http://www.gnu.org/licenses/>
  */
 
 package tech.libeufin
 
-import io.ktor.gson.*
-import io.ktor.application.*
+import io.ktor.application.call
+import io.ktor.application.install
 import io.ktor.features.CallLogging
-import io.ktor.http.*
+import io.ktor.features.ContentNegotiation
+import io.ktor.gson.gson
+import io.ktor.http.ContentType
+import io.ktor.http.HttpStatusCode
 import io.ktor.request.receive
 import io.ktor.request.receiveText
-import io.ktor.response.*
-import io.ktor.routing.*
-import io.ktor.server.engine.*
-import io.ktor.server.netty.*
+import io.ktor.response.respond
+import io.ktor.response.respondText
+import io.ktor.routing.get
+import io.ktor.routing.post
+import io.ktor.routing.routing
+import io.ktor.server.engine.embeddedServer
+import io.ktor.server.netty.Netty
+import org.jetbrains.exposed.sql.transactions.transaction
 import org.w3c.dom.Document
 import tech.libeufin.messages.HEVResponseDataType
-import javax.xml.bind.JAXBElement
-import io.ktor.features.*
-import org.jetbrains.exposed.sql.transactions.transaction
 import tech.libeufin.tech.libeufin.*
-import java.lang.NumberFormatException
-import java.text.*
+import java.text.DateFormat
+import javax.xml.bind.JAXBElement
 
 fun main() {
 

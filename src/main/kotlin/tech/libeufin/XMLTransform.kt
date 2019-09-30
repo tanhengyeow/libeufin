@@ -1,28 +1,51 @@
+/*
+ * This file is part of LibEuFin.
+ * Copyright (C) 2019 Stanisci and Dold.
+
+ * LibEuFin is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU Affero General Public License as
+ * published by the Free Software Foundation; either version 3, or
+ * (at your option) any later version.
+
+ * LibEuFin is distributed in the hope that it will be useful, but
+ * WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
+ * or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU Affero General
+ * Public License for more details.
+
+ * You should have received a copy of the GNU Affero General Public
+ * License along with LibEuFin; see the file COPYING.  If not, see
+ * <http://www.gnu.org/licenses/>
+ */
+
 package tech.libeufin;
 
-import org.xml.sax.InputSource;
-import org.xml.sax.SAXException;
-
-import java.io.*;
-import javax.xml.XMLConstants;
-import javax.xml.bind.JAXBContext;
-import javax.xml.bind.JAXBElement;
-import javax.xml.bind.JAXBException;
-import javax.xml.bind.Marshaller;
-import javax.xml.parsers.ParserConfigurationException;
-import javax.xml.transform.*;
-import javax.xml.transform.dom.DOMSource;
-import javax.xml.transform.stream.StreamResult;
-import javax.xml.transform.stream.StreamSource;
-import javax.xml.validation.*; // has SchemaFactory()
-import javax.xml.parsers.DocumentBuilderFactory;
-import org.w3c.dom.Document;
+import org.w3c.dom.Document
+import org.xml.sax.InputSource
+import org.xml.sax.SAXException
+import java.io.ByteArrayInputStream
+import java.io.IOException
+import java.io.InputStream
+import java.io.StringWriter
+import javax.xml.XMLConstants
+import javax.xml.bind.JAXBContext
+import javax.xml.bind.JAXBElement
+import javax.xml.bind.JAXBException
+import javax.xml.bind.Marshaller
+import javax.xml.parsers.DocumentBuilderFactory
+import javax.xml.parsers.ParserConfigurationException
+import javax.xml.transform.OutputKeys
+import javax.xml.transform.TransformerConfigurationException
+import javax.xml.transform.TransformerException
+import javax.xml.transform.TransformerFactory
+import javax.xml.transform.dom.DOMSource
+import javax.xml.transform.stream.StreamResult
+import javax.xml.transform.stream.StreamSource
+import javax.xml.validation.SchemaFactory
 
 /**
  * This class takes care of importing XSDs and validate
  * XMLs against those.
  */
-
 class XMLTransform {
 
     /**
@@ -31,7 +54,8 @@ class XMLTransform {
     private val bundle = {
         val classLoader = ClassLoader.getSystemClassLoader()
         val ebicsHevPath = classLoader.getResourceAsStream("ebics_hev.xsd")
-        val schemas = arrayOf(StreamSource(ebicsHevPath)
+        val schemas = arrayOf(
+            StreamSource(ebicsHevPath)
             // other StreamSources for other schemas here ..
         )
 
@@ -98,7 +122,7 @@ class XMLTransform {
      */
     fun validateFromString(xmlString: String): Boolean {
         val xmlInputStream: InputStream = ByteArrayInputStream(xmlString.toByteArray())
-        var xmlSource = StreamSource(xmlInputStream)
+        val xmlSource = StreamSource(xmlInputStream)
         return this.validate(xmlSource)
     }
 
@@ -166,10 +190,10 @@ class XMLTransform {
     /**
      * Extract String from JAXB.
      *
-     * @param object the JAXB instance
+     * @param obj the JAXB instance
      * @return String representation of @a object, or null if errors occur
      */
-    fun <T>getStringFromJaxb(obj: JAXBElement<T>): String? {
+    fun <T> getStringFromJaxb(obj: JAXBElement<T>): String? {
         val sw = StringWriter()
 
         try {
