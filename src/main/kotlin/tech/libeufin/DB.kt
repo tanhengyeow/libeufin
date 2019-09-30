@@ -1,4 +1,4 @@
-package tech.libeufin.tech.libeufin
+package tech.libeufin
 
 import org.jetbrains.exposed.dao.*
 import org.jetbrains.exposed.sql.*

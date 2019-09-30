@@ -38,7 +38,6 @@ import io.ktor.server.netty.Netty
 import org.jetbrains.exposed.sql.transactions.transaction
 import org.w3c.dom.Document
 import tech.libeufin.messages.HEVResponseDataType
-import tech.libeufin.tech.libeufin.*
 import java.text.DateFormat
 import javax.xml.bind.JAXBElement
 

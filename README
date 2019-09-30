@@ -1,5 +1,5 @@
-Description.
-============
+Description
+===========
 
 The Libeufin Sandbox aims at implementing the server side of multiple
 banking protocols currently used in the European Union.  Notably, the
@@ -7,25 +7,15 @@ EBICS, FinTS, and the major protocols that banks will employ to respect
 the PSD2 regulation: https://ec.europa.eu/info/law/payment-services-psd-2-directive-eu-2015-2366_en
 
 
-Building and running the sandbox.
-=================================
+Running the sandbox
+===================
 
-The sandox must be exported as JAR in order to be run.
-The following command exports the JAR in GNU/Linux systems.
+Run the sandbox with the following command
 
 $ cd <this repository>
-$ ./gradlew jar
+$ ./gradlew run --console=plain
 
-If the previous step worked, then a new JAR file should
-be located under <this repository>/build/libs/sandbox-$VERSION.jar,
-where $VERSION reflects the value of the 'version' global
-variable from <this repository>/build.gradle.
+Documentation
+=============
 
-The following command runs the sandbox:
-
-$ java -jar <this repository>/build/libs/sandbox-$VERSION.jar
-
-MS Windows users.
-=================
-The steps to follow are the same as in GNU/Linux systems, except
-that the command "gradlew.bat jar" would produce the JAR file.
+See https://docs.libeufin.tech/ for the documentation.
