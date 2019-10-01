@@ -157,7 +157,7 @@ fun main() {
                 // received via the INI and HIA orders.
 
                 /**********************************************/
-                
+
             }
 
             post("/ebicsweb") {
