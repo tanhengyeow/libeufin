@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import click
+from requests import post, get
 
 @click.group()
 @click.option(
@@ -17,13 +18,40 @@ def admin():
 @admin.command(help="Create a new customer")
 @click.pass_obj
 def customers(obj):
-    click.echo("Request creation of new customer or send initialization letter")
+    pass
 
-@admin.command(help="Confirm INI and HIA messages via JSON API")
-@click.option("--enc-key", help="Encryption RSA public key in PEM format")
-@click.option("--es-key", help="Signature RSA public key in PEM format")
-@click.option("--ia-key", help="Identification and authentication RSA public key in PEM format")
-def initletter(enc_key, es_key, ia_key):
-    click.echo("Send initialization letter to confirm INI / HIA messages")
+@admin.command(help="Ask details about a customer")
+@click.option("--customer-id", help="bank non-EBICS identifier of the customer")
+@click.pass_obj
+def customer_info(obj):
+    pass
+
+@admin.command(
+    help="Confirm INI and HIA messages via JSON API"
+)
+@click.option(
+    "--enc-key", required=True,
+    help="Path of encryption RSA public key in PEM format"
+)
+@click.option(
+    "--es-key", required=True,
+    help="Path of signature RSA public key in PEM format"
+)
+@click.option(
+    "--ia-key", required=True,
+    help="Path of identification and authentication RSA public key in PEM format"
+)
+def keyletter(enc_key, es_key, ia_key):
+
+    from Crypto.PublicKey import RSA 
+
+    try:
+        enckey = RSA.importKey(open(enc_key, "rb"))
+        eskey = RSA.importKey(open(enc_key, "rb"))
+        iakey = RSA.importKey(open(enc_key, "rb"))
+    except FileNotFoundError:
+        print("Could not find all the keys")
+
+    # post(url, json=body)
 
 cli()
