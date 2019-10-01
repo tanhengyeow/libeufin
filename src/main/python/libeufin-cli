@@ -2,10 +2,15 @@
 
 import click
 from requests import post, get
+from Crypto.PublicKey import RSA 
+from urllib.parse import urljoin
+
+
+CUSTOMERS_PATH = "/tmp/libeufindata/customers"
 
 @click.group()
 @click.option(
-    "--base-url", default="http://host.name",
+    "--base-url", default="http://localhost:5000/",
     help="Base URL of the bank (defaults to http://localhost:5000/)")
 @click.pass_context
 def cli(ctx, base_url):
@@ -15,10 +20,43 @@ def cli(ctx, base_url):
 def admin():
     pass
 
-@admin.command(help="Create a new customer")
+@admin.command(help="Create a new customer (generating name)")
 @click.pass_obj
 def customers(obj):
-    pass
+    
+    from faker import Faker
+    name = Faker().name()
+    
+    url = urljoin(obj["base_url"], "/admin/customers")
+    print("Sending request for: {} to {}".format(name, url))
+    try:
+        resp = post(url, json=dict(name=name))
+    except Exception:
+        print("Could not reach the bank")
+
+    # use the customer id contained in the response to
+    # query for your details.
+    print(resp)
+    customer_id = resp.get("id")
+    assert(customer_id != None)
+
+    customer_path = "{}/{}".format(CUSTOMERS_PATH, customer_id)
+    try:
+        os.makedirs(customer_path)
+    except OSError as e:
+        # For now, just overwrite all is found under existing directory.
+        assert(e.errno == errno.EEXIST)
+
+    # Generate keys for new user.
+    for keytype in ("eskey", "iakey", "enckey"):
+
+        key = RSA.generate(2048)
+        pem = key.exportKey("PEM").decode("ascii")
+        keyfile = open("{}/{}.pem".format(customer_path, keytype), "w")
+        keyfile.write(pem)
+        keyfile.write("\n")
+        keyfile.close()
+        print("{} saved".format(keytype))
 
 @admin.command(help="Ask details about a customer")
 @click.option("--customer-id", help="bank non-EBICS identifier of the customer")
@@ -30,25 +68,27 @@ def customer_info(obj):
     help="Confirm INI and HIA messages via JSON API"
 )
 @click.option(
-    "--enc-key", required=True, default="./enc.pem",
-    help="Path of encryption RSA public key in PEM format"
-)
-@click.option(
-    "--es-key", required=True, default="./es.pem",
-    help="Path of signature RSA public key in PEM format"
-)
-@click.option(
-    "--ia-key", required=True, default="./ia.pem",
-    help="Path of identification and authentication RSA public key in PEM format"
+    "--customer-id", required=True,
+    help="id of the customer at the bank (used to pick keyset on disk)"
 )
 def keyletter(enc_key, es_key, ia_key):
 
-    from Crypto.PublicKey import RSA 
-
     try:
-        enckey = RSA.importKey(open(enc_key, "r").read())
-        eskey = RSA.importKey(open(enc_key, "r").read())
-        iakey = RSA.importKey(open(enc_key, "r").read())
+        eskey = RSA.importKey(
+            open("{}/{}/eskey.pem".format(
+                CUSTOMERS_PATH, customer_id), "r").read()
+        )
+
+        enckey = RSA.importKey(
+            open("{}/{}/enckey.pem".format(
+                CUSTOMERS_PATH, customer_id), "r").read()
+        )
+
+        iakey = RSA.importKey(
+            open("{}/{}/iakey.pem".format(
+                CUSTOMERS_PATH, customer_id), "r").read()
+        )
+
     except FileNotFoundError:
         print("Could not find all the keys")
 
