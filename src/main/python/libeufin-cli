@@ -1,0 +1,29 @@
+#!/usr/bin/env python3
+
+import click
+
+@click.group()
+@click.option(
+    "--base-url", default="http://host.name",
+    help="Base URL of the bank (defaults to http://localhost:5000/)")
+@click.pass_context
+def cli(ctx, base_url):
+    ctx.obj = dict(base_url=base_url)
+
+@cli.group()
+def admin():
+    pass
+
+@admin.command(help="Create a new customer")
+@click.pass_obj
+def customers(obj):
+    click.echo("Request creation of new customer or send initialization letter")
+
+@admin.command(help="Confirm INI and HIA messages via JSON API")
+@click.option("--enc-key", help="Encryption RSA public key in PEM format")
+@click.option("--es-key", help="Signature RSA public key in PEM format")
+@click.option("--ia-key", help="Identification and authentication RSA public key in PEM format")
+def initletter(enc_key, es_key, ia_key):
+    click.echo("Send initialization letter to confirm INI / HIA messages")
+
+cli()
