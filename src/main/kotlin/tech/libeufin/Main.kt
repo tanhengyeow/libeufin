@@ -138,6 +138,28 @@ fun main() {
                 call.respond(HttpStatusCode.OK, customerInfo)
             }
 
+            post("/admin/customers/{id}/ebics/keyletter") {
+                val body = try {
+                    call.receive<IniHiaLetters>()
+                } catch (e: Exception) {
+                    e.printStackTrace()
+                    call.respond(
+                        HttpStatusCode.BadRequest,
+                        SandboxError(e.message.toString())
+                    )
+                    return@post
+                }
+                logger.info(body.toString())
+
+                /**********************************************/
+
+                // Extract keys and compare them to what was
+                // received via the INI and HIA orders.
+
+                /**********************************************/
+                
+            }
+
             post("/ebicsweb") {
                 val body: String = call.receiveText()
                 logger.debug("Body: $body")

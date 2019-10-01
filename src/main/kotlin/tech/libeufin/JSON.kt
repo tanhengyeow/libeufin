@@ -32,9 +32,18 @@ data class CustomerEbicsInfo(
 )
 
 /**
- * Request for INI / HIA letter(s).
+ * Wrapper type around initialization letters
+ * for RSA keys.
  */
 data class IniHiaLetters(
+    val INI: IniLetter,
+    val HIA: HiaLetter
+)
+
+/**
+ * Request for INI letter.
+ */
+data class IniLetter(
 
     val userId: String,
     val customerId: String,
@@ -42,28 +51,31 @@ data class IniHiaLetters(
     val date: String,
     val time: String,
     val recipient: String,
+    val exp_length: Int,
     val exponent: String,
+    val mod_length: Int,
     val modulus: String,
-    val hash: String,
-    val INI: IniVersion,
-    val HIA: HiaVersion
+    val hash: String
 )
 
 /**
- * INI specific version numbers
+ * Request for HIA letter.
  */
-data class IniVersion(
-    // Signature key
-    val es_version: String
-)
-
-/**
- * INI specific version numbers
- */
-data class HiaVersion(
-
-    // Identification and authentication key
-    val ia_version: String,
-    // Encryption key
-    val enc_version: String
+data class HiaLetter(
+    val userId: String,
+    val customerId: String,
+    val name: String,
+    val date: String,
+    val time: String,
+    val recipient: String,
+    val ia_exp_length: Int,
+    val ia_exponent: String,
+    val ia_mod_length: Int,
+    val ia_modulus: String,
+    val ia_hash: String,
+    val enc_exp_length: Int,
+    val enc_exponent: String,
+    val enc_mod_length: Int,
+    val enc_modulus: String,
+    val enc_hash: String
 )
