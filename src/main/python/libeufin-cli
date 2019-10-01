@@ -30,15 +30,15 @@ def customer_info(obj):
     help="Confirm INI and HIA messages via JSON API"
 )
 @click.option(
-    "--enc-key", required=True,
+    "--enc-key", required=True, default="./enc.pem",
     help="Path of encryption RSA public key in PEM format"
 )
 @click.option(
-    "--es-key", required=True,
+    "--es-key", required=True, default="./es.pem",
     help="Path of signature RSA public key in PEM format"
 )
 @click.option(
-    "--ia-key", required=True,
+    "--ia-key", required=True, default="./ia.pem",
     help="Path of identification and authentication RSA public key in PEM format"
 )
 def keyletter(enc_key, es_key, ia_key):
@@ -46,11 +46,14 @@ def keyletter(enc_key, es_key, ia_key):
     from Crypto.PublicKey import RSA 
 
     try:
-        enckey = RSA.importKey(open(enc_key, "rb"))
-        eskey = RSA.importKey(open(enc_key, "rb"))
-        iakey = RSA.importKey(open(enc_key, "rb"))
+        enckey = RSA.importKey(open(enc_key, "r").read())
+        eskey = RSA.importKey(open(enc_key, "r").read())
+        iakey = RSA.importKey(open(enc_key, "r").read())
     except FileNotFoundError:
         print("Could not find all the keys")
+
+    # hex exponent = format(key.e, "x")
+    # hex modulus = format(key.n, "x")
 
     # post(url, json=body)
 
