@@ -65,16 +65,34 @@ def customers(obj):
     print("Customer and private keys ({}) correctly generated.".format(customer_path))
 
 @admin.command(help="Ask details about a customer")
-@click.option("--customer-id", help="bank non-EBICS identifier of the customer")
+@click.option(
+    "--customer-id",
+    help="bank non-EBICS identifier of the customer",
+    required=True)
 @click.pass_obj
-def customer_info(obj):
-    pass
+def customer_info(obj, customer_id):
+
+    url = urljoin(
+        obj["base_url"], "/admin/customers/{}".format(customer_id)
+    )
+
+    try:
+        resp = get(url)
+    except Exception:
+        print("Could not reach the bank, aborting")
+        return
+    
+    if resp.status_code != 200:
+        print("Failed request, status: {}".format(resp.status_code))
+        return
+
+    print(resp.json())
 
 @admin.command(
     help="Confirm INI and HIA messages via JSON API"
 )
 @click.option(
-    "--customer-id", required=True,
+    "--customer-id",
     help="id of the customer at the bank (used to pick keyset on disk)"
 )
 @click.option(
@@ -84,11 +102,10 @@ def customer_info(obj):
 @click.pass_obj
 def keyletter(obj, customer_id, mock_info):
 
-    # Get userId.
-    url = urljoin(
-        obj["base_url"], "/admin/customers/{}".format(customer_id)
-    )
-    
+    if not mock_info and not customer_id:
+        print("Need --customer-id when not mocking ebics-info, aborting")
+        return
+
     resp = MagicMock()
     resp.status_code = 200
     resp.json.return_value = dict(
@@ -100,6 +117,9 @@ def keyletter(obj, customer_id, mock_info):
         print("Mocking ebics-info")
     else:
         try:
+            url = urljoin(
+                obj["base_url"], "/admin/customers/{}".format(customer_id)
+            )
             resp = get(url)
         except Exception:
             print("Could not connect to the bank, aborting")
