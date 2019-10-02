@@ -121,7 +121,7 @@ fun main() {
                     val customer = BankCustomer.findById(id) ?: return@transaction null
                     CustomerInfo(
                         customer.name,
-                        customerEbicsInfo = CustomerEbicsInfo(
+                        ebicsInfo = CustomerEbicsInfo(
                             customer.ebicsSubscriber.userId.id.value
                         )
                     )
