@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 
+import os
 import click
 from requests import post, get
 from Crypto.PublicKey import RSA 
@@ -28,7 +29,7 @@ def customers(obj):
     name = Faker().name()
     
     url = urljoin(obj["base_url"], "/admin/customers")
-    print("Sending request for: {} to {}".format(name, url))
+    print("Submitting '{}' to {}".format(name, url))
     try:
         resp = post(url, json=dict(name=name))
     except Exception:
@@ -36,11 +37,10 @@ def customers(obj):
 
     # use the customer id contained in the response to
     # query for your details.
-    print(resp)
-    customer_id = resp.get("id")
+    customer_id = resp.json().get("id")
     assert(customer_id != None)
 
-    customer_path = "{}/{}".format(CUSTOMERS_PATH, customer_id)
+    customer_path = "{}/{}/".format(CUSTOMERS_PATH, customer_id)
     try:
         os.makedirs(customer_path)
     except OSError as e:
@@ -56,7 +56,7 @@ def customers(obj):
         keyfile.write(pem)
         keyfile.write("\n")
         keyfile.close()
-        print("{} saved".format(keytype))
+    print("Customer and private keys ({}) correctly generated.".format(customer_path))
 
 @admin.command(help="Ask details about a customer")
 @click.option("--customer-id", help="bank non-EBICS identifier of the customer")
@@ -72,6 +72,14 @@ def customer_info(obj):
     help="id of the customer at the bank (used to pick keyset on disk)"
 )
 def keyletter(enc_key, es_key, ia_key):
+
+    #
+    # Missing:
+    #
+    # 1) all the fields to put in the request
+    # 2) hashing the key
+    # 3) actual send
+    #
 
     try:
         eskey = RSA.importKey(
