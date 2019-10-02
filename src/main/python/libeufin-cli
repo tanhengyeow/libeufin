@@ -7,6 +7,7 @@ from datetime import datetime
 from requests import post, get
 from Crypto.PublicKey import RSA 
 from urllib.parse import urljoin
+from mock import MagicMock, patch
 
 CUSTOMERS_PATH = "/tmp/libeufindata/customers"
 RECIPIENT_BANK = "LibEuBank"
@@ -76,12 +77,34 @@ def customer_info(obj):
     "--customer-id", required=True,
     help="id of the customer at the bank (used to pick keyset on disk)"
 )
+@click.option(
+    "--mock-info",
+    is_flag=True,
+    help="Mocks customer details instead of requesting ebics-info")
 @click.pass_obj
-def keyletter(obj, customer_id):
+def keyletter(obj, customer_id, mock_info):
 
     # Get userId.
-    url = urljoin(obj["base_url"], "/admin/customers/{}".format(customer_id))
-    resp = get(url)
+    url = urljoin(
+        obj["base_url"], "/admin/customers/{}".format(customer_id)
+    )
+    
+    resp = MagicMock()
+    resp.status_code = 200
+    resp.json.return_value = dict(
+        name="Mock Name",
+        ebicsInfo=dict(userId=1)
+    )
+
+    if mock_info:
+        print("Mocking ebics-info")
+    else:
+        try:
+            resp = get(url)
+        except Exception:
+            print("Could not connect to the bank, aborting")
+            return
+
     assert(resp.status_code == 200)
     user_id = resp.json().get("ebicsInfo", {}).get("userId")
     name = resp.json().get("name")
@@ -109,8 +132,10 @@ def keyletter(obj, customer_id):
         )
 
     except FileNotFoundError:
-        print("Could not find all the keys")
-        assert(False)
+        print("Could not find all the keys; mocking them all now")
+        eskey = RSA.generate(RSA_LENGTH)
+        enckey = RSA.generate(RSA_LENGTH)
+        iakey = RSA.generate(RSA_LENGTH)
 
     es_exponent = format(eskey.e, "x")
     es_modulus = format(eskey.n, "x")
@@ -161,7 +186,11 @@ def keyletter(obj, customer_id):
         )
     )
 
-    resp = post(url, json=body)
+    try:
+        resp = post(url, json=body)
+    except Exception:
+        print("Could not reach the bank, aborting now")
+        return
 
     if resp.status_code != 200:
         print("Bank did not accept this letter.")
