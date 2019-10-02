@@ -93,7 +93,7 @@ def keyletter(obj, customer_id, mock_info):
     resp.status_code = 200
     resp.json.return_value = dict(
         name="Mock Name",
-        ebicsInfo=dict(userId=1)
+        ebicsInfo=dict(userId="u1")
     )
 
     if mock_info:
