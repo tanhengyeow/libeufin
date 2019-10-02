@@ -2,12 +2,18 @@
 
 import os
 import click
+import hashlib
+from datetime import datetime
 from requests import post, get
 from Crypto.PublicKey import RSA 
 from urllib.parse import urljoin
 
-
 CUSTOMERS_PATH = "/tmp/libeufindata/customers"
+RECIPIENT_BANK = "LibEuBank"
+RSA_LENGTH = 2048 # is length for both exponent and modulus?
+IA_VERSION = "X002"
+ENC_VERSION = "E002"
+ES_VERSION = "A005"
 
 @click.group()
 @click.option(
@@ -49,8 +55,7 @@ def customers(obj):
 
     # Generate keys for new user.
     for keytype in ("eskey", "iakey", "enckey"):
-
-        key = RSA.generate(2048)
+        key = RSA.generate(RSA_LENGTH)
         pem = key.exportKey("PEM").decode("ascii")
         keyfile = open("{}/{}.pem".format(customer_path, keytype), "w")
         keyfile.write(pem)
@@ -71,16 +76,22 @@ def customer_info(obj):
     "--customer-id", required=True,
     help="id of the customer at the bank (used to pick keyset on disk)"
 )
-def keyletter(enc_key, es_key, ia_key):
+@click.pass_obj
+def keyletter(obj, customer_id):
 
-    #
-    # Missing:
-    #
-    # 1) all the fields to put in the request
-    # 2) hashing the key
-    # 3) actual send
-    #
+    # Get userId.
+    url = urljoin(obj["base_url"], "/admin/customers/{}".format(customer_id))
+    resp = get(url)
+    assert(resp.status_code == 200)
+    user_id = resp.json().get("ebicsInfo", {}).get("userId")
+    name = resp.json().get("name")
+    assert(user_id)
+    assert(name)
 
+    # Take timestamp.
+    ts = datetime.now()
+
+    # Get keys from disk.
     try:
         eskey = RSA.importKey(
             open("{}/{}/eskey.pem".format(
@@ -99,10 +110,63 @@ def keyletter(enc_key, es_key, ia_key):
 
     except FileNotFoundError:
         print("Could not find all the keys")
+        assert(False)
 
-    # hex exponent = format(key.e, "x")
-    # hex modulus = format(key.n, "x")
+    es_exponent = format(eskey.e, "x")
+    es_modulus = format(eskey.n, "x")
 
-    # post(url, json=body)
+    ia_exponent = format(iakey.e, "x")
+    ia_modulus = format(iakey.n, "x")
+
+    enc_exponent = format(enckey.e, "x")
+    enc_modulus = format(enckey.n, "x")
+
+    # Make the request body.
+    body = dict(
+
+        INI=dict(
+            userId=user_id,
+            customerId=customer_id,
+            name=name,
+            date=ts.strftime("%d.%m.%Y"),
+            time=ts.strftime("%H.%M.%S"),
+            recipient=RECIPIENT_BANK,
+            version=ES_VERSION,
+            exponent_length=RSA_LENGTH,
+            exponent=es_exponent,
+            modulus_length=RSA_LENGTH,
+            modulus=es_modulus,
+            hash=hashlib.sha256("{} {}".format(es_exponent, es_modulus).encode()).hexdigest()
+        ),
+
+        HIA=dict(
+            userId=user_id,
+            customerId=customer_id,
+            name=name,
+            date=ts.strftime("%d.%m.%Y"),
+            time=ts.strftime("%H.%M.%S"),
+            recipient=RECIPIENT_BANK,
+            ia_version=IA_VERSION,
+            ia_exponent_length=RSA_LENGTH,
+            ia_exponent=ia_exponent,
+            ia_modulus_length=RSA_LENGTH,
+            ia_modulus=ia_modulus,
+            ia_hash=hashlib.sha256("{} {}".format(ia_exponent, ia_modulus).encode()).hexdigest(),
+            enc_version=ENC_VERSION,
+            enc_exponent_length=RSA_LENGTH,
+            enc_exponent=enc_exponent,
+            enc_modulus_length=RSA_LENGTH,
+            enc_modulus=enc_modulus,
+            enc_hash=hashlib.sha256("{} {}".format(enc_exponent, enc_modulus).encode()).hexdigest()
+        )
+    )
+
+    resp = post(url, json=body)
+
+    if resp.status_code != 200:
+        print("Bank did not accept this letter.")
+        return
+
+    print("Letter accepted by the bank!")
 
 cli()
