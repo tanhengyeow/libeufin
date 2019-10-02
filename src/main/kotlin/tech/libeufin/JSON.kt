@@ -24,7 +24,7 @@ data class CustomerResponse(
  */
 data class CustomerInfo(
     val name: String,
-    val customerEbicsInfo: CustomerEbicsInfo
+    val ebicsInfo: CustomerEbicsInfo
 )
 
 data class CustomerEbicsInfo(
