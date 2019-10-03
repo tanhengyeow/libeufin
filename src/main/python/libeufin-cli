@@ -3,6 +3,7 @@
 import os
 import click
 import hashlib
+import errno
 from datetime import datetime
 from requests import post, get
 from Crypto.PublicKey import RSA 
@@ -63,7 +64,11 @@ def customers(obj):
         keyfile.write(pem)
         keyfile.write("\n")
         keyfile.close()
-    print("Customer and private keys ({}) correctly generated.".format(customer_path))
+    print(
+        "Customer (id == {}) and private keys ({}) correctly generated.".format(
+            customer_id, customer_path
+        )
+    )
 
 @admin.command(help="Ask details about a customer")
 @click.option(

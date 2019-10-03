@@ -5,7 +5,9 @@ import org.jetbrains.exposed.sql.*
 import org.jetbrains.exposed.sql.transactions.transaction
 
 const val CUSTOMER_NAME_MAX_LENGTH = 20
-const val SUBSCRIBER_ID_MAX_LENGTH = 10
+const val EBICS_USER_ID_MAX_LENGTH = 10
+const val EBICS_PARTNER_ID_MAX_LENGTH = 10
+const val EBICS_SYSTEM_ID_MAX_LENGTH = 10
 const val PUBLIC_KEY_MAX_LENGTH = 256 // FIXME review this value!
 const val PRIV_KEY_MAX_LENGTH = 512 // FIXME review this value!
 const val SQL_ENUM_SUBSCRIBER_STATES = "ENUM('NEW', 'PARTIALLI_INITIALIZED_INI', 'PARTIALLY_INITIALIZED_HIA', 'INITIALIZED', 'READY')"
@@ -89,16 +91,23 @@ class BankCustomer(id: EntityID<Int>) : IntEntity(id) {
  * - SystemID, (optional) the machine that is handling the EBICS task on behalf of the UserID.
  */
 
-/**
- * Table for UserID.
- */
 object EbicsUsers: IntIdTable() {
-    // For simplicity, this entity is implemented by the
-    // 'id' field provided by the table constructor by default.
+    /* EBICS user ID in the string form. */
+    val userId = varchar("userId", EBICS_USER_ID_MAX_LENGTH).nullable()
+
 }
 
-class EbicsUser(id: EntityID<Int>) : IntEntity(id) {
-    companion object : IntEntityClass<EbicsUser>(EbicsUsers)
+class EbicsUser(id: EntityID<Int>) : IntEntity(id){
+    companion object : IntEntityClass<EbicsUser>(EbicsUsers) {
+        fun newUser() : EbicsUser {
+            var row = Companion.new {
+            }
+            row.userId = "u${row.id}"
+            return row
+        }
+    }
+
+    var userId by EbicsUsers.userId
 }
 
 /**
@@ -107,11 +116,19 @@ class EbicsUser(id: EntityID<Int>) : IntEntity(id) {
 object EbicsPartners: IntIdTable() {
     // For simplicity, this entity is implemented by the
     // 'id' field provided by the table constructor by default.
+    val partnerId = varchar("partnerId", EBICS_PARTNER_ID_MAX_LENGTH).nullable()
 }
 
 
 class EbicsPartner(id: EntityID<Int>) : IntEntity(id) {
-    companion object : IntEntityClass<EbicsPartner>(EbicsPartners)
+    companion object : IntEntityClass<EbicsPartner>(EbicsPartners) {
+        fun newUser(): EbicsPartner {
+            var row = EbicsPartner.new { }
+            row.partnerId = "p${row.id}"
+            return row
+        }
+    }
+    var partnerId by EbicsPartners.partnerId
 }
 
 
@@ -121,10 +138,19 @@ class EbicsPartner(id: EntityID<Int>) : IntEntity(id) {
 object EbicsSystems: IntIdTable() {
     // For simplicity, this entity is implemented by the
     // 'id' field provided by the table constructor by default.
+    val systemId = EbicsPartners.varchar("systemId", EBICS_SYSTEM_ID_MAX_LENGTH).nullable()
 }
 
 class EbicsSystem(id: EntityID<Int>) : IntEntity(id) {
-    companion object : IntEntityClass<EbicsSystem>(EbicsSystems)
+    companion object : IntEntityClass<EbicsSystem>(EbicsSystems) {
+        fun newUser(): EbicsSystem {
+            var row = EbicsSystem.new { }
+            row.systemId = "s${row.id}"
+            return row
+        }
+    }
+
+    var systemId by EbicsSystems.systemId
 }
 
 /**

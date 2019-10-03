@@ -77,7 +77,7 @@ fun main() {
                 logger.info(body.toString())
 
                 val returnId = transaction {
-                    val myUserId = EbicsUser.new { }
+                    var myUserId = EbicsUser.newUser()
                     val myPartnerId = EbicsPartner.new { }
                     val mySystemId = EbicsSystem.new { }
                     val subscriber = EbicsSubscriber.new {
@@ -115,14 +115,12 @@ fun main() {
                     return@get
                 }
 
-                logger.info("Querying ID: $id")
-
                 val customerInfo = transaction {
                     val customer = BankCustomer.findById(id) ?: return@transaction null
                     CustomerInfo(
                         customer.name,
                         ebicsInfo = CustomerEbicsInfo(
-                            customer.ebicsSubscriber.userId.id.value
+                            customer.ebicsSubscriber.userId.userId!!
                         )
                     )
                 }

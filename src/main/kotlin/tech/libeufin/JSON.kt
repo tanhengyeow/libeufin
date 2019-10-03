@@ -28,7 +28,7 @@ data class CustomerInfo(
 )
 
 data class CustomerEbicsInfo(
-    val userId: Int
+    val userId: String
 )
 
 /**
