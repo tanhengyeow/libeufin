@@ -41,6 +41,7 @@ def customers(obj):
         resp = post(url, json=dict(name=name))
     except Exception:
         print("Could not reach the bank")
+        return
 
     # use the customer id contained in the response to
     # query for your details.
@@ -95,35 +96,17 @@ def customer_info(obj, customer_id):
     "--customer-id",
     help="id of the customer at the bank (used to pick keyset on disk)"
 )
-@click.option(
-    "--mock-info",
-    is_flag=True,
-    help="Mocks customer details instead of requesting ebics-info")
 @click.pass_obj
-def keyletter(obj, customer_id, mock_info):
+def keyletter(obj, customer_id):
 
-    if not mock_info and not customer_id:
-        print("Need --customer-id when not mocking ebics-info, aborting")
+    try:
+        url = urljoin(
+            obj["base_url"], "/admin/customers/{}".format(customer_id)
+        )
+        resp = get(url)
+    except Exception:
+        print("Could not connect to the bank, aborting")
         return
-
-    resp = MagicMock()
-    resp.status_code = 200
-    resp.json.return_value = dict(
-        name="Mock Name",
-        ebicsInfo=dict(userId="u1")
-    )
-
-    if mock_info:
-        print("Mocking ebics-info")
-    else:
-        try:
-            url = urljoin(
-                obj["base_url"], "/admin/customers/{}".format(customer_id)
-            )
-            resp = get(url)
-        except Exception:
-            print("Could not connect to the bank, aborting")
-            return
 
     assert(resp.status_code == 200)
     user_id = resp.json().get("ebicsInfo", {}).get("userId")
