@@ -7,11 +7,10 @@ from datetime import datetime
 from requests import post, get
 from Crypto.PublicKey import RSA 
 from urllib.parse import urljoin
-from mock import MagicMock, patch
 
 CUSTOMERS_PATH = "/tmp/libeufindata/customers"
 RECIPIENT_BANK = "LibEuBank"
-RSA_LENGTH = 2048 # is length for both exponent and modulus?
+RSA_LENGTH = 2048 # key "length"
 IA_VERSION = "X002"
 ENC_VERSION = "E002"
 ES_VERSION = "A005"
@@ -43,6 +42,7 @@ def customers(obj):
         print("Could not reach the bank")
         return
 
+    assert(resp.status_code == 200)
     # use the customer id contained in the response to
     # query for your details.
     customer_id = resp.json().get("id")
@@ -135,7 +135,7 @@ def keyletter(obj, customer_id):
         )
 
     except FileNotFoundError:
-        print("Could not find all the keys; mocking them all now")
+        print("Could not find all the keys; now generating them all on the fly..")
         eskey = RSA.generate(RSA_LENGTH)
         enckey = RSA.generate(RSA_LENGTH)
         iakey = RSA.generate(RSA_LENGTH)
@@ -160,9 +160,9 @@ def keyletter(obj, customer_id):
             time=ts.strftime("%H.%M.%S"),
             recipient=RECIPIENT_BANK,
             version=ES_VERSION,
-            exponent_length=RSA_LENGTH,
+            exponent_length=eskey.n.bit_length(),
             exponent=es_exponent,
-            modulus_length=RSA_LENGTH,
+            modulus_length=eskey.e.bit_length(),
             modulus=es_modulus,
             hash=hashlib.sha256("{} {}".format(es_exponent, es_modulus).encode()).hexdigest()
         ),
@@ -175,15 +175,15 @@ def keyletter(obj, customer_id):
             time=ts.strftime("%H.%M.%S"),
             recipient=RECIPIENT_BANK,
             ia_version=IA_VERSION,
-            ia_exponent_length=RSA_LENGTH,
+            ia_exponent_length=iakey.e.bit_length(),
             ia_exponent=ia_exponent,
-            ia_modulus_length=RSA_LENGTH,
+            ia_modulus_length=iakey.n.bit_length(),
             ia_modulus=ia_modulus,
             ia_hash=hashlib.sha256("{} {}".format(ia_exponent, ia_modulus).encode()).hexdigest(),
             enc_version=ENC_VERSION,
-            enc_exponent_length=RSA_LENGTH,
+            enc_exponent_length=enckey.e.bit_length(),
             enc_exponent=enc_exponent,
-            enc_modulus_length=RSA_LENGTH,
+            enc_modulus_length=enckey.n.bit_length(),
             enc_modulus=enc_modulus,
             enc_hash=hashlib.sha256("{} {}".format(enc_exponent, enc_modulus).encode()).hexdigest()
         )
