@@ -43,7 +43,7 @@ import javax.xml.bind.JAXBElement
 
 fun main() {
 
-    val xmlProcess = XMLTransform()
+    val xmlProcess = XML()
     val logger = getLogger()
     dbCreateTables()
 
@@ -77,7 +77,7 @@ fun main() {
                 logger.info(body.toString())
 
                 val returnId = transaction {
-                    var myUserId = EbicsUser.newUser()
+                    var myUserId = EbicsUser.new { }
                     val myPartnerId = EbicsPartner.new { }
                     val mySystemId = EbicsSystem.new { }
                     val subscriber = EbicsSubscriber.new {
@@ -160,9 +160,7 @@ fun main() {
 
             post("/ebicsweb") {
                 val body: String = call.receiveText()
-                logger.debug("Body: $body")
                 val bodyDocument: Document? = xmlProcess.parseStringIntoDom(body)
-
                 if (bodyDocument == null) {
                     call.respondText(
                         contentType = ContentType.Application.Xml,
@@ -181,9 +179,20 @@ fun main() {
                     return@post
                 }
 
-                logger.info("Processing", bodyDocument.documentElement.localName)
+                logger.info("Processing ${bodyDocument.documentElement.localName}")
 
                 when (bodyDocument.documentElement.localName) {
+                    "ebicsUnsecuredRequest" -> {
+
+                        /* Manage request.  */
+
+                        call.respond(
+                            HttpStatusCode.NotImplemented,
+                            SandboxError("Not implemented")
+                        )
+                        return@post
+                    }
+
                     "ebicsHEVRequest" -> {
                         val hevResponse = HEVResponse(
                             "000000",

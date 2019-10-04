@@ -99,14 +99,12 @@ object EbicsUsers: IntIdTable() {
 
 class EbicsUser(id: EntityID<Int>) : IntEntity(id){
     companion object : IntEntityClass<EbicsUser>(EbicsUsers) {
-        fun newUser() : EbicsUser {
-            var row = Companion.new {
-            }
+        override fun new(init: EbicsUser.() -> Unit): EbicsUser {
+            var row = super.new(init)
             row.userId = "u${row.id}"
             return row
         }
     }
-
     var userId by EbicsUsers.userId
 }
 
@@ -114,16 +112,14 @@ class EbicsUser(id: EntityID<Int>) : IntEntity(id){
  * Table for UserID.
  */
 object EbicsPartners: IntIdTable() {
-    // For simplicity, this entity is implemented by the
-    // 'id' field provided by the table constructor by default.
     val partnerId = varchar("partnerId", EBICS_PARTNER_ID_MAX_LENGTH).nullable()
 }
 
 
 class EbicsPartner(id: EntityID<Int>) : IntEntity(id) {
     companion object : IntEntityClass<EbicsPartner>(EbicsPartners) {
-        fun newUser(): EbicsPartner {
-            var row = EbicsPartner.new { }
+        override fun new(init: EbicsPartner.() -> Unit): EbicsPartner {
+            var row = super.new(init)
             row.partnerId = "p${row.id}"
             return row
         }
@@ -136,15 +132,13 @@ class EbicsPartner(id: EntityID<Int>) : IntEntity(id) {
  * Table for UserID.
  */
 object EbicsSystems: IntIdTable() {
-    // For simplicity, this entity is implemented by the
-    // 'id' field provided by the table constructor by default.
     val systemId = EbicsPartners.varchar("systemId", EBICS_SYSTEM_ID_MAX_LENGTH).nullable()
 }
 
 class EbicsSystem(id: EntityID<Int>) : IntEntity(id) {
     companion object : IntEntityClass<EbicsSystem>(EbicsSystems) {
-        fun newUser(): EbicsSystem {
-            var row = EbicsSystem.new { }
+        override fun new(init: EbicsSystem.() -> Unit): EbicsSystem {
+            var row = super.new(init)
             row.systemId = "s${row.id}"
             return row
         }

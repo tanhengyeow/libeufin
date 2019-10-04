@@ -46,17 +46,24 @@ import javax.xml.validation.SchemaFactory
  * This class takes care of importing XSDs and validate
  * XMLs against those.
  */
-class XMLTransform {
+class XML {
 
     /**
      * Bundle of all the XSDs loaded in memory, from disk.
      */
     private val bundle = {
         val classLoader = ClassLoader.getSystemClassLoader()
-        val ebicsHevPath = classLoader.getResourceAsStream("ebics_hev.xsd")
         val schemas = arrayOf(
-            StreamSource(ebicsHevPath)
-            // other StreamSources for other schemas here ..
+            // StreamSource(classLoader.getResourceAsStream("ebics_hev.xsd")),
+            // StreamSource(classLoader.getResourceAsStream("ebics_H004.xsd")),
+            // StreamSource(classLoader.getResourceAsStream("ebics_orders_H004.xsd")),
+            StreamSource(classLoader.getResourceAsStream("xmldsig-core-schema.xsd")),
+            StreamSource(classLoader.getResourceAsStream("ebics_types_H004.xsd")),
+            // StreamSource(classLoader.getResourceAsStream("ebics_signature.xsd")),
+            // StreamSource(classLoader.getResourceAsStream("ebics_response_H004.xsd")),
+            // StreamSource(classLoader.getResourceAsStream("ebics_keymgmt_response_H004.xsd")),
+            StreamSource(classLoader.getResourceAsStream("ebics_keymgmt_request_H004.xsd"))
+
         )
 
         try {
@@ -64,6 +71,7 @@ class XMLTransform {
             sf.newSchema(schemas)
         } catch (e: SAXException) {
             e.printStackTrace()
+            // FIXME: must stop everything if schemas fail to load.
             null
         }
     }()
@@ -105,7 +113,7 @@ class XMLTransform {
         try {
             validator?.validate(xmlDoc)
         } catch (e: SAXException) {
-            e.printStackTrace()
+            println(e.message)
             return false;
         } catch (e: IOException) {
             e.printStackTrace()
