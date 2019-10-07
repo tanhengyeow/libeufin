@@ -43,8 +43,14 @@ import javax.xml.bind.JAXBElement
 
 fun main() {
 
-    val xmlProcess = XML()
     val logger = getLogger()
+    val xmlProcess = XML()
+
+    if (xmlProcess == null) {
+        logger.error("Could not load the XML processor, aborting")
+        return
+    }
+
     dbCreateTables()
 
     val server = embeddedServer(Netty, port = 5000) {

@@ -54,16 +54,7 @@ class XML {
     private val bundle = {
         val classLoader = ClassLoader.getSystemClassLoader()
         val schemas = arrayOf(
-            // StreamSource(classLoader.getResourceAsStream("ebics_hev.xsd")),
-            // StreamSource(classLoader.getResourceAsStream("ebics_H004.xsd")),
-            // StreamSource(classLoader.getResourceAsStream("ebics_orders_H004.xsd")),
-            StreamSource(classLoader.getResourceAsStream("xmldsig-core-schema.xsd")),
-            StreamSource(classLoader.getResourceAsStream("ebics_types_H004.xsd")),
-            // StreamSource(classLoader.getResourceAsStream("ebics_signature.xsd")),
-            // StreamSource(classLoader.getResourceAsStream("ebics_response_H004.xsd")),
-            // StreamSource(classLoader.getResourceAsStream("ebics_keymgmt_response_H004.xsd")),
-            StreamSource(classLoader.getResourceAsStream("ebics_keymgmt_request_H004.xsd"))
-
+            StreamSource(classLoader.getResourceAsStream("ebics_hev.xsd"))
         )
 
         try {
@@ -71,7 +62,6 @@ class XML {
             sf.newSchema(schemas)
         } catch (e: SAXException) {
             e.printStackTrace()
-            // FIXME: must stop everything if schemas fail to load.
             null
         }
     }()
