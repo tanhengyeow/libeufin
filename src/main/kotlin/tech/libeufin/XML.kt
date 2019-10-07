@@ -54,7 +54,8 @@ class XML {
     private val bundle = {
         val classLoader = ClassLoader.getSystemClassLoader()
         val schemas = arrayOf(
-            StreamSource(classLoader.getResourceAsStream("ebics_hev.xsd"))
+            StreamSource(classLoader.getResourceAsStream("ebics_hev.xsd")),
+            StreamSource(classLoader.getResourceAsStream("ebics_keymgmt_request_H004.xsd"))
         )
 
         try {
@@ -66,6 +67,13 @@ class XML {
         }
     }()
     private val validator = bundle?.newValidator()
+
+    /**
+     * True if the object didn't initialize
+     */
+    fun isNull(): Boolean {
+        return (validator == null) || (bundle == null)
+    }
 
     /**
      * Parse string into XML DOM.
