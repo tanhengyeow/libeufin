@@ -111,7 +111,7 @@ class XML {
      * @param xmlDoc the XML document to validate
      * @return true when validation passes, false otherwise
      */
-    private fun validate(xmlDoc: StreamSource): Boolean {
+    fun validate(xmlDoc: StreamSource): Boolean {
         try {
             validator?.validate(xmlDoc)
         } catch (e: SAXException) {
