@@ -46,7 +46,7 @@ fun main() {
     val logger = getLogger()
     val xmlProcess = XML()
 
-    if (xmlProcess == null) {
+    if (xmlProcess.isNull()) {
         logger.error("Could not load the XML processor, aborting")
         return
     }
