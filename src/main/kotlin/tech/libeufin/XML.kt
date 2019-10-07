@@ -55,6 +55,10 @@ class XML {
         val classLoader = ClassLoader.getSystemClassLoader()
         val schemas = arrayOf(
             StreamSource(classLoader.getResourceAsStream("ebics_hev.xsd")),
+            StreamSource(classLoader.getResourceAsStream("xmldsig-core-schema.xsd")),
+            StreamSource(classLoader.getResourceAsStream("ebics_types_H004.xsd")),
+            StreamSource(classLoader.getResourceAsStream("ebics_signature_S002.xsd")),
+            StreamSource(classLoader.getResourceAsStream("ebics_orders_H004.xsd")),
             StreamSource(classLoader.getResourceAsStream("ebics_keymgmt_request_H004.xsd"))
         )
 
