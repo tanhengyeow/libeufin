@@ -1,11 +1,11 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!-- Mit XMLSpy v2008 rel. 2 (http://www.altova.com) von Sabine Wenzel (SIZ Bonn) bearbeitet -->
-<schema xmlns="http://www.w3.org/2001/XMLSchema" xmlns:esig="http://www.ebics.org/S002" xmlns:ebics="urn:org:ebics:H004" targetNamespace="urn:org:ebics:H004" elementFormDefault="qualified" attributeFormDefault="unqualified" version="1.0">
+<schema xmlns="http://www.w3.org/2001/XMLSchema" xmlns:esig="http://www.ebics.org/S001" xmlns:ebics="urn:org:ebics:H004" targetNamespace="urn:org:ebics:H004" elementFormDefault="qualified" attributeFormDefault="unqualified" version="1.0">
 	<annotation>
 		<documentation xml:lang="de">ebics_orders_H004.xsd enthält auftragsbezogene Referenzelemente und auftragsbezogene Typdefinitionen für EBICS.</documentation>
 		<documentation xml:lang="en">ebics_orders_H004.xsd contains order-based reference elements and order-based type definitions for EBICS.</documentation>
 	</annotation>
-	<import namespace="http://www.ebics.org/S002" schemaLocation="ebics_signature_S002.xsd"/>
+	<import namespace="http://www.ebics.org/S001" schemaLocation="ebics_signatures.xsd"/>
 	<include schemaLocation="ebics_types_H004.xsd"/>
 	<!--Es folgen die Elementdefinitionen für neue EBICS-Auftragsarten (Hxx). Die XML-Klartext-Struktur wird im EBICS-Auftragsdatenkontext binär interpretiert.-->
 	<element name="EBICSOrderData" abstract="true">

@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!-- Mit XMLSpy v2008 rel. 2 (http://www.altova.com) von Sabine Wenzel (SIZ Bonn) bearbeitet -->
-<schema xmlns="http://www.w3.org/2001/XMLSchema" xmlns:esig="http://www.ebics.org/S002" xmlns:ds="http://www.w3.org/2000/09/xmldsig#" xmlns:ebics="urn:org:ebics:H004" targetNamespace="urn:org:ebics:H004" elementFormDefault="qualified" attributeFormDefault="unqualified" version="1.0">
-	<import namespace="http://www.ebics.org/S002" schemaLocation="ebics_signature_S002.xsd"/>
+<schema xmlns="http://www.w3.org/2001/XMLSchema" xmlns:esig="http://www.ebics.org/S001" xmlns:ds="http://www.w3.org/2000/09/xmldsig#" xmlns:ebics="urn:org:ebics:H004" targetNamespace="urn:org:ebics:H004" elementFormDefault="qualified" attributeFormDefault="unqualified" version="1.0">
+	<import namespace="http://www.ebics.org/S001" schemaLocation="ebics_signatures.xsd"/>
 	<import namespace="http://www.w3.org/2000/09/xmldsig#" schemaLocation="xmldsig-core-schema.xsd"/>
 	<annotation>
 		<documentation xml:lang="de">ebics_types_H004.xsd enthält einfache Typdefinitionen für EBICS.</documentation>
