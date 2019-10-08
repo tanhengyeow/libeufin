@@ -17,7 +17,7 @@
  * <http://www.gnu.org/licenses/>
  */
 
-package tech.libeufin
+package tech.libeufin.sandbox
 
 import com.sun.org.apache.xerces.internal.dom.DOMInputImpl
 import org.w3c.dom.Document

@@ -17,7 +17,7 @@
  * <http://www.gnu.org/licenses/>
  */
 
-package tech.libeufin
+package tech.libeufin.sandbox
 
 import io.ktor.application.call
 import io.ktor.application.install

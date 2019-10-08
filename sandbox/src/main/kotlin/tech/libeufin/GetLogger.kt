@@ -1,4 +1,4 @@
-package tech.libeufin;
+package tech.libeufin.sandbox
 
 import ch.qos.logback.classic.Level
 import org.slf4j.LoggerFactory

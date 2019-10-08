@@ -1,4 +1,4 @@
-package tech.libeufin
+package tech.libeufin.sandbox
 
 class ProtocolAndVersion(protocol: String, version: String) {
     val protocol = protocol

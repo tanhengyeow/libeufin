@@ -1,2 +1,4 @@
-rootProject.name = 'sandbox'
+rootProject.name = 'libeufin'
+include("sandbox")
+include("nexus")
 

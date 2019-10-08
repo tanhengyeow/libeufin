@@ -1,0 +1,22 @@
+plugins {
+    id "org.jetbrains.kotlin.jvm"
+}
+
+application {
+    mainClassName = "tech.libeufin.nexus.MainKt"
+}
+
+dependencies {
+    implementation project(":sandbox")
+}
+
+jar {
+    manifest {
+        attributes "Main-Class": "tech.libeufin.nexus.MainKt"
+
+    }
+
+    from {
+        configurations.compile.collect { it.isDirectory() ? it : zipTree(it) }
+    }
+}

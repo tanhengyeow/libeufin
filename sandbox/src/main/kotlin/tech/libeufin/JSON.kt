@@ -1,4 +1,4 @@
-package tech.libeufin
+package tech.libeufin.sandbox
 
 /**
  * Error message.

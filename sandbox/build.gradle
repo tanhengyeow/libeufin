@@ -1,0 +1,19 @@
+plugins {
+    // FIXME: must go into the global file.
+    id "org.jetbrains.kotlin.jvm"
+}
+
+application {
+    mainClassName = "tech.libeufin.sandbox.MainKt"
+}
+
+jar {
+    manifest {
+        attributes "Main-Class": "tech.libeufin.sandbox.MainKt"
+
+    }
+
+    from {
+        configurations.compile.collect { it.isDirectory() ? it : zipTree(it) }
+    }
+}

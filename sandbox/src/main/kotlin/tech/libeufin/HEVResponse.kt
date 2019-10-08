@@ -1,4 +1,4 @@
-package tech.libeufin
+package tech.libeufin.sandbox
 
 import tech.libeufin.messages.HEVResponseDataType
 import tech.libeufin.messages.ObjectFactory
