@@ -4,12 +4,12 @@ application {
 
 dependencies {
     implementation project(":sandbox")
+    compile "io.ktor:ktor-client-apache:1.2.4"
 }
 
 jar {
     manifest {
         attributes "Main-Class": "tech.libeufin.nexus.MainKt"
-
     }
 
     from {

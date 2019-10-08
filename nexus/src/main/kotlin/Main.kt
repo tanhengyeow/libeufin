@@ -20,19 +20,21 @@
 package tech.libeufin.nexus
 
 import io.ktor.application.call
-import io.ktor.application.install
-import io.ktor.features.CallLogging
-import io.ktor.features.ContentNegotiation
-import io.ktor.gson.gson
+import io.ktor.client.*
+import io.ktor.client.features.ServerResponseException
+import io.ktor.client.request.get
 import io.ktor.response.respondText
 import io.ktor.routing.get
 import io.ktor.routing.post
 import io.ktor.routing.routing
 import io.ktor.server.engine.embeddedServer
 import io.ktor.server.netty.Netty
-import java.text.DateFormat
+import tech.libeufin.sandbox.getLogger
 
 fun main() {
+
+    val logger = getLogger()
+
     val server = embeddedServer(Netty, port = 5001) {
 
         routing {
@@ -42,11 +44,20 @@ fun main() {
             }
 
             post("/nexus") {
+                val client = HttpClient()
+                val content = try {
+                    client.get<ByteArray>(
+                        "https://ebicstest1.libeufin.tech/"
+                    )
+                } catch (e: ServerResponseException) {
+                    logger.info("Request ended bad.")
+                }
                 call.respondText("Not implemented!\n")
                 return@post
             }
 
         }
     }
+
     server.start(wait = true)
 }
