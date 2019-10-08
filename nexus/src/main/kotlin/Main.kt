@@ -50,12 +50,12 @@ fun main() {
                         "https://ebicstest1.libeufin.tech/"
                     )
                 } catch (e: ServerResponseException) {
-                    logger.info("Request ended bad.")
+                    logger.info("Request ended bad (${e.response.status}).")
                 }
+
                 call.respondText("Not implemented!\n")
                 return@post
             }
-
         }
     }
 
