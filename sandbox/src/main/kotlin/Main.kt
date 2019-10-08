@@ -36,6 +36,7 @@ import io.ktor.routing.routing
 import io.ktor.server.engine.embeddedServer
 import io.ktor.server.netty.Netty
 import org.jetbrains.exposed.sql.transactions.transaction
+import org.slf4j.LoggerFactory
 import org.w3c.dom.Document
 import tech.libeufin.messages.HEVResponseDataType
 import java.text.DateFormat
@@ -43,7 +44,7 @@ import javax.xml.bind.JAXBElement
 
 fun main() {
 
-    val logger = getLogger()
+    val logger = LoggerFactory.getLogger("tech.libeufin.sandbox")
     val xmlProcess = XML()
 
     dbCreateTables()

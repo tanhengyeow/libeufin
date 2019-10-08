@@ -1,4 +1,4 @@
-package tech.libeufin
+package tech.libeufin.sandbox
 
 import org.junit.Assert
 import org.junit.Test
@@ -9,7 +9,7 @@ import javax.xml.transform.stream.StreamSource
 
 class XmlTest {
 
-    val processor = XML()
+    val processor = tech.libeufin.sandbox.XML()
 
     @Test
     fun hevValidation(){

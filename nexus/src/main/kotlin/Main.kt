@@ -29,11 +29,11 @@ import io.ktor.routing.post
 import io.ktor.routing.routing
 import io.ktor.server.engine.embeddedServer
 import io.ktor.server.netty.Netty
-import tech.libeufin.sandbox.getLogger
+import org.slf4j.LoggerFactory
 
 fun main() {
 
-    val logger = getLogger()
+    val logger = LoggerFactory.getLogger("tech.libeufin.nexus")
 
     val server = embeddedServer(Netty, port = 5001) {
 
