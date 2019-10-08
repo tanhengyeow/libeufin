@@ -1,0 +1,18 @@
+<configuration>
+
+    <include resource="global-logback.xml" />
+
+    <appender name="FILE" class="ch.qos.logback.core.FileAppender">
+        <file>/tmp/nexus.log</file>
+        <append>false</append>
+        <encoder>
+            <pattern>%-5relative %-5level %logger{35} - %msg%n</pattern>
+        </encoder>
+    </appender>
+
+    <root level="debug">
+        <appender-ref ref="FILE" />
+    </root>
+
+
+</configuration>
