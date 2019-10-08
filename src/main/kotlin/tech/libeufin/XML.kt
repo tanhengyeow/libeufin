@@ -17,7 +17,7 @@
  * <http://www.gnu.org/licenses/>
  */
 
-package tech.libeufin;
+package tech.libeufin
 
 import com.sun.org.apache.xerces.internal.dom.DOMInputImpl
 import org.w3c.dom.Document
@@ -27,10 +27,7 @@ import org.xml.sax.ErrorHandler
 import org.xml.sax.InputSource
 import org.xml.sax.SAXException
 import org.xml.sax.SAXParseException
-import java.io.ByteArrayInputStream
-import java.io.IOException
-import java.io.InputStream
-import java.io.StringWriter
+import java.io.*
 import javax.xml.XMLConstants
 import javax.xml.bind.JAXBContext
 import javax.xml.bind.JAXBElement
@@ -38,10 +35,7 @@ import javax.xml.bind.JAXBException
 import javax.xml.bind.Marshaller
 import javax.xml.parsers.DocumentBuilderFactory
 import javax.xml.parsers.ParserConfigurationException
-import javax.xml.transform.OutputKeys
-import javax.xml.transform.TransformerConfigurationException
-import javax.xml.transform.TransformerException
-import javax.xml.transform.TransformerFactory
+import javax.xml.transform.*
 import javax.xml.transform.dom.DOMSource
 import javax.xml.transform.stream.StreamResult
 import javax.xml.transform.stream.StreamSource
@@ -90,10 +84,10 @@ class XML {
                 return DOMInputImpl(publicId, systemId, baseUri, res, "UTF-8")
             }
         }
-        val schemaInputs = arrayOf(
-            StreamSource(classLoader.getResourceAsStream("ebics_H004.xsd"), "/ebics_H004.xsd"),
-            StreamSource(classLoader.getResourceAsStream("ebics_hev.xsd"), "/ebics_hev.xsd")
-        )
+        val schemaInputs: Array<Source> = listOf("ebics_H004.xsd", "ebics_hev.xsd").map {
+            val resUrl = classLoader.getResource(it) ?: throw FileNotFoundException("Schema file $it not found.")
+            StreamSource(File(resUrl.toURI()))
+        }.toTypedArray()
         val bundle = sf.newSchema(schemaInputs)
         bundle.newValidator()
     } catch (e: SAXException) {
@@ -115,9 +109,9 @@ class XML {
         try {
             val xmlInputStream = ByteArrayInputStream(xmlString.toByteArray())
             val builder = factory.newDocumentBuilder()
-            val document = builder.parse(InputSource(xmlInputStream));
+            val document = builder.parse(InputSource(xmlInputStream))
 
-            return document;
+            return document
 
         } catch (e: ParserConfigurationException) {
             e.printStackTrace()
@@ -126,7 +120,7 @@ class XML {
         } catch (e: IOException) {
             e.printStackTrace()
         }
-        return null;
+        return null
     }
 
     /**
@@ -139,10 +133,10 @@ class XML {
             validator?.validate(xmlDoc)
         } catch (e: SAXException) {
             println(e.message)
-            return false;
+            return false
         } catch (e: IOException) {
             e.printStackTrace()
-            return false;
+            return false
         }
 
         return true
@@ -202,7 +196,7 @@ class XML {
         } catch (e: ParserConfigurationException) {
             e.printStackTrace()
         }
-        return null;
+        return null
     }
 
     /**
@@ -215,7 +209,7 @@ class XML {
 
         try {
             /* Make Transformer.  */
-            val tf = TransformerFactory.newInstance();
+            val tf = TransformerFactory.newInstance()
             val t = tf.newTransformer()
 
             t.setOutputProperty(OutputKeys.INDENT, "no")
@@ -232,7 +226,7 @@ class XML {
         } catch (e: TransformerException) {
             e.printStackTrace()
         }
-        return null;
+        return null
     }
 
     /**
