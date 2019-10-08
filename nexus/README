@@ -1,0 +1,20 @@
+Description
+===========
+
+The Libeufin Nexus implements a JSON API to let customers manages their
+bank accounts.  The Nexus will then convert those requests sent by customers
+into one of more technical protocols actually implemented by banks; notably,
+EBICS and FinTS.
+
+Running the sandbox
+===================
+
+Run the Nexus with the following command
+
+$ cd <this repository>
+$ ./gradlew run --console=plain -p nexus
+
+Documentation
+=============
+
+See https://docs.libeufin.tech/ for the documentation.
