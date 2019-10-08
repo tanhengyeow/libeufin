@@ -3,8 +3,8 @@
   <header authenticate="true">
     <static>
       <HostID>foo</HostID>
-      <PartnerID>flo-kid</PartnerID>
-      <UserID>flo-uid</UserID>
+      <PartnerID>flokid</PartnerID>
+      <UserID>flouid</UserID>
       <OrderDetails>
         <OrderType>INI</OrderType>
         <OrderAttribute>DZNNN</OrderAttribute>

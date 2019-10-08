@@ -46,11 +46,6 @@ fun main() {
     val logger = getLogger()
     val xmlProcess = XML()
 
-    if (xmlProcess.isNull()) {
-        logger.error("Could not load the XML processor, aborting")
-        return
-    }
-
     dbCreateTables()
 
     val server = embeddedServer(Netty, port = 5000) {

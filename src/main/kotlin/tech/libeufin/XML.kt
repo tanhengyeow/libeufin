@@ -19,9 +19,14 @@
 
 package tech.libeufin;
 
+import com.sun.org.apache.xerces.internal.dom.DOMInputImpl
 import org.w3c.dom.Document
+import org.w3c.dom.ls.LSInput
+import org.w3c.dom.ls.LSResourceResolver
+import org.xml.sax.ErrorHandler
 import org.xml.sax.InputSource
 import org.xml.sax.SAXException
+import org.xml.sax.SAXParseException
 import java.io.ByteArrayInputStream
 import java.io.IOException
 import java.io.InputStream
@@ -42,42 +47,60 @@ import javax.xml.transform.stream.StreamResult
 import javax.xml.transform.stream.StreamSource
 import javax.xml.validation.SchemaFactory
 
+
 /**
  * This class takes care of importing XSDs and validate
  * XMLs against those.
  */
 class XML {
-
     /**
-     * Bundle of all the XSDs loaded in memory, from disk.
+     * Validator for EBICS messages.
      */
-    private val bundle = {
+    private val validator = try {
         val classLoader = ClassLoader.getSystemClassLoader()
-        val schemas = arrayOf(
-            StreamSource(classLoader.getResourceAsStream("ebics_hev.xsd")),
-            StreamSource(classLoader.getResourceAsStream("xmldsig-core-schema.xsd")),
-            StreamSource(classLoader.getResourceAsStream("ebics_types_H004.xsd")),
-            StreamSource(classLoader.getResourceAsStream("ebics_signature_S002.xsd")),
-            StreamSource(classLoader.getResourceAsStream("ebics_orders_H004.xsd")),
-            StreamSource(classLoader.getResourceAsStream("ebics_keymgmt_request_H004.xsd"))
-        )
+        val sf = SchemaFactory.newInstance(XMLConstants.W3C_XML_SCHEMA_NS_URI)
+        sf.setProperty(XMLConstants.ACCESS_EXTERNAL_SCHEMA, "file")
+        sf.setProperty(XMLConstants.ACCESS_EXTERNAL_DTD, "")
+        sf.setFeature(XMLConstants.FEATURE_SECURE_PROCESSING, true)
+        sf.errorHandler = object : ErrorHandler {
+            override fun warning(p0: SAXParseException?) {
+                println("Warning: $p0")
+            }
 
-        try {
-            val sf = SchemaFactory.newInstance(XMLConstants.W3C_XML_SCHEMA_NS_URI)
-            sf.newSchema(schemas)
-        } catch (e: SAXException) {
-            e.printStackTrace()
-            null
+            override fun error(p0: SAXParseException?) {
+                println("Error: $p0")
+            }
+
+            override fun fatalError(p0: SAXParseException?) {
+                println("Fatal error: $p0")
+            }
         }
-    }()
-    private val validator = bundle?.newValidator()
-
-    /**
-     * True if the object didn't initialize
-     */
-    fun isNull(): Boolean {
-        return (validator == null) || (bundle == null)
+        sf.resourceResolver = object : LSResourceResolver {
+            override fun resolveResource(
+                type: String?,
+                namespaceURI: String?,
+                publicId: String?,
+                systemId: String?,
+                baseUri: String?
+            ): LSInput? {
+                if (type != "http://www.w3.org/2001/XMLSchema") {
+                    return null
+                }
+                val res = classLoader.getResourceAsStream(systemId) ?: return null
+                return DOMInputImpl(publicId, systemId, baseUri, res, "UTF-8")
+            }
+        }
+        val schemaInputs = arrayOf(
+            StreamSource(classLoader.getResourceAsStream("ebics_H004.xsd"), "/ebics_H004.xsd"),
+            StreamSource(classLoader.getResourceAsStream("ebics_hev.xsd"), "/ebics_hev.xsd")
+        )
+        val bundle = sf.newSchema(schemaInputs)
+        bundle.newValidator()
+    } catch (e: SAXException) {
+        e.printStackTrace()
+        throw e
     }
+
 
     /**
      * Parse string into XML DOM.

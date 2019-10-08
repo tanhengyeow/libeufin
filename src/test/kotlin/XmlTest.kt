@@ -13,7 +13,6 @@ class XmlTest {
 
     @Test
     fun hevValidation(){
-
         val classLoader = ClassLoader.getSystemClassLoader()
         val hev = classLoader.getResourceAsStream("ebics_hev.xml")
         assertTrue(processor.validate(StreamSource(hev)))
@@ -21,7 +20,6 @@ class XmlTest {
 
     @Test
     fun iniValidation(){
-
         val classLoader = ClassLoader.getSystemClassLoader()
         val ini = classLoader.getResourceAsStream("ebics_ini_request_sample.xml")
         assertTrue(processor.validate(StreamSource(ini)))
