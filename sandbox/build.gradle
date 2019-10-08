@@ -1,8 +1,3 @@
-plugins {
-    // FIXME: must go into the global file.
-    id "org.jetbrains.kotlin.jvm"
-}
-
 application {
     mainClassName = "tech.libeufin.sandbox.MainKt"
 }
