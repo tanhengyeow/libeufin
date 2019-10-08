@@ -35,14 +35,6 @@ import java.text.DateFormat
 fun main() {
     val server = embeddedServer(Netty, port = 5001) {
 
-        install(CallLogging)
-        install(ContentNegotiation) {
-            gson {
-                setDateFormat(DateFormat.LONG)
-                setPrettyPrinting()
-            }
-        }
-
         routing {
             get("/") {
                 call.respondText("Hello by Nexus!\n")
