@@ -36,8 +36,8 @@ data class CustomerEbicsInfo(
  * for RSA keys.
  */
 data class IniHiaLetters(
-    val INI: IniLetter,
-    val HIA: HiaLetter
+    val ini: IniLetter,
+    val hia: HiaLetter
 )
 
 /**
