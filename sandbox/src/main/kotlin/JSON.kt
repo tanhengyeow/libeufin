@@ -51,10 +51,10 @@ data class IniLetter(
     val date: String,
     val time: String,
     val recipient: String,
-    val exp_length: Int,
-    val exponent: String,
-    val mod_length: Int,
-    val modulus: String,
+    val public_exponent_length: Int,
+    val public_exponent: String,
+    val public_modulus_length: Int,
+    val public_modulus: String,
     val hash: String
 )
 
@@ -68,14 +68,14 @@ data class HiaLetter(
     val date: String,
     val time: String,
     val recipient: String,
-    val ia_exp_length: Int,
+    val ia_exponent_length: Int,
     val ia_exponent: String,
-    val ia_mod_length: Int,
+    val ia_modulus_length: Int,
     val ia_modulus: String,
     val ia_hash: String,
-    val enc_exp_length: Int,
+    val enc_exponent_length: Int,
     val enc_exponent: String,
-    val enc_mod_length: Int,
+    val enc_modulus_length: Int,
     val enc_modulus: String,
     val enc_hash: String
 )

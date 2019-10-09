@@ -99,21 +99,27 @@ def customer_info(obj, customer_id):
 )
 @click.option(
     "--customer-id",
+    required=True,
     help="id of the customer at the bank (used to pick keyset on disk)"
 )
 @click.pass_obj
 def keyletter(obj, customer_id):
 
+    url = urljoin(
+        obj["base_url"], "/admin/customers/{}".format(customer_id)
+    )
+
     try:
-        url = urljoin(
-            obj["base_url"], "/admin/customers/{}".format(customer_id)
-        )
         resp = get(url)
     except Exception:
         print("Could not connect to the bank, aborting")
         return
 
-    assert(resp.status_code == 200)
+    if resp.status_code != 200:
+      print("Couldn't query info about the customer: {}".format(resp.status_code))
+      return
+
+
     user_id = resp.json().get("ebicsInfo", {}).get("userId")
     name = resp.json().get("name")
     assert(user_id)
@@ -157,7 +163,7 @@ def keyletter(obj, customer_id):
     # Make the request body.
     body = dict(
 
-        INI=dict(
+        ini=dict(
             userId=user_id,
             customerId=customer_id,
             name=name,
@@ -172,7 +178,7 @@ def keyletter(obj, customer_id):
             hash=hashlib.sha256("{} {}".format(es_exponent, es_modulus).encode()).hexdigest()
         ),
 
-        HIA=dict(
+        hia=dict(
             userId=user_id,
             customerId=customer_id,
             name=name,
@@ -194,14 +200,19 @@ def keyletter(obj, customer_id):
         )
     )
 
+    url = urljoin(
+        obj["base_url"], "/admin/customers/{}/ebics/keyletter".format(customer_id)
+    )
+
     try:
+        print("POSTing {}".format(body))
         resp = post(url, json=body)
     except Exception:
         print("Could not reach the bank, aborting now")
         return
 
     if resp.status_code != 200:
-        print("Bank did not accept this letter.")
+        print("Bank did not accept this letter: {}.".format(resp.status_code))
         return
 
     print("Letter accepted by the bank!")
