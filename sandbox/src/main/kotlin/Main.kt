@@ -19,6 +19,7 @@
 
 package tech.libeufin.sandbox
 
+import io.ktor.application.ApplicationCall
 import io.ktor.application.call
 import io.ktor.application.install
 import io.ktor.features.CallLogging
@@ -42,13 +43,172 @@ import tech.libeufin.messages.HEVResponseDataType
 import java.text.DateFormat
 import javax.xml.bind.JAXBElement
 
+val logger = LoggerFactory.getLogger("tech.libeufin.sandbox")
+val xmlProcess = XML()
+
+private suspend fun ApplicationCall.adminCustomers() {
+    val body = try {
+        receive<CustomerRequest>()
+    } catch (e: Exception) {
+        e.printStackTrace()
+        respond(
+            HttpStatusCode.BadRequest,
+            SandboxError(e.message.toString())
+        )
+        return
+    }
+    logger.info(body.toString())
+
+    val returnId = transaction {
+        var myUserId = EbicsUser.new { }
+        val myPartnerId = EbicsPartner.new { }
+        val mySystemId = EbicsSystem.new { }
+        val subscriber = EbicsSubscriber.new {
+            userId = myUserId
+            partnerId = myPartnerId
+            systemId = mySystemId
+            state = SubscriberStates.NEW
+        }
+        println("subscriber ID: ${subscriber.id.value}")
+        val customer = BankCustomer.new {
+            name = body.name
+            ebicsSubscriber = subscriber
+        }
+        println("name: ${customer.name}")
+        return@transaction customer.id.value
+    }
+
+    respond(
+        HttpStatusCode.OK,
+        CustomerResponse(id = returnId)
+    )
+}
+
+private suspend fun ApplicationCall.adminCustomersInfo() {
+    val id: Int = try {
+        parameters["id"]!!.toInt()
+    } catch (e: NumberFormatException) {
+        respond(
+            HttpStatusCode.BadRequest,
+            SandboxError(e.message.toString())
+        )
+        return
+    }
+
+    val customerInfo = transaction {
+        val customer = BankCustomer.findById(id) ?: return@transaction null
+        CustomerInfo(
+            customer.name,
+            ebicsInfo = CustomerEbicsInfo(
+                customer.ebicsSubscriber.userId.userId!!
+            )
+        )
+    }
+
+    if (null == customerInfo) {
+        respond(
+            HttpStatusCode.NotFound,
+            SandboxError("id $id not found")
+        )
+        return
+    }
+
+    respond(HttpStatusCode.OK, customerInfo)
+}
+
+private suspend fun ApplicationCall.adminCustomersKeyletter() {
+    val body = try {
+        receive<IniHiaLetters>()
+    } catch (e: Exception) {
+        e.printStackTrace()
+        respond(
+            HttpStatusCode.BadRequest,
+            SandboxError(e.message.toString())
+        )
+        return
+    }
+    logger.info(body.toString())
+
+    /**********************************************/
+
+    // Extract keys and compare them to what was
+    // received via the INI and HIA orders.
+
+    /**********************************************/
+
+}
+
+private suspend fun ApplicationCall.ebicsweb() {
+
+    val body: String = receiveText()
+    val bodyDocument: Document? = xmlProcess.parseStringIntoDom(body)
+    if (bodyDocument == null) {
+        respondText(
+            contentType = ContentType.Application.Xml,
+            status = HttpStatusCode.BadRequest
+        ) { "Bad request / Could not parse the body" }
+        return
+
+    }
+
+    if (!xmlProcess.validateFromDom(bodyDocument)) {
+        logger.error("Invalid request received")
+        respondText(
+            contentType = ContentType.Application.Xml,
+            status = HttpStatusCode.BadRequest
+        ) { "Bad request / invalid document" }
+        return
+    }
+
+    logger.info("Processing ${bodyDocument.documentElement.localName}")
+
+    when (bodyDocument.documentElement.localName) {
+        "ebicsUnsecuredRequest" -> {
+
+            /* Manage request.  */
+
+            respond(
+                HttpStatusCode.NotImplemented,
+                SandboxError("Not implemented")
+            )
+            return
+        }
+
+        "ebicsHEVRequest" -> {
+            val hevResponse = HEVResponse(
+                "000000",
+                "EBICS_OK",
+                arrayOf(
+                    ProtocolAndVersion("H003", "02.40"),
+                    ProtocolAndVersion("H004", "02.50")
+                )
+            )
+
+            val jaxbHEV: JAXBElement<HEVResponseDataType> = hevResponse.makeHEVResponse()
+            val responseText: String? = xmlProcess.getStringFromJaxb(jaxbHEV)
+
+            respondText(
+                contentType = ContentType.Application.Xml,
+                status = HttpStatusCode.OK
+            ) { responseText.toString() }
+            return
+        }
+        else -> {
+            /* Log to console and return "unknown type" */
+            logger.info("Unknown message, just logging it!")
+            respondText(
+                contentType = ContentType.Application.Xml,
+                status = HttpStatusCode.NotFound
+            ) { "Not found" }
+            return
+        }
+    }
+
+
+}
+
 fun main() {
-
-    val logger = LoggerFactory.getLogger("tech.libeufin.sandbox")
-    val xmlProcess = XML()
-
     dbCreateTables()
-
     val server = embeddedServer(Netty, port = 5000) {
 
         install(CallLogging)
@@ -61,169 +221,30 @@ fun main() {
         routing {
             get("/") {
                 logger.debug("GET: not implemented")
-                call.respondText("Hello LibEuFin!", ContentType.Text.Plain)
+                call.respondText("Hello LibEuFin!\n", ContentType.Text.Plain)
                 return@get
             }
 
             post("/admin/customers") {
-                val body = try {
-                    call.receive<CustomerRequest>()
-                } catch (e: Exception) {
-                    e.printStackTrace()
-                    call.respond(
-                        HttpStatusCode.BadRequest,
-                        SandboxError(e.message.toString())
-                    )
-                    return@post
-                }
-                logger.info(body.toString())
-
-                val returnId = transaction {
-                    var myUserId = EbicsUser.new { }
-                    val myPartnerId = EbicsPartner.new { }
-                    val mySystemId = EbicsSystem.new { }
-                    val subscriber = EbicsSubscriber.new {
-                        userId = myUserId
-                        partnerId = myPartnerId
-                        systemId = mySystemId
-                        state = SubscriberStates.NEW
-                    }
-                    println("subscriber ID: ${subscriber.id.value}")
-                    val customer = BankCustomer.new {
-                        name = body.name
-                        ebicsSubscriber = subscriber
-                    }
-                    println("name: ${customer.name}")
-                    return@transaction customer.id.value
-                }
-
-                call.respond(
-                    HttpStatusCode.OK,
-                    CustomerResponse(id = returnId)
-                )
-
+                call.adminCustomers()
                 return@post
             }
 
             get("/admin/customers/{id}") {
 
-                val id: Int = try {
-                    call.parameters["id"]!!.toInt()
-                } catch (e: NumberFormatException) {
-                    call.respond(
-                        HttpStatusCode.BadRequest,
-                        SandboxError(e.message.toString())
-                    )
-                    return@get
-                }
-
-                val customerInfo = transaction {
-                    val customer = BankCustomer.findById(id) ?: return@transaction null
-                    CustomerInfo(
-                        customer.name,
-                        ebicsInfo = CustomerEbicsInfo(
-                            customer.ebicsSubscriber.userId.userId!!
-                        )
-                    )
-                }
-
-                if (null == customerInfo) {
-                    call.respond(
-                        HttpStatusCode.NotFound,
-                        SandboxError("id $id not found")
-                    )
-                    return@get
-                }
-
-                call.respond(HttpStatusCode.OK, customerInfo)
+                call.adminCustomersInfo()
+                return@get
             }
 
             post("/admin/customers/{id}/ebics/keyletter") {
-                val body = try {
-                    call.receive<IniHiaLetters>()
-                } catch (e: Exception) {
-                    e.printStackTrace()
-                    call.respond(
-                        HttpStatusCode.BadRequest,
-                        SandboxError(e.message.toString())
-                    )
-                    return@post
-                }
-                logger.info(body.toString())
-
-                /**********************************************/
-
-                // Extract keys and compare them to what was
-                // received via the INI and HIA orders.
-
-                /**********************************************/
+                call.adminCustomersKeyletter()
+                return@post
 
             }
 
             post("/ebicsweb") {
-                val body: String = call.receiveText()
-                val bodyDocument: Document? = xmlProcess.parseStringIntoDom(body)
-                if (bodyDocument == null) {
-                    call.respondText(
-                        contentType = ContentType.Application.Xml,
-                        status = HttpStatusCode.BadRequest
-                    ) { "Bad request / Could not parse the body" }
-                    return@post
-
-                }
-
-                if (!xmlProcess.validateFromDom(bodyDocument)) {
-                    logger.error("Invalid request received")
-                    call.respondText(
-                        contentType = ContentType.Application.Xml,
-                        status = HttpStatusCode.BadRequest
-                    ) { "Bad request / invalid document" }
-                    return@post
-                }
-
-                logger.info("Processing ${bodyDocument.documentElement.localName}")
-
-                when (bodyDocument.documentElement.localName) {
-                    "ebicsUnsecuredRequest" -> {
-
-                        /* Manage request.  */
-
-                        call.respond(
-                            HttpStatusCode.NotImplemented,
-                            SandboxError("Not implemented")
-                        )
-                        return@post
-                    }
-
-                    "ebicsHEVRequest" -> {
-                        val hevResponse = HEVResponse(
-                            "000000",
-                            "EBICS_OK",
-                            arrayOf(
-                                ProtocolAndVersion("H003", "02.40"),
-                                ProtocolAndVersion("H004", "02.50")
-                            )
-                        )
-
-                        val jaxbHEV: JAXBElement<HEVResponseDataType> = hevResponse.makeHEVResponse()
-                        val responseText: String? = xmlProcess.getStringFromJaxb(jaxbHEV)
-
-                        call.respondText(
-                            contentType = ContentType.Application.Xml,
-                            status = HttpStatusCode.OK
-                        ) { responseText.toString() }
-                        return@post
-                    }
-                    else -> {
-                        /* Log to console and return "unknown type" */
-                        logger.info("Unknown message, just logging it!")
-                        call.respondText(
-                            contentType = ContentType.Application.Xml,
-                            status = HttpStatusCode.NotFound
-                        ) { "Not found" }
-                        return@post
-                    }
-                }
+                call.ebicsweb()
+                return@post
             }
         }
     }
