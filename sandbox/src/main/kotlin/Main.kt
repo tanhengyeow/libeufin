@@ -127,7 +127,6 @@ private suspend fun ApplicationCall.adminCustomersKeyletter() {
         )
         return
     }
-    logger.info(body.toString())
 
     /**********************************************/
 
@@ -136,6 +135,10 @@ private suspend fun ApplicationCall.adminCustomersKeyletter() {
 
     /**********************************************/
 
+    respond(
+        HttpStatusCode.NotImplemented,
+        SandboxError("Not properly implemented")
+    )
 }
 
 private suspend fun ApplicationCall.ebicsweb() {

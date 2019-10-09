@@ -205,7 +205,6 @@ def keyletter(obj, customer_id):
     )
 
     try:
-        print("POSTing {}".format(body))
         resp = post(url, json=body)
     except Exception:
         print("Could not reach the bank, aborting now")
