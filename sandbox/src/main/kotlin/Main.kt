@@ -227,5 +227,6 @@ fun main() {
             }
         }
     }
+    logger.info("Up and running")
     server.start(wait = true)
 }
