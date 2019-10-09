@@ -1,0 +1,39 @@
+<configuration>
+    <appender name="STDOUT" class="ch.qos.logback.core.ConsoleAppender" additivity="false">
+        <encoder>
+            <pattern>%d{HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n</pattern>
+        </encoder>
+    </appender>
+
+    <appender name="SANDBOX-FILE" class="ch.qos.logback.core.FileAppender">
+        <file>/tmp/sandbox.log</file>
+        <append>false</append>
+        <encoder>
+            <pattern>%-5relative %-5level %logger{35} - %msg%n</pattern>
+        </encoder>
+    </appender>
+
+    <appender name="NEXUS-FILE" class="ch.qos.logback.core.FileAppender">
+        <file>/tmp/nexus.log</file>
+        <append>false</append>
+        <encoder>
+            <pattern>%-5relative %-5level %logger{35} - %msg%n</pattern>
+        </encoder>
+    </appender>
+
+    <logger name="tech.libeufin.sandbox" level="DEBUG">
+        <appender-ref ref="SANDBOX-FILE" />
+    </logger>
+
+    <logger name="tech.libeufin.nexus" level="TRACE">
+        <appender-ref ref="NEXUS-FILE" />
+    </logger>
+
+    <logger name="io.netty" level="WARN" />
+    <logger name="ktor" level="WARN" />
+
+    <root>
+        <appender-ref ref="STDOUT" />
+    </root>
+
+</configuration>

@@ -11,8 +11,10 @@ class LogTest {
     @Test
     fun logLine() {
 
-        val logger = LoggerFactory.getLogger("sandbox.log.test")
-        logger.info("line")
+        val loggerSandbox = LoggerFactory.getLogger("tech.libeufin.sandbox")
+        val loggerNexus = LoggerFactory.getLogger("tech.libeufin.nexus")
+        loggerSandbox.info("line")
+        loggerNexus.trace("other line")
     }
 }
 
