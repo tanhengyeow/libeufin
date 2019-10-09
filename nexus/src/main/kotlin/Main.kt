@@ -31,8 +31,8 @@ import io.ktor.server.engine.embeddedServer
 import io.ktor.server.netty.Netty
 import org.slf4j.LoggerFactory
 
-fun main() {
 
+fun main() {
     val logger = LoggerFactory.getLogger("tech.libeufin.nexus")
 
     val server = embeddedServer(Netty, port = 5001) {
@@ -61,5 +61,4 @@ fun main() {
 
     logger.info("Up and running")
     server.start(wait = true)
-
 }
