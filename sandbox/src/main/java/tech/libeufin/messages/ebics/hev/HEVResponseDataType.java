@@ -1,5 +1,5 @@
 
-package tech.libeufin.messages;
+package tech.libeufin.messages.ebics.hev;
 
 import java.util.ArrayList;
 import java.util.List;

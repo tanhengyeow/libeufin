@@ -39,7 +39,7 @@ import io.ktor.server.netty.Netty
 import org.jetbrains.exposed.sql.transactions.transaction
 import org.slf4j.LoggerFactory
 import org.w3c.dom.Document
-import tech.libeufin.messages.HEVResponseDataType
+import tech.libeufin.messages.ebics.hev.HEVResponseDataType
 import java.text.DateFormat
 import javax.xml.bind.JAXBElement
 
@@ -188,7 +188,10 @@ private suspend fun ApplicationCall.ebicsweb() {
             )
 
             val jaxbHEV: JAXBElement<HEVResponseDataType> = hevResponse.makeHEVResponse()
-            val responseText: String? = xmlProcess.getStringFromJaxb(jaxbHEV)
+            val responseText: String? = xmlProcess.getStringFromJaxb(
+                "tech.libeufin.messages.ebics.hev",
+                jaxbHEV
+            )
 
             respondText(
                 contentType = ContentType.Application.Xml,

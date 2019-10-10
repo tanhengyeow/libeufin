@@ -5,6 +5,20 @@
       <HostID>foo</HostID>
       <PartnerID>flokid</PartnerID>
       <UserID>flouid</UserID>
+      <!--
+
+      Such a not allowed renaming like this fixes the import of DOM into JAXB.
+
+      <UnsecuredReqOrderDetails>
+        <OrderType>INI</OrderType>
+        <OrderAttribute>DZNNN</OrderAttribute>
+      </UnsecuredReqOrderDetails
+
+      Also putting the following attribute on OrderDetails fixes it.
+
+       xsi:type="UnsecuredReqOrderDetailsType"
+
+      -->
       <OrderDetails>
         <OrderType>INI</OrderType>
         <OrderAttribute>DZNNN</OrderAttribute>

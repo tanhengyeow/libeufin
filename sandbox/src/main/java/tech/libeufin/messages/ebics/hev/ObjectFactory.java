@@ -1,5 +1,5 @@
 
-package tech.libeufin.messages;
+package tech.libeufin.messages.ebics.hev;
 
 import javax.xml.bind.JAXBElement;
 import javax.xml.bind.annotation.XmlElementDecl;

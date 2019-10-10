@@ -169,17 +169,36 @@ class XML {
     }
 
     /**
+     * Convert a DOM document - of a XML document - to the JAXB representation.
+     *
+     * @param packageName the package containing the ObjectFactory used to
+     *        instantiate the wanted object.
+     * @param document the document to convert into JAXB.
+     * @return the JAXB object reflecting the original XML document.
+     */
+    fun convertDomToJaxb(packageName: String, document: Document): Any {
+
+        val jc = JAXBContext.newInstance(packageName)
+
+        /* Marshalling the object into the document.  */
+        val m = jc.createUnmarshaller()
+        return m.unmarshal(document) // document "went" into Jaxb
+    }
+
+    /**
      * Return the DOM representation of the Java object, using the JAXB
      * interface.  FIXME: narrow input type to JAXB type!
      *
+     * @param packageName the package containing the ObjectFactory used to
+     *        instantiate the wanted object.
      * @param object to be transformed into DOM.  Typically, the object
      *               has already got its setters called.
      * @return the DOM Document, or null (if errors occur).
      */
-    fun convertJaxbToDom(obj: JAXBElement<Unit>): Document? {
+    fun convertJaxbToDom(packageName: String, obj: JAXBElement<Unit>): Document? {
 
         try {
-            val jc = JAXBContext.newInstance("tech.libeufin.messages")
+            val jc = JAXBContext.newInstance(packageName)
 
             /* Make the target document.  */
             val dbf = DocumentBuilderFactory.newInstance()
@@ -232,14 +251,16 @@ class XML {
     /**
      * Extract String from JAXB.
      *
+     * @param packageName the package containing the ObjectFactory used to
+     *        instantiate the wanted object.
      * @param obj the JAXB instance
      * @return String representation of @a object, or null if errors occur
      */
-    fun <T> getStringFromJaxb(obj: JAXBElement<T>): String? {
+    fun <T> getStringFromJaxb(packageName: String, obj: JAXBElement<T>): String? {
         val sw = StringWriter()
 
         try {
-            val jc = JAXBContext.newInstance("tech.libeufin.messages")
+            val jc = JAXBContext.newInstance(packageName)
             /* Getting the string.  */
             val m = jc.createMarshaller()
             m.marshal(obj, sw)

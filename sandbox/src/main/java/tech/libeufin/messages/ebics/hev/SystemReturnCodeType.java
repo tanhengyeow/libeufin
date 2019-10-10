@@ -1,5 +1,5 @@
 
-package tech.libeufin.messages;
+package tech.libeufin.messages.ebics.hev;
 
 import javax.xml.bind.annotation.XmlAccessType;
 import javax.xml.bind.annotation.XmlAccessorType;

@@ -1,8 +1,8 @@
 package tech.libeufin.sandbox
 
-import tech.libeufin.messages.HEVResponseDataType
-import tech.libeufin.messages.ObjectFactory
-import tech.libeufin.messages.SystemReturnCodeType
+import tech.libeufin.messages.ebics.hev.HEVResponseDataType
+import tech.libeufin.messages.ebics.hev.ObjectFactory
+import tech.libeufin.messages.ebics.hev.SystemReturnCodeType
 import javax.xml.bind.JAXBElement
 
 /**
