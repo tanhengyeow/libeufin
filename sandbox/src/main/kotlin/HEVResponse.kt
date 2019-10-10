@@ -5,7 +5,9 @@ import tech.libeufin.messages.ObjectFactory
 import tech.libeufin.messages.SystemReturnCodeType
 import javax.xml.bind.JAXBElement
 
-
+/**
+ * Convenience wrapper around the main JAXB value.
+ */
 class HEVResponse(
     returnCode: String,
     reportText: String,
