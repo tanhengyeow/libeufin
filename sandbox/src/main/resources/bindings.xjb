@@ -1,0 +1,35 @@
+
+<jaxb:bindings version="1.0"
+               xmlns:jaxb="http://java.sun.com/xml/ns/jaxb"
+               xmlns:xsd="http://www.w3.org/2001/XMLSchema"
+               xmlns:xjc="http://java.sun.com/xml/ns/jaxb/xjc"
+               jaxb:extensionBindingPrefixes="xjc">
+
+  <jaxb:bindings schemaLocation="ebics_types_H004.xsd" node="/xsd:schema">
+    <jaxb:bindings node="//xsd:complexType[@name='PubKeyInfoType']">
+      <jaxb:class name="PubKeyInfoTypeAtEbicsTypes" />
+    </jaxb:bindings>
+    <jaxb:bindings node="//xsd:complexType[@name='PubKeyValueType']">
+      <jaxb:class name="PubKeyValueTypeAtEbicsTypes" />
+    </jaxb:bindings>
+  </jaxb:bindings>
+
+  <jaxb:bindings schemaLocation="ebics_orders_H004.xsd" node="/xsd:schema">
+    <jaxb:bindings node="//xsd:element[@name='EBICSSignatureData']">
+      <jaxb:factoryMethod name="ebicsSignatureDataAtEbicsOrders" />
+    </jaxb:bindings>
+  </jaxb:bindings>
+
+  <jaxb:bindings schemaLocation="ebics_signatures.xsd" node="/xsd:schema">
+    <jaxb:bindings node="//xsd:complexType[@name='PubKeyInfoType']">
+      <jaxb:class name="PubKeyInfoTypeAtEbicsSignatures" />
+    </jaxb:bindings>
+    <jaxb:bindings node="//xsd:complexType[@name='PubKeyValueType']">
+      <jaxb:class name="PubKeyValueTypeAtEbicsSignatures" />
+    </jaxb:bindings>
+    <jaxb:bindings node="//xsd:element[@name='EBICSSignatureData']">
+      <jaxb:factoryMethod name="ebicsSignatureDataAtEbicsSignatures" />
+    </jaxb:bindings>
+  </jaxb:bindings>
+
+</jaxb:bindings>
