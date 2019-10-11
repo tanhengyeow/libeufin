@@ -1,5 +1,5 @@
 <configuration>
-    <appender name="STDOUT" class="ch.qos.logback.core.ConsoleAppender" additivity="false">
+    <appender name="STDOUT" class="ch.qos.logback.core.ConsoleAppender">
         <encoder>
             <pattern>%d{HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n</pattern>
         </encoder>
@@ -21,11 +21,13 @@
         </encoder>
     </appender>
 
-    <logger name="tech.libeufin.sandbox" level="DEBUG">
+    <logger name="tech.libeufin.sandbox" level="DEBUG"  additivity="false">
+        <appender-ref ref="STDOUT" />
         <appender-ref ref="SANDBOX-FILE" />
     </logger>
 
-    <logger name="tech.libeufin.nexus" level="TRACE">
+    <logger name="tech.libeufin.nexus" level="TRACE"  additivity="false">
+        <appender-ref ref="STDOUT" />
         <appender-ref ref="NEXUS-FILE" />
     </logger>
 
@@ -33,7 +35,7 @@
     <logger name="ktor" level="WARN" />
     <logger name="Exposed" level="WARN" />
 
-    <root>
+    <root level="WARN">
         <appender-ref ref="STDOUT" />
     </root>
 
