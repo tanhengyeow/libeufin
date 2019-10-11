@@ -39,12 +39,45 @@ import io.ktor.server.netty.Netty
 import org.jetbrains.exposed.sql.transactions.transaction
 import org.slf4j.LoggerFactory
 import org.w3c.dom.Document
+import org.w3c.dom.Element
 import tech.libeufin.messages.ebics.hev.HEVResponseDataType
+import tech.libeufin.messages.ebics.keyrequest.EbicsUnsecuredRequest
+import tech.libeufin.messages.ebics.keyrequest.UnsecuredReqOrderDetailsType
 import java.text.DateFormat
 import javax.xml.bind.JAXBElement
 
 val logger = LoggerFactory.getLogger("tech.libeufin.sandbox")
 val xmlProcess = XML()
+
+/**
+ * Sometimes, JAXB is not able to figure out to which type
+ * a certain XML node should be bound to.  This happens when
+ * one element name can have multiple definitions therefore
+ * JAXB renders it as a abstract class.  In that case, the
+ * object factory must be instructed about the subtype to create,
+ * and this is done via injecting the xsi:type attribute to the
+ * "overloaded" XML element.
+ *
+ * Alternative methods of addressing this?
+ *
+ * @param document the XML Document to modify
+ * @param node the name of the overloaded element (ideally this
+ * parameter should be a XPATH address)
+ * @param type the type to downcast @a node to
+ * @return the modified document
+ */
+fun downcastXml(document: Document, node: String, type: String) : Document {
+
+    val x: Element = document.getElementsByTagName("OrderDetails")?.item(0) as Element
+
+    x.setAttributeNS(
+        "http://www.w3.org/2001/XMLSchema-instance",
+        "type",
+        type
+    )
+
+    return document
+}
 
 private suspend fun ApplicationCall.adminCustomers() {
     val body = try {
@@ -169,6 +202,17 @@ private suspend fun ApplicationCall.ebicsweb() {
         "ebicsUnsecuredRequest" -> {
 
             /* Manage request.  */
+
+            val bodyJaxb = xmlProcess.convertDomToJaxb<EbicsUnsecuredRequest>(
+                "tech.libeufin.messages.ebics.keyrequest",
+                downcastXml(
+                    bodyDocument,
+                    "OrderDetails",
+                    "UnsecuredReqOrderDetailsType"
+                )
+            )
+
+            logger.info("Serving a ${bodyJaxb.header.static.orderDetails.orderType} request")
 
             respond(
                 HttpStatusCode.NotImplemented,

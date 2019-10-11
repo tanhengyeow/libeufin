@@ -176,13 +176,13 @@ class XML {
      * @param document the document to convert into JAXB.
      * @return the JAXB object reflecting the original XML document.
      */
-    fun convertDomToJaxb(packageName: String, document: Document): Any {
+    fun <T>convertDomToJaxb(packageName: String, document: Document) : T {
 
         val jc = JAXBContext.newInstance(packageName)
 
         /* Marshalling the object into the document.  */
         val m = jc.createUnmarshaller()
-        return m.unmarshal(document) // document "went" into Jaxb
+        return m.unmarshal(document) as T // document "went" into Jaxb
     }
 
     /**

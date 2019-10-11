@@ -2,6 +2,7 @@ package tech.libeufin.sandbox
 
 import org.junit.Test
 import org.w3c.dom.Element
+import tech.libeufin.messages.ebics.keyrequest.EbicsUnsecuredRequest
 import tech.libeufin.messages.ebics.keyrequest.OrderDetailsType
 import tech.libeufin.messages.ebics.keyrequest.UnsecuredReqOrderDetailsType
 
@@ -22,7 +23,7 @@ class DomToJaxbTest {
             "UnsecuredReqOrderDetailsType"
         )
 
-        processor.convertDomToJaxb(
+        processor.convertDomToJaxb<EbicsUnsecuredRequest>(
             "tech.libeufin.messages.ebics.keyrequest",
             iniDom)
     }
