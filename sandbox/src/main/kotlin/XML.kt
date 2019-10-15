@@ -186,6 +186,25 @@ class XML {
     }
 
     /**
+     * Convert a XML string to the JAXB representation.
+     *
+     * @param packageName the package containing the ObjectFactory used to
+     *        instantiate the wanted object.
+     * @param documentString the string to convert into JAXB.
+     * @return the JAXB object reflecting the original XML document.
+     */
+    fun <T>convertStringToJaxb(packageName: String, documentString: String) : T {
+
+        val jc = JAXBContext.newInstance(packageName)
+
+        /* Marshalling the object into the document.  */
+        val m = jc.createUnmarshaller()
+        return m.unmarshal(StringReader(documentString)) as T // document "went" into Jaxb
+    }
+
+
+
+    /**
      * Return the DOM representation of the Java object, using the JAXB
      * interface.  FIXME: narrow input type to JAXB type!
      *

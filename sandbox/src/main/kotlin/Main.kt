@@ -36,15 +36,24 @@ import io.ktor.routing.post
 import io.ktor.routing.routing
 import io.ktor.server.engine.embeddedServer
 import io.ktor.server.netty.Netty
+import io.ktor.util.decodeBase64
 import org.jetbrains.exposed.sql.transactions.transaction
 import org.slf4j.LoggerFactory
 import org.w3c.dom.Document
 import org.w3c.dom.Element
 import tech.libeufin.messages.ebics.hev.HEVResponseDataType
 import tech.libeufin.messages.ebics.keyrequest.EbicsUnsecuredRequest
+import tech.libeufin.messages.ebics.keyrequest.SignaturePubKeyOrderDataType
 import tech.libeufin.messages.ebics.keyrequest.UnsecuredReqOrderDetailsType
+import java.nio.charset.StandardCharsets.US_ASCII
 import java.text.DateFormat
+import java.util.*
+import java.util.zip.GZIPInputStream
 import javax.xml.bind.JAXBElement
+import java.nio.charset.StandardCharsets.UTF_8
+import java.util.zip.Inflater
+import java.util.zip.InflaterInputStream
+
 
 val logger = LoggerFactory.getLogger("tech.libeufin.sandbox")
 val xmlProcess = XML()
@@ -214,6 +223,57 @@ private suspend fun ApplicationCall.ebicsweb() {
 
             logger.info("Serving a ${bodyJaxb.header.static.orderDetails.orderType} request")
 
+            when (bodyJaxb.header.static.orderDetails.orderType) {
+
+                "INI" -> {
+
+                    /**
+                     * NOTE: the JAXB interface has some automagic mechanism that decodes
+                     * the Base64 string into its byte[] form _at the same time_ it instantiates
+                     * the object; in other words, there is no need to perform here the decoding.
+                     */
+                    val zkey = bodyJaxb.body.dataTransfer.orderData.value
+
+                    /**
+                     * The validation enforces zkey to be a base64 value, but does not check
+                     * whether it is given _empty_ or not; will check explicitly here.  FIXME:
+                     * shall the schema be patched to avoid having this if-block here?
+                     */
+                    if (zkey.size == 0) {
+                        logger.error("0-length key element given, invalid request")
+                        respondText(
+                            contentType = ContentType.Application.Xml,
+                            status = HttpStatusCode.BadRequest
+                        ) { "Bad request / invalid document" }
+
+                        return
+                    }
+
+                    /**
+                     * This value holds the bytes[] of a XML "SignaturePubKeyOrderData" document
+                     * and at this point is valid and _never_ empty.
+                     */
+                    val inflater = InflaterInputStream(zkey.inputStream())
+                    var result = ByteArray(1) {inflater.read().toByte()}
+
+                    while (inflater.available() == 1) {
+                        result += inflater.read().toByte()
+                    }
+
+                    inflater.close()
+
+                    println("That is the key element: ${result.toString(US_ASCII)}")
+
+                    val keyObject = xmlProcess.convertStringToJaxb<SignaturePubKeyOrderDataType>(
+                        "tech.libeufin.messages.ebics.keyrequest",
+                        result.toString(US_ASCII)
+                    )
+
+                    println(keyObject.signaturePubKeyInfo.signatureVersion)
+
+                }
+            }
+            
             respond(
                 HttpStatusCode.NotImplemented,
                 SandboxError("Not implemented")
@@ -253,8 +313,6 @@ private suspend fun ApplicationCall.ebicsweb() {
             return
         }
     }
-
-
 }
 
 fun main() {

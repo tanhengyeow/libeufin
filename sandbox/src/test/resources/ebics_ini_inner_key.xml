@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<SignaturePubKeyOrderData xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.ebics.org/S001 http://www.ebics.org/S001/ebics_signature.xsd" xmlns:ds="http://www.w3.org/2000/09/xmldsig#" xmlns="http://www.ebics.org/S001">
+  <SignaturePubKeyInfo>
+    <PubKeyValue>
+      <ds:RSAKeyValue>
+        <ds:Modulus>s5ktpg3xGjbZZgVTYtW+0e6xsWg142UwvoM3mfuM+qrkIa5bPUGQLH6BRL9IejYosPhoA6jwMBSxO8LfaageyZJt2M5wHklJYz3fADtQrV1bk5R92OaY/9ZZdHxw3xY93tm5JfVrMDW9DEK5B1hUzYFdjuN/qu2/sdE9mwhx2YjYwwdSQzv6MhbtSK9OAJjPGo3fkxsht6maSmRCdgxplIOSO2mmP1wjUzbVUMcrRk9KDMvnb3kCxiTm+evvxX6J4wpY1bAWukolJbaALHlFtgTo1LnulUe/BxiKx9HpmuEAaPsk8kgduXsz5OqH2g/Vyw75x51aKVPxOTBPyP+4kQ==</ds:Modulus>
+        <ds:Exponent>AQAB</ds:Exponent>
+      </ds:RSAKeyValue>
+    </PubKeyValue>
+    <SignatureVersion>A006</SignatureVersion>
+  </SignaturePubKeyInfo>
+  <PartnerID>flo-kid</PartnerID>
+  <UserID>flo-uid</UserID>
+</SignaturePubKeyOrderData>
