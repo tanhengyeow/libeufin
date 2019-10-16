@@ -212,8 +212,8 @@ private suspend fun ApplicationCall.ebicsweb() {
 
             /* Manage request.  */
 
-            val bodyJaxb = xmlProcess.convertDomToJaxb<EbicsUnsecuredRequest>(
-                "tech.libeufin.messages.ebics.keyrequest",
+            val bodyJaxb = xmlProcess.convertDomToJaxb(
+                EbicsUnsecuredRequest::class.java,
                 downcastXml(
                     bodyDocument,
                     "OrderDetails",
@@ -264,16 +264,16 @@ private suspend fun ApplicationCall.ebicsweb() {
 
                     println("That is the key element: ${result.toString(US_ASCII)}")
 
-                    val keyObject = xmlProcess.convertStringToJaxb<SignaturePubKeyOrderDataType>(
-                        "tech.libeufin.messages.ebics.keyrequest",
+                    val keyObject = xmlProcess.convertStringToJaxb(
+                        SignaturePubKeyOrderDataType::class.java,
                         result.toString(US_ASCII)
                     )
 
-                    println(keyObject.signaturePubKeyInfo.signatureVersion)
+                    println(keyObject.value.signaturePubKeyInfo.signatureVersion)
 
                 }
             }
-            
+
             respond(
                 HttpStatusCode.NotImplemented,
                 SandboxError("Not implemented")
@@ -292,10 +292,7 @@ private suspend fun ApplicationCall.ebicsweb() {
             )
 
             val jaxbHEV: JAXBElement<HEVResponseDataType> = hevResponse.makeHEVResponse()
-            val responseText: String? = xmlProcess.getStringFromJaxb(
-                "tech.libeufin.messages.ebics.hev",
-                jaxbHEV
-            )
+            val responseText: String? = xmlProcess.getStringFromJaxb(jaxbHEV)
 
             respondText(
                 contentType = ContentType.Application.Xml,

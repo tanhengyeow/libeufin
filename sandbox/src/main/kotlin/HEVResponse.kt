@@ -35,6 +35,10 @@ class HEVResponse(
         value
     }()
 
+    fun getValue(): HEVResponseDataType {
+        return value
+    }
+
     fun makeHEVResponse(): JAXBElement<HEVResponseDataType> {
         val of = ObjectFactory()
         return of.createEbicsHEVResponse(value)

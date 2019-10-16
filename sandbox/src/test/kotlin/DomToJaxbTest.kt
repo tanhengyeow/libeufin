@@ -24,7 +24,7 @@ class DomToJaxbTest {
         )
 
         processor.convertDomToJaxb<EbicsUnsecuredRequest>(
-            "tech.libeufin.messages.ebics.keyrequest",
+            EbicsUnsecuredRequest::class.java,
             iniDom)
     }
 }

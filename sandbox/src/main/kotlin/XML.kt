@@ -171,14 +171,13 @@ class XML {
     /**
      * Convert a DOM document - of a XML document - to the JAXB representation.
      *
-     * @param packageName the package containing the ObjectFactory used to
-     *        instantiate the wanted object.
+     * @param finalType class type of the output
      * @param document the document to convert into JAXB.
      * @return the JAXB object reflecting the original XML document.
      */
-    fun <T>convertDomToJaxb(packageName: String, document: Document) : T {
+    fun <T>convertDomToJaxb(finalType: Class<T>, document: Document) : T {
 
-        val jc = JAXBContext.newInstance(packageName)
+        val jc = JAXBContext.newInstance(finalType)
 
         /* Marshalling the object into the document.  */
         val m = jc.createUnmarshaller()
@@ -188,18 +187,20 @@ class XML {
     /**
      * Convert a XML string to the JAXB representation.
      *
-     * @param packageName the package containing the ObjectFactory used to
-     *        instantiate the wanted object.
+     * @param finalType class type of the object to instantiate
      * @param documentString the string to convert into JAXB.
      * @return the JAXB object reflecting the original XML document.
      */
-    fun <T>convertStringToJaxb(packageName: String, documentString: String) : T {
+    fun <T>convertStringToJaxb(finalType: Class<T>, documentString: String) : JAXBElement<T> {
 
-        val jc = JAXBContext.newInstance(packageName)
+        val jc = JAXBContext.newInstance(finalType.packageName)
 
         /* Marshalling the object into the document.  */
-        val m = jc.createUnmarshaller()
-        return m.unmarshal(StringReader(documentString)) as T // document "went" into Jaxb
+        val u = jc.createUnmarshaller()
+        return u.unmarshal(
+            StreamSource(StringReader(documentString)),
+            finalType
+        ) // document "went" into Jaxb
     }
 
 
@@ -208,16 +209,14 @@ class XML {
      * Return the DOM representation of the Java object, using the JAXB
      * interface.  FIXME: narrow input type to JAXB type!
      *
-     * @param packageName the package containing the ObjectFactory used to
-     *        instantiate the wanted object.
      * @param object to be transformed into DOM.  Typically, the object
      *               has already got its setters called.
      * @return the DOM Document, or null (if errors occur).
      */
-    fun convertJaxbToDom(packageName: String, obj: JAXBElement<Unit>): Document? {
+    fun convertJaxbToDom(obj: JAXBElement<Unit>): Document? {
 
         try {
-            val jc = JAXBContext.newInstance(packageName)
+            val jc = JAXBContext.newInstance(obj.declaredType)
 
             /* Make the target document.  */
             val dbf = DocumentBuilderFactory.newInstance()
@@ -270,16 +269,14 @@ class XML {
     /**
      * Extract String from JAXB.
      *
-     * @param packageName the package containing the ObjectFactory used to
-     *        instantiate the wanted object.
      * @param obj the JAXB instance
      * @return String representation of @a object, or null if errors occur
      */
-    fun <T> getStringFromJaxb(packageName: String, obj: JAXBElement<T>): String? {
+    fun <T> getStringFromJaxb(obj: JAXBElement<T>): String? {
         val sw = StringWriter()
 
         try {
-            val jc = JAXBContext.newInstance(packageName)
+            val jc = JAXBContext.newInstance(obj.declaredType)
             /* Getting the string.  */
             val m = jc.createMarshaller()
             m.marshal(obj, sw)
