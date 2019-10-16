@@ -221,9 +221,9 @@ private suspend fun ApplicationCall.ebicsweb() {
                 )
             )
 
-            logger.info("Serving a ${bodyJaxb.header.static.orderDetails.orderType} request")
+            logger.info("Serving a ${bodyJaxb.value.header.static.orderDetails.orderType} request")
 
-            when (bodyJaxb.header.static.orderDetails.orderType) {
+            when (bodyJaxb.value.header.static.orderDetails.orderType) {
 
                 "INI" -> {
 
@@ -232,7 +232,7 @@ private suspend fun ApplicationCall.ebicsweb() {
                      * the Base64 string into its byte[] form _at the same time_ it instantiates
                      * the object; in other words, there is no need to perform here the decoding.
                      */
-                    val zkey = bodyJaxb.body.dataTransfer.orderData.value
+                    val zkey = bodyJaxb.value.body.dataTransfer.orderData.value
 
                     /**
                      * The validation enforces zkey to be a base64 value, but does not check

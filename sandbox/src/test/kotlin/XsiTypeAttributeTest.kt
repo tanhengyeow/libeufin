@@ -6,7 +6,7 @@ import tech.libeufin.messages.ebics.keyrequest.EbicsUnsecuredRequest
 import tech.libeufin.messages.ebics.keyrequest.OrderDetailsType
 import tech.libeufin.messages.ebics.keyrequest.UnsecuredReqOrderDetailsType
 
-class DomToJaxbTest {
+class XsiTypeAttributeTest {
 
     @Test
     fun domToJaxb() {

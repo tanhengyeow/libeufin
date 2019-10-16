@@ -175,13 +175,13 @@ class XML {
      * @param document the document to convert into JAXB.
      * @return the JAXB object reflecting the original XML document.
      */
-    fun <T>convertDomToJaxb(finalType: Class<T>, document: Document) : T {
+    fun <T>convertDomToJaxb(finalType: Class<T>, document: Document) : JAXBElement<T> {
 
         val jc = JAXBContext.newInstance(finalType)
 
         /* Marshalling the object into the document.  */
         val m = jc.createUnmarshaller()
-        return m.unmarshal(document) as T // document "went" into Jaxb
+        return m.unmarshal(document, finalType) // document "went" into Jaxb
     }
 
     /**
@@ -213,7 +213,7 @@ class XML {
      *               has already got its setters called.
      * @return the DOM Document, or null (if errors occur).
      */
-    fun convertJaxbToDom(obj: JAXBElement<Unit>): Document? {
+    fun <T>convertJaxbToDom(obj: JAXBElement<T>): Document? {
 
         try {
             val jc = JAXBContext.newInstance(obj.declaredType)
