@@ -52,6 +52,7 @@ import java.util.*
 import java.util.zip.GZIPInputStream
 import javax.xml.bind.JAXBElement
 import java.nio.charset.StandardCharsets.UTF_8
+import java.security.InvalidKeyException
 import java.security.KeyFactory
 import java.security.PublicKey
 import java.security.interfaces.RSAPublicKey
@@ -236,6 +237,7 @@ private suspend fun ApplicationCall.ebicsweb() {
             HttpStatusCode.NotFound,
             SandboxError("Unknown HostID specified")
         )
+        return
     }
 
     when (bodyDocument.documentElement.localName) {
@@ -298,17 +300,25 @@ private suspend fun ApplicationCall.ebicsweb() {
                         result.toString(US_ASCII)
                     )
 
-                    // get the customer id
-                    val ebicsUserId = bodyJaxb.value.header.static.userID
+                    try {
+                        loadRsaPublicKey(
+                            keyObject.value.signaturePubKeyInfo.pubKeyValue.rsaKeyValue.exponent,
+                            keyObject.value.signaturePubKeyInfo.pubKeyValue.rsaKeyValue.modulus
+                        )
+                    } catch (e: Exception) {
+                        logger.info("User gave bad key, not storing it")
+                        e.printStackTrace()
+                        respond(
+                            HttpStatusCode.BadRequest,
+                            SandboxError("Bad public key given")
+                        )
+                        return
+                    }
 
-                    // get key modulus and exponent
-                    // (do sanity check on the key - see if it loads)
+                    logger.debug(EbicsUsers.userId.name)
 
-                    val publicKeyy = loadRsaPublicKey(
-                        keyObject.value.signaturePubKeyInfo.pubKeyValue.rsaKeyValue.modulus,
-                        keyObject.value.signaturePubKeyInfo.pubKeyValue.rsaKeyValue.exponent
-                    )
                     // store key in database
+
 
 
                 }
