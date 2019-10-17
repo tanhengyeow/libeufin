@@ -239,7 +239,7 @@ private suspend fun ApplicationCall.ebicsweb() {
                      * whether it is given _empty_ or not; will check explicitly here.  FIXME:
                      * shall the schema be patched to avoid having this if-block here?
                      */
-                    if (zkey.size == 0) {
+                    if (zkey.isEmpty()) {
                         logger.error("0-length key element given, invalid request")
                         respondText(
                             contentType = ContentType.Application.Xml,
