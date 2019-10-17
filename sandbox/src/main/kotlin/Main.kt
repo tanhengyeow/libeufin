@@ -45,18 +45,24 @@ import tech.libeufin.messages.ebics.hev.HEVResponseDataType
 import tech.libeufin.messages.ebics.keyrequest.EbicsUnsecuredRequest
 import tech.libeufin.messages.ebics.keyrequest.SignaturePubKeyOrderDataType
 import tech.libeufin.messages.ebics.keyrequest.UnsecuredReqOrderDetailsType
+import java.math.BigInteger
 import java.nio.charset.StandardCharsets.US_ASCII
 import java.text.DateFormat
 import java.util.*
 import java.util.zip.GZIPInputStream
 import javax.xml.bind.JAXBElement
 import java.nio.charset.StandardCharsets.UTF_8
+import java.security.KeyFactory
+import java.security.PublicKey
+import java.security.interfaces.RSAPublicKey
+import java.security.spec.RSAPublicKeySpec
 import java.util.zip.Inflater
 import java.util.zip.InflaterInputStream
 
 
 val logger = LoggerFactory.getLogger("tech.libeufin.sandbox")
 val xmlProcess = XML()
+val getEbicsHostId = {"LIBEUFIN-SANDBOX"}
 
 /**
  * Sometimes, JAXB is not able to figure out to which type
@@ -87,6 +93,23 @@ fun downcastXml(document: Document, node: String, type: String) : Document {
 
     return document
 }
+
+/**
+ * Instantiate a new RSA public key.
+ *
+ * @param exponent
+ * @param modulus
+ * @return key
+ */
+fun loadRsaPublicKey (exponent: ByteArray, modulus: ByteArray) : PublicKey {
+
+    val exponentBigInt = BigInteger(exponent)
+    val modulusBigInt = BigInteger(modulus)
+    val keyFactory = KeyFactory.getInstance("RSA")
+    val tmp = RSAPublicKeySpec(exponentBigInt, modulusBigInt)
+    return keyFactory.generatePublic(tmp)
+}
+
 
 private suspend fun ApplicationCall.adminCustomers() {
     val body = try {
@@ -207,10 +230,16 @@ private suspend fun ApplicationCall.ebicsweb() {
 
     logger.info("Processing ${bodyDocument.documentElement.localName}")
 
+    val hostId = bodyDocument.getElementsByTagName("HostID").item(0)
+    if (hostId.nodeValue != getEbicsHostId()) {
+        respond(
+            HttpStatusCode.NotFound,
+            SandboxError("Unknown HostID specified")
+        )
+    }
+
     when (bodyDocument.documentElement.localName) {
         "ebicsUnsecuredRequest" -> {
-
-            /* Manage request.  */
 
             val bodyJaxb = xmlProcess.convertDomToJaxb(
                 EbicsUnsecuredRequest::class.java,
@@ -242,7 +271,7 @@ private suspend fun ApplicationCall.ebicsweb() {
                     if (zkey.isEmpty()) {
                         logger.error("0-length key element given, invalid request")
                         respondText(
-                            contentType = ContentType.Application.Xml,
+                            contentType = ContentType.Text.Plain,
                             status = HttpStatusCode.BadRequest
                         ) { "Bad request / invalid document" }
 
@@ -269,7 +298,18 @@ private suspend fun ApplicationCall.ebicsweb() {
                         result.toString(US_ASCII)
                     )
 
-                    println(keyObject.value.signaturePubKeyInfo.signatureVersion)
+                    // get the customer id
+                    val ebicsUserId = bodyJaxb.value.header.static.userID
+
+                    // get key modulus and exponent
+                    // (do sanity check on the key - see if it loads)
+
+                    val publicKeyy = loadRsaPublicKey(
+                        keyObject.value.signaturePubKeyInfo.pubKeyValue.rsaKeyValue.modulus,
+                        keyObject.value.signaturePubKeyInfo.pubKeyValue.rsaKeyValue.exponent
+                    )
+                    // store key in database
+
 
                 }
             }
