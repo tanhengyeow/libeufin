@@ -11,9 +11,21 @@ class RsaTest {
 
     @Test
     fun loadFromModulusAndExponent() {
-
         val key = loadRsaPublicKey(publicExponent.toByteArray(), publicModulus.toByteArray())
         println(key.toString())
+    }
 
+    /**
+     * Values generating helper.
+     */
+    @Test
+    fun getBase64Values() {
+
+        println(
+            "Modulus: ${Base64.getEncoder().encodeToString(publicModulus.toByteArray())}"
+        )
+        println(
+            "Exponent: ${Base64.getEncoder().encodeToString(publicExponent.toByteArray())}"
+        )
     }
 }

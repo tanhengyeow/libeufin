@@ -102,12 +102,13 @@ fun downcastXml(document: Document, node: String, type: String) : Document {
  * @param modulus
  * @return key
  */
-fun loadRsaPublicKey (exponent: ByteArray, modulus: ByteArray) : PublicKey {
+fun loadRsaPublicKey (modulus: ByteArray, exponent: ByteArray) : PublicKey {
 
-    val exponentBigInt = BigInteger(exponent)
-    val modulusBigInt = BigInteger(modulus)
+    val modulusBigInt = BigInteger(1, modulus)
+    val exponentBigInt = BigInteger(1, exponent)
+
     val keyFactory = KeyFactory.getInstance("RSA")
-    val tmp = RSAPublicKeySpec(exponentBigInt, modulusBigInt)
+    val tmp = RSAPublicKeySpec(modulusBigInt, exponentBigInt)
     return keyFactory.generatePublic(tmp)
 }
 
@@ -314,8 +315,6 @@ private suspend fun ApplicationCall.ebicsweb() {
                         )
                         return
                     }
-
-                    logger.debug(EbicsUsers.userId.name)
 
                     // store key in database
 

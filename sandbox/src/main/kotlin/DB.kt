@@ -148,6 +148,28 @@ class EbicsSystem(id: EntityID<Int>) : IntEntity(id) {
 }
 
 /**
+ * This table stores RSA public keys.
+ */
+object EbicsPublicKeys: IntIdTable() {
+    val pub = binary("pub", PUBLIC_KEY_MAX_LENGTH)
+    val state = customEnumeration(
+        "state",
+        "ENUM('MISSING', 'NEW', 'RELEASED')",
+        {KeyStates.values()[it as Int]},
+        {it.name})
+}
+
+
+/**
+ * Definition of a row in the keys table
+ */
+class EbicsPublicKey(id: EntityID<Int>) : IntEntity(id) {
+    companion object : IntEntityClass<EbicsPublicKey>(EbicsPublicKeys)
+    var pub by EbicsPublicKeys.pub
+    var state by EbicsPublicKeys.state
+}
+
+/**
  * Subscribers table.  This table associates users with partners
  * and systems.  Each value can appear multiple times in the same column.
  */
@@ -156,9 +178,9 @@ object EbicsSubscribers: IntIdTable() {
     val partnerId = reference("PartnerId", EbicsPartners)
     val systemId = reference("SystemId", EbicsSystems)
 
-    val signatureKey = reference("signatureKey", EbicsPublicKey).nullable()
-    val encryptionKey = reference("encryptionKey", EbicsPublicKey).nullable()
-    val authorizationKey = reference("authorizationKey", EbicsPublicKey).nullable()
+    val signatureKey = reference("signatureKey", EbicsPublicKeys).nullable()
+    val encryptionKey = reference("encryptionKey", EbicsPublicKeys).nullable()
+    val authorizationKey = reference("authorizationKey", EbicsPublicKeys).nullable()
 
     val state = customEnumeration(
         "state",
@@ -174,9 +196,9 @@ class EbicsSubscriber(id: EntityID<Int>) : IntEntity(id) {
     var partnerId by EbicsPartner referencedOn EbicsSubscribers.partnerId
     var systemId by EbicsSystem referencedOn EbicsSubscribers.systemId
 
-    var signatureKey by EbicsPublicKey.id
-    var encryptionKey by EbicsPublicKey.id
-    var authorizationKey by EbicsPublicKey.id
+    var signatureKey by EbicsPublicKey optionalReferencedOn EbicsSubscribers.signatureKey
+    var encryptionKey by EbicsPublicKey optionalReferencedOn EbicsSubscribers.encryptionKey
+    var authorizationKey by EbicsPublicKey optionalReferencedOn EbicsSubscribers.authorizationKey
     var state by EbicsSubscribers.state
 }
 
@@ -196,21 +218,9 @@ fun createSubscriber() : EbicsSubscriber {
 
 
 /**
- * This table stores RSA public keys.
- */
-object EbicsPublicKey: IntIdTable() {
-    val pub = binary("pub", PUBLIC_KEY_MAX_LENGTH)
-    val state = customEnumeration(
-        "state",
-        "ENUM('MISSING', 'NEW', 'RELEASED')",
-        {KeyStates.values()[it as Int]},
-        {it.name})
-}
-
-/**
  * This table stores RSA private keys.
  */
-object EbicsPrivateKEy: IntIdTable() {
+object EbicsPrivateKey: IntIdTable() {
     val pub = binary("priv", PRIV_KEY_MAX_LENGTH)
 }
 

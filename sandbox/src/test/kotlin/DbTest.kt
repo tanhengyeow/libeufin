@@ -28,7 +28,6 @@ class DbTest {
                 pub = "BINARYVALUE".toByteArray()
                 state = KeyStates.NEW
             }
-
             subscriber.authorizationKey = key
         }
     }
