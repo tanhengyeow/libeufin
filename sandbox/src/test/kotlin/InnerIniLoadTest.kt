@@ -25,6 +25,4 @@ class InnerIniLoadTest {
 
         loadRsaPublicKey(modulus, exponent)
     }
-
-
 }

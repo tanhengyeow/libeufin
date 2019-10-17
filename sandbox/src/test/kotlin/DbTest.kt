@@ -1,6 +1,7 @@
 package tech.libeufin.sandbox
 
 import org.jetbrains.exposed.dao.EntityID
+import org.jetbrains.exposed.sql.Column
 import org.jetbrains.exposed.sql.transactions.transaction
 import org.junit.BeforeClass
 import org.junit.Test
@@ -30,5 +31,17 @@ class DbTest {
             }
             subscriber.authorizationKey = key
         }
+    }
+
+    @Test
+    fun nestedQuery() {
+
+        /***
+         *  Some query like the following is needed:
+         *
+         *  val result = EbicsSubscriber.find {
+         *    EbicsSubscribers.userId.userId eq "u1"
+         *  }.first()
+         */
     }
 }

@@ -303,8 +303,8 @@ private suspend fun ApplicationCall.ebicsweb() {
 
                     try {
                         loadRsaPublicKey(
-                            keyObject.value.signaturePubKeyInfo.pubKeyValue.rsaKeyValue.exponent,
-                            keyObject.value.signaturePubKeyInfo.pubKeyValue.rsaKeyValue.modulus
+                            keyObject.value.signaturePubKeyInfo.pubKeyValue.rsaKeyValue.modulus,
+                            keyObject.value.signaturePubKeyInfo.pubKeyValue.rsaKeyValue.exponent
                         )
                     } catch (e: Exception) {
                         logger.info("User gave bad key, not storing it")
@@ -316,10 +316,7 @@ private suspend fun ApplicationCall.ebicsweb() {
                         return
                     }
 
-                    // store key in database
-
-
-
+                    // At this point, key is valid, and can be stored in database
                 }
             }
 
