@@ -37,6 +37,7 @@ import io.ktor.routing.routing
 import io.ktor.server.engine.embeddedServer
 import io.ktor.server.netty.Netty
 import io.ktor.util.decodeBase64
+import org.jetbrains.exposed.dao.EntityID
 import org.jetbrains.exposed.sql.transactions.transaction
 import org.slf4j.LoggerFactory
 import org.w3c.dom.Document
@@ -232,15 +233,6 @@ private suspend fun ApplicationCall.ebicsweb() {
 
     logger.info("Processing ${bodyDocument.documentElement.localName}")
 
-    val hostId = bodyDocument.getElementsByTagName("HostID").item(0)
-    if (hostId.nodeValue != getEbicsHostId()) {
-        respond(
-            HttpStatusCode.NotFound,
-            SandboxError("Unknown HostID specified")
-        )
-        return
-    }
-
     when (bodyDocument.documentElement.localName) {
         "ebicsUnsecuredRequest" -> {
 
@@ -252,6 +244,25 @@ private suspend fun ApplicationCall.ebicsweb() {
                     "UnsecuredReqOrderDetailsType"
                 )
             )
+
+            if (bodyJaxb.value.header.static.hostID != getEbicsHostId()) {
+                respond(
+                    HttpStatusCode.NotFound,
+                    SandboxError("Unknown HostID specified")
+                )
+                return
+            }
+            val ebicsUserID = transaction {
+                EbicsUser.find { EbicsUsers.userId eq bodyJaxb.value.header.static.userID }.firstOrNull()
+            }
+            if (ebicsUserID == null) {
+
+                respond(
+                    HttpStatusCode.NotFound,
+                    SandboxError("Ebics UserID not found")
+                )
+                return
+            }
 
             logger.info("Serving a ${bodyJaxb.value.header.static.orderDetails.orderType} request")
 
@@ -316,7 +327,37 @@ private suspend fun ApplicationCall.ebicsweb() {
                         return
                     }
 
-                    // At this point, key is valid, and can be stored in database
+                    // At this point: (1) key is valid and (2) Ebics user exists (check-
+                    // -ed above) => key can be inserted in database.
+                    val ebicsSubscriber = transaction {
+                        EbicsSubscriber.find {
+                            EbicsSubscribers.userId eq EntityID(ebicsUserID.id.value, EbicsUsers)
+                        }.firstOrNull()
+                    }
+
+                    /**
+                     * Should _never_ happen, as upon a EBICS' user creation, a EBICS' subscriber
+                     * row is also (via a helper function) added into the EbicsSubscribers table.
+                     */
+                    if (ebicsSubscriber == null) {
+                        respond(
+                            HttpStatusCode.InternalServerError,
+                            SandboxError("Internal error, please contact customer service")
+                        )
+                        return
+                    }
+
+                    ebicsSubscriber.signatureKey = EbicsPublicKey.new {
+                        modulus = keyObject.value.signaturePubKeyInfo.pubKeyValue.rsaKeyValue.modulus
+                        exponent = keyObject.value.signaturePubKeyInfo.pubKeyValue.rsaKeyValue.exponent
+                    }
+
+                    logger.debug("Signature key inserted in database.")
+
+                    // return INI response!
+
+
+
                 }
             }
 

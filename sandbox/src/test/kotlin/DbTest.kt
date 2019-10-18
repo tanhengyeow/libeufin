@@ -36,8 +36,6 @@ class DbTest {
         }
     }
 
-
-
     @Test
     fun nestedQuery() {
 
@@ -49,7 +47,7 @@ class DbTest {
          *  }.first()
          */
 
-        transaction {
+         transaction {
             createSubscriber()
 
             val tmp = EbicsUser.find { EbicsUsers.userId eq "u1" }.firstOrNull()

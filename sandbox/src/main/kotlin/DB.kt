@@ -8,7 +8,8 @@ const val CUSTOMER_NAME_MAX_LENGTH = 20
 const val EBICS_USER_ID_MAX_LENGTH = 10
 const val EBICS_PARTNER_ID_MAX_LENGTH = 10
 const val EBICS_SYSTEM_ID_MAX_LENGTH = 10
-const val PUBLIC_KEY_MAX_LENGTH = 256 // FIXME review this value!
+const val PUBLIC_KEY_MAX_MODULUS_LENGTH = 256 // FIXME review this value!
+const val PUBLIC_KEY_MAX_EXPONENT_LENGTH = 256 // FIXME review this value!
 const val PRIV_KEY_MAX_LENGTH = 512 // FIXME review this value!
 const val SQL_ENUM_SUBSCRIBER_STATES = "ENUM('NEW', 'PARTIALLI_INITIALIZED_INI', 'PARTIALLY_INITIALIZED_HIA', 'INITIALIZED', 'READY')"
 
@@ -151,7 +152,8 @@ class EbicsSystem(id: EntityID<Int>) : IntEntity(id) {
  * This table stores RSA public keys.
  */
 object EbicsPublicKeys: IntIdTable() {
-    val pub = binary("pub", PUBLIC_KEY_MAX_LENGTH)
+    val modulus = binary("modulus", PUBLIC_KEY_MAX_MODULUS_LENGTH)
+    val exponent = binary("exponent", PUBLIC_KEY_MAX_EXPONENT_LENGTH)
     val state = customEnumeration(
         "state",
         "ENUM('MISSING', 'NEW', 'RELEASED')",
@@ -165,7 +167,8 @@ object EbicsPublicKeys: IntIdTable() {
  */
 class EbicsPublicKey(id: EntityID<Int>) : IntEntity(id) {
     companion object : IntEntityClass<EbicsPublicKey>(EbicsPublicKeys)
-    var pub by EbicsPublicKeys.pub
+    var modulus by EbicsPublicKeys.modulus
+    var exponent by EbicsPublicKeys.exponent
     var state by EbicsPublicKeys.state
 }
 
@@ -174,7 +177,6 @@ class EbicsPublicKey(id: EntityID<Int>) : IntEntity(id) {
  * and systems.  Each value can appear multiple times in the same column.
  */
 object EbicsSubscribers: IntIdTable() {
-
 
     val userId = reference("userId", EbicsUsers)
     val partnerId = reference("partnerId", EbicsPartners)
