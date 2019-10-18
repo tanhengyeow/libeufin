@@ -71,7 +71,7 @@ enum class KeyStates {
  */
 object BankCustomers: IntIdTable() {
     // Customer ID is the default 'id' field provided by the constructor.
-    val name = varchar("name", CUSTOMER_NAME_MAX_LENGTH)
+    val name = varchar("name", CUSTOMER_NAME_MAX_LENGTH).primaryKey()
     val ebicsSubscriber = reference("ebicsSubscriber", EbicsSubscribers)
 }
 
@@ -93,7 +93,7 @@ class BankCustomer(id: EntityID<Int>) : IntEntity(id) {
 
 object EbicsUsers: IntIdTable() {
     /* EBICS user ID in the string form. */
-    val userId = varchar("userId", EBICS_USER_ID_MAX_LENGTH).nullable()
+    val userId = varchar("userId", EBICS_USER_ID_MAX_LENGTH).primaryKey().nullable()
 
 }
 
@@ -112,7 +112,7 @@ class EbicsUser(id: EntityID<Int>) : IntEntity(id){
  * Table for UserID.
  */
 object EbicsPartners: IntIdTable() {
-    val partnerId = varchar("partnerId", EBICS_PARTNER_ID_MAX_LENGTH).nullable()
+    val partnerId = varchar("partnerId", EBICS_PARTNER_ID_MAX_LENGTH).primaryKey().nullable()
 }
 
 
@@ -174,9 +174,11 @@ class EbicsPublicKey(id: EntityID<Int>) : IntEntity(id) {
  * and systems.  Each value can appear multiple times in the same column.
  */
 object EbicsSubscribers: IntIdTable() {
-    val userId = reference("UserId", EbicsUsers)
-    val partnerId = reference("PartnerId", EbicsPartners)
-    val systemId = reference("SystemId", EbicsSystems)
+
+
+    val userId = reference("userId", EbicsUsers)
+    val partnerId = reference("partnerId", EbicsPartners)
+    val systemId = reference("systemId", EbicsSystems)
 
     val signatureKey = reference("signatureKey", EbicsPublicKeys).nullable()
     val encryptionKey = reference("encryptionKey", EbicsPublicKeys).nullable()
