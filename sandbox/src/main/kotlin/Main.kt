@@ -36,16 +36,15 @@ import io.ktor.routing.post
 import io.ktor.routing.routing
 import io.ktor.server.engine.embeddedServer
 import io.ktor.server.netty.Netty
-import io.ktor.util.decodeBase64
 import org.jetbrains.exposed.dao.EntityID
 import org.jetbrains.exposed.sql.transactions.transaction
 import org.slf4j.LoggerFactory
 import org.w3c.dom.Document
 import org.w3c.dom.Element
-import tech.libeufin.messages.ebics.hev.HEVResponseDataType
 import tech.libeufin.messages.ebics.keyrequest.EbicsUnsecuredRequest
 import tech.libeufin.messages.ebics.keyrequest.SignaturePubKeyOrderDataType
 import tech.libeufin.messages.ebics.keyrequest.UnsecuredReqOrderDetailsType
+import tech.libeufin.messages.ebics.keyresponse.EbicsKeyManagementResponse
 import java.math.BigInteger
 import java.nio.charset.StandardCharsets.US_ASCII
 import java.text.DateFormat
@@ -60,6 +59,9 @@ import java.security.interfaces.RSAPublicKey
 import java.security.spec.RSAPublicKeySpec
 import java.util.zip.Inflater
 import java.util.zip.InflaterInputStream
+import javax.xml.bind.JAXB
+
+
 
 
 val logger = LoggerFactory.getLogger("tech.libeufin.sandbox")
@@ -305,8 +307,6 @@ private suspend fun ApplicationCall.ebicsweb() {
 
                     inflater.close()
 
-                    println("That is the key element: ${result.toString(US_ASCII)}")
-
                     val keyObject = xmlProcess.convertStringToJaxb(
                         SignaturePubKeyOrderDataType::class.java,
                         result.toString(US_ASCII)
@@ -347,17 +347,32 @@ private suspend fun ApplicationCall.ebicsweb() {
                         return
                     }
 
-                    ebicsSubscriber.signatureKey = EbicsPublicKey.new {
-                        modulus = keyObject.value.signaturePubKeyInfo.pubKeyValue.rsaKeyValue.modulus
-                        exponent = keyObject.value.signaturePubKeyInfo.pubKeyValue.rsaKeyValue.exponent
+                    // put try-catch block here? (FIXME)
+                    transaction {
+                        ebicsSubscriber.signatureKey = EbicsPublicKey.new {
+                            modulus = keyObject.value.signaturePubKeyInfo.pubKeyValue.rsaKeyValue.modulus
+                            exponent = keyObject.value.signaturePubKeyInfo.pubKeyValue.rsaKeyValue.exponent
+                            state = KeyStates.NEW
+                        }
                     }
 
                     logger.debug("Signature key inserted in database.")
 
                     // return INI response!
+                    val response = KeyManagementResponse(
+                        "H004",
+                        1,
+                        "000000",
+                        "MOCK-ID",
+                        "[EBICS_OK] OK")
 
+                    respondText(
+                        contentType = ContentType.Application.Xml,
+                        status = HttpStatusCode.OK) {
+                            xmlProcess.getStringFromJaxb(response.get()).toString()
+                    }
 
-
+                    return
                 }
             }
 
@@ -378,8 +393,7 @@ private suspend fun ApplicationCall.ebicsweb() {
                 )
             )
 
-            val jaxbHEV: JAXBElement<HEVResponseDataType> = hevResponse.makeHEVResponse()
-            val responseText: String? = xmlProcess.getStringFromJaxb(jaxbHEV)
+            val responseText: String? = xmlProcess.getStringFromJaxb(hevResponse.get())
 
             respondText(
                 contentType = ContentType.Application.Xml,

@@ -9,6 +9,8 @@ import org.junit.BeforeClass
 import junit.framework.TestCase.assertTrue
 import org.junit.Test
 import org.junit.Before
+import tech.libeufin.sandbox.createSubscriber
+import tech.libeufin.sandbox.dbCreateTables
 
 class DbTest {
 
@@ -29,7 +31,8 @@ class DbTest {
             val subscriber = createSubscriber()
 
             val key = EbicsPublicKey.new {
-                pub = "BINARYVALUE".toByteArray()
+                modulus = "BINARYVALUE".toByteArray()
+                exponent = "BINARYVALUE".toByteArray()
                 state = KeyStates.NEW
             }
             subscriber.authorizationKey = key

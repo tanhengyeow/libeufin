@@ -2,7 +2,6 @@ package tech.libeufin.sandbox
 
 import tech.libeufin.messages.ebics.hev.HEVResponseDataType
 import tech.libeufin.messages.ebics.hev.ObjectFactory
-import tech.libeufin.messages.ebics.hev.SystemReturnCodeType
 import javax.xml.bind.JAXBElement
 
 /**
@@ -18,29 +17,23 @@ class HEVResponse(
         reportText: String
     ) : this(returnCode, reportText, null)
 
-    private val value: HEVResponseDataType = {
-        val srt = SystemReturnCodeType()
-        srt.setReturnCode(returnCode);
-        srt.setReportText(reportText);
-        val value = HEVResponseDataType();
-        value.setSystemReturnCode(srt);
+    private val value = {
+        val of = ObjectFactory()
+        val tmp = of.createHEVResponseDataType()
+        tmp.systemReturnCode = of.createSystemReturnCodeType()
+        tmp.systemReturnCode.reportText = reportText
+        tmp.systemReturnCode.returnCode = returnCode
 
         protocolAndVersion?.forEach {
-            val entry = HEVResponseDataType.VersionNumber()
-            entry.setProtocolVersion(it.protocol)
-            entry.setValue(it.version)
-            value.getVersionNumber().add(entry)
+            val entry = of.createHEVResponseDataTypeVersionNumber()
+            entry.protocolVersion = it.protocol
+            entry.value = it.version
+            tmp.versionNumber.add(entry)
         }
-
-        value
+        of.createEbicsHEVResponse(tmp)
     }()
-
-    fun getValue(): HEVResponseDataType {
+    
+    fun get(): JAXBElement<HEVResponseDataType> {
         return value
-    }
-
-    fun makeHEVResponse(): JAXBElement<HEVResponseDataType> {
-        val of = ObjectFactory()
-        return of.createEbicsHEVResponse(value)
     }
 }

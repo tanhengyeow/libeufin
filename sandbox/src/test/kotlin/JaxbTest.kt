@@ -1,17 +1,13 @@
 package tech.libeufin.sandbox
 
 import junit.framework.TestCase.assertEquals
-import junit.framework.TestCase.assertTrue
 import org.junit.Test
-import org.w3c.dom.Element
-import tech.libeufin.messages.ebics.hev.HEVResponseDataType
 import tech.libeufin.messages.ebics.keyrequest.EbicsUnsecuredRequest
 import tech.libeufin.messages.ebics.keyrequest.SignaturePubKeyOrderDataType
-import javax.xml.bind.JAXBElement
 
 class JaxbTest {
 
-    val processor = tech.libeufin.sandbox.XML()
+    val processor = XML()
     val classLoader = ClassLoader.getSystemClassLoader()
     val hevResponseJaxb = HEVResponse(
         "000000",
@@ -20,7 +16,7 @@ class JaxbTest {
             ProtocolAndVersion("H003", "02.40"),
             ProtocolAndVersion("H004", "02.50")
         )
-    ).makeHEVResponse()
+    )
 
 
     /**
@@ -67,8 +63,7 @@ class JaxbTest {
      */
     @Test
     fun jaxbToString() {
-
-        processor.getStringFromJaxb(hevResponseJaxb)
+        processor.getStringFromJaxb(hevResponseJaxb.get())
     }
 
     /**
@@ -76,7 +71,7 @@ class JaxbTest {
      */
     @Test
     fun jaxbToDom() {
-        processor.convertJaxbToDom(hevResponseJaxb)
+        processor.convertJaxbToDom(hevResponseJaxb.get())
     }
 
 
@@ -92,6 +87,4 @@ class JaxbTest {
             EbicsUnsecuredRequest::class.java,
             iniDom!!)
     }
-
-
 }
