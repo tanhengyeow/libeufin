@@ -63,7 +63,7 @@ class JaxbTest {
      */
     @Test
     fun jaxbToString() {
-        processor.getStringFromJaxb(hevResponseJaxb.get())
+        processor.convertJaxbToString(hevResponseJaxb.get())
     }
 
     /**

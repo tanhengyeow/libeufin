@@ -242,7 +242,7 @@ class XML {
      * @param document the DOM to extract the string from.
      * @return the final String, or null if errors occur.
      */
-    fun getStringFromDocument(document: Document): String? {
+    fun convertDocumentToString(document: Document): String? {
 
         try {
             /* Make Transformer.  */
@@ -272,7 +272,7 @@ class XML {
      * @param obj the JAXB instance
      * @return String representation of @a object, or null if errors occur
      */
-    fun <T> getStringFromJaxb(obj: JAXBElement<T>): String? {
+    fun <T> convertJaxbToString(obj: JAXBElement<T>): String? {
         val sw = StringWriter()
 
         try {

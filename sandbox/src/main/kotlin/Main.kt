@@ -369,7 +369,7 @@ private suspend fun ApplicationCall.ebicsweb() {
                     respondText(
                         contentType = ContentType.Application.Xml,
                         status = HttpStatusCode.OK) {
-                            xmlProcess.getStringFromJaxb(response.get()).toString()
+                            xmlProcess.convertJaxbToString(response.get()).toString()
                     }
 
                     return
@@ -393,7 +393,7 @@ private suspend fun ApplicationCall.ebicsweb() {
                 )
             )
 
-            val responseText: String? = xmlProcess.getStringFromJaxb(hevResponse.get())
+            val responseText: String? = xmlProcess.convertJaxbToString(hevResponse.get())
 
             respondText(
                 contentType = ContentType.Application.Xml,

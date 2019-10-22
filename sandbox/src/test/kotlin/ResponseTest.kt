@@ -17,7 +17,7 @@ class ResponseTest {
             "All is OK."
         )
 
-        print(xmlprocess.getStringFromJaxb(response.get()))
+        print(xmlprocess.convertJaxbToString(response.get()))
 
 
     }

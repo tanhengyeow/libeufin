@@ -35,6 +35,6 @@ class MarshalNonJaxbTest {
         )
 
         val proc = XML()
-        println(proc.getStringFromJaxb(obj.get()))
+        println(proc.convertJaxbToString(obj.get()))
     }
 }
