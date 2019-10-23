@@ -177,8 +177,7 @@ class XML {
      */
     fun <T>convertDomToJaxb(finalType: Class<T>, document: Document) : JAXBElement<T> {
 
-        // val jc = JAXBContext.newInstance(finalType)
-        val jc = JAXBContext.newInstance("tech.libeufin.messages.ebics.keyresponse")
+        val jc = JAXBContext.newInstance(finalType)
 
         /* Marshalling the object into the document.  */
         val m = jc.createUnmarshaller()

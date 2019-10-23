@@ -276,6 +276,8 @@ private suspend fun ApplicationCall.adminCustomersKeyletter() {
 private suspend fun ApplicationCall.ebicsweb() {
 
     val body: String = receiveText()
+    logger.debug("Data received: $body")
+    
     val bodyDocument: Document? = xmlProcess.parseStringIntoDom(body)
 
     if (bodyDocument == null || (!xmlProcess.validateFromDom(bodyDocument))) {
@@ -530,8 +532,6 @@ private suspend fun ApplicationCall.ebicsweb() {
         else -> {
             /* Log to console and return "unknown type" */
             logger.info("Unknown message, just logging it!")
-            logger.debug(body)
-
             respond(
                 HttpStatusCode.NotImplemented,
                 SandboxError("Not Implemented")
