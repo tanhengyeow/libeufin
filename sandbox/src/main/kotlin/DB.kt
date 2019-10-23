@@ -8,8 +8,8 @@ const val CUSTOMER_NAME_MAX_LENGTH = 20
 const val EBICS_USER_ID_MAX_LENGTH = 10
 const val EBICS_PARTNER_ID_MAX_LENGTH = 10
 const val EBICS_SYSTEM_ID_MAX_LENGTH = 10
-const val PUBLIC_KEY_MAX_MODULUS_LENGTH = 256 // FIXME review this value!
-const val PUBLIC_KEY_MAX_EXPONENT_LENGTH = 256 // FIXME review this value!
+const val PUBLIC_KEY_MAX_MODULUS_LENGTH = 2048 // FIXME review this value!
+const val PUBLIC_KEY_MAX_EXPONENT_LENGTH = 64 // FIXME review this value!
 const val PRIV_KEY_MAX_LENGTH = 512 // FIXME review this value!
 
 /**

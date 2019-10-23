@@ -277,7 +277,7 @@ private suspend fun ApplicationCall.ebicsweb() {
 
     val body: String = receiveText()
     logger.debug("Data received: $body")
-    
+
     val bodyDocument: Document? = xmlProcess.parseStringIntoDom(body)
 
     if (bodyDocument == null || (!xmlProcess.validateFromDom(bodyDocument))) {
@@ -398,7 +398,22 @@ private suspend fun ApplicationCall.ebicsweb() {
              * and at this point is valid and _never_ empty.
              */
             val inflater = InflaterInputStream(zkey.inputStream())
-            var payload = ByteArray(1) {inflater.read().toByte()}
+
+            var payload = try {
+                ByteArray(1) {inflater.read().toByte()}
+            } catch (e: Exception) {
+                e.printStackTrace()
+                val response = KeyManagementResponse(
+                    returnCode = InvalidXmlHelper.getCode(),
+                    reportText = InvalidXmlHelper.getMessage("Badly compressed key")
+                )
+                respondText(
+                    contentType = ContentType.Application.Xml,
+                    status = HttpStatusCode.BadRequest
+                ) { xmlProcess.convertJaxbToString(response.get())!! }
+
+                return
+            }
 
             while (inflater.available() == 1) {
                 payload += inflater.read().toByte()
@@ -406,6 +421,7 @@ private suspend fun ApplicationCall.ebicsweb() {
 
             inflater.close()
 
+            logger.debug("Found payload: ${payload.toString(US_ASCII)}")
 
             when (bodyJaxb.value.header.static.orderDetails.orderType) {
 
@@ -468,7 +484,7 @@ private suspend fun ApplicationCall.ebicsweb() {
                             keyObject.value.encryptionPubKeyInfo.pubKeyValue.rsaKeyValue.exponent
                         )
                     } catch (e: Exception) {
-                        logger.info("User gave bad at lease one invalid HIA key")
+                        logger.info("User gave at least one invalid HIA key")
                         e.printStackTrace()
                         val response = KeyManagementResponse(
                             returnCode = InvalidXmlHelper.getCode(),
@@ -482,8 +498,6 @@ private suspend fun ApplicationCall.ebicsweb() {
 
                         return
                     }
-
-                    // user exists and keys are good.
 
                     // put try-catch block here? (FIXME)
                     transaction {
@@ -521,12 +535,10 @@ private suspend fun ApplicationCall.ebicsweb() {
                 )
             )
 
-            val responseText: String? = xmlProcess.convertJaxbToString(hevResponse.get())
-
             respondText(
                 contentType = ContentType.Application.Xml,
                 status = HttpStatusCode.OK
-            ) { responseText.toString() }
+            ) { xmlProcess.convertJaxbToString(hevResponse.get())!! }
             return
         }
         else -> {
