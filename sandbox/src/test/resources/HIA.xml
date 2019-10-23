@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ebics:ebicsUnsecuredRequest xmlns:ds="http://www.w3.org/2000/09/xmldsig#" xmlns:ebics="urn:org:ebics:H004" xmlns="http://www.w3.org/2001/XMLSchema" Version="H004" Revision="1">
+  <ebics:header authenticate="true">
+    <ebics:static>
+      <ebics:HostID>EBIXQUAL</ebics:HostID>
+      <ebics:PartnerID>EXCHANGE</ebics:PartnerID>
+      <ebics:UserID>TALER</ebics:UserID>
+      <ebics:OrderDetails>
+        <ebics:OrderType>HIA</ebics:OrderType>
+        <ebics:OrderAttribute>DZNNN</ebics:OrderAttribute>
+      </ebics:OrderDetails>
+      <ebics:SecurityMedium>0000</ebics:SecurityMedium>
+    </ebics:static>
+    <ebics:mutable/>
+  </ebics:header>
+  <ebics:body>
+    <ebics:DataTransfer>
+      <ebics:OrderData>eJy9lsmSo0gWRff1FWnRSywTZxZhkVHGLASIeZB2zCAxiVHw9a2OjMiurIxadi/fu9evO+bvuPHy572uvsxpP5Rt8/0J+QaevqRN3CZlk39/msbs6+7pz9c/XtKojIfnvcxY6W1Kh1Hvk7TnwzH88ljfDM/J8P2pGMfuGYaXZfm2YN/aPodRAAAMaPjhSYYy/9fTu/st7RHfN88P2/N7OAD4T8PD/Uvgm+Ut0wYAebf9w5YIHGiqHRdpHT69vp+cmcYibcYyDsfHhxpTpKSr3GTth/6j44XVlL6+JMOzZTO/1FqbTNU0vDImw77Af2n8RxTuXds80l+ZQyHGV0GJiP1FzaeRvXG12BaUfsx1fuqYwTfVhGg76QzjdDWD0owyOb2LSqwsvRZSFgCHqItQ40zl1wrG1O68Uzj76ux21QKzmXGPUO0cMhcF6tnVM/jlWikrJ5ThnF+iA7Q6dt1z0X4D5ynRyru7gEsQCv5g5S0K48eW6YNluLOctlfF2m96ye3Q2UmiUNwM1TK5BoEfu2FZiACinrXgvmc0/+iZd2rA6ezAcUuDZhYizJHOIsOJjoNjSt2oBd13plF2jLqdlF0bdjgJbRKk0v6hXZEpWaULbHViTd4Ej5eveWrkiQtC1oFtlMSVQMFjjAHEjgPm5UrYVyxweq9PeyvmZ2ktBsrkZXazMyJ4nA1gdAJwK+tlNUZTDqOUprF2/hbVHGIMR7divENoajVO1WNpWFxIrZmfE2ok2QzhNNXFvaPcFTBXhrULeDLcO8f1Yr0WwJh4LNfNgzMQPQmleN7qDZxTAiaHto0B2HfxZrs5u6GmL6O520Q/CJAJKZ2zyOihMBaWo3eBz1pVWRlcP0W1Yd8Vvkk3qONkvmavUonYzKFRRA3cw/3NMug+QyHu0uH7XquQuI/ULuFH3GskGtldN9usrRNZk6YdsSgckp4+ntt0Qc8lVaxcyWBWIMrVET4jvnbhqCM0WBZ/T6yo2a8p3t0W66KHGb0LtYw9i811JtlT6EALea/epvjn5L5Vvwz9Dy6csk7tMay7VxQgu68I8hUgDoI8I+AZI84v8N9dH51fePoMQe/Hk/MaAIB+LPrc8bn6O8JCE/dr9z/FWwWJsslUKCywthM01MsRLJRgfaN0uUED91KvcmEXlJ1RDW5DcBDtAz5DztWQ7xbCUSDFZIReNHwgAbPAY9ZKZ+XsDZ3fHGUCWkb3uFHZPm143VLYyZgwTxXWileOe9n36Uw6LvgEnHwiw7kX9z2OHmuyEHDNDxzVyYWT4o1rxBxbHMpPUTGPLSGM0HYbdBOW4hn1hq0KgMxz8Tyo5fnmhkJyDmfUDbuRW6tQkTVHvmCH6uKPgscOAG91kha6uTRKSanwq2Bu2IkS/Gt1346EcS8JXYRVJDjch4VTFiF1ZN8lBzlERdal8LgPd8hsHgt6wvyyNSSXTCi69cpuIInmXEKYsrT9wsMJRi1sTCsAt7PHJXv0yYL4jeM2xMh4186hyzyj4UoW7MJWKTqknmI96NZL+QGAYDpMPqJI4Qd8TUxW3kR17Rezelh9EzpxE9izmsQuLVPBfZSnLT3xaj6ubKEADD8oTeQ2wSQjI0MEhygqHcpTb3VOxrxyjrlSLBlP2oYqPGgYS1rCoTiKeUI8LmyVHHHO949ROLmo6y/D/pLUh9AyLoxIxo60pCLiLDwdXB+4t81uF88aB6mVdswZhM9GEkJmdZbvRt5Tk4cQoCKybY4MA1r1bMj9VqEf76ppXw7X0k40iIhAKjML5/aztJCLfW1Knb42bEND0y3P1BkzArnvGxVgxv8d7//i9wGu8Be0f1d/Vz7BNuzHJu1l/lUIuD1zlISfB/ipvFvd4a1yGFWwPkzvvY/yk7+X1z/+DS9KDOM=</ebics:OrderData>
+    </ebics:DataTransfer>
+  </ebics:body>
+</ebics:ebicsUnsecuredRequest>

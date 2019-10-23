@@ -41,7 +41,9 @@ import org.jetbrains.exposed.sql.transactions.transaction
 import org.slf4j.LoggerFactory
 import org.w3c.dom.Document
 import org.w3c.dom.Element
+import tech.libeufin.messages.ebics.keyrequest.AuthenticationPubKeyInfoType
 import tech.libeufin.messages.ebics.keyrequest.EbicsUnsecuredRequest
+import tech.libeufin.messages.ebics.keyrequest.HIARequestOrderDataType
 import tech.libeufin.messages.ebics.keyrequest.SignaturePubKeyOrderDataType
 import java.math.BigInteger
 import java.nio.charset.StandardCharsets.US_ASCII
@@ -55,6 +57,8 @@ import java.util.zip.InflaterInputStream
 val logger = LoggerFactory.getLogger("tech.libeufin.sandbox")
 val xmlProcess = XML()
 val getEbicsHostId = {"LIBEUFIN-SANDBOX"}
+val getEbicsVersion = {"H004"}
+val getEbicsRevision = {1}
 
 object UserUnknownHelper {
 
@@ -142,15 +146,17 @@ object OkHelper {
  * @return the modified document
  */
 fun downcastXml(document: Document, node: String, type: String) : Document {
-
-    val x: Element = document.getElementsByTagName("OrderDetails")?.item(0) as Element
+    logger.debug("Downcasting: ${xmlProcess.convertDomToString(document)}")
+    val x: Element = document.getElementsByTagNameNS(
+        "urn:org:ebics:H004",
+        "OrderDetails"
+    )?.item(0) as Element
 
     x.setAttributeNS(
         "http://www.w3.org/2001/XMLSchema-instance",
         "type",
         type
     )
-
     return document
 }
 
@@ -330,55 +336,82 @@ private suspend fun ApplicationCall.ebicsweb() {
                 return
             }
 
+            val ebicsSubscriber = transaction {
+                EbicsSubscriber.find {
+                    EbicsSubscribers.userId eq EntityID(ebicsUserID.id.value, EbicsUsers)
+                }.firstOrNull()
+            }
+
+            /**
+             * Should _never_ happen, as upon a EBICS' user creation, a EBICS' subscriber
+             * row is also (via a helper function) added into the EbicsSubscribers table.
+             */
+            if (ebicsSubscriber == null) {
+
+                val response = KeyManagementResponse(
+                    returnCode = InternalErrorHelper.getCode(),
+                    reportText = InternalErrorHelper.getMessage()
+                )
+
+                respondText(
+                    status = HttpStatusCode.InternalServerError,
+                    contentType = ContentType.Application.Xml
+                ) { InternalErrorHelper.getMessage() }
+
+                return
+            }
+
             logger.info("Serving a ${bodyJaxb.value.header.static.orderDetails.orderType} request")
+
+
+            /**
+             * NOTE: the JAXB interface has some automagic mechanism that decodes
+             * the Base64 string into its byte[] form _at the same time_ it instantiates
+             * the object; in other words, there is no need to perform here the decoding.
+             */
+            val zkey = bodyJaxb.value.body.dataTransfer.orderData.value
+
+            /**
+             * The validation enforces zkey to be a base64 value, but does not check
+             * whether it is given _empty_ or not; will check explicitly here.  FIXME:
+             * shall the schema be patched to avoid having this if-block here?
+             */
+            if (zkey.isEmpty()) {
+                logger.info("0-length key element given, invalid request")
+                var response = KeyManagementResponse(
+                    returnCode = InvalidXmlHelper.getCode(),
+                    reportText = InvalidXmlHelper.getMessage("Key field was empty")
+                )
+
+                respondText(
+                    contentType = ContentType.Text.Plain,
+                    status = HttpStatusCode.BadRequest
+                ) { xmlProcess.convertJaxbToString(response.get())!! }
+
+                return
+            }
+
+            /**
+             * This value holds the bytes[] of a XML "SignaturePubKeyOrderData" document
+             * and at this point is valid and _never_ empty.
+             */
+            val inflater = InflaterInputStream(zkey.inputStream())
+            var payload = ByteArray(1) {inflater.read().toByte()}
+
+            while (inflater.available() == 1) {
+                payload += inflater.read().toByte()
+            }
+
+            inflater.close()
+
 
             when (bodyJaxb.value.header.static.orderDetails.orderType) {
 
                 "INI" -> {
 
-                    /**
-                     * NOTE: the JAXB interface has some automagic mechanism that decodes
-                     * the Base64 string into its byte[] form _at the same time_ it instantiates
-                     * the object; in other words, there is no need to perform here the decoding.
-                     */
-                    val zkey = bodyJaxb.value.body.dataTransfer.orderData.value
-
-                    /**
-                     * The validation enforces zkey to be a base64 value, but does not check
-                     * whether it is given _empty_ or not; will check explicitly here.  FIXME:
-                     * shall the schema be patched to avoid having this if-block here?
-                     */
-                    if (zkey.isEmpty()) {
-                        logger.info("0-length key element given, invalid request")
-                        var response = KeyManagementResponse(
-                            returnCode = InvalidXmlHelper.getCode(),
-                            reportText = InvalidXmlHelper.getMessage("Key field was empty")
-                        )
-
-                        respondText(
-                            contentType = ContentType.Text.Plain,
-                            status = HttpStatusCode.BadRequest
-                        ) { xmlProcess.convertJaxbToString(response.get())!! }
-
-                        return
-                    }
-
-                    /**
-                     * This value holds the bytes[] of a XML "SignaturePubKeyOrderData" document
-                     * and at this point is valid and _never_ empty.
-                     */
-                    val inflater = InflaterInputStream(zkey.inputStream())
-                    var result = ByteArray(1) {inflater.read().toByte()}
-
-                    while (inflater.available() == 1) {
-                        result += inflater.read().toByte()
-                    }
-
-                    inflater.close()
-
                     val keyObject = xmlProcess.convertStringToJaxb(
                         SignaturePubKeyOrderDataType::class.java,
-                        result.toString(US_ASCII)
+                        payload.toString(US_ASCII)
                     )
 
                     try {
@@ -394,38 +427,10 @@ private suspend fun ApplicationCall.ebicsweb() {
                             reportText = InvalidXmlHelper.getMessage("Invalid key given")
                         )
 
-
                         respondText(
                             contentType = ContentType.Application.Xml,
                             status = HttpStatusCode.BadRequest
                         ) { xmlProcess.convertJaxbToString(response.get())!! }
-
-                        return
-                    }
-
-                    // At this point: (1) key is valid and (2) Ebics user exists (check-
-                    // -ed above) => key can be inserted in database.
-                    val ebicsSubscriber = transaction {
-                        EbicsSubscriber.find {
-                            EbicsSubscribers.userId eq EntityID(ebicsUserID.id.value, EbicsUsers)
-                        }.firstOrNull()
-                    }
-
-                    /**
-                     * Should _never_ happen, as upon a EBICS' user creation, a EBICS' subscriber
-                     * row is also (via a helper function) added into the EbicsSubscribers table.
-                     */
-                    if (ebicsSubscriber == null) {
-
-                        val response = KeyManagementResponse(
-                            returnCode = InternalErrorHelper.getCode(),
-                            reportText = InternalErrorHelper.getMessage()
-                        )
-
-                        respondText(
-                            status = HttpStatusCode.InternalServerError,
-                            contentType = ContentType.Application.Xml
-                        ) { InternalErrorHelper.getMessage() }
 
                         return
                     }
@@ -441,34 +446,67 @@ private suspend fun ApplicationCall.ebicsweb() {
                         ebicsSubscriber.state = SubscriberStates.PARTIALLY_INITIALIZED_INI
                     }
 
-                    logger.info(
-                        "Signature key inserted in database _and_ subscriber state changed accordingly"
-                    )
-
-                    // return INI response!
-                    val response = KeyManagementResponse(
-                        returnCode = OkHelper.getCode(),
-                        reportText = OkHelper.getMessage()
-                    )
-
-                    respondText(
-                        contentType = ContentType.Application.Xml,
-                        status = HttpStatusCode.OK
-                    ) { xmlProcess.convertJaxbToString(response.get())!! }
-
-                    return
+                    logger.info("Signature key inserted in database _and_ subscriber state changed accordingly")
                 }
 
                 "HIA" -> {
 
-                    respond(
-                        HttpStatusCode.NotImplemented,
-                        SandboxError("Not implemented")
+                    val keyObject = xmlProcess.convertStringToJaxb(
+                        HIARequestOrderDataType::class.java,
+                        payload.toString(US_ASCII)
                     )
-                    return
 
+                    try {
+                        loadRsaPublicKey(
+                            keyObject.value.authenticationPubKeyInfo.pubKeyValue.rsaKeyValue.modulus,
+                            keyObject.value.authenticationPubKeyInfo.pubKeyValue.rsaKeyValue.exponent
+                        )
+                        loadRsaPublicKey(
+                            keyObject.value.encryptionPubKeyInfo.pubKeyValue.rsaKeyValue.modulus,
+                            keyObject.value.encryptionPubKeyInfo.pubKeyValue.rsaKeyValue.exponent
+                        )
+                    } catch (e: Exception) {
+                        logger.info("User gave bad at lease one invalid HIA key")
+                        e.printStackTrace()
+                        val response = KeyManagementResponse(
+                            returnCode = InvalidXmlHelper.getCode(),
+                            reportText = InvalidXmlHelper.getMessage("Bad keys given")
+                        )
+
+                        respondText(
+                            contentType = ContentType.Application.Xml,
+                            status = HttpStatusCode.BadRequest
+                        ) { xmlProcess.convertJaxbToString(response.get())!! }
+
+                        return
+                    }
+
+                    // user exists and keys are good.
+
+                    // put try-catch block here? (FIXME)
+                    transaction {
+                        ebicsSubscriber.authenticationKey = EbicsPublicKey.new {
+                            modulus = keyObject.value.authenticationPubKeyInfo.pubKeyValue.rsaKeyValue.modulus
+                            exponent = keyObject.value.authenticationPubKeyInfo.pubKeyValue.rsaKeyValue.exponent
+                            state = KeyStates.NEW
+                        }
+
+                        ebicsSubscriber.state = SubscriberStates.PARTIALLY_INITIALIZED_HIA
+                    }
                 }
             }
+
+            val response = KeyManagementResponse(
+                returnCode = OkHelper.getCode(),
+                reportText = OkHelper.getMessage()
+            )
+
+            respondText(
+                contentType = ContentType.Application.Xml,
+                status = HttpStatusCode.OK
+            ) { xmlProcess.convertJaxbToString(response.get())!! }
+
+            return
         }
 
         "ebicsHEVRequest" -> {
@@ -492,10 +530,12 @@ private suspend fun ApplicationCall.ebicsweb() {
         else -> {
             /* Log to console and return "unknown type" */
             logger.info("Unknown message, just logging it!")
-            respondText(
-                contentType = ContentType.Application.Xml,
-                status = HttpStatusCode.NotFound
-            ) { "Not found" }
+            logger.debug(body)
+
+            respond(
+                HttpStatusCode.NotImplemented,
+                SandboxError("Not Implemented")
+            )
             return
         }
     }

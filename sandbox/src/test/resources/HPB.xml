@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ebics:ebicsNoPubKeyDigestsRequest xmlns:ds="http://www.w3.org/2000/09/xmldsig#" xmlns:ebics="urn:org:ebics:H004" xmlns="http://www.w3.org/2001/XMLSchema" Version="H004" Revision="1">
+  <ebics:header authenticate="true">
+    <ebics:static>
+      <ebics:HostID>EBIXQUAL</ebics:HostID>
+      <ebics:Nonce>0749134D19E160DA4ACA366180113D44</ebics:Nonce>
+      <ebics:Timestamp>2018-11-01T11:10:35Z</ebics:Timestamp>
+      <ebics:PartnerID>EXCHANGE</ebics:PartnerID>
+      <ebics:UserID>TALER</ebics:UserID>
+      <ebics:OrderDetails>
+        <ebics:OrderType>HPB</ebics:OrderType>
+        <ebics:OrderAttribute>DZHNN</ebics:OrderAttribute>
+      </ebics:OrderDetails>
+      <ebics:SecurityMedium>0000</ebics:SecurityMedium>
+    </ebics:static>
+    <ebics:mutable/>
+  </ebics:header>
+  <ebics:AuthSignature>
+    <ds:SignedInfo>
+      <ds:CanonicalizationMethod Algorithm="http://www.w3.org/TR/2001/REC-xml-c14n-20010315"/>
+      <ds:SignatureMethod Algorithm="http://www.w3.org/2001/04/xmldsig-more#rsa-sha256"/>
+      <ds:Reference URI="#xpointer(//*[@authenticate='true'])">
+        <ds:Transforms>
+          <ds:Transform Algorithm="http://www.w3.org/TR/2001/REC-xml-c14n-20010315"/>
+        </ds:Transforms>
+        <ds:DigestMethod Algorithm="http://www.w3.org/2001/04/xmlenc#sha256"/>
+        <ds:DigestValue>yuwpcvmVrNrc1t58aulF6TiqKO+CNe7Dhwaa6V/cKws=</ds:DigestValue>
+      </ds:Reference>
+    </ds:SignedInfo>
+    <ds:SignatureValue>chhF4/yxSz2WltTR0/DPf01WyncNx3P1XJDr0SylVMVWWSY9S1dYyJKgGOW+g7C/
+HYzrGcFwKrejf79DH3F2Ek8NJLsAFzf/0oxff2eYEe0SlxjXmgsubeMOy5PKB9Ag
+ZiQYMiNy9gaatqcW79E3n/r1nD/lwLsped/4jzWdY+Gfj3z6d18vymmGymbHqIaR
+hawk/Iu/tpMQ3dbvIFbzn9LLMmzfQzG2ZPy3BiQNVWr3aSLl9qG4U9zeK6OyH2/Z
+g1EEnjfJa/+pTCeJmyoDBwgaJWcuCRQmWjvxvbM4ckYnrFkhvLf24on2ydmUeipp
+sMl8q1khyWUC0P0h6otZhD1SUdf1rt14r16bdy1r0ieTVm6m3qXhcX5MXagvFci0
+0OE2mOgf/GXE2WiJLAbRh06s9OvAzHUq4QGQwbkprMBMFw4uxONyNzYl+F9aA5Ic
+Awebf7/dfDJIHZc8XkwY1jNJrmCTzRyTP5eDN4bDPoHqTotDo1CMFaHtnkygg/Lg
+qoirV8mHfqnO4XQBOCUiHZ6mzz81l+O7dYg65cYx9Z76q2cv1PxsMb7Eo4nvux5S
+QPuuid0G5lomHXM/uM3mu4vXcDluCoffgTDimxs0I9X+PB7a2vgSMezwYkj8dA69
+vszH1hwek7DRbRfKUo6HUxl49Gsk0XYG/K30M5fS5JE=</ds:SignatureValue>
+  </ebics:AuthSignature>
+  <ebics:body/>
+</ebics:ebicsNoPubKeyDigestsRequest>

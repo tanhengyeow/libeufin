@@ -10,8 +10,7 @@ class ResponseTest {
     fun loadResponse() {
         val response = EbicsResponse(
         "0000",
-        "[EBICS_OK]",
-            "All is OK."
+        "[EBICS_OK] All is okay"
         )
 
         print(xmlprocess.convertJaxbToString(response.get()))

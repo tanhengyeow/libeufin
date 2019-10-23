@@ -35,7 +35,7 @@ class DbTest {
                 exponent = "BINARYVALUE".toByteArray()
                 state = KeyStates.NEW
             }
-            subscriber.authorizationKey = key
+            subscriber.authenticationKey = key
         }
     }
 

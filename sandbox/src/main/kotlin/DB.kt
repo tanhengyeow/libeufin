@@ -179,7 +179,7 @@ object EbicsSubscribers: IntIdTable() {
 
     val signatureKey = reference("signatureKey", EbicsPublicKeys).nullable()
     val encryptionKey = reference("encryptionKey", EbicsPublicKeys).nullable()
-    val authorizationKey = reference("authorizationKey", EbicsPublicKeys).nullable()
+    val authenticationKey = reference("authorizationKey", EbicsPublicKeys).nullable()
 
     val state = enumeration("state", SubscriberStates::class)
 }
@@ -193,7 +193,7 @@ class EbicsSubscriber(id: EntityID<Int>) : IntEntity(id) {
 
     var signatureKey by EbicsPublicKey optionalReferencedOn EbicsSubscribers.signatureKey
     var encryptionKey by EbicsPublicKey optionalReferencedOn EbicsSubscribers.encryptionKey
-    var authorizationKey by EbicsPublicKey optionalReferencedOn EbicsSubscribers.authorizationKey
+    var authenticationKey by EbicsPublicKey optionalReferencedOn EbicsSubscribers.authenticationKey
     var state by EbicsSubscribers.state
 }
 

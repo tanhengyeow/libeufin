@@ -177,7 +177,8 @@ class XML {
      */
     fun <T>convertDomToJaxb(finalType: Class<T>, document: Document) : JAXBElement<T> {
 
-        val jc = JAXBContext.newInstance(finalType)
+        // val jc = JAXBContext.newInstance(finalType)
+        val jc = JAXBContext.newInstance("tech.libeufin.messages.ebics.keyresponse")
 
         /* Marshalling the object into the document.  */
         val m = jc.createUnmarshaller()
@@ -242,7 +243,7 @@ class XML {
      * @param document the DOM to extract the string from.
      * @return the final String, or null if errors occur.
      */
-    fun convertDocumentToString(document: Document): String? {
+    fun convertDomToString(document: Document): String? {
 
         try {
             /* Make Transformer.  */
