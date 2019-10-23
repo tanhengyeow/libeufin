@@ -11,7 +11,6 @@ const val EBICS_SYSTEM_ID_MAX_LENGTH = 10
 const val PUBLIC_KEY_MAX_MODULUS_LENGTH = 256 // FIXME review this value!
 const val PUBLIC_KEY_MAX_EXPONENT_LENGTH = 256 // FIXME review this value!
 const val PRIV_KEY_MAX_LENGTH = 512 // FIXME review this value!
-const val SQL_ENUM_SUBSCRIBER_STATES = "ENUM('NEW', 'PARTIALLI_INITIALIZED_INI', 'PARTIALLY_INITIALIZED_HIA', 'INITIALIZED', 'READY')"
 
 /**
  * All the states to give a subscriber.
@@ -23,12 +22,12 @@ enum class SubscriberStates {
     NEW,
 
     /**
-     * Only INI electronic message was succesfully sent.
+     * Only INI electronic message was successfully sent.
      */
     PARTIALLY_INITIALIZED_INI,
 
     /**
-     * Only HIA electronic message was succesfully sent.
+     * Only HIA electronic message was successfully sent.
      */
     PARTIALLY_INITIALIZED_HIA,
 
@@ -154,11 +153,7 @@ class EbicsSystem(id: EntityID<Int>) : IntEntity(id) {
 object EbicsPublicKeys: IntIdTable() {
     val modulus = binary("modulus", PUBLIC_KEY_MAX_MODULUS_LENGTH)
     val exponent = binary("exponent", PUBLIC_KEY_MAX_EXPONENT_LENGTH)
-    val state = customEnumeration(
-        "state",
-        "ENUM('MISSING', 'NEW', 'RELEASED')",
-        {KeyStates.values()[it as Int]},
-        {it.name})
+    val state = enumeration("state", KeyStates::class)
 }
 
 
@@ -186,11 +181,7 @@ object EbicsSubscribers: IntIdTable() {
     val encryptionKey = reference("encryptionKey", EbicsPublicKeys).nullable()
     val authorizationKey = reference("authorizationKey", EbicsPublicKeys).nullable()
 
-    val state = customEnumeration(
-        "state",
-        SQL_ENUM_SUBSCRIBER_STATES,
-        {SubscriberStates.values()[it as Int]},
-        {it.name})
+    val state = enumeration("state", SubscriberStates::class)
 }
 
 class EbicsSubscriber(id: EntityID<Int>) : IntEntity(id) {

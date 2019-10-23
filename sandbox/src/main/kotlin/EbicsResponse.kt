@@ -12,10 +12,10 @@ import javax.xml.namespace.QName
  * @param reportText EBICS-compliant error text token, e.g. "[EBICS_OK]" (mandatory brackets!)
  * @param description short description about the response, e.g. "invalid signature".
  */
-class Response(
+class EbicsResponse(
     returnCode: String,
-    reportText: String,
-    description: String) {
+    reportText: String
+) {
 
     /**
      * For now, the sandbox returns _only_ technical return codes,
@@ -30,7 +30,7 @@ class Response(
         val tmp = of.createEbicsResponse()
         tmp.header = of.createEbicsResponseHeader()
         tmp.header.mutable = of.createResponseMutableHeaderType()
-        tmp.header.mutable.reportText = "$reportText $description"
+        tmp.header.mutable.reportText = reportText
         tmp.header.mutable.returnCode = returnCode
         tmp
     }()

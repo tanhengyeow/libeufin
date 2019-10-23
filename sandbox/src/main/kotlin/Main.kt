@@ -43,30 +43,86 @@ import org.w3c.dom.Document
 import org.w3c.dom.Element
 import tech.libeufin.messages.ebics.keyrequest.EbicsUnsecuredRequest
 import tech.libeufin.messages.ebics.keyrequest.SignaturePubKeyOrderDataType
-import tech.libeufin.messages.ebics.keyrequest.UnsecuredReqOrderDetailsType
-import tech.libeufin.messages.ebics.keyresponse.EbicsKeyManagementResponse
 import java.math.BigInteger
 import java.nio.charset.StandardCharsets.US_ASCII
 import java.text.DateFormat
-import java.util.*
-import java.util.zip.GZIPInputStream
-import javax.xml.bind.JAXBElement
-import java.nio.charset.StandardCharsets.UTF_8
-import java.security.InvalidKeyException
 import java.security.KeyFactory
 import java.security.PublicKey
-import java.security.interfaces.RSAPublicKey
 import java.security.spec.RSAPublicKeySpec
-import java.util.zip.Inflater
 import java.util.zip.InflaterInputStream
-import javax.xml.bind.JAXB
-
-
 
 
 val logger = LoggerFactory.getLogger("tech.libeufin.sandbox")
 val xmlProcess = XML()
 val getEbicsHostId = {"LIBEUFIN-SANDBOX"}
+
+object UserUnknownHelper {
+
+    fun getCode(): String {
+        return "091003"
+    }
+
+    /**
+     * @param description: will be concatenated to the error token word.
+     * @return full error string: token + description
+     */
+    fun getMessage(description: String = ""): String {
+        return "[EBICS_UNKNOWN_USER] $description"
+    }
+}
+
+
+object InvalidHostIdHelper {
+
+    fun getCode(): String {
+        return "091011"
+    }
+
+    /**
+     * @param description: will be concatenated to the error token word.
+     * @return full error string: token + description
+     */
+    fun getMessage(description: String = ""): String {
+        return "[EBICS_INVALID_HOST_ID] $description"
+    }
+}
+
+object InvalidXmlHelper {
+
+    fun getCode(): String {
+        return "091010"
+    }
+
+    /**
+     * @param description: will be concatenated to the error token word.
+     * @return full error string: token + description
+     */
+    fun getMessage(description: String = ""): String {
+        return "[EBICS_INVALID_XML] $description"
+    }
+}
+
+object InternalErrorHelper {
+
+    fun getCode(): String {
+        return "061099"
+    }
+
+    fun getMessage(description: String = ""): String {
+        return "[EBICS_INTERNAL_ERROR] $description"
+    }
+}
+
+object OkHelper {
+
+    fun getCode(): String {
+        return "000000"
+    }
+
+    fun getMessage(description: String = ""): String {
+        return "[EBICS_OK] $description"
+    }
+}
 
 /**
  * Sometimes, JAXB is not able to figure out to which type
@@ -215,21 +271,17 @@ private suspend fun ApplicationCall.ebicsweb() {
 
     val body: String = receiveText()
     val bodyDocument: Document? = xmlProcess.parseStringIntoDom(body)
-    if (bodyDocument == null) {
+
+    if (bodyDocument == null || (!xmlProcess.validateFromDom(bodyDocument))) {
+        var response = EbicsResponse(
+            returnCode = InvalidXmlHelper.getCode(),
+            reportText = InvalidXmlHelper.getMessage()
+        )
+
         respondText(
             contentType = ContentType.Application.Xml,
             status = HttpStatusCode.BadRequest
-        ) { "Bad request / Could not parse the body" }
-        return
-
-    }
-
-    if (!xmlProcess.validateFromDom(bodyDocument)) {
-        logger.error("Invalid request received")
-        respondText(
-            contentType = ContentType.Application.Xml,
-            status = HttpStatusCode.BadRequest
-        ) { "Bad request / invalid document" }
+        ) { xmlProcess.convertJaxbToString(response.get())!! }
         return
     }
 
@@ -248,10 +300,16 @@ private suspend fun ApplicationCall.ebicsweb() {
             )
 
             if (bodyJaxb.value.header.static.hostID != getEbicsHostId()) {
-                respond(
-                    HttpStatusCode.NotFound,
-                    SandboxError("Unknown HostID specified")
-                )
+
+                // return INI response!
+                val response = KeyManagementResponse(
+                    returnCode = InvalidHostIdHelper.getCode(),
+                    reportText = InvalidHostIdHelper.getMessage( ))
+
+                respondText(
+                    contentType = ContentType.Application.Xml,
+                    status = HttpStatusCode.NotFound
+                ) { xmlProcess.convertJaxbToString(response.get())!! }
                 return
             }
             val ebicsUserID = transaction {
@@ -259,10 +317,16 @@ private suspend fun ApplicationCall.ebicsweb() {
             }
             if (ebicsUserID == null) {
 
-                respond(
-                    HttpStatusCode.NotFound,
-                    SandboxError("Ebics UserID not found")
+                val response = KeyManagementResponse(
+                    returnCode = UserUnknownHelper.getCode(),
+                    reportText = UserUnknownHelper.getMessage()
                 )
+
+                respondText(
+                    contentType = ContentType.Application.Xml,
+                    status = HttpStatusCode.NotFound
+                ) { xmlProcess.convertJaxbToString(response.get())!! }
+
                 return
             }
 
@@ -285,11 +349,16 @@ private suspend fun ApplicationCall.ebicsweb() {
                      * shall the schema be patched to avoid having this if-block here?
                      */
                     if (zkey.isEmpty()) {
-                        logger.error("0-length key element given, invalid request")
+                        logger.info("0-length key element given, invalid request")
+                        var response = KeyManagementResponse(
+                            returnCode = InvalidXmlHelper.getCode(),
+                            reportText = InvalidXmlHelper.getMessage("Key field was empty")
+                        )
+
                         respondText(
                             contentType = ContentType.Text.Plain,
                             status = HttpStatusCode.BadRequest
-                        ) { "Bad request / invalid document" }
+                        ) { xmlProcess.convertJaxbToString(response.get())!! }
 
                         return
                     }
@@ -320,10 +389,17 @@ private suspend fun ApplicationCall.ebicsweb() {
                     } catch (e: Exception) {
                         logger.info("User gave bad key, not storing it")
                         e.printStackTrace()
-                        respond(
-                            HttpStatusCode.BadRequest,
-                            SandboxError("Bad public key given")
+                        val response = KeyManagementResponse(
+                            returnCode = InvalidXmlHelper.getCode(),
+                            reportText = InvalidXmlHelper.getMessage("Invalid key given")
                         )
+
+
+                        respondText(
+                            contentType = ContentType.Application.Xml,
+                            status = HttpStatusCode.BadRequest
+                        ) { xmlProcess.convertJaxbToString(response.get())!! }
+
                         return
                     }
 
@@ -340,10 +416,17 @@ private suspend fun ApplicationCall.ebicsweb() {
                      * row is also (via a helper function) added into the EbicsSubscribers table.
                      */
                     if (ebicsSubscriber == null) {
-                        respond(
-                            HttpStatusCode.InternalServerError,
-                            SandboxError("Internal error, please contact customer service")
+
+                        val response = KeyManagementResponse(
+                            returnCode = InternalErrorHelper.getCode(),
+                            reportText = InternalErrorHelper.getMessage()
                         )
+
+                        respondText(
+                            status = HttpStatusCode.InternalServerError,
+                            contentType = ContentType.Application.Xml
+                        ) { InternalErrorHelper.getMessage() }
+
                         return
                     }
 
@@ -354,33 +437,38 @@ private suspend fun ApplicationCall.ebicsweb() {
                             exponent = keyObject.value.signaturePubKeyInfo.pubKeyValue.rsaKeyValue.exponent
                             state = KeyStates.NEW
                         }
+
+                        ebicsSubscriber.state = SubscriberStates.PARTIALLY_INITIALIZED_INI
                     }
 
-                    logger.debug("Signature key inserted in database.")
+                    logger.info(
+                        "Signature key inserted in database _and_ subscriber state changed accordingly"
+                    )
 
                     // return INI response!
                     val response = KeyManagementResponse(
-                        "H004",
-                        1,
-                        "000000",
-                        "MOCK-ID",
-                        "[EBICS_OK] OK")
+                        returnCode = OkHelper.getCode(),
+                        reportText = OkHelper.getMessage()
+                    )
 
                     respondText(
                         contentType = ContentType.Application.Xml,
-                        status = HttpStatusCode.OK) {
-                            xmlProcess.convertJaxbToString(response.get()).toString()
-                    }
+                        status = HttpStatusCode.OK
+                    ) { xmlProcess.convertJaxbToString(response.get())!! }
 
                     return
                 }
-            }
 
-            respond(
-                HttpStatusCode.NotImplemented,
-                SandboxError("Not implemented")
-            )
-            return
+                "HIA" -> {
+
+                    respond(
+                        HttpStatusCode.NotImplemented,
+                        SandboxError("Not implemented")
+                    )
+                    return
+
+                }
+            }
         }
 
         "ebicsHEVRequest" -> {

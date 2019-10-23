@@ -1,9 +1,6 @@
 package tech.libeufin.sandbox
 
-import org.junit.Assert
 import org.junit.Test
-import org.junit.Assert.*
-import org.junit.Before
 
 class ResponseTest {
 
@@ -11,8 +8,8 @@ class ResponseTest {
 
     @Test
     fun loadResponse() {
-        val response = Response(
-            "0000",
+        val response = EbicsResponse(
+        "0000",
         "[EBICS_OK]",
             "All is OK."
         )

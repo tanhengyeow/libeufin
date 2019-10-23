@@ -4,7 +4,7 @@
     <static>
       <HostID>LIBEUFIN-SANDBOX</HostID>
       <PartnerID>flokid</PartnerID>
-      <UserID>flouid</UserID>
+      <UserID>u1</UserID>
       <!--
 
       Such a not allowed renaming like this fixes the import of DOM into JAXB.
