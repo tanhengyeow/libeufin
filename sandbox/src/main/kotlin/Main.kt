@@ -48,8 +48,13 @@ import java.math.BigInteger
 import java.nio.charset.StandardCharsets.US_ASCII
 import java.text.DateFormat
 import java.security.KeyFactory
+import java.security.KeyPairGenerator
+import java.security.PrivateKey
 import java.security.PublicKey
+import java.security.interfaces.RSAPrivateKey
+import java.security.spec.RSAPrivateKeySpec
 import java.security.spec.RSAPublicKeySpec
+import java.util.*
 import java.util.zip.InflaterInputStream
 
 val logger = LoggerFactory.getLogger("tech.libeufin.sandbox")
@@ -173,6 +178,45 @@ fun loadRsaPublicKey (modulus: ByteArray, exponent: ByteArray) : PublicKey {
     val keyFactory = KeyFactory.getInstance("RSA")
     val tmp = RSAPublicKeySpec(modulusBigInt, exponentBigInt)
     return keyFactory.generatePublic(tmp)
+}
+
+/**
+ * The function tries to get the bank private key from the database.
+ * If it does not find it, it generates a new one and stores it in
+ * database.
+ *
+ * @return the key (whether from database or freshly created)
+ */
+fun getOrMakePrivateKey(): PrivateKey {
+
+    // bank has always one private key in database.
+    var tmp = transaction {
+        EbicsBankPrivateKey.findById(1)
+    }
+
+    // must generate one now
+    if (tmp == null) {
+
+        val privateExponent = BigInteger(PRIVATE_KEY_EXPONENT_LENGTH, Random()) // shall be set to some well-known value?
+        val privateModulus = BigInteger(PRIVATE_KEY_MODULUS_LENGTH, Random())
+
+        tmp = transaction {
+            EbicsBankPrivateKey.new {
+                modulus = privateModulus.toByteArray()
+                exponent = privateExponent.toByteArray()
+            }
+        }
+    }
+
+    val keySpec = RSAPrivateKeySpec(
+        BigInteger(tmp.modulus),
+        BigInteger(tmp.exponent)
+    )
+
+    val factory = KeyFactory.getInstance("RSA")
+    val privateKey = factory.generatePrivate(keySpec)
+
+    return privateKey
 }
 
 

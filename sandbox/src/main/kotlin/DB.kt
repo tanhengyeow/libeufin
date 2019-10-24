@@ -10,7 +10,8 @@ const val EBICS_PARTNER_ID_MAX_LENGTH = 10
 const val EBICS_SYSTEM_ID_MAX_LENGTH = 10
 const val PUBLIC_KEY_MAX_MODULUS_LENGTH = 2048 // FIXME review this value!
 const val PUBLIC_KEY_MAX_EXPONENT_LENGTH = 64 // FIXME review this value!
-const val PRIV_KEY_MAX_LENGTH = 512 // FIXME review this value!
+const val PRIVATE_KEY_MODULUS_LENGTH = 1024 // FIXME review this value!
+const val PRIVATE_KEY_EXPONENT_LENGTH = 10
 
 /**
  * All the states to give a subscriber.
@@ -215,8 +216,16 @@ fun createSubscriber() : EbicsSubscriber {
 /**
  * This table stores RSA private keys.
  */
-object EbicsPrivateKey: IntIdTable() {
-    val pub = binary("priv", PRIV_KEY_MAX_LENGTH)
+object EbicsBankPrivateKeys: IntIdTable() {
+    val modulus = binary("modulus", PRIVATE_KEY_MODULUS_LENGTH)
+    val exponent = binary("exponent", PRIVATE_KEY_EXPONENT_LENGTH)
+}
+
+class EbicsBankPrivateKey(id: EntityID<Int>) : IntEntity(id) {
+    companion object : IntEntityClass<EbicsBankPrivateKey>(EbicsBankPrivateKeys)
+
+    var modulus by EbicsBankPrivateKeys.modulus
+    var exponent by EbicsBankPrivateKeys.exponent
 }
 
 fun dbCreateTables() {
@@ -230,7 +239,8 @@ fun dbCreateTables() {
             EbicsUsers,
             EbicsPartners,
             EbicsSystems,
-            EbicsSubscribers
+            EbicsSubscribers,
+            EbicsBankPrivateKeys
         )
     }
 }
