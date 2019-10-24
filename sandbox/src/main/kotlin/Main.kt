@@ -41,7 +41,6 @@ import org.jetbrains.exposed.sql.transactions.transaction
 import org.slf4j.LoggerFactory
 import org.w3c.dom.Document
 import org.w3c.dom.Element
-import tech.libeufin.messages.ebics.keyrequest.AuthenticationPubKeyInfoType
 import tech.libeufin.messages.ebics.keyrequest.EbicsUnsecuredRequest
 import tech.libeufin.messages.ebics.keyrequest.HIARequestOrderDataType
 import tech.libeufin.messages.ebics.keyrequest.SignaturePubKeyOrderDataType
@@ -52,7 +51,6 @@ import java.security.KeyFactory
 import java.security.PublicKey
 import java.security.spec.RSAPublicKeySpec
 import java.util.zip.InflaterInputStream
-
 
 val logger = LoggerFactory.getLogger("tech.libeufin.sandbox")
 val xmlProcess = XML()
@@ -260,16 +258,91 @@ private suspend fun ApplicationCall.adminCustomersKeyletter() {
         return
     }
 
-    /**********************************************/
+    val ebicsUserID = transaction {
+        EbicsUser.find { EbicsUsers.userId eq body.ini.userId }.firstOrNull()
+    }
 
-    // Extract keys and compare them to what was
-    // received via the INI and HIA orders.
+    if (ebicsUserID == null) {
+        respond(
+            HttpStatusCode.NotFound,
+            SandboxError("User ID not found")
+        )
+        return
+    }
 
-    /**********************************************/
+    val ebicsSubscriber = EbicsSubscriber.find {
+        EbicsSubscribers.userId eq EntityID(ebicsUserID.id.value, EbicsUsers)
+    }.firstOrNull()
+
+    if (ebicsSubscriber == null) {
+        respond(
+            HttpStatusCode.InternalServerError,
+            SandboxError("Bank had internal errors retrieving the Subscriber")
+        )
+        return
+    }
+
+    // check signature key
+    var modulusFromDd = BigInteger(ebicsSubscriber.signatureKey?.modulus)
+    var exponentFromDb = BigInteger(ebicsSubscriber.signatureKey?.exponent)
+    var modulusFromLetter = body.ini.public_modulus.toBigInteger(16)
+    var exponentFromLetter = body.ini.public_modulus.toBigInteger(16)
+
+    if (! ((modulusFromDd == modulusFromLetter) && (exponentFromDb == exponentFromLetter))) {
+        logger.info("Signature key mismatches for ${ebicsUserID.userId}")
+        respond(
+            HttpStatusCode.NotAcceptable,
+            SandboxError("Signature Key mismatches!")
+        )
+        return
+    }
+
+    logger.info("Signature key from user ${ebicsUserID.userId} becomes RELEASED")
+    ebicsSubscriber.signatureKey?.state = KeyStates.RELEASED
+
+    // check identification and authentication key
+    modulusFromDd = BigInteger(ebicsSubscriber.authenticationKey?.modulus)
+    exponentFromDb = BigInteger(ebicsSubscriber.authenticationKey?.exponent)
+    modulusFromLetter = body.hia.ia_public_modulus.toBigInteger(16)
+    exponentFromLetter = body.hia.ia_public_exponent.toBigInteger(16)
+
+    if (! ((modulusFromDd == modulusFromLetter) && (exponentFromDb == exponentFromLetter))) {
+        logger.info("Identification and authorization key mismatches for ${ebicsUserID.userId}")
+        respond(
+            HttpStatusCode.NotAcceptable,
+            SandboxError("Identification and authorization key mismatches!")
+        )
+        return
+    }
+
+    logger.info("Authentication key from user ${ebicsUserID.userId} becomes RELEASED")
+    ebicsSubscriber.authenticationKey?.state = KeyStates.RELEASED
+
+    // check encryption key
+    modulusFromDd = BigInteger(ebicsSubscriber.encryptionKey?.modulus)
+    exponentFromDb = BigInteger(ebicsSubscriber.encryptionKey?.exponent)
+    modulusFromLetter = body.hia.enc_public_modulus.toBigInteger(16)
+    exponentFromLetter = body.hia.enc_public_exponent.toBigInteger(16)
+
+    if (! ((modulusFromDd == modulusFromLetter) && (exponentFromDb == exponentFromLetter))) {
+        logger.info("Encryption key mismatches for ${ebicsUserID.userId}")
+        respond(
+            HttpStatusCode.NotAcceptable,
+            SandboxError("Encryption key mismatches!")
+        )
+        return
+    }
+
+    logger.info("Encryption key from user ${ebicsUserID.userId} becomes RELEASED")
+    ebicsSubscriber.encryptionKey?.state = KeyStates.RELEASED
+
+
+    // TODO change subscriber status!
+    ebicsSubscriber.state = SubscriberStates.READY
 
     respond(
-        HttpStatusCode.NotImplemented,
-        SandboxError("Not properly implemented")
+        HttpStatusCode.OK,
+        "Your status has changed to READY"
     )
 }
 
@@ -344,10 +417,6 @@ private suspend fun ApplicationCall.ebicsweb() {
                 }.firstOrNull()
             }
 
-            /**
-             * Should _never_ happen, as upon a EBICS' user creation, a EBICS' subscriber
-             * row is also (via a helper function) added into the EbicsSubscribers table.
-             */
             if (ebicsSubscriber == null) {
 
                 val response = KeyManagementResponse(
@@ -461,7 +530,13 @@ private suspend fun ApplicationCall.ebicsweb() {
                             state = KeyStates.NEW
                         }
 
-                        ebicsSubscriber.state = SubscriberStates.PARTIALLY_INITIALIZED_INI
+                        if (ebicsSubscriber.state == SubscriberStates.NEW) {
+                            ebicsSubscriber.state = SubscriberStates.PARTIALLY_INITIALIZED_INI
+                        }
+
+                        if (ebicsSubscriber.state == SubscriberStates.PARTIALLY_INITIALIZED_HIA) {
+                            ebicsSubscriber.state = SubscriberStates.INITIALIZED
+                        }
                     }
 
                     logger.info("Signature key inserted in database _and_ subscriber state changed accordingly")
@@ -507,7 +582,13 @@ private suspend fun ApplicationCall.ebicsweb() {
                             state = KeyStates.NEW
                         }
 
-                        ebicsSubscriber.state = SubscriberStates.PARTIALLY_INITIALIZED_HIA
+                        if (ebicsSubscriber.state == SubscriberStates.NEW) {
+                            ebicsSubscriber.state = SubscriberStates.PARTIALLY_INITIALIZED_HIA
+                        }
+
+                        if (ebicsSubscriber.state == SubscriberStates.PARTIALLY_INITIALIZED_INI) {
+                            ebicsSubscriber.state = SubscriberStates.INITIALIZED
+                        }
                     }
                 }
             }

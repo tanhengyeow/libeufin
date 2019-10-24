@@ -2,7 +2,6 @@ package tech.libeufin.sandbox
 
 import org.junit.Test
 import tech.libeufin.messages.ebics.keyrequest.SignaturePubKeyOrderDataType
-import java.math.BigInteger
 
 class InnerIniLoadTest {
 
