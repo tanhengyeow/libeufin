@@ -18,7 +18,9 @@ class KeyCmpTest {
         val HEX_STRING = "AA" // as coming from the keyletter
         val ba = byteArrayOf(0xAA.toByte()) // as coming from the database
 
+        val x = HEX_STRING.toBigInteger(16)
+        val y = BigInteger(1, ba)
 
-        assertTrue(BigInteger(1, ba).equals(HEX_STRING.toBigInteger(16)))
+        assertTrue(x == y)
     }
 }
