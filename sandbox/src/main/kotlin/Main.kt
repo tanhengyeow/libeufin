@@ -36,6 +36,7 @@ import io.ktor.routing.post
 import io.ktor.routing.routing
 import io.ktor.server.engine.embeddedServer
 import io.ktor.server.netty.Netty
+import io.ktor.util.pipeline.PipelineContext
 import org.jetbrains.exposed.dao.EntityID
 import org.jetbrains.exposed.sql.transactions.transaction
 import org.slf4j.LoggerFactory
@@ -48,17 +49,15 @@ import java.math.BigInteger
 import java.nio.charset.StandardCharsets.US_ASCII
 import java.text.DateFormat
 import java.security.KeyFactory
-import java.security.KeyPairGenerator
 import java.security.PrivateKey
 import java.security.PublicKey
-import java.security.interfaces.RSAPrivateKey
 import java.security.spec.RSAPrivateKeySpec
 import java.security.spec.RSAPublicKeySpec
 import java.util.*
 import java.util.zip.InflaterInputStream
 
 val logger = LoggerFactory.getLogger("tech.libeufin.sandbox")
-val xmlProcess = XML()
+val xmlProcess = XMLUtil()
 val getEbicsHostId = {"LIBEUFIN-SANDBOX"}
 val getEbicsVersion = {"H004"}
 val getEbicsRevision = {1}
@@ -149,7 +148,7 @@ object OkHelper {
  * @return the modified document
  */
 fun downcastXml(document: Document, node: String, type: String) : Document {
-    logger.debug("Downcasting: ${XML.convertDomToString(document)}")
+    logger.debug("Downcasting: ${XMLUtil.convertDomToString(document)}")
     val x: Element = document.getElementsByTagNameNS(
         "urn:org:ebics:H004",
         "OrderDetails"
@@ -234,7 +233,7 @@ private suspend fun ApplicationCall.adminCustomers() {
     logger.info(body.toString())
 
     val returnId = transaction {
-        var myUserId = EbicsUser.new { }
+        val myUserId = EbicsUser.new { }
         val myPartnerId = EbicsPartner.new { }
         val mySystemId = EbicsSystem.new { }
         val subscriber = EbicsSubscriber.new {
@@ -395,10 +394,10 @@ private suspend fun ApplicationCall.ebicsweb() {
     val body: String = receiveText()
     logger.debug("Data received: $body")
 
-    val bodyDocument: Document? = XML.parseStringIntoDom(body)
+    val bodyDocument: Document? = XMLUtil.parseStringIntoDom(body)
 
     if (bodyDocument == null || (!xmlProcess.validateFromDom(bodyDocument))) {
-        var response = EbicsResponse(
+        val response = EbicsResponse(
             returnCode = InvalidXmlHelper.getCode(),
             reportText = InvalidXmlHelper.getMessage()
         )
@@ -493,7 +492,7 @@ private suspend fun ApplicationCall.ebicsweb() {
              */
             if (zkey.isEmpty()) {
                 logger.info("0-length key element given, invalid request")
-                var response = KeyManagementResponse(
+                val response = KeyManagementResponse(
                     returnCode = InvalidXmlHelper.getCode(),
                     reportText = InvalidXmlHelper.getMessage("Key field was empty")
                 )
@@ -677,6 +676,7 @@ private suspend fun ApplicationCall.ebicsweb() {
         }
     }
 }
+
 
 fun main() {
     dbCreateTables()

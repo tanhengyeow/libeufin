@@ -4,7 +4,7 @@ import org.junit.Test
 
 class ResponseTest {
 
-    val xmlprocess = XML()
+    val xmlprocess = XMLUtil()
 
     @Test
     fun loadResponse() {

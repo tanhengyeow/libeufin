@@ -42,6 +42,7 @@ import javax.xml.crypto.*
 import javax.xml.crypto.dom.DOMURIReference
 import javax.xml.crypto.dsig.*
 import javax.xml.crypto.dsig.dom.DOMSignContext
+import javax.xml.crypto.dsig.dom.DOMValidateContext
 import javax.xml.crypto.dsig.spec.C14NMethodParameterSpec
 import javax.xml.crypto.dsig.spec.TransformParameterSpec
 import javax.xml.parsers.DocumentBuilderFactory
@@ -58,10 +59,13 @@ import javax.xml.xpath.XPathConstants
 import javax.xml.xpath.XPathFactory
 
 /**
- * This class takes care of importing XSDs and validate
- * XMLs against those.
+ * Helpers for dealing with XML in EBICS.
  */
-class XML {
+class XMLUtil {
+    /**
+     * This URI dereferencer allows handling the resource reference used for
+     * XML signatures in EBICS.
+     */
     private class EbicsSigUriDereferencer : URIDereferencer {
         override fun dereference(myRef: URIReference?, myCtx: XMLCryptoContext?): Data {
             val ebicsXpathExpr = "//*[@authenticate='true']"
@@ -141,15 +145,11 @@ class XML {
     fun validate(xmlDoc: StreamSource): Boolean {
         try {
             validator?.validate(xmlDoc)
-        } catch (e: SAXException) {
-            println(e.message)
-            return false
-        } catch (e: IOException) {
-            e.printStackTrace()
+        } catch (e: Exception) {
+            logger.warn("Validation failed: {}", e)
             return false
         }
-
-        return true
+        return true;
     }
 
     /**
@@ -321,6 +321,9 @@ class XML {
         }
 
 
+        /**
+         * Sign an EBICS document with the authentication and identity signature.
+         */
         fun signEbicsDocument(doc: Document, signingPriv: PrivateKey): Unit {
             val xpath = XPathFactory.newInstance().newXPath()
             val authSigNode = xpath.compile("/*[1]/AuthSignature").evaluate(doc, XPathConstants.NODE)
@@ -355,7 +358,24 @@ class XML {
         }
 
         fun verifyEbicsDocument(doc: Document, signingPub: PublicKey): Boolean {
-            return false
+            val xpath = XPathFactory.newInstance().newXPath()
+            val doc2: Document = doc.cloneNode(true) as Document
+            val authSigNode = xpath.compile("/*[1]/AuthSignature").evaluate(doc2, XPathConstants.NODE)
+            if (authSigNode !is Node)
+                throw java.lang.Exception("no AuthSignature")
+            val sigEl = doc2.createElementNS("http://www.w3.org/2000/09/xmldsig#", "ds:Signature")
+            authSigNode.parentNode.insertBefore(sigEl, authSigNode)
+            while (authSigNode.hasChildNodes()) {
+                sigEl.appendChild(authSigNode.firstChild)
+            }
+            authSigNode.parentNode.removeChild(authSigNode)
+            val fac = XMLSignatureFactory.getInstance("DOM")
+            println(convertDomToString(doc2))
+            val dvc = DOMValidateContext(signingPub, sigEl)
+            dvc.uriDereferencer = EbicsSigUriDereferencer()
+            val sig = fac.unmarshalXMLSignature(dvc)
+            // FIXME: check that parameters are okay!
+            return sig.validate(dvc)
         }
     }
 }

@@ -7,7 +7,7 @@ import tech.libeufin.messages.ebics.keyrequest.SignaturePubKeyOrderDataType
 
 class JaxbTest {
 
-    val processor = XML()
+    val processor = XMLUtil()
     val classLoader = ClassLoader.getSystemClassLoader()
     val hevResponseJaxb = HEVResponse(
         "000000",
@@ -81,7 +81,7 @@ class JaxbTest {
     @Test
     fun domToJaxb() {
         val ini = classLoader.getResource("ebics_ini_request_sample_patched.xml")
-        val iniDom = XML.parseStringIntoDom(ini.readText())
+        val iniDom = XMLUtil.parseStringIntoDom(ini.readText())
         processor.convertDomToJaxb<EbicsUnsecuredRequest>(
             EbicsUnsecuredRequest::class.java,
             iniDom

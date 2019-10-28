@@ -34,7 +34,7 @@ class MarshalNonJaxbTest {
             "EBICS_NON_OK"
         )
 
-        val proc = XML()
+        val proc = XMLUtil()
         println(proc.convertJaxbToString(obj.get()))
     }
 }

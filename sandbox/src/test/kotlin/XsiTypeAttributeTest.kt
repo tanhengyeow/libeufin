@@ -3,18 +3,16 @@ package tech.libeufin.sandbox
 import org.junit.Test
 import org.w3c.dom.Element
 import tech.libeufin.messages.ebics.keyrequest.EbicsUnsecuredRequest
-import tech.libeufin.messages.ebics.keyrequest.OrderDetailsType
-import tech.libeufin.messages.ebics.keyrequest.UnsecuredReqOrderDetailsType
 
 class XsiTypeAttributeTest {
 
     @Test
     fun domToJaxb() {
 
-        val processor = XML()
+        val processor = XMLUtil()
         val classLoader = ClassLoader.getSystemClassLoader()
         val ini = classLoader.getResource("ebics_ini_request_sample.xml")
-        val iniDom = XML.parseStringIntoDom(ini.readText())
+        val iniDom = XMLUtil.parseStringIntoDom(ini.readText())
         val x: Element = iniDom.getElementsByTagName("OrderDetails")?.item(0) as Element
 
         x.setAttributeNS(
