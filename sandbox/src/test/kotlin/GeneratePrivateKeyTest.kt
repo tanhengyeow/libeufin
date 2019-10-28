@@ -15,7 +15,7 @@ class GeneratePrivateKeyTest {
     @Test
     fun loadOrGeneratePrivateKey() {
 
-        val x = getOrMakePrivateKey()
+        getOrMakePrivateKey()
 
         assertTrue(
             transaction {

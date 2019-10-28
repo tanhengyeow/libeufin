@@ -149,7 +149,7 @@ object OkHelper {
  * @return the modified document
  */
 fun downcastXml(document: Document, node: String, type: String) : Document {
-    logger.debug("Downcasting: ${xmlProcess.convertDomToString(document)}")
+    logger.debug("Downcasting: ${XML.convertDomToString(document)}")
     val x: Element = document.getElementsByTagNameNS(
         "urn:org:ebics:H004",
         "OrderDetails"
@@ -395,7 +395,7 @@ private suspend fun ApplicationCall.ebicsweb() {
     val body: String = receiveText()
     logger.debug("Data received: $body")
 
-    val bodyDocument: Document? = xmlProcess.parseStringIntoDom(body)
+    val bodyDocument: Document? = XML.parseStringIntoDom(body)
 
     if (bodyDocument == null || (!xmlProcess.validateFromDom(bodyDocument))) {
         var response = EbicsResponse(

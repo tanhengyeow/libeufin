@@ -12,10 +12,11 @@ class HiaLoadTest {
         val processor = XML()
         val classLoader = ClassLoader.getSystemClassLoader()
         val hia = classLoader.getResource("HIA.xml")
-        val hiaDom = processor.parseStringIntoDom(hia.readText())
-        val x: Element = hiaDom?.getElementsByTagNameNS(
+        val hiaDom = XML.parseStringIntoDom(hia.readText())
+        val x: Element = hiaDom.getElementsByTagNameNS(
             "urn:org:ebics:H004",
-            "OrderDetails")?.item(0) as Element
+            "OrderDetails"
+        )?.item(0) as Element
 
         x.setAttributeNS(
             "http://www.w3.org/2001/XMLSchema-instance",
@@ -25,9 +26,7 @@ class HiaLoadTest {
 
         processor.convertDomToJaxb<EbicsUnsecuredRequest>(
             EbicsUnsecuredRequest::class.java,
-            hiaDom!!)
+            hiaDom
+        )
     }
-
-
-
 }

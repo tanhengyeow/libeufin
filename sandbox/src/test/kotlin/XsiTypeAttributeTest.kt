@@ -14,8 +14,8 @@ class XsiTypeAttributeTest {
         val processor = XML()
         val classLoader = ClassLoader.getSystemClassLoader()
         val ini = classLoader.getResource("ebics_ini_request_sample.xml")
-        val iniDom = processor.parseStringIntoDom(ini.readText())
-        val x: Element = iniDom?.getElementsByTagName("OrderDetails")?.item(0) as Element
+        val iniDom = XML.parseStringIntoDom(ini.readText())
+        val x: Element = iniDom.getElementsByTagName("OrderDetails")?.item(0) as Element
 
         x.setAttributeNS(
             "http://www.w3.org/2001/XMLSchema-instance",

@@ -21,6 +21,8 @@ package tech.libeufin.sandbox
 
 import com.sun.org.apache.xerces.internal.dom.DOMInputImpl
 import org.w3c.dom.Document
+import org.w3c.dom.Node
+import org.w3c.dom.NodeList
 import org.w3c.dom.ls.LSInput
 import org.w3c.dom.ls.LSResourceResolver
 import org.xml.sax.ErrorHandler
@@ -28,25 +30,60 @@ import org.xml.sax.InputSource
 import org.xml.sax.SAXException
 import org.xml.sax.SAXParseException
 import java.io.*
+import java.security.PrivateKey
+import java.security.PublicKey
+import java.util.*
 import javax.xml.XMLConstants
 import javax.xml.bind.JAXBContext
 import javax.xml.bind.JAXBElement
 import javax.xml.bind.JAXBException
 import javax.xml.bind.Marshaller
+import javax.xml.crypto.*
+import javax.xml.crypto.dom.DOMURIReference
+import javax.xml.crypto.dsig.*
+import javax.xml.crypto.dsig.dom.DOMSignContext
+import javax.xml.crypto.dsig.spec.C14NMethodParameterSpec
+import javax.xml.crypto.dsig.spec.TransformParameterSpec
 import javax.xml.parsers.DocumentBuilderFactory
 import javax.xml.parsers.ParserConfigurationException
-import javax.xml.transform.*
+import javax.xml.transform.OutputKeys
+import javax.xml.transform.Source
+import javax.xml.transform.TransformerFactory
 import javax.xml.transform.dom.DOMSource
 import javax.xml.transform.stream.StreamResult
 import javax.xml.transform.stream.StreamSource
 import javax.xml.validation.SchemaFactory
-
+import javax.xml.xpath.XPath
+import javax.xml.xpath.XPathConstants
+import javax.xml.xpath.XPathFactory
 
 /**
  * This class takes care of importing XSDs and validate
  * XMLs against those.
  */
 class XML {
+    private class EbicsSigUriDereferencer : URIDereferencer {
+        override fun dereference(myRef: URIReference?, myCtx: XMLCryptoContext?): Data {
+            val ebicsXpathExpr = "//*[@authenticate='true']"
+            if (myRef !is DOMURIReference)
+                throw Exception("invalid type")
+            if (myRef.uri != "#xpointer($ebicsXpathExpr)")
+                throw Exception("invalid EBICS XML signature URI: '${myRef.uri}'")
+            val xp: XPath = XPathFactory.newInstance().newXPath()
+            val nodeSet = xp.compile(ebicsXpathExpr).evaluate(myRef.here.ownerDocument, XPathConstants.NODESET)
+            if (nodeSet !is NodeList)
+                throw Exception("invalid type")
+            if (nodeSet.length <= 0) {
+                throw Exception("no nodes to sign")
+            }
+            val nodeList = LinkedList<Node>()
+            for (i in 0 until nodeSet.length) {
+                nodeList.add(nodeSet.item(i))
+            }
+            return NodeSetData { nodeList.iterator() }
+        }
+    }
+
     /**
      * Validator for EBICS messages.
      */
@@ -95,33 +132,6 @@ class XML {
         throw e
     }
 
-
-    /**
-     * Parse string into XML DOM.
-     * @param xmlString the string to parse.
-     * @return the DOM representing @a xmlString
-     */
-    fun parseStringIntoDom(xmlString: String): Document? {
-
-        val factory = DocumentBuilderFactory.newInstance()
-        factory.isNamespaceAware = true
-
-        try {
-            val xmlInputStream = ByteArrayInputStream(xmlString.toByteArray())
-            val builder = factory.newDocumentBuilder()
-            val document = builder.parse(InputSource(xmlInputStream))
-
-            return document
-
-        } catch (e: ParserConfigurationException) {
-            e.printStackTrace()
-        } catch (e: SAXException) {
-            e.printStackTrace()
-        } catch (e: IOException) {
-            e.printStackTrace()
-        }
-        return null
-    }
 
     /**
      *
@@ -175,7 +185,7 @@ class XML {
      * @param document the document to convert into JAXB.
      * @return the JAXB object reflecting the original XML document.
      */
-    fun <T>convertDomToJaxb(finalType: Class<T>, document: Document) : JAXBElement<T> {
+    fun <T> convertDomToJaxb(finalType: Class<T>, document: Document): JAXBElement<T> {
 
         val jc = JAXBContext.newInstance(finalType)
 
@@ -191,7 +201,7 @@ class XML {
      * @param documentString the string to convert into JAXB.
      * @return the JAXB object reflecting the original XML document.
      */
-    fun <T>convertStringToJaxb(finalType: Class<T>, documentString: String) : JAXBElement<T> {
+    fun <T> convertStringToJaxb(finalType: Class<T>, documentString: String): JAXBElement<T> {
 
         val jc = JAXBContext.newInstance(finalType.packageName)
 
@@ -204,7 +214,6 @@ class XML {
     }
 
 
-
     /**
      * Return the DOM representation of the Java object, using the JAXB
      * interface.  FIXME: narrow input type to JAXB type!
@@ -213,7 +222,7 @@ class XML {
      *               has already got its setters called.
      * @return the DOM Document, or null (if errors occur).
      */
-    fun <T>convertJaxbToDom(obj: JAXBElement<T>): Document? {
+    fun <T> convertJaxbToDom(obj: JAXBElement<T>): Document? {
 
         try {
             val jc = JAXBContext.newInstance(obj.declaredType)
@@ -231,36 +240,6 @@ class XML {
         } catch (e: JAXBException) {
             e.printStackTrace()
         } catch (e: ParserConfigurationException) {
-            e.printStackTrace()
-        }
-        return null
-    }
-
-    /**
-     * Extract String from DOM.
-     *
-     * @param document the DOM to extract the string from.
-     * @return the final String, or null if errors occur.
-     */
-    fun convertDomToString(document: Document): String? {
-
-        try {
-            /* Make Transformer.  */
-            val tf = TransformerFactory.newInstance()
-            val t = tf.newTransformer()
-
-            t.setOutputProperty(OutputKeys.INDENT, "no")
-
-            /* Make string writer.  */
-            val sw = StringWriter()
-
-            /* Extract string.  */
-            t.transform(DOMSource(document), StreamResult(sw))
-            return sw.toString()
-
-        } catch (e: TransformerConfigurationException) {
-            e.printStackTrace()
-        } catch (e: TransformerException) {
             e.printStackTrace()
         }
         return null
@@ -288,5 +267,95 @@ class XML {
         }
 
         return sw.toString()
+    }
+
+    companion object {
+        /**
+         * Extract String from DOM.
+         *
+         * @param document the DOM to extract the string from.
+         * @return the final String, or null if errors occur.
+         */
+        fun convertDomToString(document: Document): String? {
+            /* Make Transformer.  */
+            val tf = TransformerFactory.newInstance()
+            val t = tf.newTransformer()
+
+            t.setOutputProperty(OutputKeys.INDENT, "yes")
+
+            /* Make string writer.  */
+            val sw = StringWriter()
+
+            /* Extract string.  */
+            t.transform(DOMSource(document), StreamResult(sw))
+            return sw.toString()
+        }
+
+        fun convertNodeToString(node: Node): String? {
+            /* Make Transformer.  */
+            val tf = TransformerFactory.newInstance()
+            val t = tf.newTransformer()
+
+            t.setOutputProperty(OutputKeys.INDENT, "yes")
+
+            /* Make string writer.  */
+            val sw = StringWriter()
+
+            /* Extract string.  */
+            t.transform(DOMSource(node), StreamResult(sw))
+            return sw.toString()
+        }
+
+        /**
+         * Parse string into XML DOM.
+         * @param xmlString the string to parse.
+         * @return the DOM representing @a xmlString
+         */
+        fun parseStringIntoDom(xmlString: String): Document {
+            val factory = DocumentBuilderFactory.newInstance().apply {
+                isNamespaceAware = true
+            }
+            val xmlInputStream = ByteArrayInputStream(xmlString.toByteArray())
+            val builder = factory.newDocumentBuilder()
+            return builder.parse(InputSource(xmlInputStream))
+        }
+
+
+        fun signEbicsDocument(doc: Document, signingPriv: PrivateKey): Unit {
+            val xpath = XPathFactory.newInstance().newXPath()
+            val authSigNode = xpath.compile("/*[1]/AuthSignature").evaluate(doc, XPathConstants.NODE)
+            if (authSigNode !is Node)
+                throw java.lang.Exception("no AuthSignature")
+            val fac = XMLSignatureFactory.getInstance("DOM")
+            val c14n = fac.newTransform(CanonicalizationMethod.INCLUSIVE, null as TransformParameterSpec?)
+            val ref: Reference =
+                fac.newReference(
+                    "#xpointer(//*[@authenticate='true'])",
+                    fac.newDigestMethod(DigestMethod.SHA256, null),
+                    listOf(c14n),
+                    null,
+                    null
+                )
+            val canon: CanonicalizationMethod =
+                fac.newCanonicalizationMethod(CanonicalizationMethod.INCLUSIVE, null as C14NMethodParameterSpec?)
+            val signatureMethod = fac.newSignatureMethod(SignatureMethod.RSA_SHA256, null)
+            val si: SignedInfo = fac.newSignedInfo(canon, signatureMethod, listOf(ref))
+            val sig: XMLSignature = fac.newXMLSignature(si, null)
+            val dsc = DOMSignContext(signingPriv, authSigNode)
+            dsc.defaultNamespacePrefix = "ds"
+            dsc.uriDereferencer = EbicsSigUriDereferencer()
+
+            sig.sign(dsc)
+
+            val innerSig = authSigNode.firstChild
+            while (innerSig.hasChildNodes()) {
+                authSigNode.appendChild(innerSig.firstChild)
+            }
+            authSigNode.removeChild(innerSig)
+        }
+
+        fun verifyEbicsDocument(doc: Document, signingPub: PublicKey): Boolean {
+            return false
+        }
     }
 }
