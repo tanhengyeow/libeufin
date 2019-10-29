@@ -20,6 +20,10 @@ compileTestKotlin {
     }
 }
 
+sourceSets {
+    main.java.srcDirs = ['src/main/java', 'src/main/kotlin']
+}
+
 dependencies {
     implementation "org.jetbrains.kotlin:kotlin-stdlib-jdk8"
     implementation "io.ktor:ktor-gson:1.1.5"

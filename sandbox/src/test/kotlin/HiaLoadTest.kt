@@ -2,7 +2,7 @@ package tech.libeufin.sandbox
 
 import org.junit.Test
 import org.w3c.dom.Element
-import tech.libeufin.messages.ebics.keyrequest.EbicsUnsecuredRequest
+import tech.libeufin.schema.ebics_h004.EbicsUnsecuredRequest
 
 class HiaLoadTest {
 
@@ -24,7 +24,7 @@ class HiaLoadTest {
             "UnsecuredReqOrderDetailsType"
         )
 
-        processor.convertDomToJaxb<EbicsUnsecuredRequest>(
+        XMLUtil.convertDomToJaxb<EbicsUnsecuredRequest>(
             EbicsUnsecuredRequest::class.java,
             hiaDom
         )

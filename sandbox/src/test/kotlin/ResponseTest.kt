@@ -1,21 +1,21 @@
 package tech.libeufin.sandbox
 
+import org.apache.xml.security.binding.xmldsig.SignatureType
 import org.junit.Test
+import tech.libeufin.schema.ebics_h004.EbicsResponse
 
 class ResponseTest {
 
-    val xmlprocess = XMLUtil()
-
     @Test
     fun loadResponse() {
-        val response = EbicsResponse(
-        "0000",
-        "[EBICS_OK] All is okay"
-        )
-
-        print(xmlprocess.convertJaxbToString(response.get()))
-
-
+        val response = EbicsResponse().apply {
+            version = "H004"
+            header = EbicsResponse.Header().apply {
+            }
+            authSignature = SignatureType()
+            body = EbicsResponse.Body()
+        }
+        print(XMLUtil.convertJaxbToString(response))
     }
 
 }

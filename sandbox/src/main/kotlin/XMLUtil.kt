@@ -36,7 +36,6 @@ import java.util.*
 import javax.xml.XMLConstants
 import javax.xml.bind.JAXBContext
 import javax.xml.bind.JAXBElement
-import javax.xml.bind.JAXBException
 import javax.xml.bind.Marshaller
 import javax.xml.crypto.*
 import javax.xml.crypto.dom.DOMURIReference
@@ -46,7 +45,6 @@ import javax.xml.crypto.dsig.dom.DOMValidateContext
 import javax.xml.crypto.dsig.spec.C14NMethodParameterSpec
 import javax.xml.crypto.dsig.spec.TransformParameterSpec
 import javax.xml.parsers.DocumentBuilderFactory
-import javax.xml.parsers.ParserConfigurationException
 import javax.xml.transform.OutputKeys
 import javax.xml.transform.Source
 import javax.xml.transform.TransformerFactory
@@ -178,98 +176,31 @@ class XMLUtil {
         return this.validate(xmlSource)
     }
 
-    /**
-     * Convert a DOM document - of a XML document - to the JAXB representation.
-     *
-     * @param finalType class type of the output
-     * @param document the document to convert into JAXB.
-     * @return the JAXB object reflecting the original XML document.
-     */
-    fun <T> convertDomToJaxb(finalType: Class<T>, document: Document): JAXBElement<T> {
-
-        val jc = JAXBContext.newInstance(finalType)
-
-        /* Marshalling the object into the document.  */
-        val m = jc.createUnmarshaller()
-        return m.unmarshal(document, finalType) // document "went" into Jaxb
-    }
-
-    /**
-     * Convert a XML string to the JAXB representation.
-     *
-     * @param finalType class type of the object to instantiate
-     * @param documentString the string to convert into JAXB.
-     * @return the JAXB object reflecting the original XML document.
-     */
-    fun <T> convertStringToJaxb(finalType: Class<T>, documentString: String): JAXBElement<T> {
-
-        val jc = JAXBContext.newInstance(finalType.packageName)
-
-        /* Marshalling the object into the document.  */
-        val u = jc.createUnmarshaller()
-        return u.unmarshal(
-            StreamSource(StringReader(documentString)),
-            finalType
-        ) // document "went" into Jaxb
-    }
-
-
-    /**
-     * Return the DOM representation of the Java object, using the JAXB
-     * interface.  FIXME: narrow input type to JAXB type!
-     *
-     * @param object to be transformed into DOM.  Typically, the object
-     *               has already got its setters called.
-     * @return the DOM Document, or null (if errors occur).
-     */
-    fun <T> convertJaxbToDom(obj: JAXBElement<T>): Document? {
-
-        try {
-            val jc = JAXBContext.newInstance(obj.declaredType)
-
-            /* Make the target document.  */
-            val dbf = DocumentBuilderFactory.newInstance()
-            val db = dbf.newDocumentBuilder()
-            val document = db.newDocument()
-
-            /* Marshalling the object into the document.  */
-            val m = jc.createMarshaller()
-            m.marshal(obj, document) // document absorbed the XML!
-            return document
-
-        } catch (e: JAXBException) {
-            e.printStackTrace()
-        } catch (e: ParserConfigurationException) {
-            e.printStackTrace()
-        }
-        return null
-    }
-
-    /**
-     * Extract String from JAXB.
-     *
-     * @param obj the JAXB instance
-     * @return String representation of @a object, or null if errors occur
-     */
-    fun <T> convertJaxbToString(obj: JAXBElement<T>): String? {
-        val sw = StringWriter()
-
-        try {
-            val jc = JAXBContext.newInstance(obj.declaredType)
-            /* Getting the string.  */
-            val m = jc.createMarshaller()
-            m.marshal(obj, sw)
-            m.setProperty(Marshaller.JAXB_FORMATTED_OUTPUT, true)
-
-        } catch (e: JAXBException) {
-            e.printStackTrace()
-            return "Bank fatal error."
-        }
-
-        return sw.toString()
-    }
-
     companion object {
+        inline fun <reified T> convertJaxbToString(obj: T): String {
+            val sw = StringWriter()
+            val jc = JAXBContext.newInstance(T::class.java)
+            val m = jc.createMarshaller()
+            m.setProperty(Marshaller.JAXB_FORMATTED_OUTPUT, true)
+            m.marshal(obj, sw)
+            return sw.toString()
+        }
+
+        /**
+         * Convert a XML string to the JAXB representation.
+         *
+         * @param documentString the string to convert into JAXB.
+         * @return the JAXB object reflecting the original XML document.
+         */
+        inline fun <reified T> convertStringToJaxb(documentString: String): JAXBElement<T> {
+            val jc = JAXBContext.newInstance(T::class.java)
+            val u = jc.createUnmarshaller()
+            return u.unmarshal(            /* Marshalling the object into the document.  */
+                StreamSource(StringReader(documentString)),
+                T::class.java
+            )
+        }
+
         /**
          * Extract String from DOM.
          *
@@ -307,6 +238,22 @@ class XMLUtil {
         }
 
         /**
+         * Convert a DOM document - of a XML document - to the JAXB representation.
+         *
+         * @param finalType class type of the output
+         * @param document the document to convert into JAXB.
+         * @return the JAXB object reflecting the original XML document.
+         */
+        fun <T> convertDomToJaxb(finalType: Class<T>, document: Document): JAXBElement<T> {
+
+            val jc = JAXBContext.newInstance(finalType)
+
+            /* Marshalling the object into the document.  */
+            val m = jc.createUnmarshaller()
+            return m.unmarshal(document, finalType) // document "went" into Jaxb
+        }
+
+        /**
          * Parse string into XML DOM.
          * @param xmlString the string to parse.
          * @return the DOM representing @a xmlString
@@ -341,7 +288,7 @@ class XMLUtil {
                 )
             val canon: CanonicalizationMethod =
                 fac.newCanonicalizationMethod(CanonicalizationMethod.INCLUSIVE, null as C14NMethodParameterSpec?)
-            val signatureMethod = fac.newSignatureMethod(SignatureMethod.RSA_SHA256, null)
+            val signatureMethod = fac.newSignatureMethod("http://www.w3.org/2001/04/xmldsig-more#rsa-sha256", null)
             val si: SignedInfo = fac.newSignedInfo(canon, signatureMethod, listOf(ref))
             val sig: XMLSignature = fac.newXMLSignature(si, null)
             val dsc = DOMSignContext(signingPriv, authSigNode)

@@ -1,4 +1,4 @@
-package tech.libeufin.sandbox
+package tech.libeufin.sandbox.db
 
 import org.jetbrains.exposed.dao.*
 import org.jetbrains.exposed.sql.*
@@ -139,7 +139,7 @@ object EbicsSystems: IntIdTable() {
 class EbicsSystem(id: EntityID<Int>) : IntEntity(id) {
     companion object : IntEntityClass<EbicsSystem>(EbicsSystems) {
         override fun new(init: EbicsSystem.() -> Unit): EbicsSystem {
-            var row = super.new(init)
+            val row = super.new(init)
             row.systemId = "s${row.id}"
             return row
         }
@@ -205,9 +205,9 @@ class EbicsSubscriber(id: EntityID<Int>) : IntEntity(id) {
 fun createSubscriber() : EbicsSubscriber {
 
     return EbicsSubscriber.new {
-        userId = EbicsUser.new {  }
+        userId = EbicsUser.new { }
         partnerId = EbicsPartner.new { }
-        systemId = EbicsSystem.new {  }
+        systemId = EbicsSystem.new { }
         state = SubscriberStates.NEW
     }
 }

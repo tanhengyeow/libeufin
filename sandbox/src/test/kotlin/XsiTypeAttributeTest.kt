@@ -2,7 +2,7 @@ package tech.libeufin.sandbox
 
 import org.junit.Test
 import org.w3c.dom.Element
-import tech.libeufin.messages.ebics.keyrequest.EbicsUnsecuredRequest
+import tech.libeufin.schema.ebics_h004.EbicsUnsecuredRequest
 
 class XsiTypeAttributeTest {
 
@@ -21,7 +21,7 @@ class XsiTypeAttributeTest {
             "UnsecuredReqOrderDetailsType"
         )
 
-        processor.convertDomToJaxb<EbicsUnsecuredRequest>(
+        XMLUtil.convertDomToJaxb(
             EbicsUnsecuredRequest::class.java,
             iniDom)
     }

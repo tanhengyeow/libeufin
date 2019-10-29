@@ -1,7 +1,7 @@
 package tech.libeufin.sandbox
 
 import org.junit.Test
-import tech.libeufin.messages.ebics.keyrequest.SignaturePubKeyOrderDataType
+import tech.libeufin.schema.ebics_s001.SignaturePubKeyOrderData
 
 class InnerIniLoadTest {
 
@@ -10,10 +10,7 @@ class InnerIniLoadTest {
         val file = classLoader.getResource(
             "ebics_ini_inner_key.xml"
         )
-        xmlProcess.convertStringToJaxb(
-            SignaturePubKeyOrderDataType::class.java,
-            file.readText()
-        )
+        XMLUtil.convertStringToJaxb<SignaturePubKeyOrderData>(file.readText())
     }()
 
     @Test

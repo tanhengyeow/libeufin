@@ -2,15 +2,10 @@ package tech.libeufin.sandbox
 
 import junit.framework.TestCase.assertFalse
 import org.jetbrains.exposed.dao.EntityID
-import org.jetbrains.exposed.dao.IntEntityClass
-import org.jetbrains.exposed.sql.Column
 import org.jetbrains.exposed.sql.transactions.transaction
-import org.junit.BeforeClass
-import junit.framework.TestCase.assertTrue
 import org.junit.Test
 import org.junit.Before
-import tech.libeufin.sandbox.createSubscriber
-import tech.libeufin.sandbox.dbCreateTables
+import tech.libeufin.sandbox.db.*
 
 class DbTest {
 
