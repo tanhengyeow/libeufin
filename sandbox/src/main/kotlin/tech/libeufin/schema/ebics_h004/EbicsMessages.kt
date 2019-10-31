@@ -202,29 +202,29 @@ class DataEncryptionInfo {
     propOrder = ["transactionPhase", "segmentNumber", "orderID", "returnCode", "reportText", "any"]
 )
 class EbicsResponseMutableHeaderType {
-    @XmlElement(name = "TransactionPhase", required = true)
-    @XmlSchemaType(name = "token")
+    @get:XmlElement(name = "TransactionPhase", required = true)
+    @get:XmlSchemaType(name = "token")
     lateinit var transactionPhase: TransactionPhaseType
 
-    @XmlElement(name = "SegmentNumber")
+    @get:XmlElement(name = "SegmentNumber")
     var segmentNumber: SegmentNumber? = null
 
-    @XmlElement(name = "OrderID")
-    @XmlJavaTypeAdapter(CollapsedStringAdapter::class)
-    @XmlSchemaType(name = "token")
+    @get:XmlElement(name = "OrderID")
+    @get:XmlJavaTypeAdapter(CollapsedStringAdapter::class)
+    @get:XmlSchemaType(name = "token")
     var orderID: String? = null
 
-    @XmlElement(name = "ReturnCode", required = true)
-    @XmlJavaTypeAdapter(CollapsedStringAdapter::class)
-    @XmlSchemaType(name = "token")
+    @get:XmlElement(name = "ReturnCode", required = true)
+    @get:XmlJavaTypeAdapter(CollapsedStringAdapter::class)
+    @get:XmlSchemaType(name = "token")
     lateinit var returnCode: String
 
-    @XmlElement(name = "ReportText", required = true)
-    @XmlJavaTypeAdapter(NormalizedStringAdapter::class)
-    @XmlSchemaType(name = "normalizedString")
+    @get:XmlElement(name = "ReportText", required = true)
+    @get:XmlJavaTypeAdapter(NormalizedStringAdapter::class)
+    @get:XmlSchemaType(name = "normalizedString")
     lateinit var reportText: String
 
-    @XmlAnyElement(lax = true)
+    @get:XmlAnyElement(lax = true)
     var any: List<Any>? = null
 
     @XmlAccessorType(XmlAccessType.NONE)
@@ -261,23 +261,24 @@ enum class TransactionPhaseType(value: String) {
 @XmlAccessorType(XmlAccessType.NONE)
 @XmlType(name = "ResponseStaticHeaderType", propOrder = ["transactionID", "numSegments"])
 class ResponseStaticHeaderType {
-    @XmlElement(name = "TransactionID", type = String::class)
-    @XmlJavaTypeAdapter(HexBinaryAdapter::class)
-    @XmlSchemaType(name = "hexBinary")
+    @get:XmlElement(name = "TransactionID", type = String::class)
+    @get:XmlJavaTypeAdapter(HexBinaryAdapter::class)
+    @get:XmlSchemaType(name = "hexBinary")
     var transactionID: ByteArray? = null
 
-    @XmlElement(name = "NumSegments")
-    @XmlSchemaType(name = "positiveInteger")
+    @get:XmlElement(name = "NumSegments")
+    @get:XmlSchemaType(name = "positiveInteger")
     var numSegments: BigInteger? = null
 }
 
 
 @XmlAccessorType(XmlAccessType.NONE)
+@XmlType(name = "")
 class TimestampBankParameter {
-    @XmlValue
+    @get:XmlValue
     lateinit var value: XMLGregorianCalendar
 
-    @XmlAttribute(name = "authenticate", required = true)
+    @get:XmlAttribute(name = "authenticate", required = true)
     var authenticate: Boolean = false
 }
 
@@ -321,13 +322,13 @@ class EbicsResponse {
     @XmlAccessorType(XmlAccessType.NONE)
     @XmlType(name = "", propOrder = ["dataTransfer", "returnCode", "timestampBankParameter"])
     class Body {
-        @XmlElement(name = "DataTransfer")
+        @get:XmlElement(name = "DataTransfer")
         var dataTransfer: DataTransferResponseType? = null
 
-        @XmlElement(name = "ReturnCode", required = true)
+        @get:XmlElement(name = "ReturnCode", required = true)
         lateinit var returnCode: ReturnCode
 
-        @XmlElement(name = "TimestampBankParameter")
+        @get:XmlElement(name = "TimestampBankParameter")
         var timestampBankParameter: TimestampBankParameter? = null
 
         @XmlAccessorType(XmlAccessType.NONE)
@@ -365,13 +366,13 @@ class EbicsResponse {
 }
 
 
-@XmlAccessorType(XmlAccessType.NONE)
 @XmlType(
     name = "PubKeyValueType", propOrder = [
         "rsaKeyValue",
         "timeStamp"
     ]
 )
+@XmlAccessorType(XmlAccessType.NONE)
 class PubKeyValueType {
     @get:XmlElement(name = "RSAKeyValue", namespace = "http://www.w3.org/2000/09/xmldsig#", required = true)
     lateinit var rsaKeyValue: RSAKeyValueType
@@ -379,9 +380,6 @@ class PubKeyValueType {
     @get:XmlElement(name = "TimeStamp", required = false)
     @get:XmlSchemaType(name = "dateTime")
     var timeStamp: XMLGregorianCalendar? = null
-
-    @get:XmlAnyElement(lax = true)
-    var any: List<Any>? = null
 }
 
 
@@ -434,6 +432,7 @@ class EncryptionPubKeyInfoType {
     name = "HIARequestOrderDataType",
     propOrder = ["authenticationPubKeyInfo", "encryptionPubKeyInfo", "partnerID", "userID", "any"]
 )
+@XmlRootElement(name = "HIARequestOrderData")
 class HIARequestOrderDataType {
     @get:XmlElement(name = "AuthenticationPubKeyInfo", required = true)
     lateinit var authenticationPubKeyInfo: AuthenticationPubKeyInfoType
@@ -491,19 +490,19 @@ class EbicsKeyManagementResponse {
         @XmlAccessorType(XmlAccessType.NONE)
         @XmlType(name = "", propOrder = ["orderID", "returnCode", "reportText"])
         class KeyManagementResponseMutableHeaderType {
-            @XmlElement(name = "OrderID")
-            @XmlJavaTypeAdapter(CollapsedStringAdapter::class)
-            @XmlSchemaType(name = "token")
+            @get:XmlElement(name = "OrderID")
+            @get:XmlJavaTypeAdapter(CollapsedStringAdapter::class)
+            @get:XmlSchemaType(name = "token")
             var orderID: String? = null
 
-            @XmlElement(name = "ReturnCode", required = true)
-            @XmlJavaTypeAdapter(CollapsedStringAdapter::class)
-            @XmlSchemaType(name = "token")
+            @get:XmlElement(name = "ReturnCode", required = true)
+            @get:XmlJavaTypeAdapter(CollapsedStringAdapter::class)
+            @get:XmlSchemaType(name = "token")
             lateinit var returnCode: String
 
-            @XmlElement(name = "ReportText", required = true)
-            @XmlJavaTypeAdapter(NormalizedStringAdapter::class)
-            @XmlSchemaType(name = "normalizedString")
+            @get:XmlElement(name = "ReportText", required = true)
+            @get:XmlJavaTypeAdapter(NormalizedStringAdapter::class)
+            @get:XmlSchemaType(name = "normalizedString")
             lateinit var reportText: String
         }
     }
@@ -511,13 +510,13 @@ class EbicsKeyManagementResponse {
     @XmlAccessorType(XmlAccessType.NONE)
     @XmlType(name = "", propOrder = ["dataTransfer", "returnCode", "timestampBankParameter"])
     class Body {
-        @XmlElement(name = "DataTransfer")
+        @get:XmlElement(name = "DataTransfer")
         val dataTransfer: DataTransfer? = null
 
-        @XmlElement(name = "ReturnCode", required = true)
+        @get:XmlElement(name = "ReturnCode", required = true)
         lateinit var returnCode: ReturnCode
 
-        @XmlElement(name = "TimestampBankParameter")
+        @get:XmlElement(name = "TimestampBankParameter")
         var timestampBankParameter: TimestampBankParameter? = null
 
         @XmlAccessorType(XmlAccessType.NONE)

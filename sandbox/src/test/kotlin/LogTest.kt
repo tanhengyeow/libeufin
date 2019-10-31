@@ -10,7 +10,6 @@ class LogTest {
 
     @Test
     fun logLine() {
-
         val loggerSandbox = LoggerFactory.getLogger("tech.libeufin.sandbox")
         val loggerNexus = LoggerFactory.getLogger("tech.libeufin.nexus")
         loggerSandbox.info("line")

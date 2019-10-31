@@ -36,11 +36,11 @@ import javax.xml.datatype.XMLGregorianCalendar
     ]
 )
 class PubKeyValueType {
-    @XmlElement(name = "RSAKeyValue", namespace = "http://www.w3.org/2000/09/xmldsig#", required = true)
+    @get:XmlElement(name = "RSAKeyValue", namespace = "http://www.w3.org/2000/09/xmldsig#", required = true)
     lateinit var rsaKeyValue: RSAKeyValueType
 
-    @XmlElement(name = "TimeStamp")
-    @XmlSchemaType(name = "dateTime")
+    @get:XmlElement(name = "TimeStamp")
+    @get:XmlSchemaType(name = "dateTime")
     var timeStamp: XMLGregorianCalendar? = null
 
     @XmlAnyElement(lax = true)
