@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<HIARequestOrderData xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="urn:org:ebics:H004 ebics_orders_H004.xsd" xmlns:ds="http://www.w3.org/2000/09/xmldsig#" xmlns="urn:org:ebics:H004">
+    <AuthenticationPubKeyInfo>
+        <PubKeyValue>
+            <ds:RSAKeyValue>
+                <ds:Modulus>0Ekicvrcj2+8tsF+DZsWihl9W7AyVwtMLxq3qefSWagpfnV7BVsKYIJ/OhiWpvr3dz6K5lHSatzhG1x//jrZt6VHn5Wkkb0M0vayPUiZbe5s2aLabqfOTrt8TPnHwjZMChDHRmGoKI0OzLyQJ6MIfQrHZ5t61ccWubYO/bgbSnP9H39k8QEp0kmW4Tf4u+28GTLgueNAaaPTdCozZjrST4fH9nyhBUZ3nl+vZ+AiUNdl5UfV109CXhCm3safLboUus6ZcYLm6gTaiwJEdRX7HYbnAQZ5gcoXVz/oyxJqTkicVOLPrTAfi3UmFrnIVF8XBtOPdIXHzSpxZ3yT8gH4zQ==</ds:Modulus>
+                <ds:Exponent>AQAB</ds:Exponent>
+            </ds:RSAKeyValue>
+        </PubKeyValue>
+        <AuthenticationVersion>X002</AuthenticationVersion>
+    </AuthenticationPubKeyInfo>
+    <EncryptionPubKeyInfo>
+        <PubKeyValue>
+            <ds:RSAKeyValue>
+                <ds:Modulus>0Ekicvrcj2+8tsF+DZsWihl9W7AyVwtMLxq3qefSWagpfnV7BVsKYIJ/OhiWpvr3dz6K5lHSatzhG1x//jrZt6VHn5Wkkb0M0vayPUiZbe5s2aLabqfOTrt8TPnHwjZMChDHRmGoKI0OzLyQJ6MIfQrHZ5t61ccWubYO/bgbSnP9H39k8QEp0kmW4Tf4u+28GTLgueNAaaPTdCozZjrST4fH9nyhBUZ3nl+vZ+AiUNdl5UfV109CXhCm3safLboUus6ZcYLm6gTaiwJEdRX7HYbnAQZ5gcoXVz/oyxJqTkicVOLPrTAfi3UmFrnIVF8XBtOPdIXHzSpxZ3yT8gH4zQ==</ds:Modulus>
+                <ds:Exponent>AQAB</ds:Exponent>
+            </ds:RSAKeyValue>
+        </PubKeyValue>
+        <EncryptionVersion>E002</EncryptionVersion>
+    </EncryptionPubKeyInfo>
+    <PartnerID>PARTNER1</PartnerID>
+    <UserID>USER1</UserID>
+</HIARequestOrderData>

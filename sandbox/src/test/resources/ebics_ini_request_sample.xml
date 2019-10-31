@@ -1,35 +1,25 @@
 <?xml version="1.0" encoding="utf-8"?>
-<ebicsUnsecuredRequest Revision="1" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="urn:org:ebics:H004 ebics_keymgmt_request_H004.xsd" Version="H004" xmlns:ds="http://www.w3.org/2000/09/xmldsig#" xmlns="urn:org:ebics:H004">
-  <header authenticate="true">
-    <static>
-      <HostID>LIBEUFIN-SANDBOX</HostID>
-      <PartnerID>flokid</PartnerID>
-      <UserID>u1</UserID>
-      <!--
-
-      Such a not allowed renaming like this fixes the import of DOM into JAXB.
-
-      <UnsecuredReqOrderDetails>
-        <OrderType>INI</OrderType>
-        <OrderAttribute>DZNNN</OrderAttribute>
-      </UnsecuredReqOrderDetails
-
-      Also putting the following attribute on OrderDetails fixes it.
-
-       xsi:type="UnsecuredReqOrderDetailsType"
-
-      -->
-      <OrderDetails>
-        <OrderType>INI</OrderType>
-        <OrderAttribute>DZNNN</OrderAttribute>
-      </OrderDetails>
-      <SecurityMedium>0000</SecurityMedium>
-    </static>
-    <mutable />
-  </header>
-  <body>
-    <DataTransfer>
-      <OrderData>eJx9U1tzmkAUfu9M/wNDH524XIINjprBaLxSUASDL51FlvvFsIus/vpSYm3a1D6e7/vO/ZzeI00T5ogKHOZZn+XbHMugbJ+7Yeb32ZJ4dw/s4+Dzp54R+hkkZYH00lmgk1a4qBhBApnaP8NdisM+GxBy6AJQVVW7Ett54QOB43jwoi6NfYBSeBdmmMBsj1im1ndxAy7zPSRN8nfuyAn3uIlg1BGYmwxozO/4V3Ftil32UpKLb1TEAU4Gtcat3b5c1P/JztbtM8zfA5hlXt4QNfWGWDAp0QWqQRd314byAX9j1NwtkxIPsBSTgy/SSeTsdr61scm2xaEOxVufvxfM6pirYuqVauu1iGdQcnRzslpOO8P1Up6hyM6xHuRKJ6rUoUG1h6UHoY9OuzkRVKmaxsncPoueMiKrwuKdWFrLggZtIO927pRWIrVlkaTS3LMKdbSVR+OFNOQD82w/u1H5DbyWAsDuWE6rgAp2ZFeVa6zOx44aOMRYyJoyj/RJLnoxxQHppNBI10+uTw/JTDM0IU11vorMs2OZ6r5Yx/JipB4zR4yfaLhJW+h4pC+d+X11sHlH2ZZxnswdqCynyTPxNzm/zMrERGBIwwWVp4e0HCtQx/FD7LvlCz5L2utU8IF1qr5KVOLhwtKpthnqJ711H6/6/R54N+Q/Rz+mhzxDGRkoK2XY6K7IdXfgn8vrgY+L/n0W1tsPDRSO6/TAB7i5IXDriHo6LEiGitlo4CX5XRy6dbIr1ChMfKXLn/TFrl8T3PrNwQ+qBEY2</OrderData>
-    </DataTransfer>
-  </body>
+<ebicsUnsecuredRequest Revision="1" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+                       xsi:schemaLocation="urn:org:ebics:H004 ebics_keymgmt_request_H004.xsd" Version="H004"
+                       xmlns="urn:org:ebics:H004">
+    <header authenticate="true">
+        <static>
+            <HostID>myhost</HostID>
+            <PartnerID>k1</PartnerID>
+            <UserID>u1</UserID>
+            <OrderDetails>
+                <OrderType>INI</OrderType>
+                <OrderAttribute>DZNNN</OrderAttribute>
+            </OrderDetails>
+            <SecurityMedium>0000</SecurityMedium>
+        </static>
+        <mutable/>
+    </header>
+    <body>
+        <DataTransfer>
+            <OrderData>
+                eJx9U1tzmkAUfu9M/wNDH524XIINjprBaOIFCopg8CWzyHK/GHaR1V9fhtg0bWrf9nzfdy57LoN7mqXMEZU4KvIhy3c5lkH5vvCiPBiyFfFv7tj70dcvAzMKckiqEhmVu0QnvfRQOYEEMo1/jvsUR0M2JOTQB6Cu624tdosyAALH8eBZU819iDJ4E+WYwHyPWKbR93ELqsUekjb5B3fkRnvcRjCbCMxVBrTmC/5VXJdij72U5OErFXGAk0Gj8Rq3bxf1f7KzzfcZ5u8GzHO/aImGekNsmFboAjWgh/trU/mEvzFa4VVphUdYSsghEOlT7O52gb1xyLbDoR7F24C/Faz6WGhi5lda57VM5lByDetppc5647Uqz1HsFNgIC6UX19rYpPqd6kMYoNNuQQRNqmdJunDOoq9MyKq0eTeR1rKgQwfIu503o7VIHVkkmbTw7VKbbOXJdCmN+dA6O49eXP0Ar5UAsDeVszqkghM7de2Zq/Oxp4UuMZeyrixi46kQ/YTikPQyaGbrBy+gh3Sum7qQZQZfx9bZtS1tX64TeTnRjrkrJg802mQddDzS597itj44vKtsq6RIFy5U1Fn6SIJNwat5lVoIjGm0pPLskFVTBRo4uUsCr3rGZ0l/nQkBsE/1d4lKPFzaBtU3Y+NkdG6T1XA4AB+a/Gfrp/RQ5CgnI2WljFvdO/I+O/DP4Q3A50H/Xgv77YZGCsf1BuAT3O4QuLZEAwOWJEflfDJK+CbPu9WSFm7fVcNcns1BgmsXOfoJ1l5CIg==
+            </OrderData>
+        </DataTransfer>
+    </body>
 </ebicsUnsecuredRequest>

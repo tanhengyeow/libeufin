@@ -1,3 +1,22 @@
+/*
+ * This file is part of LibEuFin.
+ * Copyright (C) 2019 Stanisci and Dold.
+
+ * LibEuFin is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU Affero General Public License as
+ * published by the Free Software Foundation; either version 3, or
+ * (at your option) any later version.
+
+ * LibEuFin is distributed in the hope that it will be useful, but
+ * WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
+ * or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU Affero General
+ * Public License for more details.
+
+ * You should have received a copy of the GNU Affero General Public
+ * License along with LibEuFin; see the file COPYING.  If not, see
+ * <http://www.gnu.org/licenses/>
+ */
+
 package tech.libeufin.sandbox.db
 
 import org.jetbrains.exposed.dao.*
@@ -5,18 +24,14 @@ import org.jetbrains.exposed.sql.*
 import org.jetbrains.exposed.sql.transactions.transaction
 
 const val CUSTOMER_NAME_MAX_LENGTH = 20
+const val EBICS_HOST_ID_MAX_LENGTH = 10
 const val EBICS_USER_ID_MAX_LENGTH = 10
 const val EBICS_PARTNER_ID_MAX_LENGTH = 10
 const val EBICS_SYSTEM_ID_MAX_LENGTH = 10
-const val PUBLIC_KEY_MAX_MODULUS_LENGTH = 2048 // FIXME review this value!
-const val PUBLIC_KEY_MAX_EXPONENT_LENGTH = 64 // FIXME review this value!
-const val PRIVATE_KEY_MODULUS_LENGTH = 1024 // FIXME review this value!
-const val PRIVATE_KEY_EXPONENT_LENGTH = 10
-
 /**
  * All the states to give a subscriber.
  */
-enum class SubscriberStates {
+enum class SubscriberState {
     /**
      * No keys at all given to the bank.
      */
@@ -27,7 +42,7 @@ enum class SubscriberStates {
      */
     PARTIALLY_INITIALIZED_INI,
 
-    /**
+    /**r
      * Only HIA electronic message was successfully sent.
      */
     PARTIALLY_INITIALIZED_HIA,
@@ -47,7 +62,7 @@ enum class SubscriberStates {
 /**
  * All the states that one key can be assigned.
  */
-enum class KeyStates {
+enum class KeyState {
 
     /**
      * The key was never communicated.
@@ -83,89 +98,42 @@ class BankCustomer(id: EntityID<Int>) : IntEntity(id) {
     var ebicsSubscriber by EbicsSubscriber referencedOn BankCustomers.ebicsSubscriber
 }
 
+
 /**
- * The following tables define IDs that make a EBCIS
- * 'subscriber' exist.  Each EBICS subscriber is the tuple:
- *
- * - UserID, the human who is performing a EBICS task.
- * - PartnerID, the legal entity that signed a formal agreement with the financial institution.
- * - SystemID, (optional) the machine that is handling the EBICS task on behalf of the UserID.
+ * This table stores RSA public keys of subscribers.
  */
-
-object EbicsUsers: IntIdTable() {
-    /* EBICS user ID in the string form. */
-    val userId = varchar("userId", EBICS_USER_ID_MAX_LENGTH).primaryKey().nullable()
-
-}
-
-class EbicsUser(id: EntityID<Int>) : IntEntity(id){
-    companion object : IntEntityClass<EbicsUser>(EbicsUsers) {
-        override fun new(init: EbicsUser.() -> Unit): EbicsUser {
-            var row = super.new(init)
-            row.userId = "u${row.id}"
-            return row
-        }
-    }
-    var userId by EbicsUsers.userId
-}
-
-/**
- * Table for UserID.
- */
-object EbicsPartners: IntIdTable() {
-    val partnerId = varchar("partnerId", EBICS_PARTNER_ID_MAX_LENGTH).primaryKey().nullable()
-}
-
-
-class EbicsPartner(id: EntityID<Int>) : IntEntity(id) {
-    companion object : IntEntityClass<EbicsPartner>(EbicsPartners) {
-        override fun new(init: EbicsPartner.() -> Unit): EbicsPartner {
-            var row = super.new(init)
-            row.partnerId = "p${row.id}"
-            return row
-        }
-    }
-    var partnerId by EbicsPartners.partnerId
+object EbicsPublicKeys : IntIdTable() {
+    val rsaPublicKey = blob("rsaPublicKey")
+    val state = enumeration("state", KeyState::class)
 }
 
 
 /**
- * Table for UserID.
- */
-object EbicsSystems: IntIdTable() {
-    val systemId = EbicsPartners.varchar("systemId", EBICS_SYSTEM_ID_MAX_LENGTH).nullable()
-}
-
-class EbicsSystem(id: EntityID<Int>) : IntEntity(id) {
-    companion object : IntEntityClass<EbicsSystem>(EbicsSystems) {
-        override fun new(init: EbicsSystem.() -> Unit): EbicsSystem {
-            val row = super.new(init)
-            row.systemId = "s${row.id}"
-            return row
-        }
-    }
-
-    var systemId by EbicsSystems.systemId
-}
-
-/**
- * This table stores RSA public keys.
- */
-object EbicsPublicKeys: IntIdTable() {
-    val modulus = binary("modulus", PUBLIC_KEY_MAX_MODULUS_LENGTH)
-    val exponent = binary("exponent", PUBLIC_KEY_MAX_EXPONENT_LENGTH)
-    val state = enumeration("state", KeyStates::class)
-}
-
-
-/**
- * Definition of a row in the keys table
+ * Definition of a row in the [EbicsPublicKey] table
  */
 class EbicsPublicKey(id: EntityID<Int>) : IntEntity(id) {
     companion object : IntEntityClass<EbicsPublicKey>(EbicsPublicKeys)
-    var modulus by EbicsPublicKeys.modulus
-    var exponent by EbicsPublicKeys.exponent
+    var rsaPublicKey by EbicsPublicKeys.rsaPublicKey
     var state by EbicsPublicKeys.state
+}
+
+
+object EbicsHosts : IntIdTable() {
+    val hostID = text("hostID")
+    val ebicsVersion = text("ebicsVersion")
+    val signaturePrivateKey = blob("signaturePrivateKey")
+    val encryptionPrivateKey = blob("encryptionPrivateKey")
+    val authenticationPrivateKey = blob("authenticationPrivateKey")
+}
+
+
+class EbicsHost(id: EntityID<Int>) : IntEntity(id) {
+    companion object : IntEntityClass<EbicsHost>(EbicsHosts)
+    var hostId by EbicsHosts.hostID
+    var ebicsVersion by EbicsHosts.ebicsVersion
+    var signaturePrivateKey by EbicsHosts.signaturePrivateKey
+    var encryptionPrivateKey by EbicsHosts.encryptionPrivateKey
+    var authenticationPrivateKey by EbicsHosts.authenticationPrivateKey
 }
 
 /**
@@ -173,60 +141,31 @@ class EbicsPublicKey(id: EntityID<Int>) : IntEntity(id) {
  * and systems.  Each value can appear multiple times in the same column.
  */
 object EbicsSubscribers: IntIdTable() {
-
-    val userId = reference("userId", EbicsUsers)
-    val partnerId = reference("partnerId", EbicsPartners)
-    val systemId = reference("systemId", EbicsSystems)
+    val userId = text("userID")
+    val partnerId = text("partnerID")
+    val systemId = text("systemID").nullable()
 
     val signatureKey = reference("signatureKey", EbicsPublicKeys).nullable()
     val encryptionKey = reference("encryptionKey", EbicsPublicKeys).nullable()
     val authenticationKey = reference("authorizationKey", EbicsPublicKeys).nullable()
 
-    val state = enumeration("state", SubscriberStates::class)
+    val state = enumeration("state", SubscriberState::class)
 }
 
 class EbicsSubscriber(id: EntityID<Int>) : IntEntity(id) {
     companion object : IntEntityClass<EbicsSubscriber>(EbicsSubscribers)
 
-    var userId by EbicsUser referencedOn EbicsSubscribers.userId
-    var partnerId by EbicsPartner referencedOn EbicsSubscribers.partnerId
-    var systemId by EbicsSystem referencedOn EbicsSubscribers.systemId
+    var userId by EbicsSubscribers.userId
+    var partnerId by EbicsSubscribers.partnerId
+    var systemId by EbicsSubscribers.systemId
 
     var signatureKey by EbicsPublicKey optionalReferencedOn EbicsSubscribers.signatureKey
     var encryptionKey by EbicsPublicKey optionalReferencedOn EbicsSubscribers.encryptionKey
     var authenticationKey by EbicsPublicKey optionalReferencedOn EbicsSubscribers.authenticationKey
+
     var state by EbicsSubscribers.state
 }
 
-/**
- * Helper function that makes a new subscriber
- * @return new object
- */
-fun createSubscriber() : EbicsSubscriber {
-
-    return EbicsSubscriber.new {
-        userId = EbicsUser.new { }
-        partnerId = EbicsPartner.new { }
-        systemId = EbicsSystem.new { }
-        state = SubscriberStates.NEW
-    }
-}
-
-
-/**
- * This table stores RSA private keys.
- */
-object EbicsBankPrivateKeys: IntIdTable() {
-    val modulus = binary("modulus", PRIVATE_KEY_MODULUS_LENGTH)
-    val exponent = binary("exponent", PRIVATE_KEY_EXPONENT_LENGTH)
-}
-
-class EbicsBankPrivateKey(id: EntityID<Int>) : IntEntity(id) {
-    companion object : IntEntityClass<EbicsBankPrivateKey>(EbicsBankPrivateKeys)
-
-    var modulus by EbicsBankPrivateKeys.modulus
-    var exponent by EbicsBankPrivateKeys.exponent
-}
 
 fun dbCreateTables() {
     Database.connect("jdbc:h2:mem:test;DB_CLOSE_DELAY=-1", driver = "org.h2.Driver")
@@ -236,11 +175,8 @@ fun dbCreateTables() {
 
         SchemaUtils.create(
             BankCustomers,
-            EbicsUsers,
-            EbicsPartners,
-            EbicsSystems,
             EbicsSubscribers,
-            EbicsBankPrivateKeys
+            EbicsHosts
         )
     }
 }
