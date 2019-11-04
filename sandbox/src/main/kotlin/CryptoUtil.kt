@@ -52,7 +52,7 @@ data class RsaCrtKeyPair(val private: RSAPrivateCrtKey, val public: RSAPublicKey
  */
 class CryptoUtil {
 
-    data class EncryptionResult(
+    class EncryptionResult(
         val encryptedTransactionKey: ByteArray,
         val pubKeyDigest: ByteArray,
         val encryptedData: ByteArray
