@@ -19,16 +19,20 @@
 
 package tech.libeufin.sandbox
 
+import org.bouncycastle.jce.provider.BouncyCastleProvider
 import java.lang.Exception
 import java.math.BigInteger
 import java.security.KeyFactory
 import java.security.KeyPairGenerator
+import java.security.PrivateKey
 import java.security.PublicKey
 import java.security.interfaces.RSAPrivateCrtKey
 import java.security.interfaces.RSAPublicKey
 import java.security.spec.PKCS8EncodedKeySpec
 import java.security.spec.RSAPublicKeySpec
 import java.security.spec.X509EncodedKeySpec
+import javax.crypto.Cipher
+import javax.crypto.KeyGenerator
 
 /**
  * RSA key pair.
@@ -39,7 +43,16 @@ data class RsaCrtKeyPair(val private: RSAPrivateCrtKey, val public: RSAPublicKey
  * Helpers for dealing with crypographic operations in EBICS / LibEuFin.
  */
 class CryptoUtil {
+
+    data class EncryptionResult(
+        val encryptedTransactionKey: ByteArray,
+        val pubKeyDigest: ByteArray,
+        val encryptedData: ByteArray
+    )
+
     companion object {
+        private val bouncyCastleProvider = BouncyCastleProvider()
+
         /**
          * Load an RSA private key from its binary PKCS#8 encoding.
          */
@@ -105,6 +118,17 @@ class CryptoUtil {
             val keyFactory = KeyFactory.getInstance("RSA")
             val tmp = RSAPublicKeySpec(modulusBigInt, exponentBigInt)
             return keyFactory.generatePublic(tmp) as RSAPublicKey
+        }
+
+        fun encryptEbicsE002(data: ByteArray, signingPrivateKey: RSAPrivateCrtKey) {
+            val prov = BouncyCastleProvider()
+            val keygen = KeyGenerator.getInstance("AES", bouncyCastleProvider)
+            keygen.init(128)
+            val transportKey = keygen.generateKey()
+
+            val cipher = Cipher.getInstance("AES/CBC/X9.23Padding", bouncyCastleProvider)
+            cipher.init(Cipher.ENCRYPT_MODE, transportKey)
+            val encryptedData = cipher.doFinal(data)
         }
     }
 }

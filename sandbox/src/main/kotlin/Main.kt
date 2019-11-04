@@ -323,8 +323,7 @@ private suspend fun ApplicationCall.ebicsweb() {
         "ebicsNoPubKeyDigestsRequest" -> {
             val requestJaxb = XMLUtil.convertDomToJaxb(EbicsNoPubKeyDigestsRequest::class.java, bodyDocument)
             val staticHeader = requestJaxb.value.header.static
-            val orderType = staticHeader.orderDetails.orderType
-            when (orderType) {
+            when (val orderType = staticHeader.orderDetails.orderType) {
                 "HPB" -> {
                     val subscriberKeys = transaction {
                         val ebicsSubscriber =

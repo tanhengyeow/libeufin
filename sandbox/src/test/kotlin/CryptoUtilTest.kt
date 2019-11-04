@@ -56,4 +56,11 @@ class CryptoUtilTest {
         assertEquals(keyPair.private, otherKeyPair.private)
         assertEquals(keyPair.public, otherKeyPair.public)
     }
+
+    @Test
+    fun testEbicsE002() {
+        val data = "Hello, World!"
+        val keyPair = CryptoUtil.generateRsaKeyPair(1024)
+        CryptoUtil.encryptEbicsE002(data.toByteArray(), keyPair.private)
+    }
 }
