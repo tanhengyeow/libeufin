@@ -22,6 +22,7 @@ package tech.libeufin.sandbox.db
 import org.jetbrains.exposed.dao.*
 import org.jetbrains.exposed.sql.*
 import org.jetbrains.exposed.sql.transactions.transaction
+import java.sql.Blob
 
 const val CUSTOMER_NAME_MAX_LENGTH = 20
 const val EBICS_HOST_ID_MAX_LENGTH = 10
@@ -79,6 +80,10 @@ enum class KeyState {
      * or electronically -- e.g. with certificates)
      */
     RELEASED
+}
+
+fun Blob.toByteArray(): ByteArray {
+    return this.binaryStream.readAllBytes()
 }
 
 /**

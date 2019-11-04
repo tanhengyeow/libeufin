@@ -540,3 +540,45 @@ class EbicsKeyManagementResponse {
         }
     }
 }
+
+
+@XmlAccessorType(XmlAccessType.NONE)
+@XmlType(name = "", propOrder = ["header", "authSignature", "body"])
+@XmlRootElement(name = "ebicsNoPubKeyDigestsRequest")
+class EbicsNoPubKeyDigestsRequest {
+    @get:XmlAttribute(name = "Version", required = true)
+    @get:XmlJavaTypeAdapter(CollapsedStringAdapter::class)
+    lateinit var version: String
+
+    @get:XmlAttribute(name = "Revision")
+    var revision: Int? = null
+
+    @get:XmlElement(name = "header", required = true)
+    lateinit var header: Header
+
+    @get:XmlElement(name = "AuthSignature", required = true)
+    lateinit var authSignature: SignatureType
+
+    @get:XmlElement(required = true)
+    lateinit var body: EmptyBody
+
+    @XmlAccessorType(XmlAccessType.NONE)
+    @XmlType(name = "", propOrder = ["static", "mutable"])
+    class Header {
+        @get:XmlAttribute(name = "authenticate", required = true)
+        var authenticate: Boolean = false
+
+        @get:XmlElement(name = "static", required = true)
+        lateinit var static: StaticHeader
+
+        @get:XmlElement(required = true)
+        lateinit var mutable: EmptyMutableHeader
+
+        @XmlAccessorType(XmlAccessType.NONE)
+        @XmlType(name = "")
+        class EmptyMutableHeader
+    }
+
+    @XmlAccessorType(XmlAccessType.NONE)
+    class EmptyBody
+}

@@ -18,7 +18,7 @@ class EbicsMessagesTest {
      * messages.
      */
     @Test
-    fun importNonRoot() {
+    fun testImportNonRoot() {
         val classLoader = ClassLoader.getSystemClassLoader()
         val ini = classLoader.getResource("ebics_ini_inner_key.xml")
         val jaxb = XMLUtil.convertStringToJaxb<SignaturePubKeyOrderData>(ini.readText())
@@ -29,7 +29,7 @@ class EbicsMessagesTest {
      * Test string -> JAXB
      */
     @Test
-    fun stringToJaxb() {
+    fun testStringToJaxb() {
         val classLoader = ClassLoader.getSystemClassLoader()
         val ini = classLoader.getResource("ebics_ini_request_sample.xml")
         val jaxb = XMLUtil.convertStringToJaxb<EbicsUnsecuredRequest>(ini.readText())
@@ -44,7 +44,7 @@ class EbicsMessagesTest {
      * Test JAXB -> string
      */
     @Test
-    fun jaxbToString() {
+    fun testJaxbToString() {
         val hevResponseJaxb = HEVResponse().apply {
             this.systemReturnCode = SystemReturnCodeType().apply {
                 this.reportText = "[EBICS_OK]"
@@ -55,12 +55,11 @@ class EbicsMessagesTest {
         XMLUtil.convertJaxbToString(hevResponseJaxb)
     }
 
-
     /**
      * Test DOM -> JAXB
      */
     @Test
-    fun domToJaxb() {
+    fun testDomToJaxb() {
         val classLoader = ClassLoader.getSystemClassLoader()
         val ini = classLoader.getResource("ebics_ini_request_sample.xml")!!
         val iniDom = XMLUtil.parseStringIntoDom(ini.readText())
@@ -100,7 +99,7 @@ class EbicsMessagesTest {
     }
 
     @Test
-    fun hiaLoad() {
+    fun testHiaLoad() {
         val classLoader = ClassLoader.getSystemClassLoader()
         val hia = classLoader.getResource("hia_request.xml")!!
         val hiaDom = XMLUtil.parseStringIntoDom(hia.readText())
@@ -122,7 +121,7 @@ class EbicsMessagesTest {
     }
 
     @Test
-    fun loadInnerKey() {
+    fun testLoadInnerKey() {
         val jaxbKey = run {
             val classLoader = ClassLoader.getSystemClassLoader()
             val file = classLoader.getResource(
@@ -138,14 +137,14 @@ class EbicsMessagesTest {
     }
 
     @Test
-    fun loadIniMessage() {
+    fun testLoadIniMessage() {
         val classLoader = ClassLoader.getSystemClassLoader()
         val text = classLoader.getResource("ebics_ini_request_sample.xml")!!.readText()
         XMLUtil.convertStringToJaxb<EbicsUnsecuredRequest>(text)
     }
 
     @Test
-    fun loadResponse() {
+    fun testLoadResponse() {
         val response = EbicsResponse().apply {
             version = "H004"
             header = EbicsResponse.Header().apply {
@@ -165,5 +164,12 @@ class EbicsMessagesTest {
             }
         }
         print(XMLUtil.convertJaxbToString(response))
+    }
+
+    @Test
+    fun testLoadHpb() {
+        val classLoader = ClassLoader.getSystemClassLoader()
+        val text = classLoader.getResource("hpb_request.xml")!!.readText()
+        XMLUtil.convertStringToJaxb<EbicsNoPubKeyDigestsRequest>(text)
     }
 }

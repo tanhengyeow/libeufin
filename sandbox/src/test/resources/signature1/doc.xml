@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?><myMessage xmlns:ebics="urn:org:ebics:H004">
+    <ebics:AuthSignature><ds:SignedInfo xmlns:ds="http://www.w3.org/2000/09/xmldsig#"><ds:CanonicalizationMethod Algorithm="http://www.w3.org/TR/2001/REC-xml-c14n-20010315"/><ds:SignatureMethod Algorithm="http://www.w3.org/2001/04/xmldsig-more#rsa-sha256"/><ds:Reference URI="#xpointer(//*[@authenticate='true'])"><ds:Transforms><ds:Transform Algorithm="http://www.w3.org/TR/2001/REC-xml-c14n-20010315"/></ds:Transforms><ds:DigestMethod Algorithm="http://www.w3.org/2001/04/xmlenc#sha256"/><ds:DigestValue>qiFUoCn9kE0zSidyraO2Br/wn3/XyvWObJZ0aLIBXyA=</ds:DigestValue></ds:Reference></ds:SignedInfo><ds:SignatureValue xmlns:ds="http://www.w3.org/2000/09/xmldsig#">LupLyRUJIuk0kCRwpFj4fpen2MI7Jw0BI944agwzXHfSDfq0Pp8h3sub6eSsKIAq7ekT3z+mlfMc&#13;
+        VFaKRi4B7kv4ja/URiYCKKbChQU2+kMGDvsncx9VcpcFrqAbWPmE9JXD2W2YW9OSkJ1tAZxZlZwS&#13;
+        A8KcvluV1wGEBuakHL2t3GqFPQEfKW4l8GYTjHh/w9jBve5d8tvMOjGtoyNemZGrVlzBxO9+hwbw&#13;
+        8UFUCDA00dCjFDUHOnyAbBYsGzoaQyZprDn3iYDvlBz243zAN98PIKDclxlUEmkuF+JhrhCRjT9l&#13;
+        +JJxrELGHaDkFVadR4kaPdWPsbDaV0/2Fzc4Qg==</ds:SignatureValue></ebics:AuthSignature>
+    <foo authenticate="true">Hello World</foo>
+</myMessage>

@@ -20,6 +20,7 @@
 package tech.libeufin.sandbox
 
 import com.sun.org.apache.xerces.internal.dom.DOMInputImpl
+import org.apache.xml.security.c14n.Canonicalizer
 import org.w3c.dom.Document
 import org.w3c.dom.Node
 import org.w3c.dom.NodeList
@@ -30,6 +31,8 @@ import org.xml.sax.InputSource
 import org.xml.sax.SAXException
 import org.xml.sax.SAXParseException
 import java.io.*
+import java.lang.UnsupportedOperationException
+import java.security.MessageDigest
 import java.security.PrivateKey
 import java.security.PublicKey
 import java.util.*
@@ -44,6 +47,7 @@ import javax.xml.crypto.dsig.dom.DOMSignContext
 import javax.xml.crypto.dsig.dom.DOMValidateContext
 import javax.xml.crypto.dsig.spec.C14NMethodParameterSpec
 import javax.xml.crypto.dsig.spec.TransformParameterSpec
+import javax.xml.namespace.NamespaceContext
 import javax.xml.parsers.DocumentBuilderFactory
 import javax.xml.transform.OutputKeys
 import javax.xml.transform.Source
@@ -78,11 +82,18 @@ class XMLUtil {
             if (nodeSet.length <= 0) {
                 throw Exception("no nodes to sign")
             }
-            val nodeList = LinkedList<Node>()
+            val bytes = ByteArrayOutputStream()
             for (i in 0 until nodeSet.length) {
-                nodeList.add(nodeSet.item(i))
+                val node = nodeSet.item(i)
+                org.apache.xml.security.Init.init()
+                // Despite the transform later, this canonicalization step is absolutely necessary,
+                // as the canonicalizeSubtree method preserves namespaces that are not in the subtree
+                // being canonicalized, but in the parent hierarchy of the document.
+                val canon: Canonicalizer = Canonicalizer.getInstance(Canonicalizer.ALGO_ID_C14N11_OMIT_COMMENTS)
+                val cxml = canon.canonicalizeSubtree(node)
+                bytes.writeBytes(cxml)
             }
-            return NodeSetData { nodeList.iterator() }
+            return OctetStreamData(ByteArrayInputStream(bytes.toByteArray()))
         }
     }
 
@@ -119,11 +130,11 @@ class XMLUtil {
                 if (type != "http://www.w3.org/2001/XMLSchema") {
                     return null
                 }
-                val res = classLoader.getResourceAsStream(systemId) ?: return null
+                val res = classLoader.getResourceAsStream("xsd/$systemId") ?: return null
                 return DOMInputImpl(publicId, systemId, baseUri, res, "UTF-8")
             }
         }
-        val schemaInputs: Array<Source> = listOf("ebics_H004.xsd", "ebics_hev.xsd").map {
+        val schemaInputs: Array<Source> = listOf("xsd/ebics_H004.xsd", "xsd/ebics_hev.xsd").map {
             val resUrl = classLoader.getResource(it) ?: throw FileNotFoundException("Schema file $it not found.")
             StreamSource(File(resUrl.toURI()))
         }.toTypedArray()
@@ -207,12 +218,12 @@ class XMLUtil {
          * @param document the DOM to extract the string from.
          * @return the final String, or null if errors occur.
          */
-        fun convertDomToString(document: Document): String? {
+        fun convertDomToString(document: Document): String {
             /* Make Transformer.  */
             val tf = TransformerFactory.newInstance()
             val t = tf.newTransformer()
 
-            t.setOutputProperty(OutputKeys.INDENT, "yes")
+            //t.setOutputProperty(OutputKeys.INDENT, "yes")
 
             /* Make string writer.  */
             val sw = StringWriter()
@@ -222,12 +233,16 @@ class XMLUtil {
             return sw.toString()
         }
 
-        fun convertNodeToString(node: Node): String? {
+        /**
+         * Convert a node to a string without the XML declaration or
+         * indentation.
+         */
+        fun convertNodeToString(node: Node): String {
             /* Make Transformer.  */
             val tf = TransformerFactory.newInstance()
             val t = tf.newTransformer()
 
-            t.setOutputProperty(OutputKeys.INDENT, "yes")
+            t.setOutputProperty(OutputKeys.OMIT_XML_DECLARATION, "yes");
 
             /* Make string writer.  */
             val sw = StringWriter()
@@ -273,7 +288,23 @@ class XMLUtil {
          */
         fun signEbicsDocument(doc: Document, signingPriv: PrivateKey): Unit {
             val xpath = XPathFactory.newInstance().newXPath()
-            val authSigNode = xpath.compile("/*[1]/AuthSignature").evaluate(doc, XPathConstants.NODE)
+            xpath.namespaceContext = object : NamespaceContext {
+                override fun getNamespaceURI(p0: String?): String {
+                    return when (p0) {
+                        "ebics" -> "urn:org:ebics:H004"
+                        else -> throw IllegalArgumentException()
+                    }
+                }
+
+                override fun getPrefix(p0: String?): String {
+                    throw UnsupportedOperationException()
+                }
+
+                override fun getPrefixes(p0: String?): MutableIterator<String> {
+                    throw UnsupportedOperationException()
+                }
+            }
+            val authSigNode = xpath.compile("/*[1]/ebics:AuthSignature").evaluate(doc, XPathConstants.NODE)
             if (authSigNode !is Node)
                 throw java.lang.Exception("no AuthSignature")
             val fac = XMLSignatureFactory.getInstance("DOM")
@@ -306,8 +337,24 @@ class XMLUtil {
 
         fun verifyEbicsDocument(doc: Document, signingPub: PublicKey): Boolean {
             val xpath = XPathFactory.newInstance().newXPath()
+            xpath.namespaceContext = object : NamespaceContext {
+                override fun getNamespaceURI(p0: String?): String {
+                    return when (p0) {
+                        "ebics" -> "urn:org:ebics:H004"
+                        else -> throw IllegalArgumentException()
+                    }
+                }
+
+                override fun getPrefix(p0: String?): String {
+                    throw UnsupportedOperationException()
+                }
+
+                override fun getPrefixes(p0: String?): MutableIterator<String> {
+                    throw UnsupportedOperationException()
+                }
+            }
             val doc2: Document = doc.cloneNode(true) as Document
-            val authSigNode = xpath.compile("/*[1]/AuthSignature").evaluate(doc2, XPathConstants.NODE)
+            val authSigNode = xpath.compile("/*[1]/ebics:AuthSignature").evaluate(doc2, XPathConstants.NODE)
             if (authSigNode !is Node)
                 throw java.lang.Exception("no AuthSignature")
             val sigEl = doc2.createElementNS("http://www.w3.org/2000/09/xmldsig#", "ds:Signature")
@@ -317,12 +364,13 @@ class XMLUtil {
             }
             authSigNode.parentNode.removeChild(authSigNode)
             val fac = XMLSignatureFactory.getInstance("DOM")
-            println(convertDomToString(doc2))
             val dvc = DOMValidateContext(signingPub, sigEl)
             dvc.uriDereferencer = EbicsSigUriDereferencer()
             val sig = fac.unmarshalXMLSignature(dvc)
-            // FIXME: check that parameters are okay!
-            return sig.validate(dvc)
+            // FIXME: check that parameters are okay!s
+            val valResult = sig.validate(dvc)
+            sig.signedInfo.references[0].validate(dvc)
+            return valResult
         }
     }
 }
