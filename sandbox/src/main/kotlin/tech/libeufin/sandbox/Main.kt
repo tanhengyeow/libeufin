@@ -44,7 +44,6 @@ import org.jetbrains.exposed.sql.transactions.transaction
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 import org.w3c.dom.Document
-import tech.libeufin.sandbox.db.*
 import tech.libeufin.schema.ebics_h004.EbicsKeyManagementResponse
 import tech.libeufin.schema.ebics_h004.EbicsNoPubKeyDigestsRequest
 import tech.libeufin.schema.ebics_h004.EbicsUnsecuredRequest
@@ -60,8 +59,6 @@ import java.util.zip.InflaterInputStream
 import javax.sql.rowset.serial.SerialBlob
 
 val logger: Logger = LoggerFactory.getLogger("tech.libeufin.sandbox")
-
-val xmlProcess = XMLUtil()
 
 data class EbicsRequestError(val statusCode: HttpStatusCode) : Exception("Ebics request error")
 
@@ -129,7 +126,7 @@ private suspend fun ApplicationCall.ebicsweb() {
 
     val bodyDocument: Document? = XMLUtil.parseStringIntoDom(body)
 
-    if (bodyDocument == null || (!xmlProcess.validateFromDom(bodyDocument))) {
+    if (bodyDocument == null || (!XMLUtil.validateFromDom(bodyDocument))) {
         respondEbicsInvalidXml()
         return
     }
@@ -343,7 +340,8 @@ private suspend fun ApplicationCall.ebicsweb() {
                             CryptoUtil.loadRsaPublicKey(sigPubBlob.toByteArray())
                         )
                     }
-                    val validationResult = XMLUtil.verifyEbicsDocument(bodyDocument, subscriberKeys.authenticationPublicKey)
+                    val validationResult =
+                        XMLUtil.verifyEbicsDocument(bodyDocument, subscriberKeys.authenticationPublicKey)
                     logger.info("validationResult: $validationResult")
                 }
                 else -> {
@@ -434,7 +432,10 @@ fun main() {
                     if (host == null) null
                     else EbicsHostResponse(host.hostId, host.ebicsVersion)
                 }
-                if (resp == null) call.respond(HttpStatusCode.NotFound, SandboxError("host not found"))
+                if (resp == null) call.respond(
+                    HttpStatusCode.NotFound,
+                    SandboxError("host not found")
+                )
                 else call.respond(resp)
             }
             get("/ebics/subscribers") {

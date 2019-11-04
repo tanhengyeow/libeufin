@@ -582,3 +582,19 @@ class EbicsNoPubKeyDigestsRequest {
     @XmlAccessorType(XmlAccessType.NONE)
     class EmptyBody
 }
+
+
+@XmlAccessorType(XmlAccessType.NONE)
+@XmlType(name = "", propOrder = ["authenticationPubKeyInfo", "encryptionPubKeyInfo", "hostID"])
+@XmlRootElement(name = "HPBResponseOrderData")
+class HPBResponseOrderData {
+    @get:XmlElement(name = "AuthenticationPubKeyInfo", required = true)
+    lateinit var authenticationPubKeyInfo: AuthenticationPubKeyInfoType
+
+    @get:XmlElement(name = "EncryptionPubKeyInfo", required = true)
+    lateinit var encryptionPubKeyInfo: EncryptionPubKeyInfoType
+
+    @get:XmlElement(name = "HostID", required = true)
+    @get:XmlJavaTypeAdapter(CollapsedStringAdapter::class)
+    lateinit var hostID: String
+}

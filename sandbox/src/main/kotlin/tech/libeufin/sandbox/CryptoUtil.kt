@@ -37,11 +37,6 @@ import javax.crypto.spec.IvParameterSpec
 import javax.crypto.spec.SecretKeySpec
 
 
-
-
-
-
-
 /**
  * RSA key pair.
  */
@@ -133,9 +128,9 @@ class CryptoUtil {
          */
         fun getEbicsPublicKeyHash(publicKey: RSAPublicKey): ByteArray {
             val keyBytes = ByteArrayOutputStream()
-            keyBytes.writeBytes(publicKey.publicExponent.toByteArray())
+            keyBytes.writeBytes(publicKey.publicExponent.toByteArray().toHexString().toByteArray())
             keyBytes.write(' '.toInt())
-            keyBytes.writeBytes(publicKey.modulus.toByteArray())
+            keyBytes.writeBytes(publicKey.modulus.toByteArray().toHexString().toByteArray())
             val digest = MessageDigest.getInstance("SHA-256")
             return digest.digest(keyBytes.toByteArray())
         }

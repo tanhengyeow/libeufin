@@ -8,20 +8,18 @@ import javax.xml.transform.stream.StreamSource
 
 class XmlUtilTest {
 
-    val processor = tech.libeufin.sandbox.XMLUtil()
-
     @Test
     fun hevValidation(){
         val classLoader = ClassLoader.getSystemClassLoader()
         val hev = classLoader.getResourceAsStream("ebics_hev.xml")
-        assertTrue(processor.validate(StreamSource(hev)))
+        assertTrue(XMLUtil.validate(StreamSource(hev)))
     }
 
     @Test
     fun iniValidation(){
         val classLoader = ClassLoader.getSystemClassLoader()
         val ini = classLoader.getResourceAsStream("ebics_ini_request_sample.xml")
-        assertTrue(processor.validate(StreamSource(ini)))
+        assertTrue(XMLUtil.validate(StreamSource(ini)))
     }
 
     @Test

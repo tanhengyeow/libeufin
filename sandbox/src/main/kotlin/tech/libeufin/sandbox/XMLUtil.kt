@@ -31,11 +31,8 @@ import org.xml.sax.InputSource
 import org.xml.sax.SAXException
 import org.xml.sax.SAXParseException
 import java.io.*
-import java.lang.UnsupportedOperationException
-import java.security.MessageDigest
 import java.security.PrivateKey
 import java.security.PublicKey
-import java.util.*
 import javax.xml.XMLConstants
 import javax.xml.bind.JAXBContext
 import javax.xml.bind.JAXBElement
@@ -56,6 +53,7 @@ import javax.xml.transform.dom.DOMSource
 import javax.xml.transform.stream.StreamResult
 import javax.xml.transform.stream.StreamSource
 import javax.xml.validation.SchemaFactory
+import javax.xml.validation.Validator
 import javax.xml.xpath.XPath
 import javax.xml.xpath.XPathConstants
 import javax.xml.xpath.XPathFactory
@@ -63,7 +61,7 @@ import javax.xml.xpath.XPathFactory
 /**
  * Helpers for dealing with XML in EBICS.
  */
-class XMLUtil {
+class XMLUtil private constructor() {
     /**
      * This URI dereferencer allows handling the resource reference used for
      * XML signatures in EBICS.
@@ -101,93 +99,105 @@ class XMLUtil {
      * Validator for EBICS messages.
      */
     private val validator = try {
-        val classLoader = ClassLoader.getSystemClassLoader()
-        val sf = SchemaFactory.newInstance(XMLConstants.W3C_XML_SCHEMA_NS_URI)
-        sf.setProperty(XMLConstants.ACCESS_EXTERNAL_SCHEMA, "file")
-        sf.setProperty(XMLConstants.ACCESS_EXTERNAL_DTD, "")
-        sf.setFeature(XMLConstants.FEATURE_SECURE_PROCESSING, true)
-        sf.errorHandler = object : ErrorHandler {
-            override fun warning(p0: SAXParseException?) {
-                println("Warning: $p0")
-            }
 
-            override fun error(p0: SAXParseException?) {
-                println("Error: $p0")
-            }
-
-            override fun fatalError(p0: SAXParseException?) {
-                println("Fatal error: $p0")
-            }
-        }
-        sf.resourceResolver = object : LSResourceResolver {
-            override fun resolveResource(
-                type: String?,
-                namespaceURI: String?,
-                publicId: String?,
-                systemId: String?,
-                baseUri: String?
-            ): LSInput? {
-                if (type != "http://www.w3.org/2001/XMLSchema") {
-                    return null
-                }
-                val res = classLoader.getResourceAsStream("xsd/$systemId") ?: return null
-                return DOMInputImpl(publicId, systemId, baseUri, res, "UTF-8")
-            }
-        }
-        val schemaInputs: Array<Source> = listOf("xsd/ebics_H004.xsd", "xsd/ebics_hev.xsd").map {
-            val resUrl = classLoader.getResource(it) ?: throw FileNotFoundException("Schema file $it not found.")
-            StreamSource(File(resUrl.toURI()))
-        }.toTypedArray()
-        val bundle = sf.newSchema(schemaInputs)
-        bundle.newValidator()
     } catch (e: SAXException) {
         e.printStackTrace()
         throw e
     }
 
-
-    /**
-     *
-     * @param xmlDoc the XML document to validate
-     * @return true when validation passes, false otherwise
-     */
-    fun validate(xmlDoc: StreamSource): Boolean {
-        try {
-            validator?.validate(xmlDoc)
-        } catch (e: Exception) {
-            logger.warn("Validation failed: {}", e)
-            return false
-        }
-        return true;
-    }
-
-    /**
-     * Validates the DOM against the Schema(s) of this object.
-     * @param domDocument DOM to validate
-     * @return true/false if the document is valid/invalid
-     */
-    fun validateFromDom(domDocument: Document): Boolean {
-        try {
-            validator?.validate(DOMSource(domDocument))
-        } catch (e: SAXException) {
-            e.printStackTrace()
-            return false
-        }
-        return true
-    }
-
-    /**
-     * Craft object to be passed to the XML validator.
-     * @param xmlString XML body, as read from the POST body.
-     * @return InputStream object, as wanted by the validator.
-     */
-    fun validateFromString(xmlString: String): Boolean {
-        val xmlInputStream: InputStream = ByteArrayInputStream(xmlString.toByteArray())
-        val xmlSource = StreamSource(xmlInputStream)
-        return this.validate(xmlSource)
-    }
-
     companion object {
+
+        private var cachedEbicsValidator: Validator? = null
+
+        private fun getEbicsValidator(): Validator {
+            val currentValidator = cachedEbicsValidator
+            if (currentValidator != null)
+                return currentValidator
+            val classLoader = ClassLoader.getSystemClassLoader()
+            val sf = SchemaFactory.newInstance(XMLConstants.W3C_XML_SCHEMA_NS_URI)
+            sf.setProperty(XMLConstants.ACCESS_EXTERNAL_SCHEMA, "file")
+            sf.setProperty(XMLConstants.ACCESS_EXTERNAL_DTD, "")
+            sf.setFeature(XMLConstants.FEATURE_SECURE_PROCESSING, true)
+            sf.errorHandler = object : ErrorHandler {
+                override fun warning(p0: SAXParseException?) {
+                    println("Warning: $p0")
+                }
+
+                override fun error(p0: SAXParseException?) {
+                    println("Error: $p0")
+                }
+
+                override fun fatalError(p0: SAXParseException?) {
+                    println("Fatal error: $p0")
+                }
+            }
+            sf.resourceResolver = object : LSResourceResolver {
+                override fun resolveResource(
+                    type: String?,
+                    namespaceURI: String?,
+                    publicId: String?,
+                    systemId: String?,
+                    baseUri: String?
+                ): LSInput? {
+                    if (type != "http://www.w3.org/2001/XMLSchema") {
+                        return null
+                    }
+                    val res = classLoader.getResourceAsStream("xsd/$systemId") ?: return null
+                    return DOMInputImpl(publicId, systemId, baseUri, res, "UTF-8")
+                }
+            }
+            val schemaInputs: Array<Source> = listOf("xsd/ebics_H004.xsd", "xsd/ebics_hev.xsd").map {
+                val resUrl = classLoader.getResource(it) ?: throw FileNotFoundException("Schema file $it not found.")
+                StreamSource(File(resUrl.toURI()))
+            }.toTypedArray()
+            val bundle = sf.newSchema(schemaInputs)
+            val newValidator = bundle.newValidator()
+            cachedEbicsValidator = newValidator
+            return newValidator
+        }
+
+        /**
+         *
+         * @param xmlDoc the XML document to validate
+         * @return true when validation passes, false otherwise
+         */
+        fun validate(xmlDoc: StreamSource): Boolean {
+            try {
+                getEbicsValidator().validate(xmlDoc)
+            } catch (e: Exception) {
+                logger.warn("Validation failed: {}", e)
+                return false
+            }
+            return true;
+        }
+
+        /**
+         * Validates the DOM against the Schema(s) of this object.
+         * @param domDocument DOM to validate
+         * @return true/false if the document is valid/invalid
+         */
+        fun validateFromDom(domDocument: Document): Boolean {
+            try {
+                getEbicsValidator().validate(DOMSource(domDocument))
+            } catch (e: SAXException) {
+                e.printStackTrace()
+                return false
+            }
+            return true
+        }
+
+        /**
+         * Craft object to be passed to the XML validator.
+         * @param xmlString XML body, as read from the POST body.
+         * @return InputStream object, as wanted by the validator.
+         */
+        fun validateFromString(xmlString: String): Boolean {
+            val xmlInputStream: InputStream = ByteArrayInputStream(xmlString.toByteArray())
+            val xmlSource = StreamSource(xmlInputStream)
+            return validate(xmlSource)
+        }
+
+
         inline fun <reified T> convertJaxbToString(obj: T): String {
             val sw = StringWriter()
             val jc = JAXBContext.newInstance(T::class.java)

@@ -17,7 +17,7 @@
  * <http://www.gnu.org/licenses/>
  */
 
-package tech.libeufin.sandbox.db
+package tech.libeufin.sandbox
 
 import org.jetbrains.exposed.dao.*
 import org.jetbrains.exposed.sql.*
