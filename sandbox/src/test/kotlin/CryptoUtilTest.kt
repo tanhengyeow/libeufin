@@ -24,6 +24,7 @@ import java.security.KeyPairGenerator
 import java.security.interfaces.RSAPrivateCrtKey
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
+import kotlin.collections.contentEquals
 
 class CryptoUtilTest {
 
@@ -59,8 +60,10 @@ class CryptoUtilTest {
 
     @Test
     fun testEbicsE002() {
-        val data = "Hello, World!"
+        val data = "Hello, World!".toByteArray()
         val keyPair = CryptoUtil.generateRsaKeyPair(1024)
-        CryptoUtil.encryptEbicsE002(data.toByteArray(), keyPair.private)
+        val enc = CryptoUtil.encryptEbicsE002(data, keyPair.public)
+        val dec = CryptoUtil.decryptEbicsE002(enc, keyPair.private)
+        assertTrue(data.contentEquals(dec))
     }
 }

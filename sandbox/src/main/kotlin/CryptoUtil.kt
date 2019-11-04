@@ -20,12 +20,11 @@
 package tech.libeufin.sandbox
 
 import org.bouncycastle.jce.provider.BouncyCastleProvider
+import java.io.ByteArrayOutputStream
 import java.lang.Exception
 import java.math.BigInteger
 import java.security.KeyFactory
 import java.security.KeyPairGenerator
-import java.security.PrivateKey
-import java.security.PublicKey
 import java.security.interfaces.RSAPrivateCrtKey
 import java.security.interfaces.RSAPublicKey
 import java.security.spec.PKCS8EncodedKeySpec
@@ -33,6 +32,15 @@ import java.security.spec.RSAPublicKeySpec
 import java.security.spec.X509EncodedKeySpec
 import javax.crypto.Cipher
 import javax.crypto.KeyGenerator
+import java.security.MessageDigest
+import javax.crypto.spec.IvParameterSpec
+import javax.crypto.spec.SecretKeySpec
+
+
+
+
+
+
 
 /**
  * RSA key pair.
@@ -120,15 +128,52 @@ class CryptoUtil {
             return keyFactory.generatePublic(tmp) as RSAPublicKey
         }
 
-        fun encryptEbicsE002(data: ByteArray, signingPrivateKey: RSAPrivateCrtKey) {
-            val prov = BouncyCastleProvider()
+        /**
+         * Hash an RSA public key according to the EBICS standard (EBICS 2.5: 4.4.1.2.3).
+         */
+        fun getEbicsPublicKeyHash(publicKey: RSAPublicKey): ByteArray {
+            val keyBytes = ByteArrayOutputStream()
+            keyBytes.writeBytes(publicKey.publicExponent.toByteArray())
+            keyBytes.write(' '.toInt())
+            keyBytes.writeBytes(publicKey.modulus.toByteArray())
+            val digest = MessageDigest.getInstance("SHA-256")
+            return digest.digest(keyBytes.toByteArray())
+        }
+
+        /**
+         * Encrypt data according to the EBICS E002 encryption process.
+         */
+        fun encryptEbicsE002(data: ByteArray, encryptionPublicKey: RSAPublicKey): EncryptionResult {
             val keygen = KeyGenerator.getInstance("AES", bouncyCastleProvider)
             keygen.init(128)
-            val transportKey = keygen.generateKey()
+            val transactionKey = keygen.generateKey()
+            val symmetricCipher = Cipher.getInstance("AES/CBC/X9.23Padding", bouncyCastleProvider)
+            val ivParameterSpec = IvParameterSpec(ByteArray(16))
+            symmetricCipher.init(Cipher.ENCRYPT_MODE, transactionKey, ivParameterSpec)
+            val encryptedData = symmetricCipher.doFinal(data)
+            val asymmetricCipher = Cipher.getInstance("RSA/None/PKCS1Padding", bouncyCastleProvider)
+            asymmetricCipher.init(Cipher.ENCRYPT_MODE, encryptionPublicKey)
+            val encryptedTransactionKey = asymmetricCipher.doFinal(transactionKey.encoded)
+            val pubKeyDigest = getEbicsPublicKeyHash(encryptionPublicKey)
+            return EncryptionResult(encryptedTransactionKey, pubKeyDigest, encryptedData)
+        }
 
-            val cipher = Cipher.getInstance("AES/CBC/X9.23Padding", bouncyCastleProvider)
-            cipher.init(Cipher.ENCRYPT_MODE, transportKey)
-            val encryptedData = cipher.doFinal(data)
+        fun decryptEbicsE002(enc: EncryptionResult, privateKey: RSAPrivateCrtKey): ByteArray {
+            val asymmetricCipher = Cipher.getInstance("RSA/None/PKCS1Padding", bouncyCastleProvider)
+            asymmetricCipher.init(Cipher.DECRYPT_MODE, privateKey)
+            val transactionKeyBytes = asymmetricCipher.doFinal(enc.encryptedTransactionKey)
+            val secretKeySpec = SecretKeySpec(transactionKeyBytes, "AES")
+            val symmetricCipher = Cipher.getInstance("AES/CBC/X9.23Padding", bouncyCastleProvider)
+            val ivParameterSpec = IvParameterSpec(ByteArray(16))
+            symmetricCipher.init(Cipher.DECRYPT_MODE, secretKeySpec, ivParameterSpec)
+            val data = symmetricCipher.doFinal(enc.encryptedData)
+            return data
+        }
+
+        fun ByteArray.toHexString() : String {
+            return this.joinToString("") {
+                java.lang.String.format("%02x", it)
+            }
         }
     }
 }
