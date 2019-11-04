@@ -182,6 +182,9 @@ class DataEncryptionInfo {
 
     @XmlAccessorType(XmlAccessType.NONE)
     class EncryptionPubKeyDigest {
+        /**
+         * Version of the *digest* of the public key.
+         */
         @get:XmlAttribute(name = "Version", required = true)
         @get:XmlJavaTypeAdapter(CollapsedStringAdapter::class)
         lateinit var version: String
@@ -511,7 +514,7 @@ class EbicsKeyManagementResponse {
     @XmlType(name = "", propOrder = ["dataTransfer", "returnCode", "timestampBankParameter"])
     class Body {
         @get:XmlElement(name = "DataTransfer")
-        val dataTransfer: DataTransfer? = null
+        var dataTransfer: DataTransfer? = null
 
         @get:XmlElement(name = "ReturnCode", required = true)
         lateinit var returnCode: ReturnCode
@@ -597,4 +600,35 @@ class HPBResponseOrderData {
     @get:XmlElement(name = "HostID", required = true)
     @get:XmlJavaTypeAdapter(CollapsedStringAdapter::class)
     lateinit var hostID: String
+}
+
+
+@XmlAccessorType(XmlAccessType.NONE)
+@XmlType(name = "", propOrder = ["partnerInfo", "userInfo"])
+@XmlRootElement(name = "HTDResponseOrderData")
+class HTDesponseOrderData {
+    @get:XmlElement(name = "PartnerInfo", required = true)
+    lateinit var partnerInfo: PartnerInfo
+
+    @get:XmlElement(name = "UserInfo", required = true)
+    lateinit var userInfo: UserInfo
+
+    @XmlAccessorType(XmlAccessType.NONE)
+    class PartnerInfo {
+
+    }
+
+    @XmlAccessorType(XmlAccessType.NONE)
+    class UserInfo {
+
+        @get:XmlElement(name = "AddressInfo", required = true)
+        lateinit var addressInfo: AddressInfo
+
+        @get:XmlElement(name = "BankInfo", required = true)
+        lateinit var bankInfo: BankInfo
+
+        class AddressInfo
+        class BankInfo
+
+    }
 }

@@ -39,34 +39,36 @@ import io.ktor.routing.post
 import io.ktor.routing.routing
 import io.ktor.server.engine.embeddedServer
 import io.ktor.server.netty.Netty
+import org.apache.xml.security.binding.xmldsig.RSAKeyValueType
 import org.jetbrains.exposed.sql.and
 import org.jetbrains.exposed.sql.transactions.transaction
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 import org.w3c.dom.Document
-import tech.libeufin.schema.ebics_h004.EbicsKeyManagementResponse
-import tech.libeufin.schema.ebics_h004.EbicsNoPubKeyDigestsRequest
-import tech.libeufin.schema.ebics_h004.EbicsUnsecuredRequest
-import tech.libeufin.schema.ebics_h004.HIARequestOrderDataType
+import tech.libeufin.schema.ebics_h004.*
 import tech.libeufin.schema.ebics_hev.HEVResponse
 import tech.libeufin.schema.ebics_hev.SystemReturnCodeType
 import tech.libeufin.schema.ebics_s001.SignaturePubKeyOrderData
-import java.nio.charset.StandardCharsets.US_ASCII
-import java.nio.charset.StandardCharsets.UTF_8
 import java.security.interfaces.RSAPublicKey
 import java.text.DateFormat
-import java.util.zip.InflaterInputStream
 import javax.sql.rowset.serial.SerialBlob
+import javax.xml.bind.JAXBContext
+import javax.xml.datatype.XMLGregorianCalendar
 
 val logger: Logger = LoggerFactory.getLogger("tech.libeufin.sandbox")
 
 data class EbicsRequestError(val statusCode: HttpStatusCode) : Exception("Ebics request error")
 
+open class EbicsKeyManagementError(val errorText: String, val errorCode: String) :
+    Exception("EBICS key management error: $errorText ($errorCode)")
+
+class EbicsInvalidXmlError : EbicsKeyManagementError("[EBICS_INVALID_XML]", "091010")
+
 private suspend fun ApplicationCall.respondEbicsKeyManagement(
     errorText: String,
     errorCode: String,
-    statusCode: HttpStatusCode,
     bankReturnCode: String,
+    dataTransfer: CryptoUtil.EncryptionResult? = null,
     orderId: String? = null
 ) {
     val responseXml = EbicsKeyManagementResponse().apply {
@@ -87,16 +89,27 @@ private suspend fun ApplicationCall.respondEbicsKeyManagement(
                 this.authenticate = true
                 this.value = bankReturnCode
             }
+            if (dataTransfer != null) {
+                this.dataTransfer = EbicsKeyManagementResponse.Body.DataTransfer().apply {
+                    this.dataEncryptionInfo = DataEncryptionInfo().apply {
+                        this.authenticate = true
+                        this.transactionKey = dataTransfer.encryptedTransactionKey
+                        this.encryptionPubKeyDigest = DataEncryptionInfo.EncryptionPubKeyDigest().apply {
+                            this.algorithm = "http://www.w3.org/2001/04/xmlenc#sha256"
+                            this.version = "E002"
+                            this.value = dataTransfer.pubKeyDigest
+                        }
+                    }
+                    this.orderData = EbicsResponse.Body.DataTransferResponseType.OrderData().apply {
+                        this.value = dataTransfer.encryptedData
+                    }
+                }
+            }
         }
     }
     val text = XMLUtil.convertJaxbToString(responseXml)
     logger.info("responding with:\n${text}")
-    respondText(text, ContentType.Application.Xml, statusCode)
-}
-
-
-private suspend fun ApplicationCall.respondEbicsInvalidXml() {
-    respondEbicsKeyManagement("[EBICS_INVALID_XML]", "091010", HttpStatusCode.BadRequest, "000000")
+    respondText(text, ContentType.Application.Xml, HttpStatusCode.OK)
 }
 
 
@@ -114,196 +127,200 @@ fun findEbicsSubscriber(partnerID: String, userID: String, systemID: String?): E
     }.firstOrNull()
 }
 
+
+data class Subscriber(
+    val partnerID: String,
+    val userID: String,
+    val systemID: String?
+)
+
 data class SubscriberKeys(
     val authenticationPublicKey: RSAPublicKey,
     val encryptionPublicKey: RSAPublicKey,
     val signaturePublicKey: RSAPublicKey
 )
 
-private suspend fun ApplicationCall.ebicsweb() {
-    val body: String = receiveText()
-    logger.debug("Data received: $body")
 
-    val bodyDocument: Document? = XMLUtil.parseStringIntoDom(body)
+data class EbicsHostInfo(
+    val hostID: String,
+    val encryptionPublicKey: RSAPublicKey,
+    val authenticationPublicKey: RSAPublicKey
+)
 
-    if (bodyDocument == null || (!XMLUtil.validateFromDom(bodyDocument))) {
-        respondEbicsInvalidXml()
-        return
+
+private suspend fun ApplicationCall.handleEbicsHia(header: EbicsUnsecuredRequest.Header, orderData: ByteArray) {
+    val keyObject = EbicsOrderUtil.decodeOrderDataXml<HIARequestOrderDataType>(orderData)
+    val encPubXml = keyObject.encryptionPubKeyInfo.pubKeyValue.rsaKeyValue
+    val authPubXml = keyObject.authenticationPubKeyInfo.pubKeyValue.rsaKeyValue
+    val encPub = CryptoUtil.loadRsaPublicKeyFromComponents(encPubXml.modulus, encPubXml.exponent)
+    val authPub = CryptoUtil.loadRsaPublicKeyFromComponents(authPubXml.modulus, authPubXml.exponent)
+
+    transaction {
+        val ebicsSubscriber = findEbicsSubscriber(header.static.partnerID, header.static.userID, header.static.systemID)
+        if (ebicsSubscriber == null) {
+            logger.warn("ebics subscriber not found")
+            throw EbicsRequestError(HttpStatusCode.NotFound)
+        }
+        ebicsSubscriber.authenticationKey = EbicsPublicKey.new {
+            this.rsaPublicKey = SerialBlob(authPub.encoded)
+            state = KeyState.NEW
+        }
+        ebicsSubscriber.encryptionKey = EbicsPublicKey.new {
+            this.rsaPublicKey = SerialBlob(encPub.encoded)
+            state = KeyState.NEW
+        }
+        ebicsSubscriber.state = when (ebicsSubscriber.state) {
+            SubscriberState.NEW -> SubscriberState.PARTIALLY_INITIALIZED_HIA
+            SubscriberState.PARTIALLY_INITIALIZED_INI -> SubscriberState.INITIALIZED
+            else -> ebicsSubscriber.state
+        }
+    }
+    respondEbicsKeyManagement("[EBICS_OK]", "000000", "000000")
+}
+
+
+private suspend fun ApplicationCall.handleEbicsIni(header: EbicsUnsecuredRequest.Header, orderData: ByteArray) {
+    val keyObject = EbicsOrderUtil.decodeOrderDataXml<SignaturePubKeyOrderData>(orderData)
+    val sigPubXml = keyObject.signaturePubKeyInfo.pubKeyValue.rsaKeyValue
+    val sigPub = CryptoUtil.loadRsaPublicKeyFromComponents(sigPubXml.modulus, sigPubXml.exponent)
+
+    transaction {
+        val ebicsSubscriber =
+            findEbicsSubscriber(header.static.partnerID, header.static.userID, header.static.systemID)
+        if (ebicsSubscriber == null) {
+            logger.warn("ebics subscriber ('${header.static.partnerID}' / '${header.static.userID}' / '${header.static.systemID}') not found")
+            throw EbicsRequestError(HttpStatusCode.NotFound)
+        }
+        ebicsSubscriber.signatureKey = EbicsPublicKey.new {
+            this.rsaPublicKey = SerialBlob(sigPub.encoded)
+            state = KeyState.NEW
+        }
+        ebicsSubscriber.state = when (ebicsSubscriber.state) {
+            SubscriberState.NEW -> SubscriberState.PARTIALLY_INITIALIZED_INI
+            SubscriberState.PARTIALLY_INITIALIZED_HIA -> SubscriberState.INITIALIZED
+            else -> ebicsSubscriber.state
+        }
+    }
+    logger.info("Signature key inserted in database _and_ subscriber state changed accordingly")
+    respondEbicsKeyManagement("[EBICS_OK]", "000000", bankReturnCode = "000000", orderId = "OR01")
+}
+
+private suspend fun ApplicationCall.handleEbicsHpb(
+    ebicsHostInfo: EbicsHostInfo,
+    requestDocument: Document,
+    header: EbicsNoPubKeyDigestsRequest.Header
+) {
+    val subscriberKeys = transaction {
+        val ebicsSubscriber =
+            findEbicsSubscriber(header.static.partnerID, header.static.userID, header.static.systemID)
+        if (ebicsSubscriber == null) {
+            throw EbicsRequestError(HttpStatusCode.Unauthorized)
+        }
+        if (ebicsSubscriber.state != SubscriberState.INITIALIZED) {
+            throw EbicsRequestError(HttpStatusCode.Forbidden)
+        }
+        val authPubBlob = ebicsSubscriber.authenticationKey!!.rsaPublicKey
+        val encPubBlob = ebicsSubscriber.encryptionKey!!.rsaPublicKey
+        val sigPubBlob = ebicsSubscriber.signatureKey!!.rsaPublicKey
+        SubscriberKeys(
+            CryptoUtil.loadRsaPublicKey(authPubBlob.toByteArray()),
+            CryptoUtil.loadRsaPublicKey(encPubBlob.toByteArray()),
+            CryptoUtil.loadRsaPublicKey(sigPubBlob.toByteArray())
+        )
+    }
+    val validationResult =
+        XMLUtil.verifyEbicsDocument(requestDocument, subscriberKeys.authenticationPublicKey)
+    logger.info("validationResult: $validationResult")
+    if (!validationResult) {
+        throw EbicsKeyManagementError("invalid signature", "90000");
+    }
+    val hpbRespondeData = HPBResponseOrderData().apply {
+        this.authenticationPubKeyInfo = AuthenticationPubKeyInfoType().apply {
+            this.authenticationVersion = "X002"
+            this.pubKeyValue = PubKeyValueType().apply {
+                this.rsaKeyValue = RSAKeyValueType().apply {
+                    this.exponent = ebicsHostInfo.authenticationPublicKey.publicExponent.toByteArray()
+                    this.modulus = ebicsHostInfo.authenticationPublicKey.modulus.toByteArray()
+                }
+            }
+        }
+        this.encryptionPubKeyInfo = EncryptionPubKeyInfoType().apply {
+            this.encryptionVersion = "E002"
+            this.pubKeyValue = PubKeyValueType().apply {
+                this.rsaKeyValue = RSAKeyValueType().apply {
+                    this.exponent = ebicsHostInfo.encryptionPublicKey.publicExponent.toByteArray()
+                    this.modulus = ebicsHostInfo.encryptionPublicKey.modulus.toByteArray()
+                }
+            }
+        }
+        this.hostID = ebicsHostInfo.hostID
     }
 
-    logger.info("Processing ${bodyDocument.documentElement.localName}")
+    val compressedOrderData = EbicsOrderUtil.encodeOrderDataXml(hpbRespondeData)
 
-    when (bodyDocument.documentElement.localName) {
-        "ebicsUnsecuredRequest" -> {
+    val encryptionResult = CryptoUtil.encryptEbicsE002(compressedOrderData, subscriberKeys.encryptionPublicKey)
 
-            val bodyJaxb = XMLUtil.convertDomToJaxb(
-                EbicsUnsecuredRequest::class.java,
-                bodyDocument
-            )
+    respondEbicsKeyManagement("[EBICS_OK]", "000000", "000000", encryptionResult, "OR01")
+}
 
-            val staticHeader = bodyJaxb.value.header.static
-            val requestHostID = bodyJaxb.value.header.static.hostID
-
-            val ebicsHost = transaction {
-                EbicsHost.find { EbicsHosts.hostID eq requestHostID }.firstOrNull()
-            }
-
-            if (ebicsHost == null) {
-                logger.warn("client requested unknown HostID")
-                respondEbicsKeyManagement("[EBICS_INVALID_HOST_ID]", "091011", HttpStatusCode.NotFound, "000000")
-                return
-            }
-
-            logger.info("Serving a ${bodyJaxb.value.header.static.orderDetails.orderType} request")
-
-            /**
-             * NOTE: the JAXB interface has some automagic mechanism that decodes
-             * the Base64 string into its byte[] form _at the same time_ it instantiates
-             * the object; in other words, there is no need to perform here the decoding.
-             */
-            val zkey = bodyJaxb.value.body.dataTransfer.orderData.value
-
-            /**
-             * The validation enforces zkey to be a base64 value, but does not check
-             * whether it is given _empty_ or not; will check explicitly here.  FIXME:
-             * shall the schema be patched to avoid having this if-block here?
-             */
-            if (zkey.isEmpty()) {
-                logger.info("0-length key element given, invalid request")
-                respondEbicsInvalidXml()
-                return
-            }
-
-            /**
-             * This value holds the bytes[] of a XML "SignaturePubKeyOrderData" document
-             * and at this point is valid and _never_ empty.
-             */
-            val inflater = InflaterInputStream(zkey.inputStream())
-
-            var payload = try {
-                ByteArray(1) { inflater.read().toByte() }
-            } catch (e: Exception) {
-                e.printStackTrace()
-                respondEbicsInvalidXml()
-                return
-            }
-
-            while (inflater.available() == 1) {
-                payload += inflater.read().toByte()
-            }
-
-            inflater.close()
-
-            logger.debug("Found payload: ${payload.toString(US_ASCII)}")
-
-            when (bodyJaxb.value.header.static.orderDetails.orderType) {
-                "INI" -> {
-                    val keyObject = XMLUtil.convertStringToJaxb<SignaturePubKeyOrderData>(payload.toString(UTF_8))
-
-                    val rsaPublicKey: RSAPublicKey = try {
-                        CryptoUtil.loadRsaPublicKeyFromComponents(
-                            keyObject.value.signaturePubKeyInfo.pubKeyValue.rsaKeyValue.modulus,
-                            keyObject.value.signaturePubKeyInfo.pubKeyValue.rsaKeyValue.exponent
-                        )
-                    } catch (e: Exception) {
-                        logger.info("User gave bad key, not storing it")
-                        e.printStackTrace()
-                        respondEbicsInvalidXml()
-                        return
-                    }
-
-                    // put try-catch block here? (FIXME)
-                    transaction {
-                        val ebicsSubscriber =
-                            findEbicsSubscriber(staticHeader.partnerID, staticHeader.userID, staticHeader.systemID)
-                        if (ebicsSubscriber == null) {
-                            logger.warn("ebics subscriber ('${staticHeader.partnerID}' / '${staticHeader.userID}' / '${staticHeader.systemID}') not found")
-                            throw EbicsRequestError(HttpStatusCode.NotFound)
-                        }
-                        ebicsSubscriber.signatureKey = EbicsPublicKey.new {
-                            this.rsaPublicKey = SerialBlob(rsaPublicKey.encoded)
-                            state = KeyState.NEW
-                        }
-
-                        if (ebicsSubscriber.state == SubscriberState.NEW) {
-                            ebicsSubscriber.state = SubscriberState.PARTIALLY_INITIALIZED_INI
-                        }
-
-                        if (ebicsSubscriber.state == SubscriberState.PARTIALLY_INITIALIZED_HIA) {
-                            ebicsSubscriber.state = SubscriberState.INITIALIZED
-                        }
-                    }
-
-                    logger.info("Signature key inserted in database _and_ subscriber state changed accordingly")
-                    respondEbicsKeyManagement(
-                        "[EBICS_OK]",
-                        "000000",
-                        HttpStatusCode.OK,
-                        bankReturnCode = "000000",
-                        orderId = "OR01"
-                    )
-                    return
-                }
-
-                "HIA" -> {
-                    val keyObject = XMLUtil.convertStringToJaxb<HIARequestOrderDataType>(payload.toString(US_ASCII))
-
-                    val authenticationPublicKey = try {
-                        CryptoUtil.loadRsaPublicKeyFromComponents(
-                            keyObject.value.authenticationPubKeyInfo.pubKeyValue.rsaKeyValue.modulus,
-                            keyObject.value.authenticationPubKeyInfo.pubKeyValue.rsaKeyValue.exponent
-                        )
-                    } catch (e: Exception) {
-                        logger.info("auth public key invalid")
-                        e.printStackTrace()
-                        respondEbicsInvalidXml()
-                        return
-                    }
-
-                    val encryptionPublicKey = try {
-                        CryptoUtil.loadRsaPublicKeyFromComponents(
-                            keyObject.value.encryptionPubKeyInfo.pubKeyValue.rsaKeyValue.modulus,
-                            keyObject.value.encryptionPubKeyInfo.pubKeyValue.rsaKeyValue.exponent
-                        )
-                    } catch (e: Exception) {
-                        logger.info("auth public key invalid")
-                        e.printStackTrace()
-                        respondEbicsInvalidXml()
-                        return
-                    }
-
-                    transaction {
-                        val ebicsSubscriber =
-                            findEbicsSubscriber(staticHeader.partnerID, staticHeader.userID, staticHeader.systemID)
-                        if (ebicsSubscriber == null) {
-                            logger.warn("ebics subscriber not found")
-                            throw EbicsRequestError(HttpStatusCode.NotFound)
-                        }
-                        ebicsSubscriber.authenticationKey = EbicsPublicKey.new {
-                            this.rsaPublicKey = SerialBlob(authenticationPublicKey.encoded)
-                            state = KeyState.NEW
-                        }
-                        ebicsSubscriber.encryptionKey = EbicsPublicKey.new {
-                            this.rsaPublicKey = SerialBlob(encryptionPublicKey.encoded)
-                            state = KeyState.NEW
-                        }
-
-                        if (ebicsSubscriber.state == SubscriberState.NEW) {
-                            ebicsSubscriber.state = SubscriberState.PARTIALLY_INITIALIZED_HIA
-                        }
-
-                        if (ebicsSubscriber.state == SubscriberState.PARTIALLY_INITIALIZED_INI) {
-                            ebicsSubscriber.state = SubscriberState.INITIALIZED
-                        }
-                    }
-                    respondEbicsKeyManagement("[EBICS_OK]", "000000", HttpStatusCode.OK, "000000")
-                    return
-                }
-            }
-
-            throw AssertionError("not reached")
+/**
+ * Find the ebics host corresponding to the one specified in the header.
+ */
+private fun ApplicationCall.ensureEbicsHost(requestHostID: String): EbicsHostInfo {
+    return transaction {
+        val ebicsHost = EbicsHost.find { EbicsHosts.hostID eq requestHostID }.firstOrNull()
+        if (ebicsHost == null) {
+            logger.warn("client requested unknown HostID")
+            throw EbicsKeyManagementError("[EBICS_INVALID_HOST_ID]", "091011")
         }
+        val encryptionPrivateKey = CryptoUtil.loadRsaPrivateKey(ebicsHost.encryptionPrivateKey.toByteArray())
+        val authenticationPrivateKey = CryptoUtil.loadRsaPrivateKey(ebicsHost.authenticationPrivateKey.toByteArray())
+        EbicsHostInfo(
+            requestHostID,
+            CryptoUtil.getRsaPublicFromPrivate(encryptionPrivateKey),
+            CryptoUtil.getRsaPublicFromPrivate(authenticationPrivateKey)
+        )
+    }
+}
 
+
+private suspend fun ApplicationCall.receiveEbicsXml(): Document {
+    val body: String = receiveText()
+    logger.debug("Data received: $body")
+    val requestDocument: Document? = XMLUtil.parseStringIntoDom(body)
+    if (requestDocument == null || (!XMLUtil.validateFromDom(requestDocument))) {
+        throw EbicsInvalidXmlError()
+    }
+    return requestDocument
+}
+
+
+inline fun <reified T> Document.toObject(): T {
+    val jc = JAXBContext.newInstance(T::class.java)
+    val m = jc.createUnmarshaller()
+    return m.unmarshal(this, T::class.java).value
+}
+
+
+private suspend fun ApplicationCall.ebicsweb() {
+    val requestDocument = receiveEbicsXml()
+
+    logger.info("Processing ${requestDocument.documentElement.localName}")
+
+    when (requestDocument.documentElement.localName) {
+        "ebicsUnsecuredRequest" -> {
+            val requestObject = requestDocument.toObject<EbicsUnsecuredRequest>()
+            logger.info("Serving a ${requestObject.header.static.orderDetails.orderType} request")
+
+            val orderData = requestObject.body.dataTransfer.orderData.value
+            val header = requestObject.header
+
+            when (header.static.orderDetails.orderType) {
+                "INI" -> handleEbicsIni(header, orderData)
+                "HIA" -> handleEbicsHia(header, orderData)
+                else -> throw EbicsInvalidXmlError()
+            }
+        }
         "ebicsHEVRequest" -> {
             val hevResponse = HEVResponse().apply {
                 this.systemReturnCode = SystemReturnCodeType().apply {
@@ -315,40 +332,16 @@ private suspend fun ApplicationCall.ebicsweb() {
 
             val strResp = XMLUtil.convertJaxbToString(hevResponse)
             respondText(strResp, ContentType.Application.Xml, HttpStatusCode.OK)
-            return
         }
         "ebicsNoPubKeyDigestsRequest" -> {
-            val requestJaxb = XMLUtil.convertDomToJaxb(EbicsNoPubKeyDigestsRequest::class.java, bodyDocument)
-            val staticHeader = requestJaxb.value.header.static
-            when (val orderType = staticHeader.orderDetails.orderType) {
-                "HPB" -> {
-                    val subscriberKeys = transaction {
-                        val ebicsSubscriber =
-                            findEbicsSubscriber(staticHeader.partnerID, staticHeader.userID, staticHeader.systemID)
-                        if (ebicsSubscriber == null) {
-                            throw EbicsRequestError(HttpStatusCode.Unauthorized)
-                        }
-                        if (ebicsSubscriber.state != SubscriberState.INITIALIZED) {
-                            throw EbicsRequestError(HttpStatusCode.Forbidden)
-                        }
-                        val authPubBlob = ebicsSubscriber.authenticationKey!!.rsaPublicKey
-                        val encPubBlob = ebicsSubscriber.encryptionKey!!.rsaPublicKey
-                        val sigPubBlob = ebicsSubscriber.signatureKey!!.rsaPublicKey
-                        SubscriberKeys(
-                            CryptoUtil.loadRsaPublicKey(authPubBlob.toByteArray()),
-                            CryptoUtil.loadRsaPublicKey(encPubBlob.toByteArray()),
-                            CryptoUtil.loadRsaPublicKey(sigPubBlob.toByteArray())
-                        )
-                    }
-                    val validationResult =
-                        XMLUtil.verifyEbicsDocument(bodyDocument, subscriberKeys.authenticationPublicKey)
-                    logger.info("validationResult: $validationResult")
-                }
-                else -> {
-                    logger.warn("order type '${orderType}' not supported for ebicsNoPubKeyDigestsRequest")
-                    respondEbicsInvalidXml()
-                }
+            val requestObject = requestDocument.toObject<EbicsNoPubKeyDigestsRequest>()
+            val hostInfo = ensureEbicsHost(requestObject.header.static.hostID)
+            when (requestObject.header.static.orderDetails.orderType) {
+                "HPB" -> handleEbicsHpb(hostInfo, requestDocument, requestObject.header)
+                else -> throw EbicsInvalidXmlError()
             }
+        }
+        "ebicsRequest" -> {
         }
         else -> {
             /* Log to console and return "unknown type" */
@@ -357,7 +350,6 @@ private suspend fun ApplicationCall.ebicsweb() {
                 HttpStatusCode.NotImplemented,
                 SandboxError("Not Implemented")
             )
-            return
         }
     }
 }
@@ -396,7 +388,7 @@ fun main() {
         }
         install(StatusPages) {
             exception<Throwable> { cause ->
-                logger.error("Exception while handling '${call.request.uri.toString()}'", cause)
+                logger.error("Exception while handling '${call.request.uri}'", cause)
                 call.respondText("Internal server error.", ContentType.Text.Plain, HttpStatusCode.InternalServerError)
             }
         }
