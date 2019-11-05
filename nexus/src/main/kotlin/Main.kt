@@ -66,7 +66,6 @@ fun testData() {
             ebicsURL = "http://localhost:5000/ebicsweb"
             userID = "USER1"
             partnerID = "PARTNER1"
-            systemID = "SYSTEM1"
             hostID = "host01"
 
             signaturePrivateKey = SerialBlob(pairA.private.encoded)
@@ -224,12 +223,30 @@ fun main() {
                 }
 
                 logger.info("POSTing to ${url}")
-                val response = client.post<EbicsKeyManagementResponse>(
-                    urlString = url,
-                    block = {
-                        body = XMLUtil.convertJaxbToString(iniRequest)
-                    }
-                )
+
+                val response = try {
+                    client.post<String>(
+                        urlString = url,
+                        block = {
+                            body = XMLUtil.convertJaxbToString(iniRequest)
+                        }
+                    )
+                } catch (e: Exception) {
+                    e.printStackTrace()
+
+                    call.respond(
+                        HttpStatusCode.OK,
+                        NexusError("Exception thrown by HTTP client (likely server responded != 200).")
+                    )
+                    return@post
+                }
+
+                /**
+                 * TODO: check response status code,
+                 * and act accordingly when it differs from 200.
+                 */
+
+                // works: val responseJaxb = XMLUtil.convertStringToJaxb<EbicsKeyManagementResponse>(response)
 
                 call.respond(
                     HttpStatusCode.OK,

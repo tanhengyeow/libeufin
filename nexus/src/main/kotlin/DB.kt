@@ -13,7 +13,7 @@ object EbicsSubscribersTable: IntIdTable() {
     val hostID = text("hostID")
     val partnerID = text("partnerID")
     val userID = text("userID")
-    val systemID = text("systemID")
+    val systemID = text("systemID").nullable()
     val signaturePrivateKey = blob("signaturePrivateKey")
     val encryptionPrivateKey = blob("encryptionPrivateKey")
     val authenticationPrivateKey = blob("authenticationPrivateKey")
