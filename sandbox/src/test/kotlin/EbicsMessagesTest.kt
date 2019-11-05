@@ -172,4 +172,62 @@ class EbicsMessagesTest {
         val text = classLoader.getResource("hpb_request.xml")!!.readText()
         XMLUtil.convertStringToJaxb<EbicsNpkdRequest>(text)
     }
+
+    @Test
+    fun testHtd() {
+        val htd = HTDResponseOrderData().apply {
+            this.partnerInfo = HTDResponseOrderData.PartnerInfo().apply {
+                this.accountInfoList = listOf(
+                    HTDResponseOrderData.AccountInfo().apply {
+                        this.id = "acctid1"
+                        this.accountHolder = "Mina Musterfrau"
+                        this.accountNumberList = listOf(
+                            HTDResponseOrderData.GeneralAccountNumber().apply {
+                                this.international = true
+                                this.value = "AT411100000237571500"
+                            }
+                        )
+                        this.currency = "EUR"
+                        this.description = "some account"
+                        this.bankCodeList = listOf(
+                            HTDResponseOrderData.GeneralBankCode().apply {
+                                this.international = true
+                                this.value = "ABAGATWWXXX"
+                            }
+                        )
+                    }
+                )
+                this.addressInfo = HTDResponseOrderData.AddressInfo().apply {
+                    this.name = "Foo"
+                }
+                this.bankInfo = HTDResponseOrderData.BankInfo().apply {
+                    this.hostID = "MYHOST"
+                }
+                this.orderInfoList = listOf(
+                    HTDResponseOrderData.AuthOrderInfoType().apply {
+                        this.description = "foo"
+                        this.orderType = "CCC"
+                        this.orderFormat = "foo"
+                        this.transferType = "Upload"
+                    }
+                )
+            }
+            this.userInfo = HTDResponseOrderData.UserInfo().apply {
+                this.name = "Some User"
+                this.userID = HTDResponseOrderData.UserIDType().apply {
+                    this.status = 2
+                    this.value = "myuserid"
+                }
+                this.permissionList = listOf(
+                    HTDResponseOrderData.UserPermission().apply {
+                        this.orderTypes = "CCC ABC"
+                    }
+                )
+            }
+        }
+
+        val str = XMLUtil.convertJaxbToString(htd)
+        println(str)
+        assert(XMLUtil.validateFromString(str))
+    }
 }

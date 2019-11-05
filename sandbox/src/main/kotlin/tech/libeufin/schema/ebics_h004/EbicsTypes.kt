@@ -179,4 +179,32 @@ class EbicsTypes private constructor() {
         @get:XmlSchemaType(name = "token")
         lateinit var encryptionVersion: String
     }
+
+    @XmlAccessorType(XmlAccessType.NONE)
+    class FileFormatType {
+        @get:XmlAttribute(name = "CountryCode")
+        @get:XmlJavaTypeAdapter(CollapsedStringAdapter::class)
+        lateinit var language: String
+
+        @get:XmlValue
+        @get:XmlJavaTypeAdapter(NormalizedStringAdapter::class)
+        lateinit var value: String
+    }
+
+    /**
+     * Generic key-value pair.
+     */
+    @XmlAccessorType(XmlAccessType.NONE)
+    @XmlType(name = "", propOrder = ["name", "value"])
+    class Parameter {
+        @get:XmlAttribute(name = "Type", required = true)
+        lateinit var type: String
+
+        @get:XmlElement(name = "Name", required = true)
+        lateinit var name: String
+
+        @get:XmlElement(name = "Value", required = true)
+        lateinit var value: String
+
+    }
 }
