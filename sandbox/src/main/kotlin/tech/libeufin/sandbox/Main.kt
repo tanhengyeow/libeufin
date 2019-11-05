@@ -113,16 +113,16 @@ private suspend fun ApplicationCall.respondEbicsKeyManagement(
 }
 
 
-fun findEbicsSubscriber(partnerID: String, userID: String, systemID: String?): EbicsSubscriber? {
+fun findEbicsSubscriber(partnerID: String, userID: String, systemID: String?): EbicsSubscriberEntity? {
     return if (systemID == null) {
-        EbicsSubscriber.find {
-            (EbicsSubscribers.partnerId eq partnerID) and (EbicsSubscribers.userId eq userID)
+        EbicsSubscriberEntity.find {
+            (EbicsSubscribersTable.partnerId eq partnerID) and (EbicsSubscribersTable.userId eq userID)
         }
     } else {
-        EbicsSubscriber.find {
-            (EbicsSubscribers.partnerId eq partnerID) and
-                    (EbicsSubscribers.userId eq userID) and
-                    (EbicsSubscribers.systemId eq systemID)
+        EbicsSubscriberEntity.find {
+            (EbicsSubscribersTable.partnerId eq partnerID) and
+                    (EbicsSubscribersTable.userId eq userID) and
+                    (EbicsSubscribersTable.systemId eq systemID)
         }
     }.firstOrNull()
 }
@@ -161,11 +161,11 @@ private suspend fun ApplicationCall.handleEbicsHia(header: EbicsUnsecuredRequest
             logger.warn("ebics subscriber not found")
             throw EbicsRequestError(HttpStatusCode.NotFound)
         }
-        ebicsSubscriber.authenticationKey = EbicsPublicKey.new {
+        ebicsSubscriber.authenticationKey = EbicsSubscriberPublicKeyEntity.new {
             this.rsaPublicKey = SerialBlob(authPub.encoded)
             state = KeyState.NEW
         }
-        ebicsSubscriber.encryptionKey = EbicsPublicKey.new {
+        ebicsSubscriber.encryptionKey = EbicsSubscriberPublicKeyEntity.new {
             this.rsaPublicKey = SerialBlob(encPub.encoded)
             state = KeyState.NEW
         }
@@ -191,7 +191,7 @@ private suspend fun ApplicationCall.handleEbicsIni(header: EbicsUnsecuredRequest
             logger.warn("ebics subscriber ('${header.static.partnerID}' / '${header.static.userID}' / '${header.static.systemID}') not found")
             throw EbicsRequestError(HttpStatusCode.NotFound)
         }
-        ebicsSubscriber.signatureKey = EbicsPublicKey.new {
+        ebicsSubscriber.signatureKey = EbicsSubscriberPublicKeyEntity.new {
             this.rsaPublicKey = SerialBlob(sigPub.encoded)
             state = KeyState.NEW
         }
@@ -268,7 +268,7 @@ private suspend fun ApplicationCall.handleEbicsHpb(
  */
 private fun ApplicationCall.ensureEbicsHost(requestHostID: String): EbicsHostInfo {
     return transaction {
-        val ebicsHost = EbicsHost.find { EbicsHosts.hostID eq requestHostID }.firstOrNull()
+        val ebicsHost = EbicsHostEntity.find { EbicsHostsTable.hostID eq requestHostID }.firstOrNull()
         if (ebicsHost == null) {
             logger.warn("client requested unknown HostID")
             throw EbicsKeyManagementError("[EBICS_INVALID_HOST_ID]", "091011")
@@ -362,7 +362,7 @@ fun main() {
         val pairA = CryptoUtil.generateRsaKeyPair(2048)
         val pairB = CryptoUtil.generateRsaKeyPair(2048)
         val pairC = CryptoUtil.generateRsaKeyPair(2048)
-        EbicsHost.new {
+        EbicsHostEntity.new {
             hostId = "host01"
             ebicsVersion = "H004"
             authenticationPrivateKey = SerialBlob(pairA.private.encoded)
@@ -370,7 +370,7 @@ fun main() {
             signaturePrivateKey = SerialBlob(pairC.private.encoded)
         }
 
-        EbicsSubscriber.new {
+        EbicsSubscriberEntity.new {
             partnerId = "PARTNER1"
             userId = "USER1"
             systemId = null
@@ -405,14 +405,14 @@ fun main() {
             }
             get("/ebics/hosts") {
                 val ebicsHosts = transaction {
-                    EbicsHost.all().map { it.hostId }
+                    EbicsHostEntity.all().map { it.hostId }
                 }
                 call.respond(EbicsHostsResponse(ebicsHosts))
             }
             post("/ebics/hosts") {
                 val req = call.receive<EbicsHostCreateRequest>()
                 transaction {
-                    EbicsHost.new {
+                    EbicsHostEntity.new {
                         this.ebicsVersion = req.ebicsVersion
                         this.hostId = hostId
                     }
@@ -420,7 +420,7 @@ fun main() {
             }
             get("/ebics/hosts/{id}") {
                 val resp = transaction {
-                    val host = EbicsHost.find { EbicsHosts.hostID eq call.parameters["id"]!! }.firstOrNull()
+                    val host = EbicsHostEntity.find { EbicsHostsTable.hostID eq call.parameters["id"]!! }.firstOrNull()
                     if (host == null) null
                     else EbicsHostResponse(host.hostId, host.ebicsVersion)
                 }
@@ -432,14 +432,14 @@ fun main() {
             }
             get("/ebics/subscribers") {
                 val subscribers = transaction {
-                    EbicsSubscriber.all().map { it.id.value.toString() }
+                    EbicsSubscriberEntity.all().map { it.id.value.toString() }
                 }
                 call.respond(EbicsSubscribersResponse(subscribers))
             }
             get("/ebics/subscribers/{id}") {
                 val resp = transaction {
                     val id = call.parameters["id"]!!
-                    val subscriber = EbicsSubscriber.findById(id.toInt())!!
+                    val subscriber = EbicsSubscriberEntity.findById(id.toInt())!!
                     EbicsSubscriberResponse(
                         id,
                         subscriber.partnerId,

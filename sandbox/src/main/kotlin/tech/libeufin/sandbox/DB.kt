@@ -90,40 +90,40 @@ fun Blob.toByteArray(): ByteArray {
  * This table information *not* related to EBICS, for all
  * its customers.
  */
-object BankCustomers: IntIdTable() {
+object BankCustomersTable: IntIdTable() {
     // Customer ID is the default 'id' field provided by the constructor.
     val name = varchar("name", CUSTOMER_NAME_MAX_LENGTH).primaryKey()
-    val ebicsSubscriber = reference("ebicsSubscriber", EbicsSubscribers)
+    val ebicsSubscriber = reference("ebicsSubscriber", EbicsSubscribersTable)
 }
 
-class BankCustomer(id: EntityID<Int>) : IntEntity(id) {
-    companion object : IntEntityClass<BankCustomer>(BankCustomers)
+class BankCustomerEntity(id: EntityID<Int>) : IntEntity(id) {
+    companion object : IntEntityClass<BankCustomerEntity>(BankCustomersTable)
 
-    var name by BankCustomers.name
-    var ebicsSubscriber by EbicsSubscriber referencedOn BankCustomers.ebicsSubscriber
+    var name by BankCustomersTable.name
+    var ebicsSubscriber by EbicsSubscriberEntity referencedOn BankCustomersTable.ebicsSubscriber
 }
 
 
 /**
  * This table stores RSA public keys of subscribers.
  */
-object EbicsPublicKeys : IntIdTable() {
+object EbicsSubscriberPublicKeysTable : IntIdTable() {
     val rsaPublicKey = blob("rsaPublicKey")
     val state = enumeration("state", KeyState::class)
 }
 
 
 /**
- * Definition of a row in the [EbicsPublicKey] table
+ * Definition of a row in the [EbicsSubscriberPublicKeyEntity] table
  */
-class EbicsPublicKey(id: EntityID<Int>) : IntEntity(id) {
-    companion object : IntEntityClass<EbicsPublicKey>(EbicsPublicKeys)
-    var rsaPublicKey by EbicsPublicKeys.rsaPublicKey
-    var state by EbicsPublicKeys.state
+class EbicsSubscriberPublicKeyEntity(id: EntityID<Int>) : IntEntity(id) {
+    companion object : IntEntityClass<EbicsSubscriberPublicKeyEntity>(EbicsSubscriberPublicKeysTable)
+    var rsaPublicKey by EbicsSubscriberPublicKeysTable.rsaPublicKey
+    var state by EbicsSubscriberPublicKeysTable.state
 }
 
 
-object EbicsHosts : IntIdTable() {
+object EbicsHostsTable : IntIdTable() {
     val hostID = text("hostID")
     val ebicsVersion = text("ebicsVersion")
     val signaturePrivateKey = blob("signaturePrivateKey")
@@ -132,43 +132,43 @@ object EbicsHosts : IntIdTable() {
 }
 
 
-class EbicsHost(id: EntityID<Int>) : IntEntity(id) {
-    companion object : IntEntityClass<EbicsHost>(EbicsHosts)
-    var hostId by EbicsHosts.hostID
-    var ebicsVersion by EbicsHosts.ebicsVersion
-    var signaturePrivateKey by EbicsHosts.signaturePrivateKey
-    var encryptionPrivateKey by EbicsHosts.encryptionPrivateKey
-    var authenticationPrivateKey by EbicsHosts.authenticationPrivateKey
+class EbicsHostEntity(id: EntityID<Int>) : IntEntity(id) {
+    companion object : IntEntityClass<EbicsHostEntity>(EbicsHostsTable)
+    var hostId by EbicsHostsTable.hostID
+    var ebicsVersion by EbicsHostsTable.ebicsVersion
+    var signaturePrivateKey by EbicsHostsTable.signaturePrivateKey
+    var encryptionPrivateKey by EbicsHostsTable.encryptionPrivateKey
+    var authenticationPrivateKey by EbicsHostsTable.authenticationPrivateKey
 }
 
 /**
  * Subscribers table.  This table associates users with partners
  * and systems.  Each value can appear multiple times in the same column.
  */
-object EbicsSubscribers: IntIdTable() {
+object EbicsSubscribersTable: IntIdTable() {
     val userId = text("userID")
     val partnerId = text("partnerID")
     val systemId = text("systemID").nullable()
 
-    val signatureKey = reference("signatureKey", EbicsPublicKeys).nullable()
-    val encryptionKey = reference("encryptionKey", EbicsPublicKeys).nullable()
-    val authenticationKey = reference("authorizationKey", EbicsPublicKeys).nullable()
+    val signatureKey = reference("signatureKey", EbicsSubscriberPublicKeysTable).nullable()
+    val encryptionKey = reference("encryptionKey", EbicsSubscriberPublicKeysTable).nullable()
+    val authenticationKey = reference("authorizationKey", EbicsSubscriberPublicKeysTable).nullable()
 
     val state = enumeration("state", SubscriberState::class)
 }
 
-class EbicsSubscriber(id: EntityID<Int>) : IntEntity(id) {
-    companion object : IntEntityClass<EbicsSubscriber>(EbicsSubscribers)
+class EbicsSubscriberEntity(id: EntityID<Int>) : IntEntity(id) {
+    companion object : IntEntityClass<EbicsSubscriberEntity>(EbicsSubscribersTable)
 
-    var userId by EbicsSubscribers.userId
-    var partnerId by EbicsSubscribers.partnerId
-    var systemId by EbicsSubscribers.systemId
+    var userId by EbicsSubscribersTable.userId
+    var partnerId by EbicsSubscribersTable.partnerId
+    var systemId by EbicsSubscribersTable.systemId
 
-    var signatureKey by EbicsPublicKey optionalReferencedOn EbicsSubscribers.signatureKey
-    var encryptionKey by EbicsPublicKey optionalReferencedOn EbicsSubscribers.encryptionKey
-    var authenticationKey by EbicsPublicKey optionalReferencedOn EbicsSubscribers.authenticationKey
+    var signatureKey by EbicsSubscriberPublicKeyEntity optionalReferencedOn EbicsSubscribersTable.signatureKey
+    var encryptionKey by EbicsSubscriberPublicKeyEntity optionalReferencedOn EbicsSubscribersTable.encryptionKey
+    var authenticationKey by EbicsSubscriberPublicKeyEntity optionalReferencedOn EbicsSubscribersTable.authenticationKey
 
-    var state by EbicsSubscribers.state
+    var state by EbicsSubscribersTable.state
 }
 
 
@@ -179,9 +179,9 @@ fun dbCreateTables() {
         // addLogger(StdOutSqlLogger)
 
         SchemaUtils.create(
-            BankCustomers,
-            EbicsSubscribers,
-            EbicsHosts
+            BankCustomersTable,
+            EbicsSubscribersTable,
+            EbicsHostsTable
         )
     }
 }
