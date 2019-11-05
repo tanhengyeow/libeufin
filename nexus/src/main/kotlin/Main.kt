@@ -31,6 +31,8 @@ import io.ktor.features.StatusPages
 import io.ktor.gson.gson
 import io.ktor.http.ContentType
 import io.ktor.http.HttpStatusCode
+import io.ktor.http.URLBuilder
+import io.ktor.http.takeFrom
 import io.ktor.request.receive
 import io.ktor.request.uri
 import io.ktor.response.respond
@@ -221,9 +223,13 @@ fun main() {
                     )
                     return@post
                 }
-                client.post<EbicsKeyManagementResponse>(
-                    url,
-                    body = XMLUtil.convertJaxbToString(iniRequest)
+                logger.info("POSTing to ${url}")
+
+                val response = client.post<EbicsKeyManagementResponse>(
+                    urlString = url,
+                    block = {
+                        body = XMLUtil.convertJaxbToString(iniRequest)
+                    }
                 )
 
                 call.respond(
