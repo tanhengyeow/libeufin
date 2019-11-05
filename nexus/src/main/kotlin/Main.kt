@@ -41,15 +41,42 @@ import io.ktor.server.engine.embeddedServer
 import io.ktor.server.netty.Netty
 import org.jetbrains.exposed.sql.transactions.transaction
 import org.slf4j.LoggerFactory
-import tech.libeufin.sandbox.CryptoUtil
-import tech.libeufin.sandbox.EbicsSubscribers
-import tech.libeufin.sandbox.SandboxError
+import tech.libeufin.sandbox.*
+import tech.libeufin.schema.ebics_h004.EbicsUnsecuredRequest
+import tech.libeufin.schema.ebics_h004.OrderDetails
+import tech.libeufin.schema.ebics_h004.StaticHeader
+import tech.libeufin.schema.ebics_s001.PubKeyValueType
+import tech.libeufin.schema.ebics_s001.SignaturePubKeyInfoType
+import tech.libeufin.schema.ebics_s001.SignaturePubKeyOrderData
 import java.text.DateFormat
 import javax.sql.rowset.serial.SerialBlob
+
+fun testData() {
+
+    val pairA = CryptoUtil.generateRsaKeyPair(2048)
+    val pairB = CryptoUtil.generateRsaKeyPair(2048)
+    val pairC = CryptoUtil.generateRsaKeyPair(2048)
+
+    transaction {
+        EbicsSubscriberEntity.new {
+            ebicsURL = "http://localhost:5000/ebicsweb"
+            userID = "USER1"
+            partnerID = "PARTNER1"
+            systemID = "SYSTEM1"
+            hostID = "host01"
+
+            signaturePrivateKey = SerialBlob(pairA.private.encoded)
+            encryptionPrivateKey = SerialBlob(pairB.private.encoded)
+            authenticationPrivateKey = SerialBlob(pairC.private.encoded)
+        }
+    }
+}
 
 
 fun main() {
     dbCreateTables()
+    testData() // gets always id == 1
+
     val logger = LoggerFactory.getLogger("tech.libeufin.nexus")
 
     val server = embeddedServer(Netty, port = 5001) {
@@ -98,7 +125,6 @@ fun main() {
 
                 val id = transaction {
 
-
                     EbicsSubscriberEntity.new {
                         ebicsURL = body.ebicsURL
                         hostID = body.hostID
@@ -116,7 +142,78 @@ fun main() {
                     HttpStatusCode.OK,
                     EbicsSubscriberInfoResponse(id)
                 )
+                return@post
+            }
 
+            post("/ebics/subscribers/{id}/sendIni") {
+                // empty body for now..?
+                val id = try {
+                    call.parameters["id"]!!.toInt()
+
+                } catch (e: Exception) {
+                    e.printStackTrace()
+                    call.respond(
+                        HttpStatusCode.BadRequest,
+                        NexusError(e.message.toString())
+                    )
+                    return@post
+                }
+
+                val iniRequest = EbicsUnsecuredRequest()
+
+                val url = transaction {
+                    val subscriber = EbicsSubscriberEntity.findById(id)
+                    
+                    iniRequest.version = "H004"
+                    iniRequest.revision = 1
+
+                    iniRequest.header = EbicsUnsecuredRequest.Header()
+                    iniRequest.header.static = StaticHeader()
+                    iniRequest.header.mutable = EbicsUnsecuredRequest.Header.EmptyMutableHeader()
+                    iniRequest.header.static.orderDetails = OrderDetails()
+                    iniRequest.header.static.orderDetails.orderAttribute = "DZNNN"
+                    iniRequest.header.static.orderDetails.orderType = "INI"
+                    iniRequest.header.static.securityMedium = "0000"
+                    iniRequest.header.static.hostID = subscriber!!.hostID
+                    iniRequest.header.static.userID = subscriber!!.userID
+                    iniRequest.header.static.partnerID = subscriber!!.partnerID
+                    iniRequest.header.static.systemID = subscriber!!.systemID
+
+                    iniRequest.body = EbicsUnsecuredRequest.Body()
+                    iniRequest.body.dataTransfer = EbicsUnsecuredRequest.Body.UnsecuredDataTransfer()
+                    iniRequest.body.dataTransfer.orderData = EbicsUnsecuredRequest.Body.UnsecuredDataTransfer.OrderData()
+
+                    val tmpKey = CryptoUtil.loadRsaPrivateKey(subscriber.signaturePrivateKey.toByteArray())
+                    val orderData = SignaturePubKeyOrderData()
+
+                    orderData.signaturePubKeyInfo = SignaturePubKeyInfoType()
+                    orderData.signaturePubKeyInfo.pubKeyValue = PubKeyValueType()
+                    orderData.signaturePubKeyInfo.pubKeyValue.rsaKeyValue = org.apache.xml.security.binding.xmldsig.RSAKeyValueType()
+                    orderData.signaturePubKeyInfo.pubKeyValue.rsaKeyValue.exponent = tmpKey.publicExponent.toByteArray()
+                    orderData.signaturePubKeyInfo.pubKeyValue.rsaKeyValue.modulus = tmpKey.modulus.toByteArray()
+                    orderData.signaturePubKeyInfo.signatureVersion = "A006"
+                    orderData.partnerID = subscriber.partnerID
+                    orderData.userID = subscriber.userID
+
+                    iniRequest.body.dataTransfer.orderData.value = EbicsOrderUtil.encodeOrderDataXml(orderData)
+
+                    subscriber.ebicsURL
+                }
+
+                if (iniRequest == null) {
+                    call.respond(
+                        HttpStatusCode.NotFound,
+                        NexusError("Could not find that subscriber")
+                    )
+                    return@post
+                }
+
+                logger.info("About to POST this: ${XMLUtil.convertJaxbToString(iniRequest)}")
+
+                call.respond(
+                    HttpStatusCode.OK,
+                    NexusError("All Good.")
+                )
                 return@post
             }
 

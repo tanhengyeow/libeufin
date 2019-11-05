@@ -32,6 +32,7 @@ dependencies {
     implementation group: 'xerces', name: 'xercesImpl', version: '2.6.2-jaxb-1.0.6'
     implementation "javax.activation:activation:1.1"
     implementation "org.glassfish.jaxb:jaxb-runtime:2.3.1"
+    implementation 'org.apache.santuario:xmlsec:2.1.4'
 
     testImplementation group: 'junit', name: 'junit', version: '4.12'
 }

@@ -2,8 +2,11 @@ package tech.libeufin.nexus
 
 import org.jetbrains.exposed.dao.*
 import org.jetbrains.exposed.sql.*
+import org.jetbrains.exposed.sql.transactions.ThreadLocalTransactionManager
+import org.jetbrains.exposed.sql.transactions.TransactionManager
 import org.jetbrains.exposed.sql.transactions.transaction
 import tech.libeufin.sandbox.EbicsHosts
+import java.sql.Connection
 
 object EbicsSubscribersTable: IntIdTable() {
     val ebicsURL = text("ebicsURL")
