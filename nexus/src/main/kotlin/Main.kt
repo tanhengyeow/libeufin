@@ -174,6 +174,7 @@ fun main() {
                         version = "H004"
                         revision = 1
                         header = EbicsUnsecuredRequest.Header().apply {
+                            authenticate = true
                             static = StaticHeader().apply {
                                 orderDetails = OrderDetails().apply {
                                     orderAttribute = "DZNNN"
@@ -211,8 +212,6 @@ fun main() {
                             }
                         }
                     }
-
-
                     subscriber!!.ebicsURL
                 }
 
@@ -223,8 +222,8 @@ fun main() {
                     )
                     return@post
                 }
-                logger.info("POSTing to ${url}")
 
+                logger.info("POSTing to ${url}")
                 val response = client.post<EbicsKeyManagementResponse>(
                     urlString = url,
                     block = {
