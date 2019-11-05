@@ -19,28 +19,105 @@
 
 package tech.libeufin.nexus
 
+import io.ktor.application.ApplicationCallPipeline
 import io.ktor.application.call
+import io.ktor.application.install
 import io.ktor.client.*
 import io.ktor.client.features.ServerResponseException
 import io.ktor.client.request.get
+import io.ktor.features.ContentNegotiation
+import io.ktor.features.StatusPages
+import io.ktor.gson.gson
+import io.ktor.http.ContentType
+import io.ktor.http.HttpStatusCode
+import io.ktor.request.receive
+import io.ktor.request.uri
+import io.ktor.response.respond
 import io.ktor.response.respondText
 import io.ktor.routing.get
 import io.ktor.routing.post
 import io.ktor.routing.routing
 import io.ktor.server.engine.embeddedServer
 import io.ktor.server.netty.Netty
+import org.jetbrains.exposed.sql.transactions.transaction
 import org.slf4j.LoggerFactory
+import tech.libeufin.sandbox.CryptoUtil
+import tech.libeufin.sandbox.EbicsSubscribers
+import tech.libeufin.sandbox.SandboxError
+import java.text.DateFormat
+import javax.sql.rowset.serial.SerialBlob
 
 
 fun main() {
+    dbCreateTables()
     val logger = LoggerFactory.getLogger("tech.libeufin.nexus")
 
     val server = embeddedServer(Netty, port = 5001) {
+
+        install(ContentNegotiation) {
+            gson {
+                setDateFormat(DateFormat.LONG)
+                setPrettyPrinting()
+            }
+        }
+        install(StatusPages) {
+            exception<Throwable> { cause ->
+                tech.libeufin.sandbox.logger.error("Exception while handling '${call.request.uri}'", cause)
+                call.respondText("Internal server error.", ContentType.Text.Plain, HttpStatusCode.InternalServerError)
+            }
+        }
+
+        intercept(ApplicationCallPipeline.Fallback) {
+            if (this.call.response.status() == null) {
+                call.respondText("Not found (no route matched).\n", ContentType.Text.Plain, HttpStatusCode.NotFound)
+                return@intercept finish()
+            }
+        }
 
         routing {
             get("/") {
                 call.respondText("Hello by Nexus!\n")
                 return@get
+            }
+
+            post("/ebics/subscribers") {
+                val body = try {
+                    call.receive<EbicsSubscriberInfoRequest>()
+                } catch (e: Exception) {
+                    e.printStackTrace()
+                    call.respond(
+                        HttpStatusCode.BadRequest,
+                        NexusError(e.message.toString())
+                    )
+                    return@post
+                }
+
+                val pairA = CryptoUtil.generateRsaKeyPair(2048)
+                val pairB = CryptoUtil.generateRsaKeyPair(2048)
+                val pairC = CryptoUtil.generateRsaKeyPair(2048)
+
+                val id = transaction {
+
+
+                    EbicsSubscriberEntity.new {
+                        ebicsURL = body.ebicsURL
+                        hostID = body.hostID
+                        partnerID = body.partnerID
+                        userID = body.userID
+                        systemID = body.systemID
+                        signaturePrivateKey = SerialBlob(pairA.private.encoded)
+                        encryptionPrivateKey = SerialBlob(pairB.private.encoded)
+                        authenticationPrivateKey = SerialBlob(pairC.private.encoded)
+
+                    }.id.value
+                }
+
+                call.respond(
+                    HttpStatusCode.OK,
+                    EbicsSubscriberInfoResponse(id)
+                )
+
+                return@post
             }
 
             post("/nexus") {
