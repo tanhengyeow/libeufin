@@ -53,7 +53,6 @@ import java.security.interfaces.RSAPublicKey
 import java.text.DateFormat
 import javax.sql.rowset.serial.SerialBlob
 import javax.xml.bind.JAXBContext
-import javax.xml.datatype.XMLGregorianCalendar
 
 val logger: Logger = LoggerFactory.getLogger("tech.libeufin.sandbox")
 
@@ -75,32 +74,32 @@ private suspend fun ApplicationCall.respondEbicsKeyManagement(
         version = "H004"
         header = EbicsKeyManagementResponse.Header().apply {
             authenticate = true
-            mutable = EbicsKeyManagementResponse.Header.KeyManagementResponseMutableHeaderType().apply {
+            mutable = EbicsKeyManagementResponse.MutableHeaderType().apply {
                 reportText = errorText
                 returnCode = errorCode
                 if (orderId != null) {
                     this.orderID = orderId
                 }
             }
-            _static = EbicsKeyManagementResponse.Header.EmptyStaticHeader()
+            _static = EbicsKeyManagementResponse.EmptyStaticHeader()
         }
         body = EbicsKeyManagementResponse.Body().apply {
-            this.returnCode = EbicsKeyManagementResponse.Body.ReturnCode().apply {
+            this.returnCode = EbicsKeyManagementResponse.ReturnCode().apply {
                 this.authenticate = true
                 this.value = bankReturnCode
             }
             if (dataTransfer != null) {
-                this.dataTransfer = EbicsKeyManagementResponse.Body.DataTransfer().apply {
-                    this.dataEncryptionInfo = DataEncryptionInfo().apply {
+                this.dataTransfer = EbicsKeyManagementResponse.DataTransfer().apply {
+                    this.dataEncryptionInfo = EbicsTypes.DataEncryptionInfo().apply {
                         this.authenticate = true
                         this.transactionKey = dataTransfer.encryptedTransactionKey
-                        this.encryptionPubKeyDigest = DataEncryptionInfo.EncryptionPubKeyDigest().apply {
+                        this.encryptionPubKeyDigest = EbicsTypes.DataEncryptionInfo.EncryptionPubKeyDigest().apply {
                             this.algorithm = "http://www.w3.org/2001/04/xmlenc#sha256"
                             this.version = "E002"
                             this.value = dataTransfer.pubKeyDigest
                         }
                     }
-                    this.orderData = EbicsResponse.Body.DataTransferResponseType.OrderData().apply {
+                    this.orderData = EbicsKeyManagementResponse.OrderData().apply {
                         this.value = dataTransfer.encryptedData
                     }
                 }
@@ -149,7 +148,7 @@ data class EbicsHostInfo(
 
 
 private suspend fun ApplicationCall.handleEbicsHia(header: EbicsUnsecuredRequest.Header, orderData: ByteArray) {
-    val keyObject = EbicsOrderUtil.decodeOrderDataXml<HIARequestOrderDataType>(orderData)
+    val keyObject = EbicsOrderUtil.decodeOrderDataXml<HIARequestOrderData>(orderData)
     val encPubXml = keyObject.encryptionPubKeyInfo.pubKeyValue.rsaKeyValue
     val authPubXml = keyObject.authenticationPubKeyInfo.pubKeyValue.rsaKeyValue
     val encPub = CryptoUtil.loadRsaPublicKeyFromComponents(encPubXml.modulus, encPubXml.exponent)
@@ -208,7 +207,7 @@ private suspend fun ApplicationCall.handleEbicsIni(header: EbicsUnsecuredRequest
 private suspend fun ApplicationCall.handleEbicsHpb(
     ebicsHostInfo: EbicsHostInfo,
     requestDocument: Document,
-    header: EbicsNoPubKeyDigestsRequest.Header
+    header: EbicsNpkdRequest.Header
 ) {
     val subscriberKeys = transaction {
         val ebicsSubscriber =
@@ -235,18 +234,18 @@ private suspend fun ApplicationCall.handleEbicsHpb(
         throw EbicsKeyManagementError("invalid signature", "90000");
     }
     val hpbRespondeData = HPBResponseOrderData().apply {
-        this.authenticationPubKeyInfo = AuthenticationPubKeyInfoType().apply {
+        this.authenticationPubKeyInfo = EbicsTypes.AuthenticationPubKeyInfoType().apply {
             this.authenticationVersion = "X002"
-            this.pubKeyValue = PubKeyValueType().apply {
+            this.pubKeyValue = EbicsTypes.PubKeyValueType().apply {
                 this.rsaKeyValue = RSAKeyValueType().apply {
                     this.exponent = ebicsHostInfo.authenticationPublicKey.publicExponent.toByteArray()
                     this.modulus = ebicsHostInfo.authenticationPublicKey.modulus.toByteArray()
                 }
             }
         }
-        this.encryptionPubKeyInfo = EncryptionPubKeyInfoType().apply {
+        this.encryptionPubKeyInfo = EbicsTypes.EncryptionPubKeyInfoType().apply {
             this.encryptionVersion = "E002"
-            this.pubKeyValue = PubKeyValueType().apply {
+            this.pubKeyValue = EbicsTypes.PubKeyValueType().apply {
                 this.rsaKeyValue = RSAKeyValueType().apply {
                     this.exponent = ebicsHostInfo.encryptionPublicKey.publicExponent.toByteArray()
                     this.modulus = ebicsHostInfo.encryptionPublicKey.modulus.toByteArray()
@@ -334,7 +333,7 @@ private suspend fun ApplicationCall.ebicsweb() {
             respondText(strResp, ContentType.Application.Xml, HttpStatusCode.OK)
         }
         "ebicsNoPubKeyDigestsRequest" -> {
-            val requestObject = requestDocument.toObject<EbicsNoPubKeyDigestsRequest>()
+            val requestObject = requestDocument.toObject<EbicsNpkdRequest>()
             val hostInfo = ensureEbicsHost(requestObject.header.static.hostID)
             when (requestObject.header.static.orderDetails.orderType) {
                 "HPB" -> handleEbicsHpb(hostInfo, requestDocument, requestObject.header)

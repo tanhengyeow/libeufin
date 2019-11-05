@@ -145,7 +145,7 @@ class EbicsHostEntity(id: EntityID<Int>) : IntEntity(id) {
  * Subscribers table.  This table associates users with partners
  * and systems.  Each value can appear multiple times in the same column.
  */
-object EbicsSubscribersTable: IntIdTable() {
+object EbicsSubscribersTable : IntIdTable() {
     val userId = text("userID")
     val partnerId = text("partnerID")
     val systemId = text("systemID").nullable()
@@ -169,6 +169,33 @@ class EbicsSubscriberEntity(id: EntityID<Int>) : IntEntity(id) {
     var authenticationKey by EbicsSubscriberPublicKeyEntity optionalReferencedOn EbicsSubscribersTable.authenticationKey
 
     var state by EbicsSubscribersTable.state
+}
+
+
+object EbicsDownloadTransactionsTable : IdTable<String>() {
+    override val id = text("transactionID").entityId()
+    val orderType = text("orderType")
+    val host = reference("host", EbicsHostsTable)
+    val subscriber = reference("subscriber", EbicsSubscribersTable)
+    val encodedResponse = blob("encodedResponse")
+    val orderID = text("orderID")
+    val numSegments = integer("numSegments")
+    val segmentSize = integer("segmentSize")
+    val receiptReceived = bool("receiptReceived")
+}
+
+
+class EbicsDownloadTransactionEntity(id: EntityID<String>) : Entity<String>(id) {
+    companion object : EntityClass<String, EbicsDownloadTransactionEntity>(EbicsDownloadTransactionsTable)
+
+    var orderType by EbicsDownloadTransactionsTable.orderType
+    var host by EbicsDownloadTransactionsTable.host
+    var subscriber by EbicsDownloadTransactionsTable.host
+    var encodedResponse by EbicsDownloadTransactionsTable.encodedResponse
+    var orderID by EbicsDownloadTransactionsTable.orderID
+    var numSegments by EbicsDownloadTransactionsTable.numSegments
+    var segmentSize by EbicsDownloadTransactionsTable.segmentSize
+    var receiptReceived by EbicsDownloadTransactionsTable.receiptReceived
 }
 
 

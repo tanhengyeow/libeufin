@@ -73,15 +73,15 @@ class EbicsMessagesTest {
     fun testKeyMgmgResponse() {
         val responseXml = EbicsKeyManagementResponse().apply {
             header = EbicsKeyManagementResponse.Header().apply {
-                mutable = EbicsKeyManagementResponse.Header.KeyManagementResponseMutableHeaderType().apply {
+                mutable = EbicsKeyManagementResponse.MutableHeaderType().apply {
                     reportText = "foo"
                     returnCode = "bar"
                 }
-                _static = EbicsKeyManagementResponse.Header.EmptyStaticHeader()
+                _static = EbicsKeyManagementResponse.EmptyStaticHeader()
             }
             version = "H004"
             body = EbicsKeyManagementResponse.Body().apply {
-                returnCode = EbicsKeyManagementResponse.Body.ReturnCode().apply {
+                returnCode = EbicsKeyManagementResponse.ReturnCode().apply {
                     authenticate = true
                     value = "000000"
                 }
@@ -95,7 +95,7 @@ class EbicsMessagesTest {
     fun testParseHiaRequestOrderData() {
         val classLoader = ClassLoader.getSystemClassLoader()
         val hia = classLoader.getResource("hia_request_order_data.xml")!!.readText()
-        XMLUtil.convertStringToJaxb<HIARequestOrderDataType>(hia)
+        XMLUtil.convertStringToJaxb<HIARequestOrderData>(hia)
     }
 
     @Test
@@ -148,16 +148,16 @@ class EbicsMessagesTest {
         val response = EbicsResponse().apply {
             version = "H004"
             header = EbicsResponse.Header().apply {
-                _static = ResponseStaticHeaderType()
-                mutable = EbicsResponseMutableHeaderType().apply {
+                _static = EbicsResponse.StaticHeaderType()
+                mutable = EbicsResponse.MutableHeaderType().apply {
                     this.reportText = "foo"
                     this.returnCode = "bar"
-                    this.transactionPhase = TransactionPhaseType.INITIALISATION
+                    this.transactionPhase = EbicsTypes.TransactionPhaseType.INITIALISATION
                 }
             }
             authSignature = SignatureType()
             body = EbicsResponse.Body().apply {
-                returnCode = EbicsResponse.Body.ReturnCode().apply {
+                returnCode = EbicsResponse.ReturnCode().apply {
                     authenticate = true
                     value = "asdf"
                 }
@@ -170,6 +170,6 @@ class EbicsMessagesTest {
     fun testLoadHpb() {
         val classLoader = ClassLoader.getSystemClassLoader()
         val text = classLoader.getResource("hpb_request.xml")!!.readText()
-        XMLUtil.convertStringToJaxb<EbicsNoPubKeyDigestsRequest>(text)
+        XMLUtil.convertStringToJaxb<EbicsNpkdRequest>(text)
     }
 }
