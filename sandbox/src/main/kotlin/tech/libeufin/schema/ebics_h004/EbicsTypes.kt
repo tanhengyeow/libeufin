@@ -53,24 +53,6 @@ class EbicsTypes private constructor() {
         var instituteID: String? = null
     }
 
-    /**
-     * Order details for the static EBICS header.
-     */
-    @XmlAccessorType(XmlAccessType.NONE)
-    @XmlType(name = "OrderDetailsType", propOrder = ["orderType", "orderAttribute"])
-    class SimpleOrderDetails {
-        @get:XmlElement(name = "OrderType", required = true)
-        @get:XmlJavaTypeAdapter(CollapsedStringAdapter::class)
-        lateinit var orderType: String
-
-        @get:XmlElement(name = "OrderAttribute", required = true)
-        @get:XmlJavaTypeAdapter(CollapsedStringAdapter::class)
-        lateinit var orderAttribute: String
-    }
-
-
-
-
 
     @XmlAccessorType(XmlAccessType.NONE)
     class DataEncryptionInfo {

@@ -42,9 +42,6 @@ class PubKeyValueType {
     @get:XmlElement(name = "TimeStamp")
     @get:XmlSchemaType(name = "dateTime")
     var timeStamp: XMLGregorianCalendar? = null
-
-    @XmlAnyElement(lax = true)
-    var any: List<Any>? = null
 }
 
 
@@ -92,7 +89,4 @@ class SignaturePubKeyOrderData {
     @get:XmlJavaTypeAdapter(CollapsedStringAdapter::class)
     @get:XmlSchemaType(name = "token")
     lateinit var userID: String
-
-    @get:XmlAnyElement(lax = true)
-    var any: List<Any>? = null
 }

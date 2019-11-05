@@ -76,10 +76,22 @@ class EbicsNpkdRequest {
         val product: EbicsTypes.Product? = null
 
         @get:XmlElement(name = "OrderDetails", required = true)
-        lateinit var orderDetails: EbicsTypes.SimpleOrderDetails
+        lateinit var orderDetails: OrderDetails
 
         @get:XmlElement(name = "SecurityMedium", required = true)
         lateinit var securityMedium: String
+    }
+
+    @XmlAccessorType(XmlAccessType.NONE)
+    @XmlType(name = "", propOrder = ["orderType", "orderAttribute"])
+    class OrderDetails {
+        @get:XmlElement(name = "OrderType", required = true)
+        @get:XmlJavaTypeAdapter(CollapsedStringAdapter::class)
+        lateinit var orderType: String
+
+        @get:XmlElement(name = "OrderAttribute", required = true)
+        @get:XmlJavaTypeAdapter(CollapsedStringAdapter::class)
+        lateinit var orderAttribute: String
     }
 
     @XmlAccessorType(XmlAccessType.NONE)

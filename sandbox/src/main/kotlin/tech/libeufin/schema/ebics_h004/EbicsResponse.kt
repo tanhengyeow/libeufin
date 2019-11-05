@@ -61,8 +61,8 @@ class EbicsResponse {
 
     @XmlAccessorType(XmlAccessType.NONE)
     @XmlType(
-        name = "ResponseMutableHeaderType",
-        propOrder = ["transactionPhase", "segmentNumber", "orderID", "returnCode", "reportText", "any"]
+        name = "",
+        propOrder = ["transactionPhase", "segmentNumber", "orderID", "returnCode", "reportText"]
     )
     class MutableHeaderType {
         @get:XmlElement(name = "TransactionPhase", required = true)
@@ -86,9 +86,6 @@ class EbicsResponse {
         @get:XmlJavaTypeAdapter(NormalizedStringAdapter::class)
         @get:XmlSchemaType(name = "normalizedString")
         lateinit var reportText: String
-
-        @get:XmlAnyElement(lax = true)
-        var any: List<Any>? = null
     }
 
     @XmlAccessorType(XmlAccessType.NONE)
@@ -118,16 +115,13 @@ class EbicsResponse {
     }
 
     @XmlAccessorType(XmlAccessType.NONE)
-    @XmlType(name = "DataTransferResponseType", propOrder = ["dataEncryptionInfo", "orderData", "any"])
+    @XmlType(name = "DataTransferResponseType", propOrder = ["dataEncryptionInfo", "orderData"])
     class DataTransferResponseType {
         @get:XmlElement(name = "DataEncryptionInfo")
         var dataEncryptionInfo: EbicsTypes.DataEncryptionInfo? = null
 
         @get:XmlElement(name = "OrderData", required = true)
         lateinit var orderData: OrderData
-
-        @get:XmlAnyElement(lax = true)
-        var any: List<Any>? = null
     }
 
 
