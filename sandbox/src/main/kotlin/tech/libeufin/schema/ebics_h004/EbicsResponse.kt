@@ -13,6 +13,13 @@ import javax.xml.namespace.QName
 @XmlType(name = "", propOrder = ["header", "authSignature", "body"])
 @XmlRootElement(name = "ebicsResponse")
 class EbicsResponse {
+    @get:XmlAttribute(name = "Version", required = true)
+    @get:XmlJavaTypeAdapter(CollapsedStringAdapter::class)
+    lateinit var version: String
+
+    @get:XmlAttribute(name = "Revision")
+    var revision: Int? = null
+
     @get:XmlElement(required = true)
     lateinit var header: EbicsResponse.Header
 
@@ -21,13 +28,6 @@ class EbicsResponse {
 
     @get:XmlElement(required = true)
     lateinit var body: Body
-
-    @get:XmlAttribute(name = "Version", required = true)
-    @get:XmlJavaTypeAdapter(CollapsedStringAdapter::class)
-    lateinit var version: String
-
-    @get:XmlAttribute(name = "Revision")
-    var revision: Int? = null
 
     @get:XmlAnyAttribute
     var otherAttributes = HashMap<QName, String>()

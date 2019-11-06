@@ -93,7 +93,7 @@ private suspend fun ApplicationCall.respondEbicsKeyManagement(
                     this.dataEncryptionInfo = EbicsTypes.DataEncryptionInfo().apply {
                         this.authenticate = true
                         this.transactionKey = dataTransfer.encryptedTransactionKey
-                        this.encryptionPubKeyDigest = EbicsTypes.DataEncryptionInfo.EncryptionPubKeyDigest().apply {
+                        this.encryptionPubKeyDigest = EbicsTypes.PubKeyDigest().apply {
                             this.algorithm = "http://www.w3.org/2001/04/xmlenc#sha256"
                             this.version = "E002"
                             this.value = dataTransfer.pubKeyDigest

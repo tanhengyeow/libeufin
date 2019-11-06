@@ -5,7 +5,6 @@ import java.math.BigInteger
 import javax.xml.bind.annotation.*
 import javax.xml.bind.annotation.adapters.CollapsedStringAdapter
 import javax.xml.bind.annotation.adapters.HexBinaryAdapter
-import javax.xml.bind.annotation.adapters.XmlAdapter
 import javax.xml.bind.annotation.adapters.XmlJavaTypeAdapter
 import javax.xml.datatype.XMLGregorianCalendar
 
@@ -13,6 +12,13 @@ import javax.xml.datatype.XMLGregorianCalendar
 @XmlType(name = "", propOrder = ["header", "authSignature", "body"])
 @XmlRootElement(name = "ebicsRequest")
 class EbicsRequest {
+    @get:XmlAttribute(name = "Version", required = true)
+    @get:XmlJavaTypeAdapter(CollapsedStringAdapter::class)
+    lateinit var version: String
+
+    @get:XmlAttribute(name = "Revision")
+    var revision: Int? = null
+
     @get:XmlElement(name = "header", required = true)
     lateinit var header: Header
 
@@ -35,7 +41,16 @@ class EbicsRequest {
         var authenticate: Boolean = false
     }
 
-    abstract class StaticHeaderType {
+    @XmlAccessorType(XmlAccessType.NONE)
+    @XmlType(
+        name = "",
+        propOrder = [
+            "hostID", "nonce", "timestamp", "partnerID", "userID", "systemID",
+            "product", "orderDetails", "bankPubKeyDigests", "securityMedium",
+            "numSegments", "transactionID"
+        ]
+    )
+    class StaticHeaderType {
         @get:XmlElement(name = "HostID", required = true)
         @get:XmlJavaTypeAdapter(CollapsedStringAdapter::class)
         lateinit var hostID: String
@@ -80,13 +95,19 @@ class EbicsRequest {
          * Present only in the initialization phase.
          */
         @get:XmlElement(name = "Product")
-        val product: EbicsTypes.Product? = null
+        var product: EbicsTypes.Product? = null
 
         /**
          * Present only in the initialization phase.
          */
         @get:XmlElement(name = "OrderDetails")
         var orderDetails: OrderDetails? = null
+
+        /**
+         * Present only in the initialization phase.
+         */
+        @get:XmlElement(name = "BankPubKeyDigests")
+        var bankPubKeyDigests: BankPubKeyDigests? = null
 
         /**
          * Present only in the initialization phase.
@@ -112,9 +133,9 @@ class EbicsRequest {
     @XmlAccessorType(XmlAccessType.NONE)
     @XmlType(name = "", propOrder = ["transactionPhase", "segmentNumber"])
     class MutableHeader {
-        @get:XmlElement(name = "TransactionID")
-        @get:XmlJavaTypeAdapter(CollapsedStringAdapter::class)
-        var transactionPhase: String? = null
+        @get:XmlElement(name = "TransactionPhase", required = true)
+        @get:XmlSchemaType(name = "token")
+        lateinit var transactionPhase: EbicsTypes.TransactionPhaseType
 
         /**
          * Number of the currently transmitted segment, if this message
@@ -126,7 +147,9 @@ class EbicsRequest {
     }
 
     @XmlAccessorType(XmlAccessType.NONE)
-    @XmlType(name = "", propOrder = ["orderType", "orderID", "orderAttribute"])
+    @XmlType(
+        name = "",
+        propOrder = ["orderType", "orderID", "orderAttribute", "orderParams"])
     class OrderDetails {
         @get:XmlElement(name = "OrderType", required = true)
         @get:XmlJavaTypeAdapter(CollapsedStringAdapter::class)
@@ -136,13 +159,22 @@ class EbicsRequest {
          * Only present if this ebicsRequest is a upload order
          * relating to an already existing order.
          */
-        @get:XmlElement(name = "OrderId", required = true)
+        @get:XmlElement(name = "OrderID", required = true)
         @get:XmlJavaTypeAdapter(CollapsedStringAdapter::class)
         var orderID: String? = null
 
         @get:XmlElement(name = "OrderAttribute", required = true)
         @get:XmlJavaTypeAdapter(CollapsedStringAdapter::class)
         lateinit var orderAttribute: String
+
+        /**
+         * Present only in the initialization phase.
+         */
+        @get:XmlElements(
+            XmlElement(
+                name = "StandardOrderParams",
+                type = StandardOrderParams::class))
+        var orderParams: OrderParams? = null
     }
 
     @XmlAccessorType(XmlAccessType.NONE)
@@ -188,5 +220,35 @@ class EbicsRequest {
 
         @get:XmlElement(name = "ReceiptCode")
         var receiptCode: Int? = null
+    }
+
+    @XmlAccessorType(XmlAccessType.NONE)
+    abstract class OrderParams
+
+    @XmlAccessorType(XmlAccessType.NONE)
+    @XmlType(name = "", propOrder = ["dateRange"])
+    class StandardOrderParams : OrderParams() {
+        @get:XmlElement(name = "DateRange")
+        var dateRange: DateRange? = null
+    }
+
+    @XmlAccessorType(XmlAccessType.NONE)
+    @XmlType(name = "", propOrder = ["start", "end"])
+    class DateRange {
+        @get:XmlElement(name = "Start")
+        lateinit var start: XMLGregorianCalendar
+
+        @get:XmlElement(name = "END")
+        lateinit var end: XMLGregorianCalendar
+    }
+
+    @XmlAccessorType(XmlAccessType.NONE)
+    @XmlType(name = "", propOrder = ["authentication", "encryption"])
+    class BankPubKeyDigests {
+        @get:XmlElement(name = "Authentication")
+        lateinit var authentication: EbicsTypes.PubKeyDigest
+
+        @get:XmlElement(name = "Encryption")
+        lateinit var encryption: EbicsTypes.PubKeyDigest
     }
 }

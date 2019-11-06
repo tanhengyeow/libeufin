@@ -21,10 +21,8 @@ package tech.libeufin.schema.ebics_h004
 
 import org.apache.xml.security.binding.xmldsig.RSAKeyValueType
 import org.w3c.dom.Element
-import java.math.BigInteger
 import javax.xml.bind.annotation.*
 import javax.xml.bind.annotation.adapters.CollapsedStringAdapter
-import javax.xml.bind.annotation.adapters.HexBinaryAdapter
 import javax.xml.bind.annotation.adapters.NormalizedStringAdapter
 import javax.xml.bind.annotation.adapters.XmlJavaTypeAdapter
 import javax.xml.datatype.XMLGregorianCalendar
@@ -60,32 +58,31 @@ class EbicsTypes private constructor() {
         var authenticate: Boolean = false
 
         @get:XmlElement(name = "EncryptionPubKeyDigest", required = true)
-        lateinit var encryptionPubKeyDigest: EncryptionPubKeyDigest
+        lateinit var encryptionPubKeyDigest: PubKeyDigest
 
         @get:XmlElement(name = "TransactionKey", required = true)
         lateinit var transactionKey: ByteArray
 
         @get:XmlAnyElement(lax = true)
         var any: List<Any>? = null
-
-        @XmlAccessorType(XmlAccessType.NONE)
-        class EncryptionPubKeyDigest {
-            /**
-             * Version of the *digest* of the public key.
-             */
-            @get:XmlAttribute(name = "Version", required = true)
-            @get:XmlJavaTypeAdapter(CollapsedStringAdapter::class)
-            lateinit var version: String
-
-            @XmlAttribute(name = "Algorithm", required = true)
-            @XmlSchemaType(name = "anyURI")
-            lateinit var algorithm: String
-
-            @get:XmlValue
-            lateinit var value: ByteArray
-        }
     }
 
+    @XmlAccessorType(XmlAccessType.NONE)
+    class PubKeyDigest {
+        /**
+         * Version of the *digest* of the public key.
+         */
+        @get:XmlAttribute(name = "Version", required = true)
+        @get:XmlJavaTypeAdapter(CollapsedStringAdapter::class)
+        lateinit var version: String
+
+        @XmlAttribute(name = "Algorithm", required = true)
+        @XmlSchemaType(name = "anyURI")
+        lateinit var algorithm: String
+
+        @get:XmlValue
+        lateinit var value: ByteArray
+    }
 
     @Suppress("UNUSED_PARAMETER")
     enum class TransactionPhaseType(value: String) {
@@ -205,6 +202,5 @@ class EbicsTypes private constructor() {
 
         @get:XmlElement(name = "Value", required = true)
         lateinit var value: String
-
     }
 }
