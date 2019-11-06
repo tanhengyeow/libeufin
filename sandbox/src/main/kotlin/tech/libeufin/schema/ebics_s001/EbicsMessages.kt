@@ -31,8 +31,7 @@ import javax.xml.datatype.XMLGregorianCalendar
 @XmlType(
     name = "PubKeyValueType", namespace = "http://www.ebics.org/S001", propOrder = [
         "rsaKeyValue",
-        "timeStamp",
-        "any"
+        "timeStamp"
     ]
 )
 class PubKeyValueType {
@@ -73,7 +72,7 @@ class SignaturePubKeyInfoType {
 @XmlAccessorType(XmlAccessType.NONE)
 @XmlType(
     name = "",
-    propOrder = ["signaturePubKeyInfo", "partnerID", "userID", "any"]
+    propOrder = ["signaturePubKeyInfo", "partnerID", "userID"]
 )
 @XmlRootElement(name = "SignaturePubKeyOrderData")
 class SignaturePubKeyOrderData {

@@ -341,6 +341,30 @@ private suspend fun ApplicationCall.ebicsweb() {
             }
         }
         "ebicsRequest" -> {
+            println("ebicsRequest ${XMLUtil.convertDomToString(requestDocument)}")
+            val requestObject = requestDocument.toObject<EbicsRequest>()
+            val staticHeader = requestObject.header.static
+            when (requestObject.header.mutable.transactionPhase) {
+                EbicsTypes.TransactionPhaseType.INITIALISATION -> {
+                    val partnerID = staticHeader.partnerID ?: throw EbicsInvalidXmlError()
+                    val userID = staticHeader.userID ?: throw EbicsInvalidXmlError()
+                    transaction {
+                        val subscriber =
+                            findEbicsSubscriber(partnerID, userID, staticHeader.systemID)
+                                ?: throw EbicsInvalidXmlError()
+                        val authPub =
+                            CryptoUtil.loadRsaPublicKey(subscriber.authenticationKey!!.rsaPublicKey.toByteArray())
+                        val verifyResult = XMLUtil.verifyEbicsDocument(requestDocument, authPub)
+                        println("ebicsRequest verification result: $verifyResult")
+                    }
+                }
+                EbicsTypes.TransactionPhaseType.TRANSFER -> {
+
+                }
+                EbicsTypes.TransactionPhaseType.RECEIPT -> {
+
+                }
+            }
         }
         else -> {
             /* Log to console and return "unknown type" */
