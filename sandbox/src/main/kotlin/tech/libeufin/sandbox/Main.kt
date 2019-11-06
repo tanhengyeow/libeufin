@@ -353,7 +353,6 @@ private suspend fun ApplicationCall.ebicsweb() {
     }
 }
 
-
 fun main() {
     dbCreateTables()
 

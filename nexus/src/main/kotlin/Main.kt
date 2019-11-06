@@ -45,6 +45,7 @@ import io.ktor.server.netty.Netty
 import org.jetbrains.exposed.sql.transactions.transaction
 import org.slf4j.LoggerFactory
 import tech.libeufin.sandbox.*
+import tech.libeufin.schema.ebics_h004.EbicsKeyManagementResponse
 import tech.libeufin.schema.ebics_h004.EbicsUnsecuredRequest
 import tech.libeufin.schema.ebics_s001.PubKeyValueType
 import tech.libeufin.schema.ebics_s001.SignaturePubKeyInfoType
@@ -147,7 +148,6 @@ fun main() {
             }
 
             post("/ebics/subscribers/{id}/sendIni") {
-                // empty body for now..?
                 val id = try {
                     call.parameters["id"]!!.toInt()
 
@@ -238,18 +238,22 @@ fun main() {
                     return@post
                 }
 
-                /**
-                 * TODO: check response status code,
-                 * and act accordingly when it differs from 200.
-                 */
+                val responseJaxb = XMLUtil.convertStringToJaxb<EbicsKeyManagementResponse>(response)
+                val returnCode = responseJaxb.value.body.returnCode.value
+                if (returnCode == "000000") {
+                    call.respond(
+                        HttpStatusCode.OK,
+                        NexusError("Sandbox accepted the key.")
+                    )
+                    return@post
+                } else {
 
-                // works: val responseJaxb = XMLUtil.convertStringToJaxb<EbicsKeyManagementResponse>(response)
-
-                call.respond(
-                    HttpStatusCode.OK,
-                    NexusError("Sandbox responded.")
-                )
-                return@post
+                    call.respond(
+                        HttpStatusCode.OK,
+                        NexusError("Sandbox did not accepted the key.  Error code: ${returnCode}")
+                    )
+                    return@post
+                }
             }
 
             post("/nexus") {
