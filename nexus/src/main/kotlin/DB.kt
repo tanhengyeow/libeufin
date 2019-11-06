@@ -1,14 +1,14 @@
 package tech.libeufin.nexus
 
-import org.jetbrains.exposed.dao.*
-import org.jetbrains.exposed.sql.*
-import org.jetbrains.exposed.sql.transactions.ThreadLocalTransactionManager
-import org.jetbrains.exposed.sql.transactions.TransactionManager
+import org.jetbrains.exposed.dao.EntityID
+import org.jetbrains.exposed.dao.IntEntity
+import org.jetbrains.exposed.dao.IntEntityClass
+import org.jetbrains.exposed.dao.IntIdTable
+import org.jetbrains.exposed.sql.Database
+import org.jetbrains.exposed.sql.SchemaUtils
 import org.jetbrains.exposed.sql.transactions.transaction
-import tech.libeufin.sandbox.EbicsHosts
-import java.sql.Connection
 
-object EbicsSubscribersTable: IntIdTable() {
+object EbicsSubscribersTable : IntIdTable() {
     val ebicsURL = text("ebicsURL")
     val hostID = text("hostID")
     val partnerID = text("partnerID")
@@ -39,7 +39,7 @@ fun dbCreateTables() {
         // addLogger(StdOutSqlLogger)
 
         SchemaUtils.create(
-           EbicsSubscribersTable
+            EbicsSubscribersTable
         )
     }
 }

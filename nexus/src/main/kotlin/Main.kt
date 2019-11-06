@@ -45,10 +45,7 @@ import io.ktor.server.netty.Netty
 import org.jetbrains.exposed.sql.transactions.transaction
 import org.slf4j.LoggerFactory
 import tech.libeufin.sandbox.*
-import tech.libeufin.schema.ebics_h004.EbicsKeyManagementResponse
 import tech.libeufin.schema.ebics_h004.EbicsUnsecuredRequest
-import tech.libeufin.schema.ebics_h004.OrderDetails
-import tech.libeufin.schema.ebics_h004.StaticHeader
 import tech.libeufin.schema.ebics_s001.PubKeyValueType
 import tech.libeufin.schema.ebics_s001.SignaturePubKeyInfoType
 import tech.libeufin.schema.ebics_s001.SignaturePubKeyOrderData
@@ -174,8 +171,8 @@ fun main() {
                         revision = 1
                         header = EbicsUnsecuredRequest.Header().apply {
                             authenticate = true
-                            static = StaticHeader().apply {
-                                orderDetails = OrderDetails().apply {
+                            static = EbicsUnsecuredRequest.StaticHeaderType().apply {
+                                orderDetails = EbicsUnsecuredRequest.OrderDetails().apply {
                                     orderAttribute = "DZNNN"
                                     orderType = "INI"
                                     securityMedium = "0000"
@@ -189,8 +186,8 @@ fun main() {
                             mutable = EbicsUnsecuredRequest.Header.EmptyMutableHeader()
                         }
                         body = EbicsUnsecuredRequest.Body().apply {
-                            dataTransfer = EbicsUnsecuredRequest.Body.UnsecuredDataTransfer().apply {
-                                orderData = EbicsUnsecuredRequest.Body.UnsecuredDataTransfer.OrderData().apply {
+                            dataTransfer = EbicsUnsecuredRequest.UnsecuredDataTransfer().apply {
+                                orderData = EbicsUnsecuredRequest.OrderData().apply {
                                     value = EbicsOrderUtil.encodeOrderDataXml(
                                         SignaturePubKeyOrderData().apply {
                                             signaturePubKeyInfo = SignaturePubKeyInfoType().apply {
