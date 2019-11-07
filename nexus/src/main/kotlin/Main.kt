@@ -73,6 +73,18 @@ fun testData() {
     }
 }
 
+fun expectId(param: String?) : Int {
+
+    try {
+        return param!!.toInt()
+    } catch (e: Exception) {
+        throw NotAnIdError(HttpStatusCode.BadRequest)
+    }
+}
+
+data class NotAnIdError(val statusCode: HttpStatusCode) : Exception("String ID not convertible in number")
+data class SubscriberNotFoundError(val statusCode: HttpStatusCode) : Exception("Subscriber not found in database")
+
 
 fun main() {
     dbCreateTables()
@@ -89,10 +101,16 @@ fun main() {
                 setPrettyPrinting()
             }
         }
+
         install(StatusPages) {
             exception<Throwable> { cause ->
-                tech.libeufin.sandbox.logger.error("Exception while handling '${call.request.uri}'", cause)
+                logger.error("Exception while handling '${call.request.uri}'", cause)
                 call.respondText("Internal server error.", ContentType.Text.Plain, HttpStatusCode.InternalServerError)
+            }
+
+            exception<NotAnIdError> { cause ->
+                logger.error("Exception while handling '${call.request.uri}'", cause)
+                call.respondText("Bad request", ContentType.Text.Plain, HttpStatusCode.BadRequest)
             }
         }
 
@@ -148,23 +166,13 @@ fun main() {
             }
 
             post("/ebics/subscribers/{id}/sendIni") {
-                val id = try {
-                    call.parameters["id"]!!.toInt()
 
-                } catch (e: Exception) {
-                    e.printStackTrace()
-                    call.respond(
-                        HttpStatusCode.BadRequest,
-                        NexusError(e.message.toString())
-                    )
-                    return@post
-                }
-
+                val id = expectId(call.parameters["id"])
                 val iniRequest = EbicsUnsecuredRequest()
 
                 val url = transaction {
-                    val subscriber = EbicsSubscriberEntity.findById(id)
-                    val tmpKey = CryptoUtil.loadRsaPrivateKey(subscriber!!.signaturePrivateKey.toByteArray())
+                    val subscriber = EbicsSubscriberEntity.findById(id) ?: throw SubscriberNotFoundError(HttpStatusCode.NotFound)
+                    val tmpKey = CryptoUtil.loadRsaPrivateKey(subscriber.signaturePrivateKey.toByteArray())
 
                     iniRequest.apply {
                         version = "H004"
@@ -176,10 +184,10 @@ fun main() {
                                     orderAttribute = "DZNNN"
                                     orderType = "INI"
                                     securityMedium = "0000"
-                                    hostID = subscriber!!.hostID
-                                    userID = subscriber!!.userID
-                                    partnerID = subscriber!!.partnerID
-                                    systemID = subscriber!!.systemID
+                                    hostID = subscriber.hostID
+                                    userID = subscriber.userID
+                                    partnerID = subscriber.partnerID
+                                    systemID = subscriber.systemID
                                 }
 
                             }
@@ -208,18 +216,8 @@ fun main() {
                             }
                         }
                     }
-                    subscriber!!.ebicsURL
+                    subscriber.ebicsURL
                 }
-
-                if (iniRequest == null) {
-                    call.respond(
-                        HttpStatusCode.NotFound,
-                        NexusError("Could not find that subscriber")
-                    )
-                    return@post
-                }
-
-                logger.info("POSTing to ${url}")
 
                 val response = try {
                     client.post<String>(
@@ -233,7 +231,7 @@ fun main() {
 
                     call.respond(
                         HttpStatusCode.OK,
-                        NexusError("Exception thrown by HTTP client (likely server responded != 200).")
+                        NexusError("Did not get expected response from bank/sandbox")
                     )
                     return@post
                 }
@@ -254,20 +252,6 @@ fun main() {
                     )
                     return@post
                 }
-            }
-
-            post("/nexus") {
-
-                val content = try {
-                    client.get<ByteArray>(
-                        "https://ebicstest1.libeufin.tech/"
-                    )
-                } catch (e: ServerResponseException) {
-                    logger.info("Request ended bad (${e.response.status}).")
-                }
-
-                call.respondText("Not implemented!\n")
-                return@post
             }
         }
     }
