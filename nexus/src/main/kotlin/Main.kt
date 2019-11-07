@@ -42,11 +42,14 @@ import io.ktor.routing.post
 import io.ktor.routing.routing
 import io.ktor.server.engine.embeddedServer
 import io.ktor.server.netty.Netty
+import org.apache.xml.security.binding.xmldsig.RSAKeyValueType
 import org.jetbrains.exposed.sql.transactions.transaction
 import org.slf4j.LoggerFactory
 import tech.libeufin.sandbox.*
 import tech.libeufin.schema.ebics_h004.EbicsKeyManagementResponse
+import tech.libeufin.schema.ebics_h004.EbicsTypes
 import tech.libeufin.schema.ebics_h004.EbicsUnsecuredRequest
+import tech.libeufin.schema.ebics_h004.HIARequestOrderData
 import tech.libeufin.schema.ebics_s001.PubKeyValueType
 import tech.libeufin.schema.ebics_s001.SignaturePubKeyInfoType
 import tech.libeufin.schema.ebics_s001.SignaturePubKeyOrderData
@@ -274,12 +277,93 @@ fun main() {
                     iniRequest
                 ) ?: throw UnreachableBankError(HttpStatusCode.InternalServerError)
 
-                val returnCode = responseJaxb.value.body.returnCode.value
-                if (returnCode != "000000") throw EbicsError(returnCode)
+                if (responseJaxb.value.body.returnCode.value != "000000") {
+                    throw EbicsError(responseJaxb.value.body.returnCode.value)
+                }
 
                 call.respond(
                     HttpStatusCode.OK,
                     NexusError("Sandbox accepted the key!")
+                )
+                return@post
+            }
+
+            post("/ebics/subscribers/{id}/sendHia") {
+
+                val id = expectId(call.parameters["id"]) // caught above
+                val hiaRequest = EbicsUnsecuredRequest()
+
+                val url = transaction {
+                    val subscriber = EbicsSubscriberEntity.findById(id) ?: throw SubscriberNotFoundError(HttpStatusCode.NotFound)
+                    val tmpAiKey = CryptoUtil.loadRsaPrivateKey(subscriber.authenticationPrivateKey.toByteArray())
+                    val tmpEncKey = CryptoUtil.loadRsaPrivateKey(subscriber.encryptionPrivateKey.toByteArray())
+
+                    hiaRequest.apply {
+                        version = "H004"
+                        revision = 1
+                        header = EbicsUnsecuredRequest.Header().apply {
+                            authenticate = true
+                            static = EbicsUnsecuredRequest.StaticHeaderType().apply {
+                                orderDetails = EbicsUnsecuredRequest.OrderDetails().apply {
+                                    orderAttribute = "DZNNN"
+                                    orderType = "HIA"
+                                    securityMedium = "0000"
+                                    hostID = subscriber.hostID
+                                    userID = subscriber.userID
+                                    partnerID = subscriber.partnerID
+                                    systemID = subscriber.systemID
+                                }
+                            }
+                            mutable = EbicsUnsecuredRequest.Header.EmptyMutableHeader()
+                        }
+                        body = EbicsUnsecuredRequest.Body().apply {
+                            dataTransfer = EbicsUnsecuredRequest.UnsecuredDataTransfer().apply {
+                                orderData = EbicsUnsecuredRequest.OrderData().apply {
+                                    value = EbicsOrderUtil.encodeOrderDataXml(
+                                        HIARequestOrderData().apply {
+                                            authenticationPubKeyInfo = EbicsTypes.AuthenticationPubKeyInfoType().apply {
+                                                pubKeyValue = EbicsTypes.PubKeyValueType().apply {
+                                                    rsaKeyValue = RSAKeyValueType().apply {
+                                                        exponent = tmpAiKey.publicExponent.toByteArray()
+                                                        modulus = tmpAiKey.modulus.toByteArray()
+                                                    }
+                                                }
+                                                authenticationVersion = "X002"
+                                            }
+                                            encryptionPubKeyInfo = EbicsTypes.EncryptionPubKeyInfoType().apply {
+                                                pubKeyValue = EbicsTypes.PubKeyValueType().apply {
+                                                    rsaKeyValue = RSAKeyValueType().apply {
+                                                        exponent = tmpEncKey.publicExponent.toByteArray()
+                                                        modulus = tmpEncKey.modulus.toByteArray()
+                                                    }
+                                                }
+                                                encryptionVersion = "E002"
+
+                                            }
+                                            partnerID = subscriber.partnerID
+                                            userID = subscriber.userID
+                                        }
+                                    )
+                                }
+                            }
+                        }
+                    }
+
+                    subscriber.ebicsURL
+                }
+
+                val responseJaxb = client.postToBank<EbicsKeyManagementResponse, EbicsUnsecuredRequest>(
+                    url,
+                    hiaRequest
+                ) ?: throw UnreachableBankError(HttpStatusCode.InternalServerError)
+
+                if (responseJaxb.value.body.returnCode.value != "000000") {
+                    throw EbicsError(responseJaxb.value.body.returnCode.value)
+                }
+
+                call.respond(
+                    HttpStatusCode.OK,
+                    NexusError("Sandbox accepted the keys!")
                 )
                 return@post
             }
