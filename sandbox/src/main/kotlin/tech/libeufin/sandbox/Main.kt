@@ -40,6 +40,7 @@ import io.ktor.routing.routing
 import io.ktor.server.engine.embeddedServer
 import io.ktor.server.netty.Netty
 import org.apache.xml.security.binding.xmldsig.RSAKeyValueType
+import org.apache.xml.security.binding.xmldsig.SignatureType
 import org.jetbrains.exposed.sql.and
 import org.jetbrains.exposed.sql.transactions.transaction
 import org.slf4j.Logger
@@ -49,19 +50,27 @@ import tech.libeufin.schema.ebics_h004.*
 import tech.libeufin.schema.ebics_hev.HEVResponse
 import tech.libeufin.schema.ebics_hev.SystemReturnCodeType
 import tech.libeufin.schema.ebics_s001.SignaturePubKeyOrderData
+import java.math.BigInteger
 import java.security.interfaces.RSAPublicKey
 import java.text.DateFormat
+import java.util.*
+import java.util.zip.DeflaterInputStream
 import javax.sql.rowset.serial.SerialBlob
 import javax.xml.bind.JAXBContext
 
 val logger: Logger = LoggerFactory.getLogger("tech.libeufin.sandbox")
 
-data class EbicsRequestError(val statusCode: HttpStatusCode) : Exception("Ebics request error")
+open class EbicsRequestError(val errorText: String, val errorCode: String) :
+    Exception("EBICS request management error: $errorText ($errorCode)")
+
+class EbicsInvalidRequestError : EbicsRequestError("[EBICS_INVALID_REQUEST] Invalid request", "060102")
 
 open class EbicsKeyManagementError(val errorText: String, val errorCode: String) :
     Exception("EBICS key management error: $errorText ($errorCode)")
 
 class EbicsInvalidXmlError : EbicsKeyManagementError("[EBICS_INVALID_XML]", "091010")
+
+class EbicsInvalidOrderType : EbicsRequestError("[EBICS_UNSUPPORTED_ORDER_TYPE] Order type not supported", "091005")
 
 private suspend fun ApplicationCall.respondEbicsKeyManagement(
     errorText: String,
@@ -158,7 +167,7 @@ private suspend fun ApplicationCall.handleEbicsHia(header: EbicsUnsecuredRequest
         val ebicsSubscriber = findEbicsSubscriber(header.static.partnerID, header.static.userID, header.static.systemID)
         if (ebicsSubscriber == null) {
             logger.warn("ebics subscriber not found")
-            throw EbicsRequestError(HttpStatusCode.NotFound)
+            throw EbicsInvalidRequestError()
         }
         ebicsSubscriber.authenticationKey = EbicsSubscriberPublicKeyEntity.new {
             this.rsaPublicKey = SerialBlob(authPub.encoded)
@@ -188,7 +197,7 @@ private suspend fun ApplicationCall.handleEbicsIni(header: EbicsUnsecuredRequest
             findEbicsSubscriber(header.static.partnerID, header.static.userID, header.static.systemID)
         if (ebicsSubscriber == null) {
             logger.warn("ebics subscriber ('${header.static.partnerID}' / '${header.static.userID}' / '${header.static.systemID}') not found")
-            throw EbicsRequestError(HttpStatusCode.NotFound)
+            throw EbicsInvalidRequestError()
         }
         ebicsSubscriber.signatureKey = EbicsSubscriberPublicKeyEntity.new {
             this.rsaPublicKey = SerialBlob(sigPub.encoded)
@@ -213,10 +222,10 @@ private suspend fun ApplicationCall.handleEbicsHpb(
         val ebicsSubscriber =
             findEbicsSubscriber(header.static.partnerID, header.static.userID, header.static.systemID)
         if (ebicsSubscriber == null) {
-            throw EbicsRequestError(HttpStatusCode.Unauthorized)
+            throw EbicsInvalidRequestError()
         }
         if (ebicsSubscriber.state != SubscriberState.INITIALIZED) {
-            throw EbicsRequestError(HttpStatusCode.Forbidden)
+            throw EbicsInvalidRequestError()
         }
         val authPubBlob = ebicsSubscriber.authenticationKey!!.rsaPublicKey
         val encPubBlob = ebicsSubscriber.encryptionKey!!.rsaPublicKey
@@ -301,6 +310,176 @@ inline fun <reified T> Document.toObject(): T {
 }
 
 
+fun handleEbicsHtd(): ByteArray {
+    val htd = HTDResponseOrderData().apply {
+        this.partnerInfo = HTDResponseOrderData.PartnerInfo().apply {
+            this.accountInfoList = listOf(
+                HTDResponseOrderData.AccountInfo().apply {
+                    this.id = "acctid1"
+                    this.accountHolder = "Mina Musterfrau"
+                    this.accountNumberList = listOf(
+                        HTDResponseOrderData.GeneralAccountNumber().apply {
+                            this.international = true
+                            this.value = "DE21500105174751659277"
+                        }
+                    )
+                    this.currency = "EUR"
+                    this.description = "ACCT"
+                    this.bankCodeList = listOf(
+                        HTDResponseOrderData.GeneralBankCode().apply {
+                            this.international = true
+                            this.value = "INGDDEFFXXX"
+                        }
+                    )
+                }
+            )
+            this.addressInfo = HTDResponseOrderData.AddressInfo().apply {
+                this.name = "Foo"
+            }
+            this.bankInfo = HTDResponseOrderData.BankInfo().apply {
+                this.hostID = "host01"
+            }
+            this.orderInfoList = listOf(
+                HTDResponseOrderData.AuthOrderInfoType().apply {
+                    this.description = "foo"
+                    this.orderType = "C53"
+                    this.transferType = "Download"
+                },
+                HTDResponseOrderData.AuthOrderInfoType().apply {
+                    this.description = "foo"
+                    this.orderType = "C52"
+                    this.transferType = "Download"
+                },
+                HTDResponseOrderData.AuthOrderInfoType().apply {
+                    this.description = "foo"
+                    this.orderType = "CCC"
+                    this.transferType = "Upload"
+                }
+            )
+        }
+        this.userInfo = HTDResponseOrderData.UserInfo().apply {
+            this.name = "Some User"
+            this.userID = HTDResponseOrderData.UserIDType().apply {
+                this.status = 5
+                this.value = "USER1"
+            }
+            this.permissionList = listOf(
+                HTDResponseOrderData.UserPermission().apply {
+                    this.orderTypes = "C54 C53 C52 CCC"
+                }
+            )
+        }
+    }
+
+    val str = XMLUtil.convertJaxbToString(htd)
+    return str.toByteArray()
+}
+
+
+fun createEbicsResponseForDownloadInitializationPhase(
+    transactionID: String,
+    numSegments: Int,
+    segmentSize: Int,
+    enc: CryptoUtil.EncryptionResult,
+    encodedData: String
+): EbicsResponse {
+    return EbicsResponse().apply {
+        this.version = "H004"
+        this.revision = 1
+        this.header = EbicsResponse.Header().apply {
+            this.authenticate = true
+            this._static = EbicsResponse.StaticHeaderType().apply {
+                this.transactionID = transactionID
+                this.numSegments = BigInteger.valueOf(numSegments.toLong())
+            }
+            this.mutable = EbicsResponse.MutableHeaderType().apply {
+                this.transactionPhase = EbicsTypes.TransactionPhaseType.INITIALISATION
+                this.segmentNumber = EbicsResponse.SegmentNumber().apply {
+                    this.lastSegment = (numSegments == 1)
+                    this.value = BigInteger.valueOf(1)
+                }
+                this.reportText = "[EBICS_OK] OK"
+                this.returnCode = "000000"
+            }
+        }
+        this.authSignature = SignatureType()
+        this.body = EbicsResponse.Body().apply {
+            this.returnCode = EbicsResponse.ReturnCode().apply {
+                this.authenticate = true
+                this.value = "000000"
+            }
+            this.dataTransfer = EbicsResponse.DataTransferResponseType().apply {
+                this.dataEncryptionInfo = EbicsTypes.DataEncryptionInfo().apply {
+                    this.authenticate = true
+                    this.encryptionPubKeyDigest = EbicsTypes.PubKeyDigest().apply {
+                        this.algorithm = "http://www.w3.org/2001/04/xmlenc#sha256"
+                        this.version = "E002"
+                        this.value = enc.pubKeyDigest
+                    }
+                    this.transactionKey = enc.encryptedTransactionKey
+                }
+                this.orderData = EbicsResponse.OrderData().apply {
+                    this.value = encodedData.substring(0, Math.min(segmentSize, encodedData.length))
+                }
+            }
+        }
+    }
+}
+
+
+fun createEbicsResponseForDownloadTransferPhase() {
+
+}
+
+
+fun createEbicsResponseForDownloadReceiptPhase(transactionID: String, positiveAck: Boolean): EbicsResponse {
+    return EbicsResponse().apply {
+        this.version = "H004"
+        this.revision = 1
+        this.header = EbicsResponse.Header().apply {
+            this.authenticate = true
+            this._static = EbicsResponse.StaticHeaderType().apply {
+                this.transactionID = transactionID
+            }
+            this.mutable = EbicsResponse.MutableHeaderType().apply {
+                this.transactionPhase = EbicsTypes.TransactionPhaseType.RECEIPT
+                if (positiveAck) {
+                    this.reportText = "[EBICS_DOWNLOAD_POSTPROCESS_DONE] Received positive receipt"
+                    this.returnCode = "011000"
+                } else {
+                    this.reportText = "[EBICS_DOWNLOAD_POSTPROCESS_DONE] Received negative receipt"
+                    this.returnCode = "011001"
+                }
+            }
+        }
+        this.authSignature = SignatureType()
+        this.body = EbicsResponse.Body().apply {
+            this.returnCode = EbicsResponse.ReturnCode().apply {
+                this.authenticate = true
+                this.value = "000000"
+            }
+        }
+    }
+}
+
+
+private suspend fun ApplicationCall.handleEbicsDownloadInitialization() {
+
+}
+
+private suspend fun ApplicationCall.handleEbicsDownloadTransfer() {
+
+}
+
+private suspend fun ApplicationCall.handleEbicsDownloadReceipt() {
+
+}
+
+private suspend fun ApplicationCall.handleEbicsUploadInitialization() {
+
+}
+
+
 private suspend fun ApplicationCall.ebicsweb() {
     val requestDocument = receiveEbicsXml()
 
@@ -344,24 +523,111 @@ private suspend fun ApplicationCall.ebicsweb() {
             println("ebicsRequest ${XMLUtil.convertDomToString(requestDocument)}")
             val requestObject = requestDocument.toObject<EbicsRequest>()
             val staticHeader = requestObject.header.static
+
             when (requestObject.header.mutable.transactionPhase) {
                 EbicsTypes.TransactionPhaseType.INITIALISATION -> {
                     val partnerID = staticHeader.partnerID ?: throw EbicsInvalidXmlError()
                     val userID = staticHeader.userID ?: throw EbicsInvalidXmlError()
-                    transaction {
+                    val respText = transaction {
                         val subscriber =
                             findEbicsSubscriber(partnerID, userID, staticHeader.systemID)
                                 ?: throw EbicsInvalidXmlError()
-                        val authPub =
+                        val requestedHostId = requestObject.header.static.hostID
+                        val ebicsHost = EbicsHostEntity.find { EbicsHostsTable.hostID eq requestedHostId }.firstOrNull()
+                        if (ebicsHost == null)
+                            throw EbicsInvalidRequestError()
+                        val hostAuthPriv = CryptoUtil.loadRsaPrivateKey(
+                            ebicsHost.authenticationPrivateKey
+                                .toByteArray()
+                        )
+                        val clientAuthPub =
                             CryptoUtil.loadRsaPublicKey(subscriber.authenticationKey!!.rsaPublicKey.toByteArray())
-                        val verifyResult = XMLUtil.verifyEbicsDocument(requestDocument, authPub)
+                        val clientEncPub =
+                            CryptoUtil.loadRsaPublicKey(subscriber.encryptionKey!!.rsaPublicKey.toByteArray())
+                        val verifyResult = XMLUtil.verifyEbicsDocument(requestDocument, clientAuthPub)
                         println("ebicsRequest verification result: $verifyResult")
+                        val transactionID = EbicsOrderUtil.generateTransactionId()
+                        val orderType = requestObject.header.static.orderDetails?.orderType
+
+                        val response = when (orderType) {
+                            "HTD" -> handleEbicsHtd()
+                            else -> throw EbicsInvalidXmlError()
+                        }
+
+                        val compressedResponse = DeflaterInputStream(response.inputStream()).use {
+                            it.readAllBytes()
+                        }
+
+                        val enc = CryptoUtil.encryptEbicsE002(compressedResponse, clientEncPub)
+                        val encodedResponse = Base64.getEncoder().encodeToString(enc.encryptedData)
+
+                        val segmentSize = 4096
+                        val totalSize = encodedResponse.length
+                        val numSegments = ((totalSize + segmentSize - 1) / segmentSize)
+
+                        println("inner response: " + response.toString(Charsets.UTF_8))
+
+                        println("total size: $totalSize")
+                        println("num segments: $numSegments")
+
+                        EbicsDownloadTransactionEntity.new(transactionID) {
+                            this.subscriber = subscriber
+                            this.host = ebicsHost
+                            this.orderType = orderType
+                            this.segmentSize = segmentSize
+                            this.transactionKeyEnc = SerialBlob(enc.encryptedTransactionKey)
+                            this.encodedResponse = encodedResponse
+                            this.numSegments = numSegments
+                            this.receiptReceived = false
+                        }
+
+                        val ebicsResponse = createEbicsResponseForDownloadInitializationPhase(
+                            transactionID,
+                            numSegments, segmentSize, enc, encodedResponse
+                        )
+                        val docText = XMLUtil.convertJaxbToString(ebicsResponse)
+                        val doc = XMLUtil.parseStringIntoDom(docText)
+                        XMLUtil.signEbicsDocument(doc, hostAuthPriv)
+                        val signedDoc = XMLUtil.convertDomToString(doc)
+                        println("response: $signedDoc")
+                        docText
                     }
+                    respondText(respText, ContentType.Application.Xml, HttpStatusCode.OK)
+                    return
                 }
                 EbicsTypes.TransactionPhaseType.TRANSFER -> {
 
                 }
                 EbicsTypes.TransactionPhaseType.RECEIPT -> {
+                    val respText = transaction {
+                        val requestedHostId = requestObject.header.static.hostID
+                        val ebicsHost = EbicsHostEntity.find { EbicsHostsTable.hostID eq requestedHostId }.firstOrNull()
+                        if (ebicsHost == null)
+                            throw EbicsInvalidRequestError()
+                        val hostAuthPriv = CryptoUtil.loadRsaPrivateKey(
+                            ebicsHost.authenticationPrivateKey
+                                .toByteArray()
+                        )
+                        val transactionID = requestObject.header.static.transactionID
+                        if (transactionID == null)
+                            throw EbicsInvalidRequestError()
+                        val downloadTransaction = EbicsDownloadTransactionEntity.findById(transactionID)
+                        if (downloadTransaction == null)
+                            throw EbicsInvalidRequestError()
+                        println("sending receipt for transaction ID $transactionID")
+                        val receiptCode = requestObject.body.transferReceipt?.receiptCode
+                        if (receiptCode == null)
+                            throw EbicsInvalidRequestError()
+                        val ebicsResponse = createEbicsResponseForDownloadReceiptPhase(transactionID, receiptCode == 0)
+                        val docText = XMLUtil.convertJaxbToString(ebicsResponse)
+                        val doc = XMLUtil.parseStringIntoDom(docText)
+                        XMLUtil.signEbicsDocument(doc, hostAuthPriv)
+                        val signedDoc = XMLUtil.convertDomToString(doc)
+                        println("response: $signedDoc")
+                        docText
+                    }
+                    respondText(respText, ContentType.Application.Xml, HttpStatusCode.OK)
+                    return
 
                 }
             }
@@ -397,6 +663,7 @@ fun main() {
             userId = "USER1"
             systemId = null
             state = SubscriberState.NEW
+            nextOrderID = 1
         }
     }
 
@@ -414,6 +681,7 @@ fun main() {
                 call.respondText("Internal server error.", ContentType.Text.Plain, HttpStatusCode.InternalServerError)
             }
         }
+        // TODO: add another intercept call that adds schema validation before the response is sent
         intercept(ApplicationCallPipeline.Fallback) {
             if (this.call.response.status() == null) {
                 call.respondText("Not found (no route matched).\n", ContentType.Text.Plain, HttpStatusCode.NotFound)

@@ -164,11 +164,5 @@ class CryptoUtil {
             val data = symmetricCipher.doFinal(enc.encryptedData)
             return data
         }
-
-        fun ByteArray.toHexString() : String {
-            return this.joinToString("") {
-                java.lang.String.format("%02x", it)
-            }
-        }
     }
 }

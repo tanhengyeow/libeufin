@@ -29,9 +29,6 @@ class EbicsResponse {
     @get:XmlElement(required = true)
     lateinit var body: Body
 
-    @get:XmlAnyAttribute
-    var otherAttributes = HashMap<QName, String>()
-
     @XmlAccessorType(XmlAccessType.NONE)
     @XmlType(name = "", propOrder = ["_static", "mutable"])
     class Header {
@@ -101,7 +98,7 @@ class EbicsResponse {
     @XmlAccessorType(XmlAccessType.NONE)
     class OrderData {
         @get:XmlValue
-        lateinit var value: ByteArray
+        lateinit var value: String
     }
 
     @XmlAccessorType(XmlAccessType.NONE)
@@ -128,10 +125,8 @@ class EbicsResponse {
     @XmlAccessorType(XmlAccessType.NONE)
     @XmlType(name = "ResponseStaticHeaderType", propOrder = ["transactionID", "numSegments"])
     class StaticHeaderType {
-        @get:XmlElement(name = "TransactionID", type = String::class)
-        @get:XmlJavaTypeAdapter(HexBinaryAdapter::class)
-        @get:XmlSchemaType(name = "hexBinary")
-        var transactionID: ByteArray? = null
+        @get:XmlElement(name = "TransactionID")
+        var transactionID: String? = null
 
         @get:XmlElement(name = "NumSegments")
         @get:XmlSchemaType(name = "positiveInteger")

@@ -57,6 +57,22 @@ class XmlUtilTest {
     }
 
     @Test
+    fun multiAuthSigningTest() {
+        val doc = XMLUtil.parseStringIntoDom("""
+            <myMessage xmlns:ebics="urn:org:ebics:H004">
+                <ebics:AuthSignature />
+                <foo authenticate="true">Hello World</foo>
+                <bar authenticate="true">Another one!</bar>
+            </myMessage>
+        """.trimIndent())
+        val kpg = KeyPairGenerator.getInstance("RSA")
+        kpg.initialize(2048)
+        val pair = kpg.genKeyPair()
+        XMLUtil.signEbicsDocument(doc, pair.private)
+        kotlin.test.assertTrue(XMLUtil.verifyEbicsDocument(doc, pair.public))
+    }
+
+    @Test
     fun testRefSignature() {
         val classLoader = ClassLoader.getSystemClassLoader()
         val docText = classLoader.getResourceAsStream("signature1/doc.xml")!!.readAllBytes().toString(Charsets.UTF_8)

@@ -74,24 +74,20 @@ class XMLUtil private constructor() {
             if (myRef.uri != "#xpointer($ebicsXpathExpr)")
                 throw Exception("invalid EBICS XML signature URI: '${myRef.uri}'")
             val xp: XPath = XPathFactory.newInstance().newXPath()
-            val nodeSet = xp.compile(ebicsXpathExpr).evaluate(myRef.here.ownerDocument, XPathConstants.NODESET)
+            val nodeSet = xp.compile("//*[@authenticate='true']/descendant-or-self::node()").evaluate(myRef.here
+                .ownerDocument, XPathConstants
+                .NODESET)
             if (nodeSet !is NodeList)
                 throw Exception("invalid type")
             if (nodeSet.length <= 0) {
                 throw Exception("no nodes to sign")
             }
-            val bytes = ByteArrayOutputStream()
+            val nodeList = ArrayList<Node>()
             for (i in 0 until nodeSet.length) {
                 val node = nodeSet.item(i)
-                org.apache.xml.security.Init.init()
-                // Despite the transform later, this canonicalization step is absolutely necessary,
-                // as the canonicalizeSubtree method preserves namespaces that are not in the subtree
-                // being canonicalized, but in the parent hierarchy of the document.
-                val canon: Canonicalizer = Canonicalizer.getInstance(Canonicalizer.ALGO_ID_C14N11_OMIT_COMMENTS)
-                val cxml = canon.canonicalizeSubtree(node)
-                bytes.writeBytes(cxml)
+                nodeList.add(node)
             }
-            return OctetStreamData(ByteArrayInputStream(bytes.toByteArray()))
+            return NodeSetData { nodeList.iterator() }
         }
     }
 
@@ -336,7 +332,11 @@ class XMLUtil private constructor() {
             dsc.defaultNamespacePrefix = "ds"
             dsc.uriDereferencer = EbicsSigUriDereferencer()
 
+            dsc.setProperty("javax.xml.crypto.dsig.cacheReference", true)
+
             sig.sign(dsc)
+
+            println("canon data: " + sig.signedInfo.canonicalizedData.readAllBytes().toString(Charsets.UTF_8))
 
             val innerSig = authSigNode.firstChild
             while (innerSig.hasChildNodes()) {
@@ -375,6 +375,7 @@ class XMLUtil private constructor() {
             authSigNode.parentNode.removeChild(authSigNode)
             val fac = XMLSignatureFactory.getInstance("DOM")
             val dvc = DOMValidateContext(signingPub, sigEl)
+            dvc.setProperty("javax.xml.crypto.dsig.cacheReference", true)
             dvc.uriDereferencer = EbicsSigUriDereferencer()
             val sig = fac.unmarshalXMLSignature(dvc)
             // FIXME: check that parameters are okay!s

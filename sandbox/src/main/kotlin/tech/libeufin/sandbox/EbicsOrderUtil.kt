@@ -19,6 +19,7 @@
 
 package tech.libeufin.sandbox
 
+import java.security.SecureRandom
 import java.util.zip.DeflaterInputStream
 import java.util.zip.InflaterInputStream
 
@@ -39,6 +40,22 @@ class EbicsOrderUtil private constructor() {
             return DeflaterInputStream(bytes.inputStream()).use {
                 it.readAllBytes()
             }
+        }
+
+        fun generateTransactionId(): String {
+            val rng = SecureRandom()
+            val res = ByteArray(16)
+            rng.nextBytes(res)
+            return res.toHexString()
+        }
+
+        /**
+         * Calculate the resulting size of base64-encoding data of the given length,
+         * including padding.
+         */
+        fun calculateBase64EncodedLength(dataLength: Int): Int {
+            val blocks = (dataLength + 3 - 1) / 3
+            return blocks * 4
         }
     }
 }

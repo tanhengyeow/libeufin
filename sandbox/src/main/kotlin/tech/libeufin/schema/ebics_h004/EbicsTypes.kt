@@ -52,6 +52,7 @@ class EbicsTypes private constructor() {
     }
 
 
+    @XmlType(name = "", propOrder = ["encryptionPubKeyDigest", "transactionKey"])
     @XmlAccessorType(XmlAccessType.NONE)
     class DataEncryptionInfo {
         @get:XmlAttribute(name = "authenticate", required = true)
@@ -62,12 +63,10 @@ class EbicsTypes private constructor() {
 
         @get:XmlElement(name = "TransactionKey", required = true)
         lateinit var transactionKey: ByteArray
-
-        @get:XmlAnyElement(lax = true)
-        var any: List<Any>? = null
     }
 
     @XmlAccessorType(XmlAccessType.NONE)
+    @XmlType(name = "", propOrder = ["value"])
     class PubKeyDigest {
         /**
          * Version of the *digest* of the public key.

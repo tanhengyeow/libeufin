@@ -154,6 +154,8 @@ object EbicsSubscribersTable : IntIdTable() {
     val encryptionKey = reference("encryptionKey", EbicsSubscriberPublicKeysTable).nullable()
     val authenticationKey = reference("authorizationKey", EbicsSubscriberPublicKeysTable).nullable()
 
+    val nextOrderID = integer("nextOrderID")
+
     val state = enumeration("state", SubscriberState::class)
 }
 
@@ -168,6 +170,8 @@ class EbicsSubscriberEntity(id: EntityID<Int>) : IntEntity(id) {
     var encryptionKey by EbicsSubscriberPublicKeyEntity optionalReferencedOn EbicsSubscribersTable.encryptionKey
     var authenticationKey by EbicsSubscriberPublicKeyEntity optionalReferencedOn EbicsSubscribersTable.authenticationKey
 
+    var nextOrderID by EbicsSubscribersTable.nextOrderID
+
     var state by EbicsSubscribersTable.state
 }
 
@@ -177,8 +181,8 @@ object EbicsDownloadTransactionsTable : IdTable<String>() {
     val orderType = text("orderType")
     val host = reference("host", EbicsHostsTable)
     val subscriber = reference("subscriber", EbicsSubscribersTable)
-    val encodedResponse = blob("encodedResponse")
-    val orderID = text("orderID")
+    val encodedResponse = text("encodedResponse")
+    val transactionKeyEnc = blob("transactionKeyEnc")
     val numSegments = integer("numSegments")
     val segmentSize = integer("segmentSize")
     val receiptReceived = bool("receiptReceived")
@@ -189,11 +193,11 @@ class EbicsDownloadTransactionEntity(id: EntityID<String>) : Entity<String>(id) 
     companion object : EntityClass<String, EbicsDownloadTransactionEntity>(EbicsDownloadTransactionsTable)
 
     var orderType by EbicsDownloadTransactionsTable.orderType
-    var host by EbicsDownloadTransactionsTable.host
-    var subscriber by EbicsDownloadTransactionsTable.host
+    var host by EbicsHostEntity referencedOn EbicsDownloadTransactionsTable.host
+    var subscriber by EbicsSubscriberEntity referencedOn EbicsDownloadTransactionsTable.subscriber
     var encodedResponse by EbicsDownloadTransactionsTable.encodedResponse
-    var orderID by EbicsDownloadTransactionsTable.orderID
     var numSegments by EbicsDownloadTransactionsTable.numSegments
+    var transactionKeyEnc by EbicsDownloadTransactionsTable.transactionKeyEnc
     var segmentSize by EbicsDownloadTransactionsTable.segmentSize
     var receiptReceived by EbicsDownloadTransactionsTable.receiptReceived
 }
@@ -208,7 +212,8 @@ fun dbCreateTables() {
         SchemaUtils.create(
             BankCustomersTable,
             EbicsSubscribersTable,
-            EbicsHostsTable
+            EbicsHostsTable,
+            EbicsDownloadTransactionsTable
         )
     }
 }
