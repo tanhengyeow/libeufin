@@ -108,6 +108,8 @@ suspend inline fun <reified S, reified T>HttpClient.postToBank(url: String, body
 data class NotAnIdError(val statusCode: HttpStatusCode) : Exception("String ID not convertible in number")
 data class SubscriberNotFoundError(val statusCode: HttpStatusCode) : Exception("Subscriber not found in database")
 data class UnreachableBankError(val statusCode: HttpStatusCode) : Exception("Could not reach the bank")
+data class EbicsError(val codeError: String) : Exception("Bank did not accepted EBICS request, error is: " +
+        "${codeError}")
 
 
 fun main() {
@@ -145,6 +147,11 @@ fun main() {
             exception<SubscriberNotFoundError> { cause ->
                 logger.error("Exception while handling '${call.request.uri}'", cause)
                 call.respondText("Subscriber not found\n", ContentType.Text.Plain, HttpStatusCode.NotFound)
+            }
+
+            exception<EbicsError> { cause ->
+                logger.error("Exception while handling '${call.request.uri}'", cause)
+                call.respondText("Bank gave EBICS-error response\n", ContentType.Text.Plain, HttpStatusCode.NotAcceptable)
             }
 
             exception<javax.xml.bind.UnmarshalException> { cause ->
@@ -268,20 +275,13 @@ fun main() {
                 ) ?: throw UnreachableBankError(HttpStatusCode.InternalServerError)
 
                 val returnCode = responseJaxb.value.body.returnCode.value
-                if (returnCode == "000000") {
-                    call.respond(
-                        HttpStatusCode.OK,
-                        NexusError("Sandbox accepted the key.")
-                    )
-                    return@post
-                } else {
+                if (returnCode != "000000") throw EbicsError(returnCode)
 
-                    call.respond(
-                        HttpStatusCode.OK,
-                        NexusError("Sandbox did not accept the key.  Error code: ${returnCode}")
-                    )
-                    return@post
-                }
+                call.respond(
+                    HttpStatusCode.OK,
+                    NexusError("Sandbox accepted the key!")
+                )
+                return@post
             }
         }
     }
