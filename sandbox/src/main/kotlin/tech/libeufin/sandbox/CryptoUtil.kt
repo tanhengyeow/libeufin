@@ -43,7 +43,7 @@ import javax.crypto.spec.SecretKeySpec
 data class RsaCrtKeyPair(val private: RSAPrivateCrtKey, val public: RSAPublicKey)
 
 /**
- * Helpers for dealing with crypographic operations in EBICS / LibEuFin.
+ * Helpers for dealing with cryptographic operations in EBICS / LibEuFin.
  */
 class CryptoUtil {
 

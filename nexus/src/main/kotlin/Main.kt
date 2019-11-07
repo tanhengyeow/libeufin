@@ -322,7 +322,7 @@ fun main() {
                 // _parse_ response!
                 // respond to client
                 val id = expectId(call.parameters["id"])
-                val (url, body) = transaction {
+                val (url, body, encPriv) = transaction {
                     val subscriber = EbicsSubscriberEntity.findById(id) ?: throw SubscriberNotFoundError(HttpStatusCode.NotFound)
                     val hpbRequest = EbicsNpkdRequest().apply {
                         version = "H004"
@@ -351,10 +351,26 @@ fun main() {
                         hpbDoc,
                         CryptoUtil.loadRsaPrivateKey(subscriber.signaturePrivateKey.toByteArray())
                     )
-                    Pair(subscriber.ebicsURL, hpbDoc)
+                    Triple(subscriber.ebicsURL, hpbDoc, subscriber.encryptionPrivateKey)
                 }
 
-                val response = client.postToBank<EbicsKeyManagementResponse>(url, body)
+                val response = client.postToBank<EbicsKeyManagementResponse>(url, body) ?: throw UnreachableBankError(
+                    HttpStatusCode.InternalServerError
+                )
+
+                if (response.value.body.returnCode.value != "000000") {
+                    throw EbicsError(response.value.body.returnCode.value)
+                }
+
+                val er = CryptoUtil.EncryptionResult(
+                    response.value.body.dataTransfer!!.dataEncryptionInfo!!.transactionKey,
+                    (response.value.body.dataTransfer!!.dataEncryptionInfo as EbicsTypes.DataEncryptionInfo)
+                        .encryptionPubKeyDigest.value,
+                    (response.value.body.dataTransfer as EbicsKeyManagementResponse.OrderData).value
+                )
+
+                var dataCompr = CryptoUtil.decryptEbicsE002(er, CryptoUtil.loadRsaPrivateKey(encPriv.toByteArray()))
+                var data = EbicsOrderUtil.decodeOrderDataXml<HPBResponseOrderData>(dataCompr)
 
                 call.respond(HttpStatusCode.NotImplemented, NexusError("work in progress"))
                 return@post
