@@ -259,7 +259,7 @@ class XMLUtil private constructor() {
         }
 
         /**
-         * Convert a DOM document - of a XML document - to the JAXB representation.
+         * Convert a DOM document to the JAXB representation.
          *
          * @param finalType class type of the output
          * @param document the document to convert into JAXB.

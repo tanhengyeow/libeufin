@@ -23,16 +23,12 @@ import io.ktor.application.ApplicationCallPipeline
 import io.ktor.application.call
 import io.ktor.application.install
 import io.ktor.client.*
-import io.ktor.client.features.ServerResponseException
-import io.ktor.client.request.get
 import io.ktor.client.request.post
 import io.ktor.features.ContentNegotiation
 import io.ktor.features.StatusPages
 import io.ktor.gson.gson
 import io.ktor.http.ContentType
 import io.ktor.http.HttpStatusCode
-import io.ktor.http.URLBuilder
-import io.ktor.http.takeFrom
 import io.ktor.request.receive
 import io.ktor.request.uri
 import io.ktor.response.respond
@@ -43,19 +39,23 @@ import io.ktor.routing.routing
 import io.ktor.server.engine.embeddedServer
 import io.ktor.server.netty.Netty
 import org.apache.xml.security.binding.xmldsig.RSAKeyValueType
+import org.apache.xml.security.binding.xmldsig.SignatureType
 import org.jetbrains.exposed.sql.transactions.transaction
 import org.slf4j.LoggerFactory
 import tech.libeufin.sandbox.*
-import tech.libeufin.schema.ebics_h004.EbicsKeyManagementResponse
-import tech.libeufin.schema.ebics_h004.EbicsTypes
-import tech.libeufin.schema.ebics_h004.EbicsUnsecuredRequest
-import tech.libeufin.schema.ebics_h004.HIARequestOrderData
+import tech.libeufin.schema.ebics_h004.*
 import tech.libeufin.schema.ebics_s001.PubKeyValueType
 import tech.libeufin.schema.ebics_s001.SignaturePubKeyInfoType
 import tech.libeufin.schema.ebics_s001.SignaturePubKeyOrderData
 import java.text.DateFormat
 import javax.sql.rowset.serial.SerialBlob
 import javax.xml.bind.JAXBElement
+import org.w3c.dom.Document
+import java.security.SecureRandom
+import java.util.*
+import javax.xml.datatype.DatatypeFactory
+import javax.xml.datatype.XMLGregorianCalendar
+
 
 fun testData() {
 
@@ -90,13 +90,14 @@ fun expectId(param: String?) : Int {
  * @return null when the bank could not be reached, otherwise returns the
  * response already converted in JAXB.
  */
-suspend inline fun <reified S, reified T>HttpClient.postToBank(url: String, body: T) : JAXBElement<S>? {
+// suspend inline fun <reified S, reified T>HttpClient.postToBank(url: String, body: JAXBElement<T>) : JAXBElement<S>? {
+suspend inline fun <reified S>HttpClient.postToBank(url: String, body: String): JAXBElement<S>? {
 
     val response = try {
         this.post<String>(
             urlString = url,
             block = {
-                this.body = XMLUtil.convertJaxbToString(body)
+                this.body = body
             }
         )
     } catch (e: Exception) {
@@ -108,11 +109,37 @@ suspend inline fun <reified S, reified T>HttpClient.postToBank(url: String, body
     return XMLUtil.convertStringToJaxb(response)
 }
 
+// takes JAXB
+suspend inline fun <reified T, reified S>HttpClient.postToBank(url: String, body: T): JAXBElement<S>? {
+    return this.postToBank<S>(url, XMLUtil.convertJaxbToString(body))
+}
+
+// takes DOM
+suspend inline fun <reified S>HttpClient.postToBank(url: String, body: Document): JAXBElement<S>? {
+    return this.postToBank<S>(url, XMLUtil.convertDomToString(body))
+}
+
+/**
+ * @param size in bits
+ */
+fun getNonce(size: Int): ByteArray {
+    val sr = SecureRandom()
+    val ret = ByteArray(size / 8)
+    sr.nextBytes(ret)
+    return ret
+}
+
+fun getGregorianDate(): XMLGregorianCalendar {
+    val gregorianCalendar = GregorianCalendar()
+    val datatypeFactory = DatatypeFactory.newInstance()
+    return datatypeFactory.newXMLGregorianCalendar(gregorianCalendar)
+}
+
 data class NotAnIdError(val statusCode: HttpStatusCode) : Exception("String ID not convertible in number")
 data class SubscriberNotFoundError(val statusCode: HttpStatusCode) : Exception("Subscriber not found in database")
 data class UnreachableBankError(val statusCode: HttpStatusCode) : Exception("Could not reach the bank")
-data class EbicsError(val codeError: String) : Exception("Bank did not accepted EBICS request, error is: " +
-        "${codeError}")
+data class EbicsError(val codeError: String) : Exception("Bank did not accepted EBICS request, error is: " + codeError
+)
 
 
 fun main() {
@@ -272,7 +299,7 @@ fun main() {
                     subscriber.ebicsURL
                 }
 
-                val responseJaxb = client.postToBank<EbicsKeyManagementResponse, EbicsUnsecuredRequest>(
+                val responseJaxb = client.postToBank<EbicsUnsecuredRequest, EbicsKeyManagementResponse>(
                     url,
                     iniRequest
                 ) ?: throw UnreachableBankError(HttpStatusCode.InternalServerError)
@@ -285,6 +312,51 @@ fun main() {
                     HttpStatusCode.OK,
                     NexusError("Sandbox accepted the key!")
                 )
+                return@post
+            }
+
+            post("/ebics/subscribers/{id}/sync") {
+                // fetch sub's EBICS URL, done
+                // prepare message, done
+                // send it out, done
+                // _parse_ response!
+                // respond to client
+                val id = expectId(call.parameters["id"])
+                val (url, body) = transaction {
+                    val subscriber = EbicsSubscriberEntity.findById(id) ?: throw SubscriberNotFoundError(HttpStatusCode.NotFound)
+                    val hpbRequest = EbicsNpkdRequest().apply {
+                        version = "H004"
+                        revision = 1
+                        header = EbicsNpkdRequest.Header().apply {
+                            authenticate = true
+                            mutable = EbicsNpkdRequest.EmptyMutableHeader()
+                            static = EbicsNpkdRequest.StaticHeaderType().apply {
+                                hostID = subscriber.hostID
+                                partnerID = subscriber.partnerID
+                                userID = subscriber.userID
+                                securityMedium = "0000"
+                                orderDetails = EbicsNpkdRequest.OrderDetails()
+                                orderDetails.orderType = "HPB"
+                                orderDetails.orderAttribute = "DZHNN"
+                                nonce = getNonce(128)
+                                timestamp = getGregorianDate()
+                            }
+                        }
+                        body = EbicsNpkdRequest.EmptyBody()
+                        authSignature = SignatureType()
+                    }
+                    val hpbText = XMLUtil.convertJaxbToString(hpbRequest)
+                    val hpbDoc = XMLUtil.parseStringIntoDom(hpbText)
+                    XMLUtil.signEbicsDocument(
+                        hpbDoc,
+                        CryptoUtil.loadRsaPrivateKey(subscriber.signaturePrivateKey.toByteArray())
+                    )
+                    Pair(subscriber.ebicsURL, hpbDoc)
+                }
+
+                val response = client.postToBank<EbicsKeyManagementResponse>(url, body)
+
+                call.respond(HttpStatusCode.NotImplemented, NexusError("work in progress"))
                 return@post
             }
 
@@ -348,11 +420,10 @@ fun main() {
                             }
                         }
                     }
-
                     subscriber.ebicsURL
                 }
 
-                val responseJaxb = client.postToBank<EbicsKeyManagementResponse, EbicsUnsecuredRequest>(
+                val responseJaxb = client.postToBank<EbicsUnsecuredRequest, EbicsKeyManagementResponse>(
                     url,
                     hiaRequest
                 ) ?: throw UnreachableBankError(HttpStatusCode.InternalServerError)
