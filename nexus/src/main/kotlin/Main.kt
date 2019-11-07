@@ -83,8 +83,31 @@ fun expectId(param: String?) : Int {
     }
 }
 
+/**
+ * @return null when the bank could not be reached, otherwise returns the
+ * response already converted in JAXB.
+ */
+suspend inline fun <reified S, reified T>HttpClient.postToBank(url: String, body: T) : JAXBElement<S>? {
+
+    val response = try {
+        this.post<String>(
+            urlString = url,
+            block = {
+                this.body = XMLUtil.convertJaxbToString(body)
+            }
+        )
+    } catch (e: Exception) {
+        e.printStackTrace()
+        return null
+    }
+
+    // note: not checking status code, as EBICS mandates to return "200 OK" for ANY outcome.
+    return XMLUtil.convertStringToJaxb(response)
+}
+
 data class NotAnIdError(val statusCode: HttpStatusCode) : Exception("String ID not convertible in number")
 data class SubscriberNotFoundError(val statusCode: HttpStatusCode) : Exception("Subscriber not found in database")
+data class UnreachableBankError(val statusCode: HttpStatusCode) : Exception("Could not reach the bank")
 
 
 fun main() {
@@ -112,6 +135,11 @@ fun main() {
             exception<NotAnIdError> { cause ->
                 logger.error("Exception while handling '${call.request.uri}'", cause)
                 call.respondText("Bad request\n", ContentType.Text.Plain, HttpStatusCode.BadRequest)
+            }
+
+            exception<UnreachableBankError> { cause ->
+                logger.error("Exception while handling '${call.request.uri}'", cause)
+                call.respondText("Could not reach the bank\n", ContentType.Text.Plain, HttpStatusCode.InternalServerError)
             }
 
             exception<SubscriberNotFoundError> { cause ->
@@ -234,24 +262,11 @@ fun main() {
                     subscriber.ebicsURL
                 }
 
-                val response = try {
-                    client.post<String>(
-                        urlString = url,
-                        block = {
-                            body = XMLUtil.convertJaxbToString(iniRequest)
-                        }
-                    )
-                } catch (e: Exception) {
-                    e.printStackTrace()
+                val responseJaxb = client.postToBank<EbicsKeyManagementResponse, EbicsUnsecuredRequest>(
+                    url,
+                    iniRequest
+                ) ?: throw UnreachableBankError(HttpStatusCode.InternalServerError)
 
-                    call.respond(
-                        HttpStatusCode.OK,
-                        NexusError("Could not reach the bank.\n")
-                    )
-                    return@post
-                }
-
-                val responseJaxb = XMLUtil.convertStringToJaxb<EbicsKeyManagementResponse>(response)  // caught above
                 val returnCode = responseJaxb.value.body.returnCode.value
                 if (returnCode == "000000") {
                     call.respond(
