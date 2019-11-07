@@ -2,11 +2,28 @@ package tech.libeufin.sandbox
 
 import org.junit.Test
 import org.junit.Assert.*
+import org.junit.rules.ExpectedException
+import org.xml.sax.SAXParseException
+import tech.libeufin.schema.ebics_h004.EbicsKeyManagementResponse
+import java.rmi.UnmarshalException
 import java.security.KeyPairGenerator
 import java.util.*
 import javax.xml.transform.stream.StreamSource
 
 class XmlUtilTest {
+
+    @Test
+    fun exceptionOnConversion() {
+        try {
+            XMLUtil.convertStringToJaxb<EbicsKeyManagementResponse>("<malformed xml>")
+        } catch (e: javax.xml.bind.UnmarshalException) {
+            // just ensuring this is the exception
+            logger.info("caught")
+            return
+        }
+
+        assertTrue(false)
+    }
 
     @Test
     fun hevValidation(){

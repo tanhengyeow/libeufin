@@ -52,6 +52,7 @@ import tech.libeufin.schema.ebics_s001.SignaturePubKeyInfoType
 import tech.libeufin.schema.ebics_s001.SignaturePubKeyOrderData
 import java.text.DateFormat
 import javax.sql.rowset.serial.SerialBlob
+import javax.xml.bind.JAXBElement
 
 fun testData() {
 
@@ -105,12 +106,26 @@ fun main() {
         install(StatusPages) {
             exception<Throwable> { cause ->
                 logger.error("Exception while handling '${call.request.uri}'", cause)
-                call.respondText("Internal server error.", ContentType.Text.Plain, HttpStatusCode.InternalServerError)
+                call.respondText("Internal server error.\n", ContentType.Text.Plain, HttpStatusCode.InternalServerError)
             }
 
             exception<NotAnIdError> { cause ->
                 logger.error("Exception while handling '${call.request.uri}'", cause)
-                call.respondText("Bad request", ContentType.Text.Plain, HttpStatusCode.BadRequest)
+                call.respondText("Bad request\n", ContentType.Text.Plain, HttpStatusCode.BadRequest)
+            }
+
+            exception<SubscriberNotFoundError> { cause ->
+                logger.error("Exception while handling '${call.request.uri}'", cause)
+                call.respondText("Subscriber not found\n", ContentType.Text.Plain, HttpStatusCode.NotFound)
+            }
+
+            exception<javax.xml.bind.UnmarshalException> { cause ->
+                logger.error("Exception while handling '${call.request.uri}'", cause)
+                call.respondText(
+                    "Could not convert string into JAXB (either from client or from bank)\n",
+                    ContentType.Text.Plain,
+                    HttpStatusCode.NotFound
+                )
             }
         }
 
@@ -231,7 +246,7 @@ fun main() {
 
                     call.respond(
                         HttpStatusCode.OK,
-                        NexusError("Did not get expected response from bank/sandbox")
+                        NexusError("Could not reach the bank.\n")
                     )
                     return@post
                 }
