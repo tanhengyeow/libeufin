@@ -182,7 +182,7 @@ fun main() {
 
             post("/ebics/subscribers/{id}/sendIni") {
 
-                val id = expectId(call.parameters["id"])
+                val id = expectId(call.parameters["id"]) // caught above
                 val iniRequest = EbicsUnsecuredRequest()
 
                 val url = transaction {
@@ -251,7 +251,7 @@ fun main() {
                     return@post
                 }
 
-                val responseJaxb = XMLUtil.convertStringToJaxb<EbicsKeyManagementResponse>(response)
+                val responseJaxb = XMLUtil.convertStringToJaxb<EbicsKeyManagementResponse>(response)  // caught above
                 val returnCode = responseJaxb.value.body.returnCode.value
                 if (returnCode == "000000") {
                     call.respond(
@@ -263,7 +263,7 @@ fun main() {
 
                     call.respond(
                         HttpStatusCode.OK,
-                        NexusError("Sandbox did not accepted the key.  Error code: ${returnCode}")
+                        NexusError("Sandbox did not accept the key.  Error code: ${returnCode}")
                     )
                     return@post
                 }
