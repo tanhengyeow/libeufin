@@ -38,6 +38,7 @@ import io.ktor.routing.post
 import io.ktor.routing.routing
 import io.ktor.server.engine.embeddedServer
 import io.ktor.server.netty.Netty
+import org.apache.commons.codec.digest.Crypt
 import org.apache.xml.security.binding.xmldsig.RSAKeyValueType
 import org.apache.xml.security.binding.xmldsig.SignatureType
 import org.jetbrains.exposed.sql.transactions.transaction
@@ -90,8 +91,7 @@ fun expectId(param: String?) : Int {
  * @return null when the bank could not be reached, otherwise returns the
  * response already converted in JAXB.
  */
-// suspend inline fun <reified S, reified T>HttpClient.postToBank(url: String, body: JAXBElement<T>) : JAXBElement<S>? {
-suspend inline fun <reified S>HttpClient.postToBank(url: String, body: String): JAXBElement<S>? {
+suspend inline fun <reified S>HttpClient.postToBank(url: String, body: String): JAXBElement<S> {
 
     val response = try {
         this.post<String>(
@@ -101,21 +101,21 @@ suspend inline fun <reified S>HttpClient.postToBank(url: String, body: String): 
             }
         )
     } catch (e: Exception) {
-        e.printStackTrace()
-        return null
+        throw UnreachableBankError(HttpStatusCode.InternalServerError)
     }
 
-    // note: not checking status code, as EBICS mandates to return "200 OK" for ANY outcome.
-    return XMLUtil.convertStringToJaxb(response)
+    try {
+        return XMLUtil.convertStringToJaxb(response)
+    } catch (e: Exception) {
+        throw UnparsableResponse(HttpStatusCode.BadRequest)
+    }
 }
 
-// takes JAXB
-suspend inline fun <reified T, reified S>HttpClient.postToBank(url: String, body: T): JAXBElement<S>? {
+suspend inline fun <reified T, reified S>HttpClient.postToBank(url: String, body: T): JAXBElement<S> {
     return this.postToBank<S>(url, XMLUtil.convertJaxbToString(body))
 }
 
-// takes DOM
-suspend inline fun <reified S>HttpClient.postToBank(url: String, body: Document): JAXBElement<S>? {
+suspend inline fun <reified S>HttpClient.postToBank(url: String, body: Document): JAXBElement<S> {
     return this.postToBank<S>(url, XMLUtil.convertDomToString(body))
 }
 
@@ -138,6 +138,8 @@ fun getGregorianDate(): XMLGregorianCalendar {
 data class NotAnIdError(val statusCode: HttpStatusCode) : Exception("String ID not convertible in number")
 data class SubscriberNotFoundError(val statusCode: HttpStatusCode) : Exception("Subscriber not found in database")
 data class UnreachableBankError(val statusCode: HttpStatusCode) : Exception("Could not reach the bank")
+data class UnparsableResponse(val statusCode: HttpStatusCode) : Exception("Bank responded with non-XML / non-EBICS " +
+        "content")
 data class EbicsError(val codeError: String) : Exception("Bank did not accepted EBICS request, error is: " + codeError
 )
 
@@ -145,7 +147,9 @@ data class EbicsError(val codeError: String) : Exception("Bank did not accepted 
 fun main() {
     dbCreateTables()
     testData() // gets always id == 1
-    val client = HttpClient()
+    val client = HttpClient(){
+        expectSuccess = false // this way, does not throw exceptions on != 200 responses
+    }
 
     val logger = LoggerFactory.getLogger("tech.libeufin.nexus")
 
@@ -167,6 +171,12 @@ fun main() {
             exception<NotAnIdError> { cause ->
                 logger.error("Exception while handling '${call.request.uri}'", cause)
                 call.respondText("Bad request\n", ContentType.Text.Plain, HttpStatusCode.BadRequest)
+            }
+
+            exception<UnparsableResponse> { cause ->
+                logger.error("Exception while handling '${call.request.uri}'", cause)
+                call.respondText("Could not parse bank response\n", ContentType.Text.Plain, HttpStatusCode
+                    .InternalServerError)
             }
 
             exception<UnreachableBankError> { cause ->
@@ -308,19 +318,11 @@ fun main() {
                     throw EbicsError(responseJaxb.value.body.returnCode.value)
                 }
 
-                call.respond(
-                    HttpStatusCode.OK,
-                    NexusError("Sandbox accepted the key!")
-                )
+                call.respondText("Bank accepted signature key\n", ContentType.Text.Plain, HttpStatusCode.OK)
                 return@post
             }
 
             post("/ebics/subscribers/{id}/sync") {
-                // fetch sub's EBICS URL, done
-                // prepare message, done
-                // send it out, done
-                // _parse_ response!
-                // respond to client
                 val id = expectId(call.parameters["id"])
                 val (url, body, encPrivBlob) = transaction {
                     val subscriber = EbicsSubscriberEntity.findById(id) ?: throw SubscriberNotFoundError(HttpStatusCode.NotFound)
@@ -354,9 +356,7 @@ fun main() {
                     Triple(subscriber.ebicsURL, hpbDoc, subscriber.encryptionPrivateKey.toByteArray())
                 }
 
-                val response = client.postToBank<EbicsKeyManagementResponse>(url, body) ?: throw UnreachableBankError(
-                    HttpStatusCode.InternalServerError
-                )
+                val response = client.postToBank<EbicsKeyManagementResponse>(url, body)
 
                 if (response.value.body.returnCode.value != "000000") {
                     throw EbicsError(response.value.body.returnCode.value)
@@ -369,10 +369,27 @@ fun main() {
                     response.value.body.dataTransfer!!.orderData.value
                 )
 
-                var dataCompr = CryptoUtil.decryptEbicsE002(er, CryptoUtil.loadRsaPrivateKey(encPrivBlob))
-                var data = EbicsOrderUtil.decodeOrderDataXml<HPBResponseOrderData>(dataCompr)
+                val dataCompr = CryptoUtil.decryptEbicsE002(er, CryptoUtil.loadRsaPrivateKey(encPrivBlob))
+                val data = EbicsOrderUtil.decodeOrderDataXml<HPBResponseOrderData>(dataCompr)
 
-                call.respond(HttpStatusCode.NotImplemented, NexusError("work in progress"))
+                val bankAuthPubBlob = CryptoUtil.loadRsaPublicKeyFromComponents(
+                    data.authenticationPubKeyInfo.pubKeyValue.rsaKeyValue.modulus,
+                    data.authenticationPubKeyInfo.pubKeyValue.rsaKeyValue.exponent
+                )
+
+                val bankEncPubBlob = CryptoUtil.loadRsaPublicKeyFromComponents(
+                    data.encryptionPubKeyInfo.pubKeyValue.rsaKeyValue.modulus,
+                    data.encryptionPubKeyInfo.pubKeyValue.rsaKeyValue.exponent
+                )
+
+                // put bank's keys into database.
+                transaction {
+                    val subscriber = EbicsSubscriberEntity.findById(id)
+                    subscriber!!.bankAuthenticationPublicKey = SerialBlob(bankAuthPubBlob.encoded)
+                    subscriber!!.bankEncryptionPublicKey = SerialBlob(bankEncPubBlob.encoded)
+                }
+
+                call.respondText("Bank keys stored in database\n", ContentType.Text.Plain, HttpStatusCode.OK)
                 return@post
             }
 
@@ -448,10 +465,11 @@ fun main() {
                     throw EbicsError(responseJaxb.value.body.returnCode.value)
                 }
 
-                call.respond(
-                    HttpStatusCode.OK,
-                    NexusError("Sandbox accepted the keys!")
-                )
+                call.respondText(
+                    "Bank accepted authentication and encryption keys\n",
+                    ContentType.Text.Plain,
+                    HttpStatusCode.OK)
+
                 return@post
             }
         }

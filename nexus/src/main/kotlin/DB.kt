@@ -17,6 +17,8 @@ object EbicsSubscribersTable : IntIdTable() {
     val signaturePrivateKey = blob("signaturePrivateKey")
     val encryptionPrivateKey = blob("encryptionPrivateKey")
     val authenticationPrivateKey = blob("authenticationPrivateKey")
+    val bankEncryptionPublicKey = blob("bankEncryptionPublicKey").nullable()
+    val bankAuthenticationPublicKey = blob("bankAuthenticationPublicKey").nullable()
 }
 
 class EbicsSubscriberEntity(id: EntityID<Int>) : IntEntity(id) {
@@ -30,6 +32,8 @@ class EbicsSubscriberEntity(id: EntityID<Int>) : IntEntity(id) {
     var signaturePrivateKey by EbicsSubscribersTable.signaturePrivateKey
     var encryptionPrivateKey by EbicsSubscribersTable.encryptionPrivateKey
     var authenticationPrivateKey by EbicsSubscribersTable.authenticationPrivateKey
+    var bankEncryptionPublicKey by EbicsSubscribersTable.bankEncryptionPublicKey
+    var bankAuthenticationPublicKey by EbicsSubscribersTable.bankAuthenticationPublicKey
 }
 
 fun dbCreateTables() {
