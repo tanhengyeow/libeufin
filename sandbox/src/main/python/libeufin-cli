@@ -37,7 +37,6 @@ def ini(obj, customer_id):
         print("Could not reach the bank")
         return
 
-    assert(resp.status_code == 200)
     print(resp.content.decode("utf-8"))
 
 
@@ -57,7 +56,6 @@ def hia(obj, customer_id):
         print("Could not reach the bank")
         return
 
-    assert(resp.status_code == 200)
     print(resp.content.decode("utf-8"))
 
 @ebics.command(help="send HPB message")
@@ -76,7 +74,6 @@ def sync(obj, customer_id):
         print("Could not reach the bank")
         return
 
-    assert(resp.status_code == 200)
     print(resp.content.decode("utf-8"))
 
 cli()
