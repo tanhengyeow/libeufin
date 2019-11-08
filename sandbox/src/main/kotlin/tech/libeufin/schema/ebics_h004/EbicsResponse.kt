@@ -1,6 +1,7 @@
 package tech.libeufin.schema.ebics_h004
 
 import org.apache.xml.security.binding.xmldsig.SignatureType
+import tech.libeufin.sandbox.CryptoUtil
 import java.math.BigInteger
 import javax.xml.bind.annotation.*
 import javax.xml.bind.annotation.adapters.CollapsedStringAdapter
@@ -91,8 +92,8 @@ class EbicsResponse {
         @XmlValue
         lateinit var value: BigInteger
 
-        @XmlAttribute(name = "lastSegment", required = true)
-        var lastSegment: Boolean = false
+        @XmlAttribute(name = "lastSegment")
+        var lastSegment: Boolean? = null
     }
 
     @XmlAccessorType(XmlAccessType.NONE)
@@ -131,5 +132,152 @@ class EbicsResponse {
         @get:XmlElement(name = "NumSegments")
         @get:XmlSchemaType(name = "positiveInteger")
         var numSegments: BigInteger? = null
+    }
+
+    companion object {
+        fun createForUploadInitializationPhase(transactionID: String, orderID: String): EbicsResponse {
+            return EbicsResponse().apply {
+                this.version = "H004"
+                this.revision = 1
+                this.header = EbicsResponse.Header().apply {
+                    this.authenticate = true
+                    this._static = EbicsResponse.StaticHeaderType().apply {
+                        this.transactionID = transactionID
+                    }
+                    this.mutable = EbicsResponse.MutableHeaderType().apply {
+                        this.transactionPhase = EbicsTypes.TransactionPhaseType.INITIALISATION
+                        this.orderID = orderID
+                        this.reportText = "[EBICS_OK] OK"
+                        this.returnCode = "000000"
+                    }
+                }
+                this.authSignature = SignatureType()
+                this.body = EbicsResponse.Body().apply {
+                    this.returnCode = EbicsResponse.ReturnCode().apply {
+                        this.authenticate = true
+                        this.value = "000000"
+                    }
+                }
+            }
+        }
+
+
+        fun createForDownloadReceiptPhase(transactionID: String, positiveAck: Boolean): EbicsResponse {
+            return EbicsResponse().apply {
+                this.version = "H004"
+                this.revision = 1
+                this.header = EbicsResponse.Header().apply {
+                    this.authenticate = true
+                    this._static = EbicsResponse.StaticHeaderType().apply {
+                        this.transactionID = transactionID
+                    }
+                    this.mutable = EbicsResponse.MutableHeaderType().apply {
+                        this.transactionPhase = EbicsTypes.TransactionPhaseType.RECEIPT
+                        if (positiveAck) {
+                            this.reportText = "[EBICS_DOWNLOAD_POSTPROCESS_DONE] Received positive receipt"
+                            this.returnCode = "011000"
+                        } else {
+                            this.reportText = "[EBICS_DOWNLOAD_POSTPROCESS_SKIPPED] Received negative receipt"
+                            this.returnCode = "011001"
+                        }
+                    }
+                }
+                this.authSignature = SignatureType()
+                this.body = EbicsResponse.Body().apply {
+                    this.returnCode = EbicsResponse.ReturnCode().apply {
+                        this.authenticate = true
+                        this.value = "000000"
+                    }
+                }
+            }
+        }
+
+
+        fun createForUploadTransferPhase(
+            transactionID: String,
+            segmentNumber: Int,
+            lastSegment: Boolean,
+            orderID: String
+        ): EbicsResponse {
+            return EbicsResponse().apply {
+                this.version = "H004"
+                this.revision = 1
+                this.header = EbicsResponse.Header().apply {
+                    this.authenticate = true
+                    this._static = EbicsResponse.StaticHeaderType().apply {
+                        this.transactionID = transactionID
+                    }
+                    this.mutable = EbicsResponse.MutableHeaderType().apply {
+                        this.transactionPhase = EbicsTypes.TransactionPhaseType.TRANSFER
+                        this.segmentNumber = EbicsResponse.SegmentNumber().apply {
+                            this.value = BigInteger.valueOf(segmentNumber.toLong())
+                            if (lastSegment) {
+                                this.lastSegment = true
+                            }
+                        }
+                        this.orderID = orderID
+                        this.reportText = "[EBICS_OK] OK"
+                        this.returnCode = "000000"
+                    }
+                }
+                this.authSignature = SignatureType()
+                this.body = EbicsResponse.Body().apply {
+                    this.returnCode = EbicsResponse.ReturnCode().apply {
+                        this.authenticate = true
+                        this.value = "000000"
+                    }
+                }
+            }
+        }
+
+        fun createForDownloadInitializationPhase(
+            transactionID: String,
+            numSegments: Int,
+            segmentSize: Int,
+            enc: CryptoUtil.EncryptionResult,
+            encodedData: String
+        ): EbicsResponse {
+            return EbicsResponse().apply {
+                this.version = "H004"
+                this.revision = 1
+                this.header = EbicsResponse.Header().apply {
+                    this.authenticate = true
+                    this._static = EbicsResponse.StaticHeaderType().apply {
+                        this.transactionID = transactionID
+                        this.numSegments = BigInteger.valueOf(numSegments.toLong())
+                    }
+                    this.mutable = EbicsResponse.MutableHeaderType().apply {
+                        this.transactionPhase = EbicsTypes.TransactionPhaseType.INITIALISATION
+                        this.segmentNumber = EbicsResponse.SegmentNumber().apply {
+                            this.lastSegment = (numSegments == 1)
+                            this.value = BigInteger.valueOf(1)
+                        }
+                        this.reportText = "[EBICS_OK] OK"
+                        this.returnCode = "000000"
+                    }
+                }
+                this.authSignature = SignatureType()
+                this.body = EbicsResponse.Body().apply {
+                    this.returnCode = EbicsResponse.ReturnCode().apply {
+                        this.authenticate = true
+                        this.value = "000000"
+                    }
+                    this.dataTransfer = EbicsResponse.DataTransferResponseType().apply {
+                        this.dataEncryptionInfo = EbicsTypes.DataEncryptionInfo().apply {
+                            this.authenticate = true
+                            this.encryptionPubKeyDigest = EbicsTypes.PubKeyDigest().apply {
+                                this.algorithm = "http://www.w3.org/2001/04/xmlenc#sha256"
+                                this.version = "E002"
+                                this.value = enc.pubKeyDigest
+                            }
+                            this.transactionKey = enc.encryptedTransactionKey
+                        }
+                        this.orderData = EbicsResponse.OrderData().apply {
+                            this.value = encodedData.substring(0, Math.min(segmentSize, encodedData.length))
+                        }
+                    }
+                }
+            }
+        }
     }
 }

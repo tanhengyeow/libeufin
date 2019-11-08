@@ -177,13 +177,13 @@ class EbicsMessagesTest {
     @Test
     fun testHtd() {
         val htd = HTDResponseOrderData().apply {
-            this.partnerInfo = HTDResponseOrderData.PartnerInfo().apply {
+            this.partnerInfo = EbicsTypes.PartnerInfo().apply {
                 this.accountInfoList = listOf(
-                    HTDResponseOrderData.AccountInfo().apply {
+                    EbicsTypes.AccountInfo().apply {
                         this.id = "acctid1"
                         this.accountHolder = "Mina Musterfrau"
                         this.accountNumberList = listOf(
-                            HTDResponseOrderData.GeneralAccountNumber().apply {
+                            EbicsTypes.GeneralAccountNumber().apply {
                                 this.international = true
                                 this.value = "AT411100000237571500"
                             }
@@ -191,21 +191,21 @@ class EbicsMessagesTest {
                         this.currency = "EUR"
                         this.description = "some account"
                         this.bankCodeList = listOf(
-                            HTDResponseOrderData.GeneralBankCode().apply {
+                            EbicsTypes.GeneralBankCode().apply {
                                 this.international = true
                                 this.value = "ABAGATWWXXX"
                             }
                         )
                     }
                 )
-                this.addressInfo = HTDResponseOrderData.AddressInfo().apply {
+                this.addressInfo = EbicsTypes.AddressInfo().apply {
                     this.name = "Foo"
                 }
-                this.bankInfo = HTDResponseOrderData.BankInfo().apply {
+                this.bankInfo = EbicsTypes.BankInfo().apply {
                     this.hostID = "MYHOST"
                 }
                 this.orderInfoList = listOf(
-                    HTDResponseOrderData.AuthOrderInfoType().apply {
+                    EbicsTypes.AuthOrderInfoType().apply {
                         this.description = "foo"
                         this.orderType = "CCC"
                         this.orderFormat = "foo"
@@ -213,14 +213,14 @@ class EbicsMessagesTest {
                     }
                 )
             }
-            this.userInfo = HTDResponseOrderData.UserInfo().apply {
+            this.userInfo = EbicsTypes.UserInfo().apply {
                 this.name = "Some User"
-                this.userID = HTDResponseOrderData.UserIDType().apply {
+                this.userID = EbicsTypes.UserIDType().apply {
                     this.status = 2
                     this.value = "myuserid"
                 }
                 this.permissionList = listOf(
-                    HTDResponseOrderData.UserPermission().apply {
+                    EbicsTypes.UserPermission().apply {
                         this.orderTypes = "CCC ABC"
                     }
                 )

@@ -151,14 +151,18 @@ object CryptoUtil {
     }
 
     fun decryptEbicsE002(enc: EncryptionResult, privateKey: RSAPrivateCrtKey): ByteArray {
+        return decryptEbicsE002(enc.encryptedTransactionKey, enc.encryptedData, privateKey)
+    }
+
+    fun decryptEbicsE002(encryptedTransactionKey: ByteArray, encryptedData: ByteArray, privateKey: RSAPrivateCrtKey): ByteArray {
         val asymmetricCipher = Cipher.getInstance("RSA/None/PKCS1Padding", bouncyCastleProvider)
         asymmetricCipher.init(Cipher.DECRYPT_MODE, privateKey)
-        val transactionKeyBytes = asymmetricCipher.doFinal(enc.encryptedTransactionKey)
+        val transactionKeyBytes = asymmetricCipher.doFinal(encryptedTransactionKey)
         val secretKeySpec = SecretKeySpec(transactionKeyBytes, "AES")
         val symmetricCipher = Cipher.getInstance("AES/CBC/X9.23Padding", bouncyCastleProvider)
         val ivParameterSpec = IvParameterSpec(ByteArray(16))
         symmetricCipher.init(Cipher.DECRYPT_MODE, secretKeySpec, ivParameterSpec)
-        val data = symmetricCipher.doFinal(enc.encryptedData)
+        val data = symmetricCipher.doFinal(encryptedData)
         return data
     }
 }

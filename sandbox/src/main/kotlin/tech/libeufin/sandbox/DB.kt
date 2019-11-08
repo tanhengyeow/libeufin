@@ -21,10 +21,11 @@ package tech.libeufin.sandbox
 
 import org.jetbrains.exposed.dao.*
 import org.jetbrains.exposed.sql.Database
-import org.jetbrains.exposed.sql.ReferenceOption
+import org.jetbrains.exposed.sql.transactions.TransactionManager
 import org.jetbrains.exposed.sql.SchemaUtils
 import org.jetbrains.exposed.sql.transactions.transaction
 import java.sql.Blob
+import java.sql.Connection
 
 const val CUSTOMER_NAME_MAX_LENGTH = 20
 const val EBICS_HOST_ID_MAX_LENGTH = 10
@@ -229,13 +230,13 @@ class EbicsUploadTransactionEntity(id: EntityID<String>) : Entity<String>(id) {
     var subscriber by EbicsSubscriberEntity referencedOn EbicsUploadTransactionsTable.subscriber
     var numSegments by EbicsUploadTransactionsTable.numSegments
     var lastSeenSegment by EbicsUploadTransactionsTable.lastSeenSegment
-    var transactionKeyEnc by EbicsDownloadTransactionsTable.transactionKeyEnc
+    var transactionKeyEnc by EbicsUploadTransactionsTable.transactionKeyEnc
 }
 
 
 object EbicsUploadTransactionChunksTable : IdTable<String>() {
     override val id =
-        text("transactionID").entityId().references(EbicsUploadTransactionsTable.id, ReferenceOption.CASCADE)
+        text("transactionID").entityId()
     val chunkIndex = integer("chunkIndex")
     val chunkContent = blob("chunkContent")
 }
@@ -250,16 +251,19 @@ class EbicsUploadTransactionChunkEntity(id : EntityID<String>): Entity<String>(i
 
 
 fun dbCreateTables() {
-    Database.connect("jdbc:h2:mem:test;DB_CLOSE_DELAY=-1", driver = "org.h2.Driver")
+    Database.connect("jdbc:sqlite:libeufin-sandbox.sqlite3", "org.sqlite.JDBC")
+    TransactionManager.manager.defaultIsolationLevel = Connection.TRANSACTION_SERIALIZABLE
 
     transaction {
         // addLogger(StdOutSqlLogger)
 
-        SchemaUtils.create(
+        SchemaUtils.createMissingTablesAndColumns(
             BankCustomersTable,
             EbicsSubscribersTable,
             EbicsHostsTable,
-            EbicsDownloadTransactionsTable
+            EbicsDownloadTransactionsTable,
+            EbicsUploadTransactionsTable,
+            EbicsUploadTransactionChunksTable
         )
     }
 }

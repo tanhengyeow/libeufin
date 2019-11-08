@@ -203,6 +203,17 @@ class XMLUtil private constructor() {
             return sw.toString()
         }
 
+        inline fun <reified T> convertJaxbToDocument(obj: T): Document {
+            val dbf: DocumentBuilderFactory  = DocumentBuilderFactory.newInstance()
+            dbf.isNamespaceAware = true
+            val doc = dbf.newDocumentBuilder().newDocument()
+            val jc = JAXBContext.newInstance(T::class.java)
+            val m = jc.createMarshaller()
+            m.setProperty(Marshaller.JAXB_FORMATTED_OUTPUT, true)
+            m.marshal(obj, doc)
+            return doc
+        }
+
         /**
          * Convert a XML string to the JAXB representation.
          *
