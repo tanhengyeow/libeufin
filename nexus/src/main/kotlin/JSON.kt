@@ -25,6 +25,13 @@ data class EbicsSubscriberInfoResponse(
 )
 
 /**
+ * Admin call that tells all the subscribers managed by Nexus.
+ */
+data class EbicsSubscribersResponse(
+    val ebicsSubscribers: List<EbicsSubscriberInfoResponse>
+)
+
+/**
  * Error message.
  */
 data class NexusError(

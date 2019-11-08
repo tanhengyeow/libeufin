@@ -217,6 +217,23 @@ fun main() {
                 return@get
             }
 
+            get("/ebics/subscribers") {
+
+                val ebicsSubscribers = transaction {
+                    EbicsSubscriberEntity.all().map {
+                        EbicsSubscriberInfoResponse(
+                            accountID = it.id.value,
+                            hostID = it.hostID,
+                            partnerID = it.partnerID,
+                            systemID = it.systemID,
+                            ebicsURL = it.ebicsURL,
+                            userID = it.userID
+                        )
+                    }
+                }
+                call.respond(EbicsSubscribersResponse(ebicsSubscribers))
+            }
+
             get("/ebics/subscribers/{id}") {
                 val id = expectId(call.parameters["id"])
                 val response = transaction {
@@ -235,6 +252,8 @@ fun main() {
             }
 
             post("/ebics/subscribers") {
+
+                // FIXME: parsed object is not enforced!
                 val body = try {
                     call.receive<EbicsSubscriberInfoRequest>()
                 } catch (e: Exception) {

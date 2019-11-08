@@ -77,23 +77,35 @@ def sync(obj, customer_id):
     print(resp.content.decode("utf-8"))
 
 
+@ebics.command(help="retrieve all subscribers in the system")
+@click.pass_obj
+def subscribers(obj):
+    
+    url = urljoin(obj["base_url"], "/ebics/subscribers")
+    try:
+        resp = get(url)
+    except Exception:
+        print("Could not reach the bank")
+        return
+
+    print(resp.content.decode("utf-8"))
+
 @ebics.command(help="insert new subscriber into Nexus")
 @click.pass_obj
 @click.option(
     "--ebics-url",
     help="URL of the EBICS server (defaults to http://localhost:5001/)",
-    required=False,
-    default="http://localhost:5001"
+    required=False
 )
 @click.option(
     "--user-id",
     help="ID of the user to add in the system" ,
-    required=True
+    required=False
 )
 @click.option(
     "--partner-id",
     help="ID of the partner associated with the user" ,
-    required=True
+    required=False
 )
 @click.option(
     "--system-id",
@@ -103,13 +115,22 @@ def sync(obj, customer_id):
 @click.option(
     "--host-id",
     help="ID of the EBICS server" ,
-    required=True
+    required=False,
+    default="host01"
 )
 def new(obj, user_id, partner_id, system_id, host_id, ebics_url):
+    import random
     
+    salt = random.randrange(0, 1000000000)
+    if not user_id:
+        user_id = "USER{}".format(salt)
+
+    if not partner_id:
+        partner_id = "PARTNER{}".format(salt)
+
     url = urljoin(obj["base_url"], "/ebics/subscribers")
     body = json=dict(
-            ebicsURL=ebics_url,
+            ebicsURL=obj["base_url"],
             userID=user_id,
             partnerID=partner_id,
             hostID=host_id
