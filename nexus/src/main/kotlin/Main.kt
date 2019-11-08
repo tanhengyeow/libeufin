@@ -248,9 +248,10 @@ fun main() {
                     }.id.value
                 }
 
-                call.respond(
-                    HttpStatusCode.OK,
-                    EbicsSubscriberInfoResponse(id)
+                call.respondText(
+                    "Subscriber registered, ID: ${id}",
+                    ContentType.Text.Plain,
+                    HttpStatusCode.OK
                 )
                 return@post
             }

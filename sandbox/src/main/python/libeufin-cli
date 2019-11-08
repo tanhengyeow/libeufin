@@ -76,4 +76,54 @@ def sync(obj, customer_id):
 
     print(resp.content.decode("utf-8"))
 
+
+@ebics.command(help="insert new subscriber into Nexus")
+@click.pass_obj
+@click.option(
+    "--ebics-url",
+    help="URL of the EBICS server (defaults to http://localhost:5001/)",
+    required=False,
+    default="http://localhost:5001"
+)
+@click.option(
+    "--user-id",
+    help="ID of the user to add in the system" ,
+    required=True
+)
+@click.option(
+    "--partner-id",
+    help="ID of the partner associated with the user" ,
+    required=True
+)
+@click.option(
+    "--system-id",
+    help="ID of the software acting on behalf of this user" ,
+    required=False
+)
+@click.option(
+    "--host-id",
+    help="ID of the EBICS server" ,
+    required=True
+)
+def new(obj, user_id, partner_id, system_id, host_id, ebics_url):
+    
+    url = urljoin(obj["base_url"], "/ebics/subscribers")
+    body = json=dict(
+            ebicsURL=ebics_url,
+            userID=user_id,
+            partnerID=partner_id,
+            hostID=host_id
+    )
+
+    if system_id:
+        body.update(system_id)
+
+    try:
+        resp = post(url, json=body)
+    except Exception:
+        print("Could not reach the bank")
+        return
+
+    print(resp.content.decode("utf-8"))
+
 cli()
