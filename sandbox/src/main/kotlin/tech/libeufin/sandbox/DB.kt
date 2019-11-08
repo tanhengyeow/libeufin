@@ -20,7 +20,9 @@
 package tech.libeufin.sandbox
 
 import org.jetbrains.exposed.dao.*
-import org.jetbrains.exposed.sql.*
+import org.jetbrains.exposed.sql.Database
+import org.jetbrains.exposed.sql.ReferenceOption
+import org.jetbrains.exposed.sql.SchemaUtils
 import org.jetbrains.exposed.sql.transactions.transaction
 import java.sql.Blob
 
@@ -29,6 +31,7 @@ const val EBICS_HOST_ID_MAX_LENGTH = 10
 const val EBICS_USER_ID_MAX_LENGTH = 10
 const val EBICS_PARTNER_ID_MAX_LENGTH = 10
 const val EBICS_SYSTEM_ID_MAX_LENGTH = 10
+
 /**
  * All the states to give a subscriber.
  */
@@ -90,7 +93,7 @@ fun Blob.toByteArray(): ByteArray {
  * This table information *not* related to EBICS, for all
  * its customers.
  */
-object BankCustomersTable: IntIdTable() {
+object BankCustomersTable : IntIdTable() {
     // Customer ID is the default 'id' field provided by the constructor.
     val name = varchar("name", CUSTOMER_NAME_MAX_LENGTH).primaryKey()
     val ebicsSubscriber = reference("ebicsSubscriber", EbicsSubscribersTable)
@@ -118,6 +121,7 @@ object EbicsSubscriberPublicKeysTable : IntIdTable() {
  */
 class EbicsSubscriberPublicKeyEntity(id: EntityID<Int>) : IntEntity(id) {
     companion object : IntEntityClass<EbicsSubscriberPublicKeyEntity>(EbicsSubscriberPublicKeysTable)
+
     var rsaPublicKey by EbicsSubscriberPublicKeysTable.rsaPublicKey
     var state by EbicsSubscriberPublicKeysTable.state
 }
@@ -134,6 +138,7 @@ object EbicsHostsTable : IntIdTable() {
 
 class EbicsHostEntity(id: EntityID<Int>) : IntEntity(id) {
     companion object : IntEntityClass<EbicsHostEntity>(EbicsHostsTable)
+
     var hostId by EbicsHostsTable.hostID
     var ebicsVersion by EbicsHostsTable.ebicsVersion
     var signaturePrivateKey by EbicsHostsTable.signaturePrivateKey
@@ -200,6 +205,47 @@ class EbicsDownloadTransactionEntity(id: EntityID<String>) : Entity<String>(id) 
     var transactionKeyEnc by EbicsDownloadTransactionsTable.transactionKeyEnc
     var segmentSize by EbicsDownloadTransactionsTable.segmentSize
     var receiptReceived by EbicsDownloadTransactionsTable.receiptReceived
+}
+
+
+object EbicsUploadTransactionsTable : IdTable<String>() {
+    override val id = text("transactionID").entityId()
+    val orderType = text("orderType")
+    val orderID = text("orderID")
+    val host = reference("host", EbicsHostsTable)
+    val subscriber = reference("subscriber", EbicsSubscribersTable)
+    val numSegments = integer("numSegments")
+    val lastSeenSegment = integer("lastSeenSegment")
+    val transactionKeyEnc = blob("transactionKeyEnc")
+}
+
+
+class EbicsUploadTransactionEntity(id: EntityID<String>) : Entity<String>(id) {
+    companion object : EntityClass<String, EbicsUploadTransactionEntity>(EbicsUploadTransactionsTable)
+
+    var orderType by EbicsUploadTransactionsTable.orderType
+    var orderID by EbicsUploadTransactionsTable.orderID
+    var host by EbicsHostEntity referencedOn EbicsUploadTransactionsTable.host
+    var subscriber by EbicsSubscriberEntity referencedOn EbicsUploadTransactionsTable.subscriber
+    var numSegments by EbicsUploadTransactionsTable.numSegments
+    var lastSeenSegment by EbicsUploadTransactionsTable.lastSeenSegment
+    var transactionKeyEnc by EbicsDownloadTransactionsTable.transactionKeyEnc
+}
+
+
+object EbicsUploadTransactionChunksTable : IdTable<String>() {
+    override val id =
+        text("transactionID").entityId().references(EbicsUploadTransactionsTable.id, ReferenceOption.CASCADE)
+    val chunkIndex = integer("chunkIndex")
+    val chunkContent = blob("chunkContent")
+}
+
+
+class EbicsUploadTransactionChunkEntity(id : EntityID<String>): Entity<String>(id) {
+    companion object : EntityClass<String, EbicsUploadTransactionChunkEntity>(EbicsUploadTransactionChunksTable)
+
+    var chunkIndex by EbicsUploadTransactionChunksTable.chunkIndex
+    var chunkContent by EbicsUploadTransactionChunksTable.chunkContent
 }
 
 

@@ -53,7 +53,7 @@ class CryptoUtilTest {
         val encodedPriv = keyPair.private.encoded
         val encodedPub = keyPair.public.encoded
         val otherKeyPair =
-            RsaCrtKeyPair(CryptoUtil.loadRsaPrivateKey(encodedPriv), CryptoUtil.loadRsaPublicKey(encodedPub))
+            CryptoUtil.RsaCrtKeyPair(CryptoUtil.loadRsaPrivateKey(encodedPriv), CryptoUtil.loadRsaPublicKey(encodedPub))
         assertEquals(keyPair.private, otherKeyPair.private)
         assertEquals(keyPair.public, otherKeyPair.public)
     }
