@@ -217,6 +217,23 @@ fun main() {
                 return@get
             }
 
+            get("/ebics/subscribers/{id}") {
+                val id = expectId(call.parameters["id"])
+                val response = transaction {
+                    val tmp = EbicsSubscriberEntity.findById(id) ?: throw SubscriberNotFoundError(HttpStatusCode.NotFound)
+                    EbicsSubscriberInfoResponse(
+                        accountID = tmp.id.value,
+                        hostID = tmp.hostID,
+                        partnerID = tmp.partnerID,
+                        systemID = tmp.systemID,
+                        ebicsURL = tmp.ebicsURL,
+                        userID = tmp.userID
+                    )
+                }
+                call.respond(HttpStatusCode.OK, response)
+                return@get
+            }
+
             post("/ebics/subscribers") {
                 val body = try {
                     call.receive<EbicsSubscriberInfoRequest>()
