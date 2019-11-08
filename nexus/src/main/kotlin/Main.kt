@@ -19,6 +19,8 @@
 
 package tech.libeufin.nexus
 
+import com.ryanharter.ktor.moshi.moshi
+import com.squareup.moshi.JsonDataException
 import io.ktor.application.ApplicationCallPipeline
 import io.ktor.application.call
 import io.ktor.application.install
@@ -38,7 +40,6 @@ import io.ktor.routing.post
 import io.ktor.routing.routing
 import io.ktor.server.engine.embeddedServer
 import io.ktor.server.netty.Netty
-import org.apache.commons.codec.digest.Crypt
 import org.apache.xml.security.binding.xmldsig.RSAKeyValueType
 import org.apache.xml.security.binding.xmldsig.SignatureType
 import org.jetbrains.exposed.sql.transactions.transaction
@@ -156,6 +157,10 @@ fun main() {
     val server = embeddedServer(Netty, port = 5001) {
 
         install(ContentNegotiation) {
+
+            moshi {
+            }
+
             gson {
                 setDateFormat(DateFormat.LONG)
                 setPrettyPrinting()
@@ -166,6 +171,11 @@ fun main() {
             exception<Throwable> { cause ->
                 logger.error("Exception while handling '${call.request.uri}'", cause)
                 call.respondText("Internal server error.\n", ContentType.Text.Plain, HttpStatusCode.InternalServerError)
+            }
+
+            exception<JsonDataException> { cause ->
+                logger.error("Exception while handling '${call.request.uri}'", cause)
+                call.respondText("Bad request\n", ContentType.Text.Plain, HttpStatusCode.BadRequest)
             }
 
             exception<NotAnIdError> { cause ->
@@ -253,17 +263,7 @@ fun main() {
 
             post("/ebics/subscribers") {
 
-                // FIXME: parsed object is not enforced!
-                val body = try {
-                    call.receive<EbicsSubscriberInfoRequest>()
-                } catch (e: Exception) {
-                    e.printStackTrace()
-                    call.respond(
-                        HttpStatusCode.BadRequest,
-                        NexusError(e.message.toString())
-                    )
-                    return@post
-                }
+                val body = call.receive<EbicsSubscriberInfoRequest>()
 
                 val pairA = CryptoUtil.generateRsaKeyPair(2048)
                 val pairB = CryptoUtil.generateRsaKeyPair(2048)
