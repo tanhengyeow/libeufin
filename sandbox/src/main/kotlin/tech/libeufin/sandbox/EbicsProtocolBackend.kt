@@ -27,17 +27,13 @@ import io.ktor.request.receiveText
 import io.ktor.response.respond
 import io.ktor.response.respondText
 import org.apache.xml.security.binding.xmldsig.RSAKeyValueType
-import org.apache.xml.security.binding.xmldsig.SignatureType
-import org.jetbrains.exposed.sql.lowerCase
 import org.jetbrains.exposed.sql.transactions.transaction
 import org.jetbrains.exposed.sql.upperCase
 import org.w3c.dom.Document
 import tech.libeufin.schema.ebics_h004.*
 import tech.libeufin.schema.ebics_hev.HEVResponse
 import tech.libeufin.schema.ebics_hev.SystemReturnCodeType
-import tech.libeufin.schema.ebics_s001.SignaturePubKeyOrderData
-import java.math.BigInteger
-import java.security.PrivateKey
+import tech.libeufin.schema.ebics_s001.SignatureTypes
 import java.security.interfaces.RSAPrivateCrtKey
 import java.util.*
 import java.util.zip.DeflaterInputStream
@@ -142,7 +138,7 @@ private suspend fun ApplicationCall.handleEbicsHia(header: EbicsUnsecuredRequest
 
 
 private suspend fun ApplicationCall.handleEbicsIni(header: EbicsUnsecuredRequest.Header, orderData: ByteArray) {
-    val keyObject = EbicsOrderUtil.decodeOrderDataXml<SignaturePubKeyOrderData>(orderData)
+    val keyObject = EbicsOrderUtil.decodeOrderDataXml<SignatureTypes.SignaturePubKeyOrderData>(orderData)
     val sigPubXml = keyObject.signaturePubKeyInfo.pubKeyValue.rsaKeyValue
     val sigPub = CryptoUtil.loadRsaPublicKeyFromComponents(sigPubXml.modulus, sigPubXml.exponent)
 
@@ -230,7 +226,8 @@ private suspend fun ApplicationCall.handleEbicsHpb(
  */
 private fun ApplicationCall.ensureEbicsHost(requestHostID: String): EbicsHostPublicInfo {
     return transaction {
-        val ebicsHost = EbicsHostEntity.find { EbicsHostsTable.hostID.upperCase() eq requestHostID.toUpperCase() }.firstOrNull()
+        val ebicsHost =
+            EbicsHostEntity.find { EbicsHostsTable.hostID.upperCase() eq requestHostID.toUpperCase() }.firstOrNull()
         if (ebicsHost == null) {
             logger.warn("client requested unknown HostID")
             throw EbicsKeyManagementError("[EBICS_INVALID_HOST_ID]", "091011")
@@ -341,6 +338,91 @@ fun handleEbicsHtd(): ByteArray {
 }
 
 
+fun handleEbicsHkd(): ByteArray {
+    val hkd = HKDResponseOrderData().apply {
+        this.partnerInfo = EbicsTypes.PartnerInfo().apply {
+            this.accountInfoList = listOf(
+                EbicsTypes.AccountInfo().apply {
+                    this.id = "acctid1"
+                    this.accountHolder = "Mina Musterfrau"
+                    this.accountNumberList = listOf(
+                        EbicsTypes.GeneralAccountNumber().apply {
+                            this.international = true
+                            this.value = "DE21500105174751659277"
+                        }
+                    )
+                    this.currency = "EUR"
+                    this.description = "ACCT"
+                    this.bankCodeList = listOf(
+                        EbicsTypes.GeneralBankCode().apply {
+                            this.international = true
+                            this.value = "INGDDEFFXXX"
+                        }
+                    )
+                },
+                EbicsTypes.AccountInfo().apply {
+                    this.id = "glsdemo"
+                    this.accountHolder = "Mina Musterfrau"
+                    this.accountNumberList = listOf(
+                        EbicsTypes.GeneralAccountNumber().apply {
+                            this.international = true
+                            this.value = "DE91430609670123123123"
+                        }
+                    )
+                    this.currency = "EUR"
+                    this.description = "glsdemoacct"
+                    this.bankCodeList = listOf(
+                        EbicsTypes.GeneralBankCode().apply {
+                            this.international = true
+                            this.value = "GENODEM1GLS"
+                        }
+                    )
+                }
+            )
+            this.addressInfo = EbicsTypes.AddressInfo().apply {
+                this.name = "Foo"
+            }
+            this.bankInfo = EbicsTypes.BankInfo().apply {
+                this.hostID = "host01"
+            }
+            this.orderInfoList = listOf(
+                EbicsTypes.AuthOrderInfoType().apply {
+                    this.description = "foo"
+                    this.orderType = "C53"
+                    this.transferType = "Download"
+                },
+                EbicsTypes.AuthOrderInfoType().apply {
+                    this.description = "foo"
+                    this.orderType = "C52"
+                    this.transferType = "Download"
+                },
+                EbicsTypes.AuthOrderInfoType().apply {
+                    this.description = "foo"
+                    this.orderType = "CCC"
+                    this.transferType = "Upload"
+                }
+            )
+        }
+        this.userInfoList = listOf(
+            EbicsTypes.UserInfo().apply {
+                this.name = "Some User"
+                this.userID = EbicsTypes.UserIDType().apply {
+                    this.status = 1
+                    this.value = "USER1"
+                }
+                this.permissionList = listOf(
+                    EbicsTypes.UserPermission().apply {
+                        this.orderTypes = "C54 C53 C52 CCC"
+                    }
+                )
+            })
+    }
+
+    val str = XMLUtil.convertJaxbToString(hkd)
+    return str.toByteArray()
+}
+
+
 fun signEbicsResponseX002(ebicsResponse: EbicsResponse, privateKey: RSAPrivateCrtKey): String {
     val doc = XMLUtil.convertJaxbToDocument(ebicsResponse)
     XMLUtil.signEbicsDocument(doc, privateKey)
@@ -408,7 +490,9 @@ suspend fun ApplicationCall.ebicsweb() {
             val responseXmlStr = transaction {
                 // Step 1 of 3:  Get information about the host and subscriber
 
-                val ebicsHost = EbicsHostEntity.find { EbicsHostsTable.hostID.upperCase() eq requestedHostId.toUpperCase() }.firstOrNull()
+                val ebicsHost =
+                    EbicsHostEntity.find { EbicsHostsTable.hostID.upperCase() eq requestedHostId.toUpperCase() }
+                        .firstOrNull()
                 val requestTransactionID = requestObject.header.static.transactionID
                 var downloadTransaction: EbicsDownloadTransactionEntity? = null
                 var uploadTransaction: EbicsUploadTransactionEntity? =
@@ -459,6 +543,7 @@ suspend fun ApplicationCall.ebicsweb() {
                             println("handling initialization for order type $orderType")
                             val response = when (orderType) {
                                 "HTD" -> handleEbicsHtd()
+                                "HKD" -> handleEbicsHkd()
                                 else -> throw EbicsInvalidXmlError()
                             }
 
@@ -516,6 +601,7 @@ suspend fun ApplicationCall.ebicsweb() {
                             val plainSigData = InflaterInputStream(decryptedSignatureData.inputStream()).use {
                                 it.readAllBytes()
                             }
+                            //val sigDataObject = XMLUtil.convertStringToJaxb<OrderSignatureData>(plainSigData)
                             println("signature data: ${plainSigData.toString(Charsets.UTF_8)}")
                             println("creating upload transaction for transactionID $transactionID")
                             EbicsUploadTransactionEntity.new(transactionID) {

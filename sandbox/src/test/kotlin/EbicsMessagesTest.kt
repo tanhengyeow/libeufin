@@ -7,7 +7,7 @@ import org.w3c.dom.Element
 import tech.libeufin.schema.ebics_h004.*
 import tech.libeufin.schema.ebics_hev.HEVResponse
 import tech.libeufin.schema.ebics_hev.SystemReturnCodeType
-import tech.libeufin.schema.ebics_s001.SignaturePubKeyOrderData
+import tech.libeufin.schema.ebics_s001.SignatureTypes
 import javax.xml.datatype.DatatypeFactory
 import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
@@ -22,7 +22,7 @@ class EbicsMessagesTest {
     fun testImportNonRoot() {
         val classLoader = ClassLoader.getSystemClassLoader()
         val ini = classLoader.getResource("ebics_ini_inner_key.xml")
-        val jaxb = XMLUtil.convertStringToJaxb<SignaturePubKeyOrderData>(ini.readText())
+        val jaxb = XMLUtil.convertStringToJaxb<SignatureTypes.SignaturePubKeyOrderData>(ini.readText())
         assertEquals("A006", jaxb.value.signaturePubKeyInfo.signatureVersion)
     }
 
@@ -129,7 +129,7 @@ class EbicsMessagesTest {
                 "ebics_ini_inner_key.xml"
             )
             assertNotNull(file)
-            XMLUtil.convertStringToJaxb<SignaturePubKeyOrderData>(file.readText())
+            XMLUtil.convertStringToJaxb<SignatureTypes.SignaturePubKeyOrderData>(file.readText())
         }
 
         val modulus = jaxbKey.value.signaturePubKeyInfo.pubKeyValue.rsaKeyValue.modulus
@@ -228,6 +228,66 @@ class EbicsMessagesTest {
         }
 
         val str = XMLUtil.convertJaxbToString(htd)
+        println(str)
+        assert(XMLUtil.validateFromString(str))
+    }
+
+
+    @Test
+    fun testHkd() {
+        val hkd = HKDResponseOrderData().apply {
+            this.partnerInfo = EbicsTypes.PartnerInfo().apply {
+                this.accountInfoList = listOf(
+                    EbicsTypes.AccountInfo().apply {
+                        this.id = "acctid1"
+                        this.accountHolder = "Mina Musterfrau"
+                        this.accountNumberList = listOf(
+                            EbicsTypes.GeneralAccountNumber().apply {
+                                this.international = true
+                                this.value = "AT411100000237571500"
+                            }
+                        )
+                        this.currency = "EUR"
+                        this.description = "some account"
+                        this.bankCodeList = listOf(
+                            EbicsTypes.GeneralBankCode().apply {
+                                this.international = true
+                                this.value = "ABAGATWWXXX"
+                            }
+                        )
+                    }
+                )
+                this.addressInfo = EbicsTypes.AddressInfo().apply {
+                    this.name = "Foo"
+                }
+                this.bankInfo = EbicsTypes.BankInfo().apply {
+                    this.hostID = "MYHOST"
+                }
+                this.orderInfoList = listOf(
+                    EbicsTypes.AuthOrderInfoType().apply {
+                        this.description = "foo"
+                        this.orderType = "CCC"
+                        this.orderFormat = "foo"
+                        this.transferType = "Upload"
+                    }
+                )
+            }
+            this.userInfoList = listOf(
+                EbicsTypes.UserInfo().apply {
+                    this.name = "Some User"
+                    this.userID = EbicsTypes.UserIDType().apply {
+                        this.status = 2
+                        this.value = "myuserid"
+                    }
+                    this.permissionList = listOf(
+                        EbicsTypes.UserPermission().apply {
+                            this.orderTypes = "CCC ABC"
+                        }
+                    )
+                })
+        }
+
+        val str = XMLUtil.convertJaxbToString(hkd)
         println(str)
         assert(XMLUtil.validateFromString(str))
     }

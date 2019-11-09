@@ -4,7 +4,7 @@ import java.security.Permission
 import javax.xml.bind.annotation.*
 
 @XmlAccessorType(XmlAccessType.NONE)
-@XmlType(name = "", propOrder = ["partnerInfo", "userInfo"])
+@XmlType(name = "", propOrder = ["partnerInfo", "userInfoList"])
 @XmlRootElement(name = "HTDResponseOrderData")
 class HKDResponseOrderData {
     @get:XmlElement(name = "PartnerInfo", required = true)

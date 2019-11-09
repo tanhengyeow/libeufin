@@ -31,7 +31,7 @@ import javax.xml.datatype.XMLGregorianCalendar
 /**
  * EBICS type definitions that are shared between other requests / responses / order types.
  */
-class EbicsTypes private constructor() {
+object EbicsTypes {
     /**
      * EBICS client product.  Identifies the software that accesses the EBICS host.
      */
