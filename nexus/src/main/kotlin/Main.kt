@@ -137,7 +137,8 @@ suspend inline fun <reified S>HttpClient.postToBank(url: String, body: String): 
     try {
         return XMLUtil.convertStringToJaxb(response)
     } catch (e: Exception) {
-        throw UnparsableResponse(HttpStatusCode.BadRequest)
+        logger.warn("bank responded: ${response}")
+        throw UnparsableResponse(HttpStatusCode.BadRequest, response)
     }
 }
 
@@ -166,19 +167,18 @@ fun getGregorianDate(): XMLGregorianCalendar {
 }
 
 data class NotAnIdError(val statusCode: HttpStatusCode) : Exception("String ID not convertible in number")
+data class BankKeyMissing(val statusCode: HttpStatusCode) : Exception("Impossible operation: bank keys are missing")
 data class SubscriberNotFoundError(val statusCode: HttpStatusCode) : Exception("Subscriber not found in database")
 data class UnreachableBankError(val statusCode: HttpStatusCode) : Exception("Could not reach the bank")
-data class UnparsableResponse(val statusCode: HttpStatusCode) : Exception("Bank responded with non-XML / non-EBICS " +
-        "content")
-data class EbicsError(val codeError: String) : Exception("Bank did not accepted EBICS request, error is: " + codeError
-)
+data class UnparsableResponse(val statusCode: HttpStatusCode, val rawResponse: String) : Exception("bank responded: ${rawResponse}")
+data class EbicsError(val codeError: String) : Exception("Bank did not accepted EBICS request, error is: ${codeError}")
 
 
 fun main() {
     dbCreateTables()
     testData() // gets always id == 1
     val client = HttpClient(){
-        expectSuccess = false // this way, does not throw exceptions on != 200 responses
+        expectSuccess = false // this way, it does not throw exceptions on != 200 responses.
     }
 
     val logger = LoggerFactory.getLogger("tech.libeufin.nexus")
@@ -214,7 +214,7 @@ fun main() {
 
             exception<UnparsableResponse> { cause ->
                 logger.error("Exception while handling '${call.request.uri}'", cause)
-                call.respondText("Could not parse bank response\n", ContentType.Text.Plain, HttpStatusCode
+                call.respondText("Could not parse bank response (${cause.message})\n", ContentType.Text.Plain, HttpStatusCode
                     .InternalServerError)
             }
 
@@ -231,6 +231,11 @@ fun main() {
             exception<EbicsError> { cause ->
                 logger.error("Exception while handling '${call.request.uri}'", cause)
                 call.respondText("Bank gave EBICS-error response\n", ContentType.Text.Plain, HttpStatusCode.NotAcceptable)
+            }
+
+            exception<BankKeyMissing> { cause ->
+                logger.error("Exception while handling '${call.request.uri}'", cause)
+                call.respondText("Impossible operation: get bank keys first\n", ContentType.Text.Plain, HttpStatusCode.NotAcceptable)
             }
 
             exception<javax.xml.bind.UnmarshalException> { cause ->
@@ -254,6 +259,77 @@ fun main() {
             get("/") {
                 call.respondText("Hello by Nexus!\n")
                 return@get
+            }
+
+            get("/ebics/subscribers/{id}/sendHtd") {
+                val id = expectId(call.parameters["id"])
+                val (url, body, encPrivBlob) = transaction {
+                    val subscriber = EbicsSubscriberEntity.findById(id) ?: throw SubscriberNotFoundError(HttpStatusCode.NotFound)
+                    val request = EbicsRequest().apply {
+                        version = "H004"
+                        revision = 1
+                        header = EbicsRequest.Header().apply {
+                            authenticate = true
+                            static = EbicsRequest.StaticHeaderType().apply {
+                                userID = subscriber.userID
+                                partnerID = subscriber.partnerID
+                                hostID = subscriber.hostID
+                                nonce = getNonce(128)
+                                timestamp = getGregorianDate()
+                                partnerID = subscriber.partnerID
+                                orderDetails = EbicsRequest.OrderDetails().apply {
+                                    orderType = "HTD"
+                                    orderAttribute = "DZHNN"
+                                    orderParams = EbicsRequest.StandardOrderParams()
+                                }
+                                bankPubKeyDigests = EbicsRequest.BankPubKeyDigests().apply {
+                                    authentication = EbicsTypes.PubKeyDigest().apply {
+                                        algorithm = "http://www.w3.org/2001/04/xmlenc#sha256"
+                                        version = "X002"
+                                        value = CryptoUtil.getEbicsPublicKeyHash(
+                                            CryptoUtil.loadRsaPublicKey(
+                                                (subscriber.bankAuthenticationPublicKey ?: throw BankKeyMissing(HttpStatusCode.NotAcceptable)).toByteArray()
+                                            )
+                                        )
+                                    }
+                                    encryption = EbicsTypes.PubKeyDigest().apply {
+                                        algorithm = "http://www.w3.org/2001/04/xmlenc#sha256"
+                                        version = "E002"
+                                        value = CryptoUtil.getEbicsPublicKeyHash(
+                                            CryptoUtil.loadRsaPublicKey(
+                                                (subscriber.bankEncryptionPublicKey ?: throw BankKeyMissing(HttpStatusCode.NotAcceptable)).toByteArray()
+                                            )
+                                        )
+                                    }
+                                    securityMedium = "0000"
+                                }
+                                mutable = EbicsRequest.MutableHeader().apply {
+                                    transactionPhase = EbicsTypes.TransactionPhaseType.INITIALISATION
+                                }
+                                authSignature = SignatureType()
+                            }
+                        }
+                        body = EbicsRequest.Body()
+                    }
+
+                    val hpbText = XMLUtil.convertJaxbToString(request)
+                    val hpbDoc = XMLUtil.parseStringIntoDom(hpbText)
+
+                    XMLUtil.signEbicsDocument(
+                        hpbDoc,
+                        CryptoUtil.loadRsaPrivateKey(subscriber.authenticationPrivateKey.toByteArray())
+                        )
+
+                    Triple(subscriber.ebicsURL, hpbDoc, subscriber.encryptionPrivateKey.toByteArray())
+                }
+
+                val response = client.postToBank<EbicsKeyManagementResponse>(url, body)
+                print("HTD response: " + XMLUtil.convertJaxbToString(response))
+
+                call.respond(
+                    HttpStatusCode.NotImplemented,
+                    SandboxError("Not implemented")
+                )
             }
 
             get("/ebics/subscribers/{id}/keyletter") {

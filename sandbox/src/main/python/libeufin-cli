@@ -40,6 +40,34 @@ def ini(obj, customer_id):
     print(resp.content.decode("utf-8"))
 
 
+@ebics.command(help="send HTD message")
+@click.pass_context
+@click.option(
+    "--customer-id",
+    help="numerical ID of the customer at the Nexus",
+    required=False,
+    default=1)
+@click.option(
+    "--prepare",
+    help="Gets keying done before requesting HTD",
+    required=False,
+    default=True)
+def htd(ctx, customer_id, prepare):
+
+    if prepare:
+        ctx.invoke(ini)
+        ctx.invoke(hia)
+        ctx.invoke(sync)
+
+    url = urljoin(ctx.obj["base_url"], "/ebics/subscribers/{}/sendHtd".format(customer_id))
+    try:
+        resp = get(url)
+    except Exception:
+        print("Could not reach the bank")
+        return
+
+    print(resp.content.decode("utf-8"))
+
 @ebics.command(help="send HIA message")
 @click.pass_obj
 @click.option(
