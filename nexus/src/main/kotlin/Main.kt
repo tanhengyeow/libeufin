@@ -46,9 +46,9 @@ import org.jetbrains.exposed.sql.transactions.transaction
 import org.slf4j.LoggerFactory
 import tech.libeufin.sandbox.*
 import tech.libeufin.schema.ebics_h004.*
-import tech.libeufin.schema.ebics_s001.PubKeyValueType
-import tech.libeufin.schema.ebics_s001.SignaturePubKeyInfoType
-import tech.libeufin.schema.ebics_s001.SignaturePubKeyOrderData
+import tech.libeufin.schema.ebics_s001.SignatureTypes.SignaturePubKeyInfoType
+import tech.libeufin.schema.ebics_s001.SignatureTypes.SignaturePubKeyOrderData
+import tech.libeufin.schema.ebics_s001.SignatureTypes.PubKeyValueType
 import java.text.DateFormat
 import javax.sql.rowset.serial.SerialBlob
 import javax.xml.bind.JAXBElement
@@ -323,8 +323,8 @@ fun main() {
                     Triple(subscriber.ebicsURL, hpbDoc, subscriber.encryptionPrivateKey.toByteArray())
                 }
 
-                val response = client.postToBank<EbicsKeyManagementResponse>(url, body)
-                print("HTD response: " + XMLUtil.convertJaxbToString(response))
+                val response = client.postToBank<EbicsResponse>(url, body)
+                print("HTD response: " + XMLUtil.convertJaxbToString<EbicsResponse>(response.value))
 
                 call.respond(
                     HttpStatusCode.NotImplemented,
