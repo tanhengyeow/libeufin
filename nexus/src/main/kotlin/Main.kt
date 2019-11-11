@@ -263,7 +263,7 @@ fun main() {
 
             get("/ebics/subscribers/{id}/sendHtd") {
                 val id = expectId(call.parameters["id"])
-                val (url, body, encPrivBlob) = transaction {
+                val (url, requestDoc, encPrivBlob) = transaction {
                     val subscriber = EbicsSubscriberEntity.findById(id) ?: throw SubscriberNotFoundError(HttpStatusCode.NotFound)
                     val request = EbicsRequest().apply {
                         version = "H004"
@@ -323,8 +323,53 @@ fun main() {
                     Triple(subscriber.ebicsURL, hpbDoc, subscriber.encryptionPrivateKey.toByteArray())
                 }
 
-                val response = client.postToBank<EbicsResponse>(url, body)
-                print("HTD response: " + XMLUtil.convertJaxbToString<EbicsResponse>(response.value))
+                val response = client.postToBank<EbicsResponse>(url, requestDoc)
+                logger.debug("HTD response: " + XMLUtil.convertJaxbToString<EbicsResponse>(response.value))
+
+                if (response.value.body.returnCode.value != "000000") {
+                    throw EbicsError(response.value.body.returnCode.value)
+                }
+
+                val ackRequestDoc = transaction {
+                    val subscriber = EbicsSubscriberEntity.findById(id) ?: throw SubscriberNotFoundError(HttpStatusCode.NotFound)
+
+                    val ackRequest = EbicsRequest().apply {
+                        header = EbicsRequest.Header().apply {
+                            version = "H004"
+                            revision = 1
+                            authenticate = true
+                            static = EbicsRequest.StaticHeaderType().apply {
+                                hostID = subscriber.hostID
+                                transactionID = response.value.header._static.transactionID
+                            }
+                            mutable = EbicsRequest.MutableHeader().apply {
+                                transactionPhase = EbicsTypes.TransactionPhaseType.RECEIPT
+                            }
+                            authSignature = SignatureType()
+                        }
+                        body = EbicsRequest.Body().apply {
+                            transferReceipt = EbicsRequest.TransferReceipt().apply {
+                                authenticate = true
+                                receiptCode = 0 // always true at this point.
+                            }
+                        }
+                    }
+
+                    val ackRequestDoc = XMLUtil.convertJaxbToDocument(ackRequest)
+                    XMLUtil.signEbicsDocument(
+                        ackRequestDoc,
+                        CryptoUtil.loadRsaPrivateKey(subscriber.authenticationPrivateKey.toByteArray())
+                    )
+
+                    ackRequestDoc
+                }
+
+                val ackResponse = client.postToBank<EbicsResponse>(url, ackRequestDoc)
+                logger.debug("HTD final response: " + XMLUtil.convertJaxbToString<EbicsResponse>(response.value))
+
+                if (ackResponse.value.body.returnCode.value != "000000") {
+                    throw EbicsError(response.value.body.returnCode.value)
+                }
 
                 call.respond(
                     HttpStatusCode.NotImplemented,

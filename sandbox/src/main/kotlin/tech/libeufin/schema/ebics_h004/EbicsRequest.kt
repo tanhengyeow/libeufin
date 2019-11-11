@@ -61,7 +61,7 @@ class EbicsRequest {
         @get:XmlElement(name = "Nonce", type = String::class)
         @get:XmlJavaTypeAdapter(HexBinaryAdapter::class)
         @get:XmlSchemaType(name = "hexBinary")
-        lateinit var nonce: ByteArray
+        var nonce: ByteArray? = null
 
         /**
          * Present only in the initialization phase.
