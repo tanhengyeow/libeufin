@@ -25,11 +25,10 @@ import java.math.BigInteger
 import java.security.KeyFactory
 import java.security.KeyPairGenerator
 import java.security.MessageDigest
+import java.security.Signature
 import java.security.interfaces.RSAPrivateCrtKey
 import java.security.interfaces.RSAPublicKey
-import java.security.spec.PKCS8EncodedKeySpec
-import java.security.spec.RSAPublicKeySpec
-import java.security.spec.X509EncodedKeySpec
+import java.security.spec.*
 import javax.crypto.Cipher
 import javax.crypto.KeyGenerator
 import javax.crypto.spec.IvParameterSpec
@@ -164,5 +163,21 @@ object CryptoUtil {
         symmetricCipher.init(Cipher.DECRYPT_MODE, secretKeySpec, ivParameterSpec)
         val data = symmetricCipher.doFinal(encryptedData)
         return data
+    }
+
+    fun signEbicsA006(data: ByteArray, privateKey: RSAPrivateCrtKey): ByteArray {
+        val signature = Signature.getInstance("SHA256withRSA/PSS", bouncyCastleProvider)
+        signature.setParameter(PSSParameterSpec("SHA-256", "MGF1", MGF1ParameterSpec.SHA256, 32, 1))
+        signature.initSign(privateKey)
+        signature.update(data)
+        return signature.sign()
+    }
+
+    fun verifyEbicsA006(sig: ByteArray, data: ByteArray, publicKey: RSAPublicKey): Boolean {
+        val signature = Signature.getInstance("SHA256withRSA/PSS", bouncyCastleProvider)
+        signature.setParameter(PSSParameterSpec("SHA-256", "MGF1", MGF1ParameterSpec.SHA256, 32, 1))
+        signature.initVerify(publicKey)
+        signature.update(data)
+        return signature.verify(sig)
     }
 }

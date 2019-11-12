@@ -34,6 +34,7 @@ import tech.libeufin.schema.ebics_h004.*
 import tech.libeufin.schema.ebics_hev.HEVResponse
 import tech.libeufin.schema.ebics_hev.SystemReturnCodeType
 import tech.libeufin.schema.ebics_s001.SignatureTypes
+import tech.libeufin.schema.ebics_s001.UserSignatureData
 import java.security.interfaces.RSAPrivateCrtKey
 import java.util.*
 import java.util.zip.DeflaterInputStream
@@ -603,6 +604,10 @@ suspend fun ApplicationCall.ebicsweb() {
                             }
                             //val sigDataObject = XMLUtil.convertStringToJaxb<OrderSignatureData>(plainSigData)
                             println("signature data: ${plainSigData.toString(Charsets.UTF_8)}")
+
+                            val sig = XMLUtil.convertStringToJaxb<UserSignatureData>(plainSigData.toString(Charsets.UTF_8))
+                            val sigVal = sig.value.orderSignatureList?.get(0)?.signatureValue
+
                             println("creating upload transaction for transactionID $transactionID")
                             EbicsUploadTransactionEntity.new(transactionID) {
                                 this.host = ebicsHost

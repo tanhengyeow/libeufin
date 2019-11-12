@@ -46,13 +46,11 @@ import org.jetbrains.exposed.sql.transactions.transaction
 import org.slf4j.LoggerFactory
 import tech.libeufin.sandbox.*
 import tech.libeufin.schema.ebics_h004.*
-import tech.libeufin.schema.ebics_s001.SignatureTypes.SignaturePubKeyInfoType
-import tech.libeufin.schema.ebics_s001.SignatureTypes.SignaturePubKeyOrderData
-import tech.libeufin.schema.ebics_s001.SignatureTypes.PubKeyValueType
 import java.text.DateFormat
 import javax.sql.rowset.serial.SerialBlob
 import javax.xml.bind.JAXBElement
 import org.w3c.dom.Document
+import tech.libeufin.schema.ebics_s001.SignatureTypes
 import java.security.SecureRandom
 import java.util.*
 import java.util.zip.InflaterInputStream
@@ -514,10 +512,10 @@ fun main() {
                             dataTransfer = EbicsUnsecuredRequest.UnsecuredDataTransfer().apply {
                                 orderData = EbicsUnsecuredRequest.OrderData().apply {
                                     value = EbicsOrderUtil.encodeOrderDataXml(
-                                        SignaturePubKeyOrderData().apply {
-                                            signaturePubKeyInfo = SignaturePubKeyInfoType().apply {
+                                        SignatureTypes.SignaturePubKeyOrderData().apply {
+                                            signaturePubKeyInfo = SignatureTypes.SignaturePubKeyInfoType().apply {
                                                 signatureVersion = "A006"
-                                                pubKeyValue = PubKeyValueType().apply {
+                                                pubKeyValue = SignatureTypes.PubKeyValueType().apply {
                                                     rsaKeyValue = org.apache.xml.security.binding.xmldsig.RSAKeyValueType().apply {
                                                         exponent = tmpKey.publicExponent.toByteArray()
                                                         modulus = tmpKey.modulus.toByteArray()

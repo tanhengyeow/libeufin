@@ -66,4 +66,12 @@ class CryptoUtilTest {
         val dec = CryptoUtil.decryptEbicsE002(enc, keyPair.private)
         assertTrue(data.contentEquals(dec))
     }
+
+    @Test
+    fun testEbicsE006() {
+        val keyPair = CryptoUtil.generateRsaKeyPair(1024)
+        val data = "Hello, World".toByteArray(Charsets.UTF_8)
+        val sig = CryptoUtil.signEbicsA006(data, keyPair.private)
+        assertTrue(CryptoUtil.verifyEbicsA006(sig, data, keyPair.public))
+    }
 }
