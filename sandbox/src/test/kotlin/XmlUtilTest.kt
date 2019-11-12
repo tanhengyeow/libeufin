@@ -5,12 +5,61 @@ import org.junit.Assert.*
 import org.junit.rules.ExpectedException
 import org.xml.sax.SAXParseException
 import tech.libeufin.schema.ebics_h004.EbicsKeyManagementResponse
+import tech.libeufin.schema.ebics_h004.HTDResponseOrderData
 import java.rmi.UnmarshalException
 import java.security.KeyPairGenerator
 import java.util.*
 import javax.xml.transform.stream.StreamSource
 
 class XmlUtilTest {
+
+    @Test
+    fun deserializeConsecutiveLists() {
+        XMLUtil.convertStringToJaxb<HTDResponseOrderData>("""
+            <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+            <HTDResponseOrderData xmlns="urn:org:ebics:H004">
+              <PartnerInfo>
+                <AddressInfo>
+                  <Name>Foo</Name>
+                </AddressInfo>
+                <BankInfo>
+                  <HostID>host01</HostID>
+                </BankInfo>
+                <AccountInfo Currency="EUR" Description="ACCT" ID="acctid1">
+                  <AccountNumber international="true">DE21500105174751659277</AccountNumber>
+                  <BankCode international="true">INGDDEFFXXX</BankCode>
+                  <AccountHolder>Mina Musterfrau</AccountHolder>
+                </AccountInfo>
+                <AccountInfo Currency="EUR" Description="glsdemoacct" ID="glsdemo">
+                  <AccountNumber international="true">DE91430609670123123123</AccountNumber>
+                  <BankCode international="true">GENODEM1GLS</BankCode>
+                  <AccountHolder>Mina Musterfrau</AccountHolder>
+                </AccountInfo>
+                <OrderInfo>
+                  <OrderType>C53</OrderType>
+                  <TransferType>Download</TransferType>
+                  <Description>foo</Description>
+                </OrderInfo>
+                <OrderInfo>
+                  <OrderType>C52</OrderType>
+                  <TransferType>Download</TransferType>
+                  <Description>foo</Description>
+                </OrderInfo>
+                <OrderInfo>
+                  <OrderType>CCC</OrderType>
+                  <TransferType>Upload</TransferType>
+                  <Description>foo</Description>
+                </OrderInfo>
+                </PartnerInfo>
+              <UserInfo>
+                <UserID Status="5">USER1</UserID>
+                <Name>Some User</Name>
+                <Permission>
+                  <OrderTypes>C54 C53 C52 CCC</OrderTypes>
+                </Permission>
+              </UserInfo>
+            </HTDResponseOrderData>""".trimIndent())
+    }
 
     @Test
     fun exceptionOnConversion() {
