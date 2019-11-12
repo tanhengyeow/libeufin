@@ -55,6 +55,7 @@ import javax.xml.bind.JAXBElement
 import org.w3c.dom.Document
 import java.security.SecureRandom
 import java.util.*
+import java.util.zip.InflaterInputStream
 import javax.xml.datatype.DatatypeFactory
 import javax.xml.datatype.XMLGregorianCalendar
 
@@ -108,7 +109,7 @@ fun chunkString(input: String): String {
 
 }
 
-fun expectId(param: String?) : Int {
+fun expectId(param: String?): Int {
 
     try {
         return param!!.toInt()
@@ -329,6 +330,19 @@ fun main() {
                 if (response.value.body.returnCode.value != "000000") {
                     throw EbicsError(response.value.body.returnCode.value)
                 }
+
+                // extract payload
+
+                val er = CryptoUtil.EncryptionResult(
+                    response.value.body.dataTransfer!!.dataEncryptionInfo!!.transactionKey,
+                    (response.value.body.dataTransfer!!.dataEncryptionInfo as EbicsTypes.DataEncryptionInfo)
+                        .encryptionPubKeyDigest.value,
+                    Base64.getDecoder().decode(response.value.body.dataTransfer!!.orderData.value)
+                )
+
+                val dataCompr = CryptoUtil.decryptEbicsE002(er, CryptoUtil.loadRsaPrivateKey(encPrivBlob))
+                val data = EbicsOrderUtil.decodeOrderDataXml<HTDResponseOrderData>(dataCompr)
+                logger.debug("HTD payload is: ${XMLUtil.convertJaxbToString(data)}")
 
                 val ackRequestDoc = transaction {
                     val subscriber = EbicsSubscriberEntity.findById(id) ?: throw SubscriberNotFoundError(HttpStatusCode.NotFound)

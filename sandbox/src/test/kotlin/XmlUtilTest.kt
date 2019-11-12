@@ -5,6 +5,7 @@ import org.junit.Assert.*
 import org.junit.rules.ExpectedException
 import org.xml.sax.SAXParseException
 import tech.libeufin.schema.ebics_h004.EbicsKeyManagementResponse
+import tech.libeufin.schema.ebics_h004.EbicsTypes
 import tech.libeufin.schema.ebics_h004.HTDResponseOrderData
 import java.rmi.UnmarshalException
 import java.security.KeyPairGenerator
@@ -15,7 +16,9 @@ class XmlUtilTest {
 
     @Test
     fun deserializeConsecutiveLists() {
-        XMLUtil.convertStringToJaxb<HTDResponseOrderData>("""
+
+        // NOTE: this needs wrapping elements to be parsed into a JAXB object.
+        val tmp = XMLUtil.convertStringToJaxb<HTDResponseOrderData>("""
             <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
             <HTDResponseOrderData xmlns="urn:org:ebics:H004">
               <PartnerInfo>
@@ -25,7 +28,6 @@ class XmlUtilTest {
                 <BankInfo>
                   <HostID>host01</HostID>
                 </BankInfo>
-                <dogs>
                   <AccountInfo Currency="EUR" Description="ACCT" ID="acctid1">
                     <AccountNumber international="true">DE21500105174751659277</AccountNumber>
                     <BankCode international="true">INGDDEFFXXX</BankCode>
@@ -36,8 +38,6 @@ class XmlUtilTest {
                     <BankCode international="true">GENODEM1GLS</BankCode>
                     <AccountHolder>Mina Musterfrau</AccountHolder>
                   </AccountInfo>
-                </dogs>
-                <cats>
                   <OrderInfo>
                     <OrderType>C53</OrderType>
                     <TransferType>Download</TransferType>
@@ -53,9 +53,7 @@ class XmlUtilTest {
                     <TransferType>Upload</TransferType>
                     <Description>foo</Description>
                   </OrderInfo>
-                </cats>
               </PartnerInfo>
-                
               <UserInfo>
                 <UserID Status="5">USER1</UserID>
                 <Name>Some User</Name>
@@ -63,7 +61,10 @@ class XmlUtilTest {
                   <OrderTypes>C54 C53 C52 CCC</OrderTypes>
                 </Permission>
               </UserInfo>
-            </HTDResponseOrderData>""".trimIndent())
+            </HTDResponseOrderData>""".trimIndent()
+        )
+
+        logger.debug(tmp.value.partnerInfo.orderInfoList[0].description)
     }
 
     @Test
