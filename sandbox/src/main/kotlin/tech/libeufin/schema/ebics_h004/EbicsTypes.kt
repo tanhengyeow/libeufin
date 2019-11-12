@@ -21,6 +21,7 @@ package tech.libeufin.schema.ebics_h004
 
 import org.apache.xml.security.binding.xmldsig.RSAKeyValueType
 import org.w3c.dom.Element
+import java.util.*
 import javax.xml.bind.annotation.*
 import javax.xml.bind.annotation.adapters.CollapsedStringAdapter
 import javax.xml.bind.annotation.adapters.NormalizedStringAdapter
@@ -212,11 +213,11 @@ object EbicsTypes {
         @get:XmlElement(name = "BankInfo", required = true)
         lateinit var bankInfo: BankInfo
 
-        @get:XmlElement(name = "AccountInfo", required = true)
-        var accountInfoList: List<AccountInfo>? = null
+        @get:XmlElement(name = "AccountInfo", type = AccountInfo::class)
+        var accountInfoList: List<AccountInfo>? = LinkedList<AccountInfo>()
 
-        @get:XmlElement(name = "OrderInfo")
-        lateinit var orderInfoList: List<AuthOrderInfoType>
+        @get:XmlElement(name = "OrderInfo", type = AuthOrderInfoType::class)
+        var orderInfoList: List<AuthOrderInfoType> = LinkedList<AuthOrderInfoType>()
     }
 
     @XmlAccessorType(XmlAccessType.NONE)
