@@ -68,7 +68,7 @@ class CryptoUtilTest {
     }
 
     @Test
-    fun testEbicsE006() {
+    fun testEbicsA006() {
         val keyPair = CryptoUtil.generateRsaKeyPair(1024)
         val data = "Hello, World".toByteArray(Charsets.UTF_8)
         val sig = CryptoUtil.signEbicsA006(data, keyPair.private)
