@@ -383,9 +383,10 @@ fun main() {
                     throw EbicsError(response.value.body.returnCode.value)
                 }
 
-                call.respond(
-                    HttpStatusCode.NotImplemented,
-                    SandboxError("Not implemented")
+                call.respondText(
+                    "Success! Details (temporarily) reported on the Nexus console.",
+                    ContentType.Text.Plain,
+                    HttpStatusCode.OK
                 )
             }
 
