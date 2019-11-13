@@ -10,7 +10,7 @@ class UserSignatureData {
     var orderSignatureList: List<OrderSignatureData>? = null
 
     @XmlAccessorType(XmlAccessType.NONE)
-    @XmlType(name = "", propOrder = ["signatureVersion", "signatureValue", "partnerID", "customerID"])
+    @XmlType(name = "", propOrder = ["signatureVersion", "signatureValue", "partnerID", "userID"])
     class OrderSignatureData {
         @XmlElement(name = "SignatureVersion")
         lateinit var signatureVersion: String
@@ -21,7 +21,7 @@ class UserSignatureData {
         @XmlElement(name = "PartnerID")
         lateinit var partnerID: String
 
-        @XmlElement(name = "CustomerID")
-        lateinit var customerID: String
+        @XmlElement(name = "UserID")
+        lateinit var userID: String
     }
 }

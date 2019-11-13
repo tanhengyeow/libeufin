@@ -540,6 +540,8 @@ suspend fun ApplicationCall.ebicsweb() {
                         val transactionID = EbicsOrderUtil.generateTransactionId()
                         val orderType =
                             requestObject.header.static.orderDetails?.orderType ?: throw EbicsInvalidRequestError()
+                        val partnerID = staticHeader.partnerID ?: throw EbicsInvalidRequestError()
+                        val userID = staticHeader.userID ?: throw EbicsInvalidRequestError()
                         if (staticHeader.numSegments == null) {
                             println("handling initialization for order type $orderType")
                             val response = when (orderType) {
@@ -602,11 +604,6 @@ suspend fun ApplicationCall.ebicsweb() {
                             val plainSigData = InflaterInputStream(decryptedSignatureData.inputStream()).use {
                                 it.readAllBytes()
                             }
-                            //val sigDataObject = XMLUtil.convertStringToJaxb<OrderSignatureData>(plainSigData)
-                            println("signature data: ${plainSigData.toString(Charsets.UTF_8)}")
-
-                            val sig = XMLUtil.convertStringToJaxb<UserSignatureData>(plainSigData.toString(Charsets.UTF_8))
-                            val sigVal = sig.value.orderSignatureList?.get(0)?.signatureValue
 
                             println("creating upload transaction for transactionID $transactionID")
                             EbicsUploadTransactionEntity.new(transactionID) {
@@ -618,6 +615,18 @@ suspend fun ApplicationCall.ebicsweb() {
                                 this.numSegments = numSegments.toInt()
                                 this.transactionKeyEnc = SerialBlob(transactionKeyEnc)
                             }
+                            val sigObj = XMLUtil.convertStringToJaxb<UserSignatureData>(plainSigData.toString(Charsets.UTF_8))
+                            for (sig in sigObj.value.orderSignatureList ?: listOf()) {
+                                EbicsOrderSignatureEntity.new {
+                                    this.orderID = orderID
+                                    this.orderType = orderType
+                                    this.partnerID = sig.partnerID
+                                    this.userID = sig.userID
+                                    this.signatureAlgorithm = sig.signatureVersion
+                                    this.signatureValue = SerialBlob(sig.signatureValue)
+                                }
+                            }
+
                             EbicsResponse.createForUploadInitializationPhase(transactionID, orderID)
                         }
                     }

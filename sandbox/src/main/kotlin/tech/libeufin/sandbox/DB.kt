@@ -234,6 +234,28 @@ class EbicsUploadTransactionEntity(id: EntityID<String>) : Entity<String>(id) {
 }
 
 
+object EbicsOrderSignaturesTable : IntIdTable() {
+    val orderID = text("orderID")
+    val orderType = text("orderType")
+    val partnerID = text("partnerID")
+    val userID = text("userID")
+    val signatureAlgorithm = text("signatureAlgorithm")
+    val signatureValue = blob("signatureValue")
+}
+
+
+class EbicsOrderSignatureEntity(id: EntityID<Int>) : IntEntity(id) {
+    companion object : IntEntityClass<EbicsOrderSignatureEntity>(EbicsOrderSignaturesTable)
+
+    var orderID by EbicsOrderSignaturesTable.orderID
+    var orderType by EbicsOrderSignaturesTable.orderType
+    var partnerID by EbicsOrderSignaturesTable.partnerID
+    var userID by EbicsOrderSignaturesTable.userID
+    var signatureAlgorithm by EbicsOrderSignaturesTable.signatureAlgorithm
+    var signatureValue by EbicsOrderSignaturesTable.signatureValue
+}
+
+
 object EbicsUploadTransactionChunksTable : IdTable<String>() {
     override val id =
         text("transactionID").entityId()
