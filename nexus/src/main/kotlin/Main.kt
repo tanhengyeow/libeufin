@@ -40,6 +40,7 @@ import io.ktor.routing.post
 import io.ktor.routing.routing
 import io.ktor.server.engine.embeddedServer
 import io.ktor.server.netty.Netty
+import org.apache.commons.codec.digest.Crypt
 import org.apache.xml.security.binding.xmldsig.RSAKeyValueType
 import org.apache.xml.security.binding.xmldsig.SignatureType
 import org.jetbrains.exposed.sql.transactions.transaction
@@ -52,6 +53,8 @@ import javax.xml.bind.JAXBElement
 import org.w3c.dom.Document
 import tech.libeufin.schema.ebics_s001.SignatureTypes
 import java.security.SecureRandom
+import java.text.SimpleDateFormat
+import java.time.Instant.now
 import java.util.*
 import java.util.zip.InflaterInputStream
 import javax.xml.datatype.DatatypeFactory
@@ -79,7 +82,7 @@ fun testData() {
 }
 
 /**
- * Inserts spaces every 2 characters.
+ * Inserts spaces every 2 characters, and a newline after 8 pairs.
  */
 fun chunkString(input: String): String {
 
@@ -393,7 +396,37 @@ fun main() {
             get("/ebics/subscribers/{id}/keyletter") {
 
                 val id = expectId(call.parameters["id"])
-                val (signPub, authPub, encPub) = transaction {
+
+                var usernameLine = "TODO"
+                var recipientLine = "TODO"
+                val customerIdLine = "TODO"
+
+                var dateLine = ""
+                var timeLine = ""
+                var userIdLine = ""
+                var esExponentLine = ""
+                var esModulusLine = ""
+                var authExponentLine = ""
+                var authModulusLine = ""
+                var encExponentLine = ""
+                var encModulusLine = ""
+                var esKeyHashLine = ""
+                var encKeyHashLine = ""
+                var authKeyHashLine = ""
+
+                val esVersionLine = "A006"
+                val authVersionLine = "X002"
+                val encVersionLine = "E002"
+
+                val now = Date()
+                val dateFormat = SimpleDateFormat("DD.MM.YYYY")
+                val timeFormat = SimpleDateFormat("HH.mm.ss")
+
+                dateLine = dateFormat.format(now)
+                timeLine = timeFormat.format(now)
+
+
+                transaction {
                     val subscriber = EbicsSubscriberEntity.findById(id) ?: throw SubscriberNotFoundError(HttpStatusCode.NotFound)
 
                     val signPubTmp = CryptoUtil.getRsaPublicFromPrivate(
@@ -406,13 +439,97 @@ fun main() {
                         CryptoUtil.loadRsaPrivateKey(subscriber.encryptionPrivateKey.toByteArray())
                     )
 
-                    Triple(signPubTmp, authPubTmp, encPubTmp)
+                    userIdLine = subscriber.userID
+
+                    esExponentLine = signPubTmp.publicExponent.toByteArray().toHexString()
+                    esModulusLine = signPubTmp.modulus.toByteArray().toHexString()
+
+                    encExponentLine = encPubTmp.publicExponent.toByteArray().toHexString()
+                    encModulusLine = encPubTmp.modulus.toByteArray().toHexString()
+
+                    authExponentLine = authPubTmp.publicExponent.toByteArray().toHexString()
+                    authModulusLine = authPubTmp.modulus.toByteArray().toHexString()
+
+                    esKeyHashLine = CryptoUtil.getEbicsPublicKeyHash(signPubTmp).toHexString()
+                    encKeyHashLine = CryptoUtil.getEbicsPublicKeyHash(encPubTmp).toHexString()
+                    authKeyHashLine = CryptoUtil.getEbicsPublicKeyHash(authPubTmp).toHexString()
                 }
 
+                val iniLetter = """
+                    |Name: ${usernameLine}
+                    |Date: ${dateLine}
+                    |Time: ${timeLine}
+                    |Recipient: ${recipientLine}
+                    |User ID: ${userIdLine}
+                    |Customer ID: ${customerIdLine}
+                    |ES version: ${esVersionLine}
+                    
+                    |Public key for the electronic signature:
+                    
+                    |Exponent:
+                    |${chunkString(esExponentLine)}
+                    
+                    |Modulus:
+                    |${chunkString(esModulusLine)}
+                    
+                    |SHA-256 hash:
+                    |${chunkString(esKeyHashLine)}
+                    
+                    |I hereby confirm the above public keys for my electronic signature.
+                    
+                    |__________
+                    |Place/date
+                    
+                    |__________
+                    |Signature
+                """.trimMargin()
+
+                val hiaLetter = """
+                    |Name: ${usernameLine}
+                    |Date: ${dateLine}
+                    |Time: ${timeLine}
+                    |Recipient: ${recipientLine}
+                    |User ID: ${userIdLine}
+                    |Customer ID: ${customerIdLine}
+                    |Identification and authentication signature version: ${authVersionLine}
+                    |Encryption version: ${encVersionLine}
+                    
+                    |Public key for the identification and authentication signature:
+                    
+                    |Exponent:
+                    |${chunkString(authExponentLine)}
+                    
+                    |Modulus:
+                    |${chunkString(authModulusLine)}
+                    
+                    |SHA-256 hash:
+                    |${chunkString(authKeyHashLine)}
+                    
+                    |Public encryption key:
+                    
+                    |Exponent:
+                    |${chunkString(encExponentLine)}
+                    
+                    |Modulus:
+                    |${chunkString(encModulusLine)}
+                    
+                    |SHA-256 hash:
+                    |${chunkString(encKeyHashLine)}              
+
+
+                    |I hereby confirm the above public keys for my electronic signature.
+                    
+                    |__________
+                    |Place/date
+                    
+                    |__________
+                    |Signature
+                """.trimMargin()
+
                 call.respondText(
-                    "Not implemented",
+                    "####INI####:\n${iniLetter}\n\n\n####HIA####:\n${hiaLetter}",
                     ContentType.Text.Plain,
-                    HttpStatusCode.NotImplemented
+                    HttpStatusCode.OK
                 )
             }
 
