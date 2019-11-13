@@ -165,6 +165,13 @@ object CryptoUtil {
         return data
     }
 
+    /**
+     * Signing algorithm corresponding to the EBICS A006 signing process.
+     *
+     * Note that while [data] can be arbitrary-length data, in EBICS, the order
+     * data is *always* hashed *before* passing it to the signing algorithm, which again
+     * uses a hash internally.
+     */
     fun signEbicsA006(data: ByteArray, privateKey: RSAPrivateCrtKey): ByteArray {
         val signature = Signature.getInstance("SHA256withRSA/PSS", bouncyCastleProvider)
         signature.setParameter(PSSParameterSpec("SHA-256", "MGF1", MGF1ParameterSpec.SHA256, 32, 1))
@@ -181,8 +188,14 @@ object CryptoUtil {
         return signature.verify(sig)
     }
 
-    fun digestEbicsA006(data: ByteArray): ByteArray {
+    fun digestEbicsOrderA006(orderData: ByteArray): ByteArray {
         val digest = MessageDigest.getInstance("SHA-256")
-        return digest.digest(data)
+        for (b in orderData) {
+            when (b) {
+                '\r'.toByte(), '\n'.toByte(), (26).toByte() -> Unit
+                else -> digest.update(b)
+            }
+        }
+        return digest.digest()
     }
 }

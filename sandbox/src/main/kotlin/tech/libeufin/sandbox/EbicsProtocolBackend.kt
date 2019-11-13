@@ -27,6 +27,7 @@ import io.ktor.request.receiveText
 import io.ktor.response.respond
 import io.ktor.response.respondText
 import org.apache.xml.security.binding.xmldsig.RSAKeyValueType
+import org.apache.xml.security.c14n.Canonicalizer
 import org.jetbrains.exposed.sql.and
 import org.jetbrains.exposed.sql.transactions.transaction
 import org.jetbrains.exposed.sql.upperCase
@@ -109,6 +110,11 @@ private suspend fun ApplicationCall.respondEbicsKeyManagement(
 
 
 private suspend fun ApplicationCall.handleEbicsHia(header: EbicsUnsecuredRequest.Header, orderData: ByteArray) {
+    val plainOrderData = InflaterInputStream(orderData.inputStream()).use {
+        it.readAllBytes()
+    }
+    println("hia order data: ${plainOrderData.toString(Charsets.UTF_8)}")
+
     val keyObject = EbicsOrderUtil.decodeOrderDataXml<HIARequestOrderData>(orderData)
     val encPubXml = keyObject.encryptionPubKeyInfo.pubKeyValue.rsaKeyValue
     val authPubXml = keyObject.authenticationPubKeyInfo.pubKeyValue.rsaKeyValue
@@ -140,6 +146,11 @@ private suspend fun ApplicationCall.handleEbicsHia(header: EbicsUnsecuredRequest
 
 
 private suspend fun ApplicationCall.handleEbicsIni(header: EbicsUnsecuredRequest.Header, orderData: ByteArray) {
+    val plainOrderData = InflaterInputStream(orderData.inputStream()).use {
+        it.readAllBytes()
+    }
+    println("ini order data: ${plainOrderData.toString(Charsets.UTF_8)}")
+
     val keyObject = EbicsOrderUtil.decodeOrderDataXml<SignatureTypes.SignaturePubKeyOrderData>(orderData)
     val sigPubXml = keyObject.signaturePubKeyInfo.pubKeyValue.rsaKeyValue
     val sigPub = CryptoUtil.loadRsaPublicKeyFromComponents(sigPubXml.modulus, sigPubXml.exponent)
@@ -661,14 +672,14 @@ suspend fun ApplicationCall.ebicsweb() {
                                     throw EbicsInvalidRequestError()
                                 }
 
+                                val customCanon = unzippedData.filter { it != '\r'.toByte() && it != '\n'.toByte() && it != (26).toByte()}.toByteArray()
+
                                 for (sig in sigs) {
                                     if (sig.signatureAlgorithm == "A006") {
-                                        val signedData = CryptoUtil.digestEbicsA006(unzippedData)
-                                        val res = CryptoUtil.verifyEbicsA006(sig.signatureValue.toByteArray(), signedData, clientSigPub)
-                                        println("VEU verification result: $res")
-                                        if (!res) {
+                                        val signedData = CryptoUtil.digestEbicsOrderA006(unzippedData)
+                                        val res1 = CryptoUtil.verifyEbicsA006(sig.signatureValue.toByteArray(), signedData, clientSigPub)
+                                        if (res1)
                                             throw EbicsInvalidRequestError()
-                                        }
                                     } else {
                                         throw NotImplementedError()
                                     }
