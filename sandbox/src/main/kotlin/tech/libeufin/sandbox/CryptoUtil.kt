@@ -180,4 +180,9 @@ object CryptoUtil {
         signature.update(data)
         return signature.verify(sig)
     }
+
+    fun digestEbicsA006(data: ByteArray): ByteArray {
+        val digest = MessageDigest.getInstance("SHA-256")
+        return digest.digest(data)
+    }
 }

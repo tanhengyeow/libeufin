@@ -6,7 +6,7 @@ import javax.xml.bind.annotation.*
 @XmlRootElement(name = "UserSignatureData")
 @XmlType(name = "", propOrder = ["orderSignatureList"])
 class UserSignatureData {
-    @XmlElement(name = "OrderSignature", type = OrderSignatureData::class)
+    @XmlElement(name = "OrderSignatureData", type = OrderSignatureData::class)
     var orderSignatureList: List<OrderSignatureData>? = null
 
     @XmlAccessorType(XmlAccessType.NONE)

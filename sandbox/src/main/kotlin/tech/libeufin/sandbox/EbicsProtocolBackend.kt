@@ -27,6 +27,7 @@ import io.ktor.request.receiveText
 import io.ktor.response.respond
 import io.ktor.response.respondText
 import org.apache.xml.security.binding.xmldsig.RSAKeyValueType
+import org.jetbrains.exposed.sql.and
 import org.jetbrains.exposed.sql.transactions.transaction
 import org.jetbrains.exposed.sql.upperCase
 import org.w3c.dom.Document
@@ -528,6 +529,8 @@ suspend fun ApplicationCall.ebicsweb() {
                     CryptoUtil.loadRsaPublicKey(subscriber.authenticationKey!!.rsaPublicKey.toByteArray())
                 val clientEncPub =
                     CryptoUtil.loadRsaPublicKey(subscriber.encryptionKey!!.rsaPublicKey.toByteArray())
+                val clientSigPub =
+                    CryptoUtil.loadRsaPublicKey(subscriber.signatureKey!!.rsaPublicKey.toByteArray())
 
                 // Step 2 of 3:  Validate the signature
                 val verifyResult = XMLUtil.verifyEbicsDocument(requestDocument, clientAuthPub)
@@ -616,7 +619,9 @@ suspend fun ApplicationCall.ebicsweb() {
                                 this.transactionKeyEnc = SerialBlob(transactionKeyEnc)
                             }
                             val sigObj = XMLUtil.convertStringToJaxb<UserSignatureData>(plainSigData.toString(Charsets.UTF_8))
+                            println("got UserSignatureData: ${plainSigData.toString(Charsets.UTF_8)}")
                             for (sig in sigObj.value.orderSignatureList ?: listOf()) {
+                                println("inserting order signature for orderID $orderID and orderType $orderType")
                                 EbicsOrderSignatureEntity.new {
                                     this.orderID = orderID
                                     this.orderType = orderType
@@ -646,6 +651,29 @@ suspend fun ApplicationCall.ebicsweb() {
                                 val unzippedData =
                                     InflaterInputStream(zippedData.inputStream()).use { it.readAllBytes() }
                                 println("got upload data: ${unzippedData.toString(Charsets.UTF_8)}")
+
+                                val sigs  = EbicsOrderSignatureEntity.find {
+                                    (EbicsOrderSignaturesTable.orderID eq uploadTransaction.orderID) and
+                                            (EbicsOrderSignaturesTable.orderType eq uploadTransaction.orderType)
+                                }
+
+                                if (sigs.count() == 0) {
+                                    throw EbicsInvalidRequestError()
+                                }
+
+                                for (sig in sigs) {
+                                    if (sig.signatureAlgorithm == "A006") {
+                                        val signedData = CryptoUtil.digestEbicsA006(unzippedData)
+                                        val res = CryptoUtil.verifyEbicsA006(sig.signatureValue.toByteArray(), signedData, clientSigPub)
+                                        println("VEU verification result: $res")
+                                        if (!res) {
+                                            throw EbicsInvalidRequestError()
+                                        }
+                                    } else {
+                                        throw NotImplementedError()
+                                    }
+                                }
+
                                 EbicsResponse.createForUploadTransferPhase(
                                     requestTransactionID,
                                     requestSegmentNumber,
