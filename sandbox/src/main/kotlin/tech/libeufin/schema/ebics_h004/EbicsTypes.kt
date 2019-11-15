@@ -243,7 +243,6 @@ object EbicsTypes {
 
         @get:XmlElement(name = "NumSigRequired")
         var numSigRequired: Int? = null
-
     }
 
     @XmlAccessorType(XmlAccessType.NONE)

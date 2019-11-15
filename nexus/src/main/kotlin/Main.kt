@@ -52,6 +52,8 @@ import javax.sql.rowset.serial.SerialBlob
 import javax.xml.bind.JAXBElement
 import org.w3c.dom.Document
 import tech.libeufin.schema.ebics_s001.SignatureTypes
+import tech.libeufin.schema.ebics_s001.UserSignatureData
+import java.math.BigInteger
 import java.security.SecureRandom
 import java.text.SimpleDateFormat
 import java.time.Instant.now
@@ -663,6 +665,114 @@ fun main() {
 
                 call.respondText("Bank accepted signature key\n", ContentType.Text.Plain, HttpStatusCode.OK)
                 return@post
+            }
+
+            post("/ebics/subscribers/{id}/sync") {
+                val id = expectId(call.parameters["id"])
+
+                val (url, doc) = transaction {
+                    val subscriber = EbicsSubscriberEntity.findById(id) ?: throw SubscriberNotFoundError(HttpStatusCode.NotFound)
+
+                    // first prepare ES content
+                    val ES_signature = CryptoUtil.signEbicsA006(
+                        CryptoUtil.digestEbicsA006("ES-PAYLOAD".toByteArray()),
+                        CryptoUtil.loadRsaPrivateKey(subscriber.signaturePrivateKey.toByteArray())
+                    )
+
+                    val userSignatureData = UserSignatureData().apply {
+                        orderSignatureList = listOf(
+                            UserSignatureData.OrderSignatureData().apply {
+                                signatureVersion = "A006"
+                                signatureValue = ES_signature
+                                partnerID = subscriber.partnerID
+                                userID = subscriber.userID
+                            }
+                        )
+                    }
+
+                    println("inner ES is: ${XMLUtil.convertJaxbToString(userSignatureData)}")
+
+                    val usd_compressed = EbicsOrderUtil.encodeOrderDataXml(userSignatureData)
+                    val usd_encrypted = CryptoUtil.encryptEbicsE002(
+                        usd_compressed,
+                        CryptoUtil.loadRsaPublicKey(subscriber.bankEncryptionPublicKey!!.toByteArray()
+                        )
+                    )
+
+                    val tmp = EbicsRequest().apply {
+                        header = EbicsRequest.Header().apply {
+                            version = "H004"
+                            revision = 1
+                            authenticate = true
+                            static = EbicsRequest.StaticHeaderType().apply {
+                                hostID = subscriber.hostID
+                                nonce = getNonce(128)
+                                timestamp = getGregorianDate()
+                                partnerID = subscriber.partnerID
+                                userID = subscriber.userID
+                                orderDetails = EbicsRequest.OrderDetails().apply {
+                                    orderType = "TST"
+                                    orderAttribute = "OZHNN"
+                                }
+                                bankPubKeyDigests = EbicsRequest.BankPubKeyDigests().apply {
+                                    authentication = EbicsTypes.PubKeyDigest().apply {
+                                        algorithm = "http://www.w3.org/2001/04/xmlenc#sha256"
+                                        version = "X002"
+                                        value = CryptoUtil.getEbicsPublicKeyHash(
+                                            CryptoUtil.loadRsaPublicKey(subscriber.bankAuthenticationPublicKey!!.toByteArray())
+                                        )
+                                    }
+                                    encryption = EbicsTypes.PubKeyDigest().apply {
+                                        algorithm = "http://www.w3.org/2001/04/xmlenc#sha256"
+                                        version = "E002"
+                                        value = CryptoUtil.getEbicsPublicKeyHash(
+                                            CryptoUtil.loadRsaPublicKey(subscriber.bankEncryptionPublicKey!!.toByteArray())
+
+                                        )
+                                    }
+                                }
+                                securityMedium = "0000"
+                                numSegments = BigInteger.ONE
+
+                                authSignature = SignatureType()
+                            }
+                            mutable = EbicsRequest.MutableHeader().apply {
+                                transactionPhase = EbicsTypes.TransactionPhaseType.INITIALISATION
+                            }
+                            body = EbicsRequest.Body().apply {
+                                dataTransfer = EbicsRequest.DataTransfer().apply {
+                                    signatureData = EbicsRequest.SignatureData().apply {
+                                        authenticate = true
+                                        value = usd_encrypted.encryptedData
+                                    }
+                                    dataEncryptionInfo = EbicsTypes.DataEncryptionInfo().apply {
+                                        transactionKey = usd_encrypted.encryptedTransactionKey
+                                        authenticate = true
+                                        encryptionPubKeyDigest = EbicsTypes.PubKeyDigest().apply {
+                                            algorithm = "http://www.w3.org/2001/04/xmlenc#sha256"
+                                            version = "E002"
+                                            value = CryptoUtil.getEbicsPublicKeyHash(
+                                                CryptoUtil.loadRsaPublicKey(
+                                                    subscriber.bankEncryptionPublicKey!!.toByteArray()
+                                                )
+                                            )
+                                        }
+                                    }
+                                    hostId = subscriber.hostID
+                                }
+                            }
+                        }
+                    }
+
+                    val doc = XMLUtil.convertJaxbToDocument(tmp)
+                    XMLUtil.signEbicsDocument(
+                        doc,
+                        CryptoUtil.loadRsaPrivateKey(subscriber.authenticationPrivateKey.toByteArray())
+                    )
+                    Pair(subscriber.ebicsURL, doc)
+                }
+
+                // send document here
             }
 
             post("/ebics/subscribers/{id}/sync") {

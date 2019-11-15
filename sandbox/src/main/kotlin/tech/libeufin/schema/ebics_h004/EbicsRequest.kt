@@ -200,7 +200,7 @@ class EbicsRequest {
     }
 
     @XmlAccessorType(XmlAccessType.NONE)
-    class SignatureDataType {
+    class SignatureData {
         @get:XmlAttribute(name = "authenticate", required = true)
         var authenticate: Boolean = false
 
@@ -217,7 +217,7 @@ class EbicsRequest {
         var dataEncryptionInfo: EbicsTypes.DataEncryptionInfo? = null
 
         @get:XmlElement(name = "SignatureData")
-        var signatureData: SignatureDataType? = null
+        var signatureData: SignatureData? = null
 
         @get:XmlElement(name = "OrderData")
         var orderData: ByteArray? = null
