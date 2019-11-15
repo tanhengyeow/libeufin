@@ -594,7 +594,7 @@ suspend fun ApplicationCall.ebicsweb() {
                                 requestObject.body.dataTransfer?.dataEncryptionInfo?.encryptionPubKeyDigest?.value
                             if (encPubKeyDigest == null)
                                 throw EbicsInvalidRequestError()
-                            val encSigData = requestObject.body.dataTransfer?.signatureData
+                            val encSigData = requestObject.body.dataTransfer?.signatureData?.value
                             if (encSigData == null)
                                 throw EbicsInvalidRequestError()
                             val decryptedSignatureData = CryptoUtil.decryptEbicsE002(

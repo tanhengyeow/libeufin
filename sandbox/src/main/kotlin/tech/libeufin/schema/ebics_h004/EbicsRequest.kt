@@ -200,16 +200,30 @@ class EbicsRequest {
     }
 
     @XmlAccessorType(XmlAccessType.NONE)
-    @XmlType(propOrder = ["dataEncryptionInfo", "signatureData", "orderData"])
+    class SignatureDataType {
+        @get:XmlAttribute(name = "authenticate", required = true)
+        var authenticate: Boolean = false
+
+        @get:XmlValue
+        var value: ByteArray? = null
+    }
+
+
+    @XmlAccessorType(XmlAccessType.NONE)
+    @XmlType(propOrder = ["dataEncryptionInfo", "signatureData", "orderData", "hostId"])
     class DataTransfer {
+
         @get:XmlElement(name = "DataEncryptionInfo")
         var dataEncryptionInfo: EbicsTypes.DataEncryptionInfo? = null
 
         @get:XmlElement(name = "SignatureData")
-        var signatureData: ByteArray? = null
+        var signatureData: SignatureDataType? = null
 
         @get:XmlElement(name = "OrderData")
         var orderData: ByteArray? = null
+
+        @get:XmlElement(name = "HostID")
+        var hostId: String? = null
     }
 
     @XmlAccessorType(XmlAccessType.NONE)
