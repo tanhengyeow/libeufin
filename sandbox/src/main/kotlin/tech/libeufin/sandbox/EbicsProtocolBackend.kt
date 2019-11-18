@@ -649,7 +649,7 @@ suspend fun ApplicationCall.ebicsweb() {
                     EbicsTypes.TransactionPhaseType.TRANSFER -> {
                         requestTransactionID ?: throw EbicsInvalidRequestError()
                         val requestSegmentNumber =
-                            requestObject.header.mutable.segmentNumber?.toInt() ?: throw EbicsInvalidRequestError()
+                            requestObject.header.mutable.segmentNumber?.value?.toInt() ?: throw EbicsInvalidRequestError()
                         if (uploadTransaction != null) {
                             if (requestSegmentNumber == 1 && uploadTransaction.numSegments == 1) {
                                 val encOrderData =

@@ -142,7 +142,7 @@ class EbicsRequest {
          * contains order data.
          */
         @get:XmlElement(name = "SegmentNumber")
-        var segmentNumber: BigInteger? = null
+        var segmentNumber: EbicsTypes.SegmentNumber? = null
 
     }
 

@@ -58,6 +58,7 @@ import java.security.SecureRandom
 import java.text.SimpleDateFormat
 import java.time.Instant.now
 import java.util.*
+import java.util.zip.DeflaterInputStream
 import java.util.zip.InflaterInputStream
 import javax.xml.datatype.DatatypeFactory
 import javax.xml.datatype.XMLGregorianCalendar
@@ -670,12 +671,14 @@ fun main() {
             post("/ebics/subscribers/{id}/sendTst") {
                 val id = expectId(call.parameters["id"])
 
-                val (url, doc) = transaction {
+                val innerPayload = "ES-PAYLOAD"
+
+                val (url, doc, transactionKey) = transaction {
                     val subscriber = EbicsSubscriberEntity.findById(id) ?: throw SubscriberNotFoundError(HttpStatusCode.NotFound)
 
                     // first prepare ES content
                     val ES_signature = CryptoUtil.signEbicsA006(
-                        CryptoUtil.digestEbicsA006("ES-PAYLOAD".toByteArray()),
+                        CryptoUtil.digestEbicsA006(innerPayload.toByteArray()),
                         CryptoUtil.loadRsaPrivateKey(subscriber.signaturePrivateKey.toByteArray())
                     )
 
@@ -767,11 +770,65 @@ fun main() {
                         doc,
                         CryptoUtil.loadRsaPrivateKey(subscriber.authenticationPrivateKey.toByteArray())
                     )
-                    Pair(subscriber.ebicsURL, doc)
+                    Triple(subscriber.ebicsURL, doc, usd_encrypted.plainTransactionKey)
                 }
 
                 // send document here
                 val response = client.postToBank<EbicsResponse>(url, doc)
+
+                // MUST validate bank signature first (FIXME)
+                // MUST check that outcome is EBICS_OK (FIXME)
+
+                val (urlTransfer, docTransfer) = transaction {
+
+                    val subscriber = EbicsSubscriberEntity.findById(id) ?: throw SubscriberNotFoundError(HttpStatusCode.NotFound)
+
+                    val compressedInnerPayload = DeflaterInputStream(
+                        innerPayload.toByteArray().inputStream()
+
+                    ).use { it.readAllBytes() }
+
+                    val encryptedPayload = CryptoUtil.encryptEbicsE002withTransactionKey(
+                        compressedInnerPayload,
+                        CryptoUtil.loadRsaPublicKey(subscriber.bankEncryptionPublicKey!!.toByteArray()),
+                        transactionKey!!
+                    )
+
+                    val tmp = EbicsRequest().apply {
+                        header = EbicsRequest.Header().apply {
+                            version = "H004"
+                            revision = 1
+                            authenticate = true
+                            static = EbicsRequest.StaticHeaderType().apply {
+                                hostID = subscriber.hostID
+                                transactionID = response.value.header._static.transactionID
+                            }
+                            mutable = EbicsRequest.MutableHeader().apply {
+                                transactionPhase = EbicsTypes.TransactionPhaseType.TRANSFER
+                                segmentNumber = EbicsTypes.SegmentNumber().apply {
+                                    lastSegment = true
+                                    value = BigInteger.ONE
+                                }
+                            }
+                        }
+
+                        authSignature = SignatureType()
+                        body = EbicsRequest.Body().apply {
+                            dataTransfer = EbicsRequest.DataTransfer().apply {
+                                orderData = encryptedPayload.encryptedData
+                            }
+                        }
+                    }
+
+                    val doc = XMLUtil.convertJaxbToDocument(tmp)
+                    XMLUtil.signEbicsDocument(
+                        doc,
+                        CryptoUtil.loadRsaPrivateKey(subscriber.authenticationPrivateKey.toByteArray())
+                    )
+                    Pair(subscriber.ebicsURL, doc)
+                }
+
+                val responseTransaction = client.postToBank<EbicsResponse>(urlTransfer, docTransfer)
 
                 call.respondText(
                     "not implemented\n",

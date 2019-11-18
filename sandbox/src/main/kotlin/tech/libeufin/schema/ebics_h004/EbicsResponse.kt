@@ -68,7 +68,7 @@ class EbicsResponse {
         lateinit var transactionPhase: EbicsTypes.TransactionPhaseType
 
         @get:XmlElement(name = "SegmentNumber")
-        var segmentNumber: SegmentNumber? = null
+        var segmentNumber: EbicsTypes.SegmentNumber? = null
 
         @get:XmlElement(name = "OrderID")
         @get:XmlJavaTypeAdapter(CollapsedStringAdapter::class)
@@ -84,16 +84,6 @@ class EbicsResponse {
         @get:XmlJavaTypeAdapter(NormalizedStringAdapter::class)
         @get:XmlSchemaType(name = "normalizedString")
         lateinit var reportText: String
-    }
-
-    @XmlAccessorType(XmlAccessType.NONE)
-    @XmlType(name = "", propOrder = ["value"])
-    class SegmentNumber {
-        @XmlValue
-        lateinit var value: BigInteger
-
-        @XmlAttribute(name = "lastSegment")
-        var lastSegment: Boolean? = null
     }
 
     @XmlAccessorType(XmlAccessType.NONE)
@@ -209,7 +199,7 @@ class EbicsResponse {
                     }
                     this.mutable = EbicsResponse.MutableHeaderType().apply {
                         this.transactionPhase = EbicsTypes.TransactionPhaseType.TRANSFER
-                        this.segmentNumber = EbicsResponse.SegmentNumber().apply {
+                        this.segmentNumber = EbicsTypes.SegmentNumber().apply {
                             this.value = BigInteger.valueOf(segmentNumber.toLong())
                             if (lastSegment) {
                                 this.lastSegment = true
@@ -248,7 +238,7 @@ class EbicsResponse {
                     }
                     this.mutable = EbicsResponse.MutableHeaderType().apply {
                         this.transactionPhase = EbicsTypes.TransactionPhaseType.INITIALISATION
-                        this.segmentNumber = EbicsResponse.SegmentNumber().apply {
+                        this.segmentNumber = EbicsTypes.SegmentNumber().apply {
                             this.lastSegment = (numSegments == 1)
                             this.value = BigInteger.valueOf(1)
                         }

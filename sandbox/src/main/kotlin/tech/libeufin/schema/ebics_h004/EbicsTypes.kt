@@ -21,6 +21,7 @@ package tech.libeufin.schema.ebics_h004
 
 import org.apache.xml.security.binding.xmldsig.RSAKeyValueType
 import org.w3c.dom.Element
+import java.math.BigInteger
 import java.util.*
 import javax.xml.bind.annotation.*
 import javax.xml.bind.annotation.adapters.CollapsedStringAdapter
@@ -50,6 +51,16 @@ object EbicsTypes {
         @get:XmlAttribute(name = "InstituteID")
         @get:XmlJavaTypeAdapter(NormalizedStringAdapter::class)
         var instituteID: String? = null
+    }
+
+    @XmlAccessorType(XmlAccessType.NONE)
+    @XmlType(name = "", propOrder = ["value"])
+    class SegmentNumber {
+        @XmlValue
+        lateinit var value: BigInteger
+
+        @XmlAttribute(name = "lastSegment")
+        var lastSegment: Boolean? = null
     }
 
 
