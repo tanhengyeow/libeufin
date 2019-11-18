@@ -161,7 +161,7 @@ class XMLUtil private constructor() {
             try {
                 getEbicsValidator().validate(xmlDoc)
             } catch (e: Exception) {
-                logger.warn("Validation failed: {}", e)
+                logger.warn("Validation failed: ${e}")
                 return false
             }
             return true;

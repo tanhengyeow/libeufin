@@ -667,7 +667,7 @@ fun main() {
                 return@post
             }
 
-            post("/ebics/subscribers/{id}/sync") {
+            post("/ebics/subscribers/{id}/sendTst") {
                 val id = expectId(call.parameters["id"])
 
                 val (url, doc) = transaction {
@@ -713,6 +713,7 @@ fun main() {
                                 orderDetails = EbicsRequest.OrderDetails().apply {
                                     orderType = "TST"
                                     orderAttribute = "OZHNN"
+                                    orderParams = EbicsRequest.StandardOrderParams()
                                 }
                                 bankPubKeyDigests = EbicsRequest.BankPubKeyDigests().apply {
                                     authentication = EbicsTypes.PubKeyDigest().apply {
@@ -727,38 +728,35 @@ fun main() {
                                         version = "E002"
                                         value = CryptoUtil.getEbicsPublicKeyHash(
                                             CryptoUtil.loadRsaPublicKey(subscriber.bankEncryptionPublicKey!!.toByteArray())
-
                                         )
                                     }
                                 }
                                 securityMedium = "0000"
                                 numSegments = BigInteger.ONE
-
-                                authSignature = SignatureType()
                             }
                             mutable = EbicsRequest.MutableHeader().apply {
                                 transactionPhase = EbicsTypes.TransactionPhaseType.INITIALISATION
                             }
-                            body = EbicsRequest.Body().apply {
-                                dataTransfer = EbicsRequest.DataTransfer().apply {
-                                    signatureData = EbicsRequest.SignatureData().apply {
-                                        authenticate = true
-                                        value = usd_encrypted.encryptedData
-                                    }
-                                    dataEncryptionInfo = EbicsTypes.DataEncryptionInfo().apply {
-                                        transactionKey = usd_encrypted.encryptedTransactionKey
-                                        authenticate = true
-                                        encryptionPubKeyDigest = EbicsTypes.PubKeyDigest().apply {
-                                            algorithm = "http://www.w3.org/2001/04/xmlenc#sha256"
-                                            version = "E002"
-                                            value = CryptoUtil.getEbicsPublicKeyHash(
-                                                CryptoUtil.loadRsaPublicKey(
-                                                    subscriber.bankEncryptionPublicKey!!.toByteArray()
-                                                )
+                        }
+                        authSignature = SignatureType()
+                        body = EbicsRequest.Body().apply {
+                            dataTransfer = EbicsRequest.DataTransfer().apply {
+                                signatureData = EbicsRequest.SignatureData().apply {
+                                    authenticate = true
+                                    value = usd_encrypted.encryptedData
+                                }
+                                dataEncryptionInfo = EbicsTypes.DataEncryptionInfo().apply {
+                                    transactionKey = usd_encrypted.encryptedTransactionKey
+                                    authenticate = true
+                                    encryptionPubKeyDigest = EbicsTypes.PubKeyDigest().apply {
+                                        algorithm = "http://www.w3.org/2001/04/xmlenc#sha256"
+                                        version = "E002"
+                                        value = CryptoUtil.getEbicsPublicKeyHash(
+                                            CryptoUtil.loadRsaPublicKey(
+                                                subscriber.bankEncryptionPublicKey!!.toByteArray()
                                             )
-                                        }
+                                        )
                                     }
-                                    hostId = subscriber.hostID
                                 }
                             }
                         }
@@ -773,6 +771,13 @@ fun main() {
                 }
 
                 // send document here
+                val response = client.postToBank<EbicsResponse>(url, doc)
+
+                call.respondText(
+                    "not implemented\n",
+                    ContentType.Text.Plain,
+                    HttpStatusCode.OK
+                )
             }
 
             post("/ebics/subscribers/{id}/sync") {
