@@ -40,6 +40,21 @@ def ini(obj, customer_id):
     print(resp.content.decode("utf-8"))
 
 
+
+
+@ebics.command(help="Give and get keys.")
+@click.pass_context
+@click.option(
+    "--customer-id",
+    help="numerical ID of the customer at the Nexus",
+    required=False,
+    default=1)
+def prepare(ctx, customer_id):
+    ctx.invoke(ini)
+    ctx.invoke(hia)
+    ctx.invoke(sync)
+
+
 @ebics.command(help="send HTD message")
 @click.pass_context
 @click.option(

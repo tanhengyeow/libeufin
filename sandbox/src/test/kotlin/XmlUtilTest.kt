@@ -1,10 +1,12 @@
 package tech.libeufin.sandbox
 
+import org.apache.xml.security.binding.xmldsig.SignatureType
 import org.junit.Test
 import org.junit.Assert.*
 import org.junit.rules.ExpectedException
 import org.xml.sax.SAXParseException
 import tech.libeufin.schema.ebics_h004.EbicsKeyManagementResponse
+import tech.libeufin.schema.ebics_h004.EbicsResponse
 import tech.libeufin.schema.ebics_h004.EbicsTypes
 import tech.libeufin.schema.ebics_h004.HTDResponseOrderData
 import java.rmi.UnmarshalException
@@ -109,6 +111,42 @@ class XmlUtilTest {
         XMLUtil.signEbicsDocument(doc, pair.private)
         kotlin.test.assertTrue(XMLUtil.verifyEbicsDocument(doc, pair.public))
         kotlin.test.assertFalse(XMLUtil.verifyEbicsDocument(doc, otherPair.public))
+    }
+
+    @Test
+    fun verifySigningWithConversion() {
+
+        val pair = CryptoUtil.generateRsaKeyPair(2048)
+
+        val response = EbicsResponse().apply {
+            version = "H004"
+            header = EbicsResponse.Header().apply {
+                _static = EbicsResponse.StaticHeaderType()
+                mutable = EbicsResponse.MutableHeaderType().apply {
+                    this.reportText = "foo"
+                    this.returnCode = "bar"
+                    this.transactionPhase = EbicsTypes.TransactionPhaseType.INITIALISATION
+                }
+            }
+            authSignature = SignatureType()
+            body = EbicsResponse.Body().apply {
+                returnCode = EbicsResponse.ReturnCode().apply {
+                    authenticate = true
+                    value = "asdf"
+                }
+            }
+        }
+
+        val signature = signEbicsResponseX002(response, pair.private)
+        val signatureJaxb = XMLUtil.convertStringToJaxb<EbicsResponse>(signature)
+
+        assertTrue(
+
+            XMLUtil.verifyEbicsDocument(
+                XMLUtil.convertJaxbToDocument(signatureJaxb.value),
+                pair.public
+            )
+        )
     }
 
     @Test
