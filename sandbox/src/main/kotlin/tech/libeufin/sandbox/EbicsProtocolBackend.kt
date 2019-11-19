@@ -676,10 +676,14 @@ suspend fun ApplicationCall.ebicsweb() {
 
                                 for (sig in sigs) {
                                     if (sig.signatureAlgorithm == "A006") {
+
                                         val signedData = CryptoUtil.digestEbicsOrderA006(unzippedData)
                                         val res1 = CryptoUtil.verifyEbicsA006(sig.signatureValue.toByteArray(), signedData, clientSigPub)
-                                        if (res1)
+
+                                        if (!res1) {
                                             throw EbicsInvalidRequestError()
+                                        }
+
                                     } else {
                                         throw NotImplementedError()
                                     }

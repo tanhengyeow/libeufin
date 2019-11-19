@@ -2,6 +2,7 @@ package tech.libeufin.nexus
 
 import javax.crypto.SecretKey
 import org.w3c.dom.Document
+import javax.xml.bind.JAXBElement
 
 
 /**
@@ -10,7 +11,7 @@ import org.w3c.dom.Document
  * / make messages.  And not all the values are needed all
  * the time.
  */
-data class EbicsContainer(
+data class EbicsContainer<T>(
 
     // needed to verify responses
     val bankAuthPubBlob: ByteArray? = null,
@@ -32,6 +33,5 @@ data class EbicsContainer(
     // needed to sign documents
     val customerAuthPrivBlob: ByteArray? = null,
 
-    // signed document to send to the bank
-    var doc: Document? = null
+    val jaxb: T? = null
 )

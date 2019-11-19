@@ -20,7 +20,6 @@
 package tech.libeufin.sandbox
 
 import com.sun.org.apache.xerces.internal.dom.DOMInputImpl
-import org.apache.xml.security.c14n.Canonicalizer
 import org.w3c.dom.Document
 import org.w3c.dom.Node
 import org.w3c.dom.NodeList
