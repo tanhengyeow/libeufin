@@ -738,7 +738,45 @@ fun main() {
                 return@post
             }
 
+            post("/ebics/subscribers/{id}/restoreBackup") {
 
+                val body = call.receive<EbicsKeysBackup>()
+                val id = expectId(call.parameters["id"])
+
+                transaction {
+                    val subscriber = EbicsSubscriberEntity.findById(id) ?: throw SubscriberNotFoundError(HttpStatusCode.NotFound)
+                    subscriber.encryptionPrivateKey = SerialBlob(body.encBlob)
+                    subscriber.authenticationPrivateKey = SerialBlob(body.authBlob)
+                    subscriber.signaturePrivateKey = SerialBlob(body.sigBlob)
+                }
+
+                call.respondText(
+                    "Keys successfully restored",
+                    ContentType.Text.Plain,
+                    HttpStatusCode.OK
+                )
+
+            }
+
+            get("/ebics/subscribers/{id}/backup") {
+
+                val id = expectId(call.parameters["id"])
+                val content = transaction {
+                    val subscriber = EbicsSubscriberEntity.findById(id) ?: throw SubscriberNotFoundError(HttpStatusCode.NotFound)
+                    EbicsKeysBackup(
+                        authBlob = subscriber.authenticationPrivateKey.toByteArray(),
+                        encBlob = subscriber.encryptionPrivateKey.toByteArray(),
+                        sigBlob = subscriber.signaturePrivateKey.toByteArray()
+                    )
+                }
+
+                call.response.headers.append("Content-Disposition", "attachment")
+                call.respond(
+                    HttpStatusCode.OK,
+                    content
+                )
+
+            }
             post("/ebics/subscribers/{id}/sendTst") {
 
                 val id = expectId(call.parameters["id"])

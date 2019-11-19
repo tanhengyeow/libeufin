@@ -3,11 +3,19 @@ package tech.libeufin.nexus
 import com.google.gson.annotations.JsonAdapter
 import com.squareup.moshi.JsonClass
 
+
+data class EbicsKeysBackup(
+
+    val authBlob: ByteArray,
+    val encBlob: ByteArray,
+    val sigBlob: ByteArray
+)
+
 /**
  * This object is POSTed by clients _after_ having created
  * a EBICS subscriber at the sandbox.
  */
-@JsonClass(generateAdapter = true)
+@JsonClass(generateAdapter = true) // USED?
 data class EbicsSubscriberInfoRequest(
     val ebicsURL: String,
     val hostID: String,
