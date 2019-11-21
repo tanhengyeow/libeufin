@@ -4,8 +4,18 @@ import com.google.gson.annotations.JsonAdapter
 import com.squareup.moshi.JsonClass
 
 
-data class EbicsKeysBackup(
 
+data class EbicsBackupRequest(
+    val passphrase: String
+)
+
+/**
+ * This object is used twice: as a response to the backup request,
+ * and as a request to the backup restore.  Note: in the second case
+ * the client must provide the passphrase.
+ */
+data class EbicsKeysBackup(
+    val passphrase: String? = null,
     val authBlob: ByteArray,
     val encBlob: ByteArray,
     val sigBlob: ByteArray

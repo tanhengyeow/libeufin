@@ -85,12 +85,12 @@ class CryptoUtilTest {
         val secret = CryptoUtil.encryptEbicsE002(data, keyPair.public)
 
         /* encrypt and decrypt private key */
-        val encPriv = CryptoUtil.encryptSecret(keyPair.private.encoded, "secret")
-        val plainPriv = CryptoUtil.decryptSecret(EncryptedPrivateKeyInfo(encPriv),"secret")
+        val encPriv = CryptoUtil.encryptKey(keyPair.private.encoded, "secret")
+        val plainPriv = CryptoUtil.decryptKey(EncryptedPrivateKeyInfo(encPriv),"secret")
 
         /* decrypt with decrypted private key */
         val revealed = CryptoUtil.decryptEbicsE002(secret, plainPriv)
-        
+
         assertEquals(
             String(revealed, charset = Charsets.UTF_8),
             String(data, charset = Charsets.UTF_8)

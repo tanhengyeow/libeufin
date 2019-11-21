@@ -30,14 +30,13 @@ import io.ktor.features.ContentNegotiation
 import io.ktor.features.StatusPages
 import io.ktor.gson.gson
 import io.ktor.http.ContentType
+import io.ktor.http.HttpMethod
 import io.ktor.http.HttpStatusCode
 import io.ktor.request.receive
 import io.ktor.request.uri
 import io.ktor.response.respond
 import io.ktor.response.respondText
-import io.ktor.routing.get
-import io.ktor.routing.post
-import io.ktor.routing.routing
+import io.ktor.routing.*
 import io.ktor.server.engine.embeddedServer
 import io.ktor.server.netty.Netty
 import org.apache.commons.codec.digest.Crypt
@@ -63,6 +62,7 @@ import java.time.Instant.now
 import java.util.*
 import java.util.zip.DeflaterInputStream
 import java.util.zip.InflaterInputStream
+import javax.crypto.EncryptedPrivateKeyInfo
 import javax.xml.datatype.DatatypeFactory
 import javax.xml.datatype.XMLGregorianCalendar
 
@@ -241,6 +241,7 @@ data class UnreachableBankError(val statusCode: HttpStatusCode) : Exception("Cou
 data class UnparsableResponse(val statusCode: HttpStatusCode, val rawResponse: String) : Exception("bank responded: ${rawResponse}")
 data class EbicsError(val codeError: String) : Exception("Bank did not accepted EBICS request, error is: ${codeError}")
 data class BadSignature(val statusCode: HttpStatusCode) : Exception("Signature verification unsuccessful")
+data class BadBackup(val statusCode: HttpStatusCode) : Exception("Could not restore backed up keys")
 
 
 
@@ -280,6 +281,11 @@ fun main() {
             exception<NotAnIdError> { cause ->
                 logger.error("Exception while handling '${call.request.uri}'", cause)
                 call.respondText("Bad request\n", ContentType.Text.Plain, HttpStatusCode.BadRequest)
+            }
+
+            exception<BadBackup> { cause ->
+                logger.error("Exception while handling '${call.request.uri}'", cause)
+                call.respondText("Bad backup, or passphrase incorrect\n", ContentType.Text.Plain, HttpStatusCode.BadRequest)
             }
 
 
@@ -743,11 +749,32 @@ fun main() {
                 val body = call.receive<EbicsKeysBackup>()
                 val id = expectId(call.parameters["id"])
 
+                val (authKey, encKey, sigKey) = try {
+
+                    val authKey = CryptoUtil.decryptKey(
+                        EncryptedPrivateKeyInfo(body.authBlob), body.passphrase!!
+                    )
+
+                    val encKey = CryptoUtil.decryptKey(
+                        EncryptedPrivateKeyInfo(body.encBlob), body.passphrase
+                    )
+
+                    val sigKey = CryptoUtil.decryptKey(
+                        EncryptedPrivateKeyInfo(body.sigBlob), body.passphrase
+                    )
+
+                    Triple(authKey, encKey, sigKey)
+
+                } catch (e: Exception) {
+                    throw BadBackup(HttpStatusCode.BadRequest)
+                }
+
                 transaction {
                     val subscriber = EbicsSubscriberEntity.findById(id) ?: throw SubscriberNotFoundError(HttpStatusCode.NotFound)
-                    subscriber.encryptionPrivateKey = SerialBlob(body.encBlob)
-                    subscriber.authenticationPrivateKey = SerialBlob(body.authBlob)
-                    subscriber.signaturePrivateKey = SerialBlob(body.sigBlob)
+
+                    subscriber.encryptionPrivateKey = SerialBlob(authKey.encoded)
+                    subscriber.authenticationPrivateKey = SerialBlob(encKey.encoded)
+                    subscriber.signaturePrivateKey = SerialBlob(sigKey.encoded)
                 }
 
                 call.respondText(
@@ -758,15 +785,30 @@ fun main() {
 
             }
 
-            get("/ebics/subscribers/{id}/backup") {
+            put("/ebics/subscribers/{id}/backup") {
 
                 val id = expectId(call.parameters["id"])
+                val body = call.receive<EbicsBackupRequest>()
+
                 val content = transaction {
                     val subscriber = EbicsSubscriberEntity.findById(id) ?: throw SubscriberNotFoundError(HttpStatusCode.NotFound)
+
+
                     EbicsKeysBackup(
-                        authBlob = subscriber.authenticationPrivateKey.toByteArray(),
-                        encBlob = subscriber.encryptionPrivateKey.toByteArray(),
-                        sigBlob = subscriber.signaturePrivateKey.toByteArray()
+
+                        authBlob = CryptoUtil.encryptKey(
+                            subscriber.authenticationPrivateKey.toByteArray(),
+                            body.passphrase
+                        ),
+
+                        encBlob = CryptoUtil.encryptKey(
+                            subscriber.encryptionPrivateKey.toByteArray(),
+                            body.passphrase),
+
+                        sigBlob = CryptoUtil.encryptKey(
+                            subscriber.signaturePrivateKey.toByteArray(),
+                            body.passphrase
+                        )
                     )
                 }
 

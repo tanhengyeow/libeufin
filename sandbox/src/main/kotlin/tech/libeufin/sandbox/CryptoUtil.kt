@@ -213,7 +213,7 @@ object CryptoUtil {
     }
 
 
-    fun decryptSecret(data: EncryptedPrivateKeyInfo, passphrase: String): RSAPrivateCrtKey {
+    fun decryptKey(data: EncryptedPrivateKeyInfo, passphrase: String): RSAPrivateCrtKey {
 
         /* make key out of passphrase */
         val pbeKeySpec = PBEKeySpec(passphrase.toCharArray())
@@ -236,7 +236,7 @@ object CryptoUtil {
         return priv
     }
 
-    fun encryptSecret(data: ByteArray, passphrase: String): ByteArray {
+    fun encryptKey(data: ByteArray, passphrase: String): ByteArray {
 
         /* Cipher parameters: salt and hash count */
         val hashIterations = 30
