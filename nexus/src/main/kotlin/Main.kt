@@ -774,8 +774,8 @@ fun main() {
                 transaction {
                     val subscriber = EbicsSubscriberEntity.findById(id) ?: throw SubscriberNotFoundError(HttpStatusCode.NotFound)
 
-                    subscriber.encryptionPrivateKey = SerialBlob(authKey.encoded)
-                    subscriber.authenticationPrivateKey = SerialBlob(encKey.encoded)
+                    subscriber.encryptionPrivateKey = SerialBlob(encKey.encoded)
+                    subscriber.authenticationPrivateKey = SerialBlob(authKey.encoded)
                     subscriber.signaturePrivateKey = SerialBlob(sigKey.encoded)
                 }
 
