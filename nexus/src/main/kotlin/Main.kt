@@ -851,7 +851,8 @@ fun main() {
                     val usd_compressed = EbicsOrderUtil.encodeOrderDataXml(userSignatureData)
                     val usd_encrypted = CryptoUtil.encryptEbicsE002(
                         usd_compressed,
-                        CryptoUtil.loadRsaPublicKey(subscriber.bankEncryptionPublicKey!!.toByteArray()
+                        CryptoUtil.loadRsaPublicKey(
+                            subscriber.bankEncryptionPublicKey?.toByteArray() ?: throw BankKeyMissing(HttpStatusCode.NotFound)
                         )
                     )
 
@@ -876,14 +877,21 @@ fun main() {
                                         algorithm = "http://www.w3.org/2001/04/xmlenc#sha256"
                                         version = "X002"
                                         value = CryptoUtil.getEbicsPublicKeyHash(
-                                            CryptoUtil.loadRsaPublicKey(subscriber.bankAuthenticationPublicKey!!.toByteArray())
+                                            CryptoUtil.loadRsaPublicKey(
+                                                subscriber.bankAuthenticationPublicKey?.toByteArray() ?: throw BankKeyMissing(
+                                                    HttpStatusCode.PreconditionFailed)
+                                            )
                                         )
                                     }
                                     encryption = EbicsTypes.PubKeyDigest().apply {
                                         algorithm = "http://www.w3.org/2001/04/xmlenc#sha256"
                                         version = "E002"
                                         value = CryptoUtil.getEbicsPublicKeyHash(
-                                            CryptoUtil.loadRsaPublicKey(subscriber.bankEncryptionPublicKey!!.toByteArray())
+                                            CryptoUtil.loadRsaPublicKey(
+                                                subscriber.bankEncryptionPublicKey?.toByteArray() ?: throw BankKeyMissing(
+                                                    HttpStatusCode.PreconditionFailed
+                                                )
+                                            )
                                         )
                                     }
                                 }
@@ -909,7 +917,9 @@ fun main() {
                                         version = "E002"
                                         value = CryptoUtil.getEbicsPublicKeyHash(
                                             CryptoUtil.loadRsaPublicKey(
-                                                subscriber.bankEncryptionPublicKey!!.toByteArray()
+                                                subscriber.bankEncryptionPublicKey?.toByteArray() ?: throw BankKeyMissing(
+                                                    HttpStatusCode.PreconditionFailed
+                                                )
                                             )
                                         )
                                     }
@@ -922,11 +932,12 @@ fun main() {
                         jaxb = tmp,
                         ebicsUrl = subscriber.ebicsURL,
                         bankAuthPubBlob = subscriber.bankAuthenticationPublicKey?.toByteArray() ?: throw BankKeyMissing(
-                            HttpStatusCode.NotAcceptable),
+                            HttpStatusCode.PreconditionFailed
+                        ),
                         plainTransactionKey = usd_encrypted.plainTransactionKey,
                         customerAuthPrivBlob = subscriber.authenticationPrivateKey.toByteArray(),
                         bankEncPubBlob = subscriber.bankEncryptionPublicKey?.toByteArray() ?: throw BankKeyMissing(
-                            HttpStatusCode.NotAcceptable
+                            HttpStatusCode.PreconditionFailed
                         ),
                         hostId = subscriber.hostID
                     )
@@ -983,8 +994,8 @@ fun main() {
                 val responseTransaction = client.postToBankSignedAndVerify<EbicsRequest, EbicsResponse>(
                     container.ebicsUrl,
                     tmp,
-                    CryptoUtil.loadRsaPublicKey(container.bankAuthPubBlob!!),
-                    CryptoUtil.loadRsaPrivateKey(container.customerAuthPrivBlob!!)
+                    CryptoUtil.loadRsaPublicKey(container.bankAuthPubBlob),
+                    CryptoUtil.loadRsaPrivateKey(container.customerAuthPrivBlob)
                 )
 
                 if (responseTransaction.value.body.returnCode.value != "000000") {
