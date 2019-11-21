@@ -22,17 +22,14 @@ package tech.libeufin.sandbox
 import org.bouncycastle.jce.provider.BouncyCastleProvider
 import java.io.ByteArrayOutputStream
 import java.math.BigInteger
-import java.security.KeyFactory
-import java.security.KeyPairGenerator
-import java.security.MessageDigest
-import java.security.Signature
+import java.security.*
 import java.security.interfaces.RSAPrivateCrtKey
 import java.security.interfaces.RSAPublicKey
 import java.security.spec.*
-import javax.crypto.Cipher
-import javax.crypto.KeyGenerator
-import javax.crypto.SecretKey
+import javax.crypto.*
 import javax.crypto.spec.IvParameterSpec
+import javax.crypto.spec.PBEKeySpec
+import javax.crypto.spec.PBEParameterSpec
 import javax.crypto.spec.SecretKeySpec
 
 /**
@@ -213,5 +210,61 @@ object CryptoUtil {
             }
         }
         return digest.digest()
+    }
+
+
+    fun decryptSecret(data: EncryptedPrivateKeyInfo, passphrase: String): RSAPrivateCrtKey {
+
+        /* make key out of passphrase */
+        val pbeKeySpec = PBEKeySpec(passphrase.toCharArray())
+        val keyFactory = SecretKeyFactory.getInstance(data.algName)
+        val secretKey = keyFactory.generateSecret(pbeKeySpec)
+
+        /* Make a cipher */
+        val cipher = Cipher.getInstance(data.algName)
+        cipher.init(
+            Cipher.DECRYPT_MODE,
+            secretKey,
+            data.algParameters // has hash count and salt
+        )
+
+        /* Ready to decrypt */
+        val decryptedKeySpec: PKCS8EncodedKeySpec = data.getKeySpec(cipher)
+        val priv = KeyFactory.getInstance("RSA").generatePrivate(decryptedKeySpec)
+        if (priv !is RSAPrivateCrtKey)
+            throw Exception("wrong encoding")
+        return priv
+    }
+
+    fun encryptSecret(data: ByteArray, passphrase: String): ByteArray {
+
+        /* Cipher parameters: salt and hash count */
+        val hashIterations = 30
+        val salt = ByteArray(8)
+        SecureRandom().nextBytes(salt)
+        val pbeParameterSpec = PBEParameterSpec(salt, hashIterations)
+
+        /* *Other* cipher parameters: symmetric key (from password) */
+        val pbeAlgorithm = "PBEWithSHA1AndDESede"
+        val pbeKeySpec = PBEKeySpec(passphrase.toCharArray())
+        val keyFactory = SecretKeyFactory.getInstance(pbeAlgorithm)
+        val secretKey = keyFactory.generateSecret(pbeKeySpec)
+
+        /* Make a cipher */
+        val cipher = Cipher.getInstance(pbeAlgorithm)
+        cipher.init(Cipher.ENCRYPT_MODE, secretKey, pbeParameterSpec)
+
+        /* ready to encrypt now */
+        val cipherText = cipher.doFinal(data)
+
+        /* Must now bundle a PKCS#8-compatible object, that contains
+         * algorithm, salt and hash count information */
+
+        val bundleAlgorithmParams = AlgorithmParameters.getInstance(pbeAlgorithm)
+        bundleAlgorithmParams.init(pbeParameterSpec)
+
+        val bundle = EncryptedPrivateKeyInfo(bundleAlgorithmParams, cipherText)
+
+        return bundle.encoded
     }
 }

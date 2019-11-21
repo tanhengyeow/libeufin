@@ -22,9 +22,9 @@ package tech.libeufin.sandbox
 import org.junit.Test
 import java.security.KeyPairGenerator
 import java.security.interfaces.RSAPrivateCrtKey
+import javax.crypto.EncryptedPrivateKeyInfo
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
-import kotlin.collections.contentEquals
 
 class CryptoUtilTest {
 
@@ -73,5 +73,27 @@ class CryptoUtilTest {
         val data = "Hello, World".toByteArray(Charsets.UTF_8)
         val sig = CryptoUtil.signEbicsA006(data, keyPair.private)
         assertTrue(CryptoUtil.verifyEbicsA006(sig, data, keyPair.public))
+    }
+
+    @Test
+    fun testPassphraseEncryption() {
+
+        val keyPair = CryptoUtil.generateRsaKeyPair(1024)
+
+        /* encrypt with original key */
+        val data = "Hello, World!".toByteArray(Charsets.UTF_8)
+        val secret = CryptoUtil.encryptEbicsE002(data, keyPair.public)
+
+        /* encrypt and decrypt private key */
+        val encPriv = CryptoUtil.encryptSecret(keyPair.private.encoded, "secret")
+        val plainPriv = CryptoUtil.decryptSecret(EncryptedPrivateKeyInfo(encPriv),"secret")
+
+        /* decrypt with decrypted private key */
+        val revealed = CryptoUtil.decryptEbicsE002(secret, plainPriv)
+        
+        assertEquals(
+            String(revealed, charset = Charsets.UTF_8),
+            String(data, charset = Charsets.UTF_8)
+        )
     }
 }
