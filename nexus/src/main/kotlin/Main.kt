@@ -751,21 +751,23 @@ fun main() {
 
                 val (authKey, encKey, sigKey) = try {
 
-                    val authKey = CryptoUtil.decryptKey(
-                        EncryptedPrivateKeyInfo(body.authBlob), body.passphrase!!
-                    )
+                    Triple(
 
-                    val encKey = CryptoUtil.decryptKey(
-                        EncryptedPrivateKeyInfo(body.encBlob), body.passphrase
-                    )
+                        CryptoUtil.decryptKey(
+                            EncryptedPrivateKeyInfo(body.authBlob), body.passphrase!!
+                        ),
 
-                    val sigKey = CryptoUtil.decryptKey(
-                        EncryptedPrivateKeyInfo(body.sigBlob), body.passphrase
-                    )
+                        CryptoUtil.decryptKey(
+                            EncryptedPrivateKeyInfo(body.encBlob), body.passphrase
+                        ),
 
-                    Triple(authKey, encKey, sigKey)
+                        CryptoUtil.decryptKey(
+                            EncryptedPrivateKeyInfo(body.sigBlob), body.passphrase
+                        )
+                    )
 
                 } catch (e: Exception) {
+                    e.printStackTrace()
                     throw BadBackup(HttpStatusCode.BadRequest)
                 }
 

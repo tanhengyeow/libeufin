@@ -15,10 +15,10 @@ data class EbicsBackupRequest(
  * the client must provide the passphrase.
  */
 data class EbicsKeysBackup(
-    val passphrase: String? = null,
     val authBlob: ByteArray,
     val encBlob: ByteArray,
-    val sigBlob: ByteArray
+    val sigBlob: ByteArray,
+    val passphrase: String? = null
 )
 
 /**
