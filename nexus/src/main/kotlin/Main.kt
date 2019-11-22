@@ -787,7 +787,7 @@ fun main() {
 
             }
 
-            put("/ebics/subscribers/{id}/backup") {
+            post("/ebics/subscribers/{id}/backup") {
 
                 val id = expectId(call.parameters["id"])
                 val body = call.receive<EbicsBackupRequest>()
