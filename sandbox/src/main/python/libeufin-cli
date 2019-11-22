@@ -6,7 +6,7 @@ import json
 import hashlib
 import errno
 from datetime import datetime
-from requests import post, get, put
+from requests import post, get
 from Crypto.PublicKey import RSA 
 from urllib.parse import urljoin
 from getpass import getpass
@@ -86,7 +86,7 @@ def backup(obj, customer_id, output_file):
     url = urljoin(obj["base_url"], "/ebics/subscribers/{}/backup".format(customer_id))
 
     try:
-        response = put(url, json=dict(passphrase=passphrase))
+        response = post(url, json=dict(passphrase=passphrase))
     except Exception:
         print("Could not reach the bank")
         return
