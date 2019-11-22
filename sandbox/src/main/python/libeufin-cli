@@ -2,12 +2,14 @@
 
 import os
 import click
+import json
 import hashlib
 import errno
 from datetime import datetime
-from requests import post, get
+from requests import post, get, put
 from Crypto.PublicKey import RSA 
 from urllib.parse import urljoin
+from getpass import getpass
 
 @click.group()
 @click.option(
@@ -20,6 +22,84 @@ def cli(ctx, base_url):
 @cli.group()
 def ebics():
     pass
+
+
+@ebics.command(help="Restore private keys backup.")
+@click.pass_obj
+@click.option(
+    "--customer-id",
+    help="numerical ID of the customer at the Nexus",
+    required=False,
+    default=1)
+@click.option(
+    "--backup-file",
+    help="File where the backup is stored",
+    required=False,
+    default="/tmp/backup.json")
+def restore(obj, customer_id, backup_file):
+    try:
+        backup = open(backup_file, "r")
+    except Exception:
+        print("Could not open the backup at {}".format(backup_file))
+        return
+
+    backup_json = json.loads(backup.read())
+    backup.close()
+    passphrase = getpass("Passphrase: ")
+    backup_json["passphrase"] = passphrase
+
+    url = urljoin(obj["base_url"], "/ebics/subscribers/{}/restoreBackup".format(customer_id))
+
+    try:
+        response = post(url, json=backup_json)
+    except Exception:
+        print("Could not reach the bank")
+        return
+
+    if response.status_code != 200:
+        print("Unsuccessful status code gotten: {}".format(response.status_code))
+        return
+
+    print("Keys successfully restored")
+
+
+@ebics.command(help="Obtain passphrase-protected private keys")
+@click.pass_obj
+@click.option(
+    "--customer-id",
+    help="numerical ID of the customer at the Nexus",
+    required=False,
+    default=1)
+@click.option(
+    "--output-file",
+    help="File that will store the backup",
+    required=False,
+    default="/tmp/backup.json")
+def backup(obj, customer_id, output_file):
+    passphrase = getpass("Passphrase: ")
+    passphrase_again = getpass("Passphrase (again): ")
+
+    if passphrase != passphrase_again:
+        print("Passphrase differs, exiting.")
+        return
+
+    url = urljoin(obj["base_url"], "/ebics/subscribers/{}/backup".format(customer_id))
+
+    try:
+        response = put(url, json=dict(passphrase=passphrase))
+    except Exception:
+        print("Could not reach the bank")
+        return
+
+    if response.status_code != 200:
+        print("Unsuccessful status code gotten: {}".format(response.status_code))
+        return
+    
+    output = open(output_file, "w+")
+    output.write(response.text)
+    output.close()
+
+    print("Backup stored in {}".format(output_file))
 
 @ebics.command(help="send INI message")
 @click.pass_obj
