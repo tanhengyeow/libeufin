@@ -14,27 +14,27 @@ import javax.xml.bind.JAXBElement
  * / make messages.  And not all the values are needed all
  * the time.
  */
-data class EbicsContainer<T>(
+data class EbicsContainer(
 
-    // needed to verify responses
-    val bankAuthPub: RSAPublicKey? = null,
+    val partnerId: String,
 
-    val bankEncPub: RSAPublicKey? = null,
+    val userId: String,
+
+
+    var bankAuthPub: RSAPublicKey?,
+    var bankEncPub: RSAPublicKey?,
 
     // needed to send the message
-    val ebicsUrl: String? = null,
+    val ebicsUrl: String,
 
     // needed to craft further messages
-    val hostId: String? = null,
-
-    // needed to encrypt order data during all the phases
-    val plainTransactionKey: SecretKey? = null,
+    val hostId: String,
 
     // needed to decrypt data coming from the bank
-    val customerEncPriv: RSAPrivateCrtKey? = null,
+    val customerEncPriv: RSAPrivateCrtKey,
 
     // needed to sign documents
-    val customerAuthPriv: RSAPrivateCrtKey? = null,
+    val customerAuthPriv: RSAPrivateCrtKey,
 
-    val jaxb: T? = null
+    val customerSignPriv: RSAPrivateCrtKey
 )

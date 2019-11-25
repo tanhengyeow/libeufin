@@ -82,6 +82,39 @@ fun testData() {
     }
 }
 
+fun containerInit(subscriber: EbicsSubscriberEntity): EbicsContainer {
+
+    var bankAuthPubValue: RSAPublicKey? = null
+    if (subscriber.bankAuthenticationPublicKey != null) {
+        bankAuthPubValue = CryptoUtil.loadRsaPublicKey(
+            subscriber.bankAuthenticationPublicKey?.toByteArray()!!
+        )
+    }
+    var bankEncPubValue: RSAPublicKey? = null
+    if (subscriber.bankEncryptionPublicKey != null) {
+        bankEncPubValue = CryptoUtil.loadRsaPublicKey(
+            subscriber.bankEncryptionPublicKey?.toByteArray()!!
+        )
+    }
+
+    return EbicsContainer(
+
+
+        bankAuthPub = bankAuthPubValue,
+        bankEncPub = bankEncPubValue,
+
+        ebicsUrl = subscriber.ebicsURL,
+        hostId = subscriber.hostID,
+        userId = subscriber.userID,
+        partnerId = subscriber.partnerID,
+
+        customerSignPriv = CryptoUtil.loadRsaPrivateKey(subscriber.signaturePrivateKey.toByteArray()),
+        customerAuthPriv = CryptoUtil.loadRsaPrivateKey(subscriber.authenticationPrivateKey.toByteArray()),
+        customerEncPriv = CryptoUtil.loadRsaPrivateKey(subscriber.authenticationPrivateKey.toByteArray())
+    )
+
+}
+
 /**
  * Inserts spaces every 2 characters, and a newline after 8 pairs.
  */
@@ -122,14 +155,14 @@ fun expectId(param: String?): Int {
 
 fun signOrder(
     orderBlob: ByteArray,
-    signKey: ByteArray,
+    signKey: RSAPrivateCrtKey,
     partnerId: String,
     userId: String
 ): UserSignatureData {
 
     val ES_signature = CryptoUtil.signEbicsA006(
-    CryptoUtil.digestEbicsOrderA006(orderBlob),
-    CryptoUtil.loadRsaPrivateKey(signKey)
+        CryptoUtil.digestEbicsOrderA006(orderBlob),
+        signKey
     )
     val userSignatureData = UserSignatureData().apply {
         orderSignatureList = listOf(
@@ -142,7 +175,7 @@ fun signOrder(
         )
     }
 
- return userSignatureData
+    return userSignatureData
 }
 
 
@@ -263,6 +296,7 @@ data class UnparsableResponse(val statusCode: HttpStatusCode, val rawResponse: S
 data class EbicsError(val codeError: String) : Exception("Bank did not accepted EBICS request, error is: ${codeError}")
 data class BadSignature(val statusCode: HttpStatusCode) : Exception("Signature verification unsuccessful")
 data class BadBackup(val statusCode: HttpStatusCode) : Exception("Could not restore backed up keys")
+data class BankInvalidResponse(val statusCode: HttpStatusCode) : Exception("Missing data from bank response")
 
 
 
@@ -366,66 +400,24 @@ fun main() {
 
             get("/ebics/subscribers/{id}/sendHtd") {
                 val id = expectId(call.parameters["id"])
-                val bundle = transaction {
-                    val subscriber = EbicsSubscriberEntity.findById(id) ?: throw SubscriberNotFoundError(HttpStatusCode.NotFound)
-                    val request = EbicsRequest().apply {
-                        version = "H004"
-                        revision = 1
-                        header = EbicsRequest.Header().apply {
-                            authenticate = true
-                            static = EbicsRequest.StaticHeaderType().apply {
-                                userID = subscriber.userID
-                                partnerID = subscriber.partnerID
-                                hostID = subscriber.hostID
-                                nonce = getNonce(128)
-                                timestamp = getGregorianDate()
-                                partnerID = subscriber.partnerID
-                                orderDetails = EbicsRequest.OrderDetails().apply {
-                                    orderType = "HTD"
-                                    orderAttribute = "DZHNN"
-                                    orderParams = EbicsRequest.StandardOrderParams()
-                                }
-                                bankPubKeyDigests = EbicsRequest.BankPubKeyDigests().apply {
-                                    authentication = EbicsTypes.PubKeyDigest().apply {
-                                        algorithm = "http://www.w3.org/2001/04/xmlenc#sha256"
-                                        version = "X002"
-                                        value = CryptoUtil.getEbicsPublicKeyHash(
-                                            CryptoUtil.loadRsaPublicKey(
-                                                (subscriber.bankAuthenticationPublicKey ?: throw BankKeyMissing(HttpStatusCode.NotAcceptable)).toByteArray()
-                                            )
-                                        )
-                                    }
-                                    encryption = EbicsTypes.PubKeyDigest().apply {
-                                        algorithm = "http://www.w3.org/2001/04/xmlenc#sha256"
-                                        version = "E002"
-                                        value = CryptoUtil.getEbicsPublicKeyHash(
-                                            CryptoUtil.loadRsaPublicKey(
-                                                (subscriber.bankEncryptionPublicKey ?: throw BankKeyMissing(HttpStatusCode.NotAcceptable)).toByteArray()
-                                            )
-                                        )
-                                    }
-                                    securityMedium = "0000"
-                                }
-                                mutable = EbicsRequest.MutableHeader().apply {
-                                    transactionPhase = EbicsTypes.TransactionPhaseType.INITIALISATION
-                                }
-                                authSignature = SignatureType()
-                            }
-                        }
-                        body = EbicsRequest.Body()
-                    }
-
-                    EbicsContainer(
-                        ebicsUrl = subscriber.ebicsURL,
-                        customerEncPriv = CryptoUtil.loadRsaPrivateKey(subscriber.encryptionPrivateKey.toByteArray()),
-                        customerAuthPriv = CryptoUtil.loadRsaPrivateKey(subscriber.authenticationPrivateKey.toByteArray()),
-                        jaxb = request,
-                        hostId = subscriber.hostID
-
-                    )
+                val subscriberData = transaction {
+                    containerInit(EbicsSubscriberEntity.findById(id) ?: throw SubscriberNotFoundError(HttpStatusCode.NotFound))
                 }
 
-                val response = client.postToBankUnsigned<EbicsRequest, EbicsResponse>(bundle.ebicsUrl!!, bundle.jaxb!!)
+
+                val response = client.postToBankUnsigned<EbicsRequest, EbicsResponse>(
+                    subscriberData.ebicsUrl,
+                    EbicsRequest.createForDownloadInitializationPhase(
+                        subscriberData.userId,
+                        subscriberData.partnerId,
+                        subscriberData.hostId,
+                        getNonce(128),
+                        getGregorianDate(),
+                        subscriberData.bankEncPub ?: throw BankKeyMissing(HttpStatusCode.PreconditionFailed),
+                        subscriberData.bankAuthPub ?: throw BankKeyMissing(HttpStatusCode.PreconditionFailed),
+                        "HTD"
+                    )
+                )
                 logger.debug("HTD response: " + XMLUtil.convertJaxbToString<EbicsResponse>(response.value))
 
                 if (response.value.body.returnCode.value != "000000") {
@@ -443,42 +435,23 @@ fun main() {
 
                 val dataCompr = CryptoUtil.decryptEbicsE002(
                     er,
-                    bundle.customerEncPriv!!
+                    subscriberData.customerEncPriv
                 )
                 val data = EbicsOrderUtil.decodeOrderDataXml<HTDResponseOrderData>(dataCompr)
 
 
                 logger.debug("HTD payload is: ${XMLUtil.convertJaxbToString(data)}")
 
-
-                val ackRequest = EbicsRequest().apply {
-                    header = EbicsRequest.Header().apply {
-                        version = "H004"
-                        revision = 1
-                        authenticate = true
-                        static = EbicsRequest.StaticHeaderType().apply {
-                            hostID = bundle.hostId!!
-                            transactionID = response.value.header._static.transactionID
-                        }
-                        mutable = EbicsRequest.MutableHeader().apply {
-                            transactionPhase = EbicsTypes.TransactionPhaseType.RECEIPT
-                        }
-                    }
-                    authSignature = SignatureType()
-
-                    body = EbicsRequest.Body().apply {
-                        transferReceipt = EbicsRequest.TransferReceipt().apply {
-                            authenticate = true
-                            receiptCode = 0 // always true at this point.
-                        }
-                    }
-                }
+                val ackRequest = EbicsRequest.createForDownloadReceiptPhase(
+                    response.value.header._static.transactionID ?: throw BankInvalidResponse(HttpStatusCode.ExpectationFailed),
+                    subscriberData.userId
+                )
 
                 val ackResponse = client.postToBankSignedAndVerify<EbicsRequest, EbicsResponse>(
-                    bundle.ebicsUrl,
+                    subscriberData.ebicsUrl,
                     ackRequest,
-                    bundle.bankAuthPub!!,
-                    bundle.customerAuthPriv!!
+                    subscriberData.bankAuthPub ?: throw BankKeyMissing(HttpStatusCode.PreconditionFailed),
+                    subscriberData.customerAuthPriv
                 )
 
                 logger.debug("HTD final response: " + XMLUtil.convertJaxbToString<EbicsResponse>(response.value))
@@ -706,58 +679,22 @@ fun main() {
                 val id = expectId(call.parameters["id"]) // caught above
                 val iniRequest = EbicsUnsecuredRequest()
 
-                val url = transaction {
-                    val subscriber = EbicsSubscriberEntity.findById(id) ?: throw SubscriberNotFoundError(HttpStatusCode.NotFound)
-                    val tmpKey = CryptoUtil.loadRsaPrivateKey(subscriber.signaturePrivateKey.toByteArray())
-
-                    iniRequest.apply {
-                        version = "H004"
-                        revision = 1
-                        header = EbicsUnsecuredRequest.Header().apply {
-                            authenticate = true
-                            static = EbicsUnsecuredRequest.StaticHeaderType().apply {
-                                orderDetails = EbicsUnsecuredRequest.OrderDetails().apply {
-                                    orderAttribute = "DZNNN"
-                                    orderType = "INI"
-                                    securityMedium = "0000"
-                                    hostID = subscriber.hostID
-                                    userID = subscriber.userID
-                                    partnerID = subscriber.partnerID
-                                    systemID = subscriber.systemID
-                                }
-
-                            }
-                            mutable = EbicsUnsecuredRequest.Header.EmptyMutableHeader()
-                        }
-                        body = EbicsUnsecuredRequest.Body().apply {
-                            dataTransfer = EbicsUnsecuredRequest.UnsecuredDataTransfer().apply {
-                                orderData = EbicsUnsecuredRequest.OrderData().apply {
-                                    value = EbicsOrderUtil.encodeOrderDataXml(
-                                        SignatureTypes.SignaturePubKeyOrderData().apply {
-                                            signaturePubKeyInfo = SignatureTypes.SignaturePubKeyInfoType().apply {
-                                                signatureVersion = "A006"
-                                                pubKeyValue = SignatureTypes.PubKeyValueType().apply {
-                                                    rsaKeyValue = org.apache.xml.security.binding.xmldsig.RSAKeyValueType().apply {
-                                                        exponent = tmpKey.publicExponent.toByteArray()
-                                                        modulus = tmpKey.modulus.toByteArray()
-                                                    }
-                                                }
-                                            }
-                                            userID = subscriber.userID
-                                            partnerID = subscriber.partnerID
-
-                                        }
-                                    )
-                                }
-                            }
-                        }
-                    }
-                    subscriber.ebicsURL
+                val subscriberData = transaction {
+                    containerInit(
+                        EbicsSubscriberEntity.findById(id) ?: throw SubscriberNotFoundError(HttpStatusCode.NotFound)
+                    )
                 }
 
+                val theRequest = EbicsUnsecuredRequest.createIni(
+                    subscriberData.hostId,
+                    subscriberData.userId,
+                    subscriberData.partnerId,
+                    subscriberData.customerSignPriv
+                )
+
                 val responseJaxb = client.postToBankUnsigned<EbicsUnsecuredRequest, EbicsKeyManagementResponse>(
-                    url,
-                    iniRequest
+                    subscriberData.ebicsUrl,
+                    theRequest
                 )
 
                 if (responseJaxb.value.body.returnCode.value != "000000") {
@@ -849,97 +786,74 @@ fun main() {
 
                 val id = expectId(call.parameters["id"])
 
-                val innerPayload = "ES-PAYLOAD"
-                val container = transaction {
-                    val subscriber = EbicsSubscriberEntity.findById(id) ?: throw SubscriberNotFoundError(HttpStatusCode.NotFound)
-
-                    val usd_compressed = EbicsOrderUtil.encodeOrderDataXml(
-
-                        signOrder(
-                            innerPayload.toByteArray(),
-                            subscriber.signaturePrivateKey.toByteArray(),
-                            subscriber.partnerID,
-                            subscriber.userID
-                        )
-
-                    )
-                    val usd_encrypted = CryptoUtil.encryptEbicsE002(
-                        usd_compressed,
-                        CryptoUtil.loadRsaPublicKey(
-                            subscriber.bankEncryptionPublicKey?.toByteArray() ?: throw BankKeyMissing(HttpStatusCode.NotFound)
-                        )
-                    )
-
-                    EbicsContainer(
-                        jaxb = EbicsRequest.createForUploadInitializationPhase(
-                            usd_encrypted,
-                            subscriber.hostID,
-                            getNonce(128),
-                            subscriber.partnerID,
-                            subscriber.userID,
-                            getGregorianDate(),
-                            CryptoUtil.loadRsaPublicKey(subscriber.bankAuthenticationPublicKey?.toByteArray() ?: throw BankKeyMissing(
-                                HttpStatusCode.PreconditionFailed
-                            )),
-                            CryptoUtil.loadRsaPublicKey(subscriber.bankEncryptionPublicKey?.toByteArray() ?: throw BankKeyMissing(
-                                HttpStatusCode.PreconditionFailed
-                            )),
-                            BigInteger.ONE
-                        ),
-
-                        ebicsUrl = subscriber.ebicsURL,
-                        bankAuthPub = CryptoUtil.loadRsaPublicKey(
-                            subscriber.bankAuthenticationPublicKey?.toByteArray() ?: throw BankKeyMissing(HttpStatusCode.PreconditionFailed)
-                        ),
-
-                        plainTransactionKey = usd_encrypted.plainTransactionKey,
-                        customerAuthPriv = CryptoUtil.loadRsaPrivateKey(
-                            subscriber.authenticationPrivateKey.toByteArray()
-                        ),
-
-                        bankEncPub = CryptoUtil.loadRsaPublicKey(
-                            subscriber.bankEncryptionPublicKey?.toByteArray() ?: throw BankKeyMissing(
-                            HttpStatusCode.PreconditionFailed)
-                        ),
-
-                        hostId = subscriber.hostID
+                val subscriberData = transaction {
+                    containerInit(
+                        EbicsSubscriberEntity.findById(id) ?: throw SubscriberNotFoundError(HttpStatusCode.NotFound)
                     )
                 }
+
+                val payload = "PAYLOAD"
+                val usd_encrypted = CryptoUtil.encryptEbicsE002(
+                    EbicsOrderUtil.encodeOrderDataXml(
+
+                        signOrder(
+                            payload.toByteArray(),
+                            subscriberData.customerSignPriv,
+                            subscriberData.partnerId,
+                            subscriberData.userId
+                        )
+                    ),
+                    subscriberData.bankEncPub!!
+                )
+
                 val response = client.postToBankSignedAndVerify<EbicsRequest, EbicsResponse>(
-                    container.ebicsUrl!!,
-                    container.jaxb!!,
-                    container.bankAuthPub!!,
-                    container.customerAuthPriv!!
+                    subscriberData.ebicsUrl,
+                    EbicsRequest.createForUploadInitializationPhase(
+                        usd_encrypted,
+                        subscriberData.hostId,
+                        getNonce(128),
+                        subscriberData.partnerId,
+                        subscriberData.userId,
+                        getGregorianDate(),
+                        subscriberData.bankAuthPub!!,
+                        subscriberData.bankEncPub!!,
+                        BigInteger.ONE,
+                        "TST"
+                    ),
+                    subscriberData.bankAuthPub!!,
+                    subscriberData.customerAuthPriv
                 )
 
                 if (response.value.body.returnCode.value != "000000") {
                     throw EbicsError(response.value.body.returnCode.value)
                 }
 
+                logger.debug("INIT phase passed!")
+
                 /* now send actual payload */
                 val compressedInnerPayload = DeflaterInputStream(
-                    innerPayload.toByteArray().inputStream()
+                    payload.toByteArray().inputStream()
 
                 ).use { it.readAllBytes() }
 
                 val encryptedPayload = CryptoUtil.encryptEbicsE002withTransactionKey(
                     compressedInnerPayload,
-                    container.bankEncPub!!,
-                    container.plainTransactionKey!!
+                    subscriberData.bankEncPub!!,
+                    usd_encrypted.plainTransactionKey!!
                 )
 
-                val tmpTmp = EbicsRequest.createForUploadTransferPhase(
-                    container.hostId!!,
+                val tmp = EbicsRequest.createForUploadTransferPhase(
+                    subscriberData.hostId,
                     response.value.header._static.transactionID!!,
                     BigInteger.ONE,
                     encryptedPayload.encryptedData
                 )
 
                 val responseTransaction = client.postToBankSignedAndVerify<EbicsRequest, EbicsResponse>(
-                    container.ebicsUrl,
-                    tmpTmp,
-                    container.bankAuthPub,
-                    container.customerAuthPriv
+                    subscriberData.ebicsUrl,
+                    tmp,
+                    subscriberData.bankAuthPub!!,
+                    subscriberData.customerAuthPriv
                 )
 
                 if (responseTransaction.value.body.returnCode.value != "000000") {
@@ -957,46 +871,21 @@ fun main() {
             post("/ebics/subscribers/{id}/sync") {
                 val id = expectId(call.parameters["id"])
                 val bundle = transaction {
-                    val subscriber = EbicsSubscriberEntity.findById(id) ?: throw SubscriberNotFoundError(HttpStatusCode.NotFound)
-                    val hpbRequest = EbicsNpkdRequest().apply {
-                        version = "H004"
-                        revision = 1
-                        header = EbicsNpkdRequest.Header().apply {
-                            authenticate = true
-                            mutable = EbicsNpkdRequest.EmptyMutableHeader()
-                            static = EbicsNpkdRequest.StaticHeaderType().apply {
-                                hostID = subscriber.hostID
-                                partnerID = subscriber.partnerID
-                                userID = subscriber.userID
-                                securityMedium = "0000"
-                                orderDetails = EbicsNpkdRequest.OrderDetails()
-                                orderDetails.orderType = "HPB"
-                                orderDetails.orderAttribute = "DZHNN"
-                                nonce = getNonce(128)
-                                timestamp = getGregorianDate()
-                            }
-                        }
-                        body = EbicsNpkdRequest.EmptyBody()
-                        authSignature = SignatureType()
-                    }
-
-                    EbicsContainer(
-                        ebicsUrl = subscriber.ebicsURL,
-                        customerEncPriv = CryptoUtil.loadRsaPrivateKey(
-                            subscriber.encryptionPrivateKey.toByteArray()
-                        ),
-                        customerAuthPriv = CryptoUtil.loadRsaPrivateKey(
-                            subscriber.authenticationPrivateKey.toByteArray()
-                        ),
-
-                        jaxb = hpbRequest
+                    containerInit(
+                        EbicsSubscriberEntity.findById(id) ?: throw SubscriberNotFoundError(HttpStatusCode.NotFound)
                     )
                 }
 
                 val response = client.postToBankSigned<EbicsNpkdRequest, EbicsKeyManagementResponse>(
                     bundle.ebicsUrl!!,
-                    bundle.jaxb!!,
-                    bundle.customerAuthPriv!!
+                    EbicsNpkdRequest.createRequest(
+                        bundle.hostId,
+                        bundle.partnerId,
+                        bundle.userId,
+                        getNonce(128),
+                        getGregorianDate()
+                    ),
+                    bundle.customerAuthPriv
                 )
 
                 if (response.value.body.returnCode.value != "000000") {
@@ -1012,25 +901,28 @@ fun main() {
 
                 val dataCompr = CryptoUtil.decryptEbicsE002(
                     er,
-                    bundle.customerEncPriv!!
+                    bundle.customerEncPriv
                 )
                 val data = EbicsOrderUtil.decodeOrderDataXml<HPBResponseOrderData>(dataCompr)
-
-                val bankAuthPubBlob = CryptoUtil.loadRsaPublicKeyFromComponents(
-                    data.authenticationPubKeyInfo.pubKeyValue.rsaKeyValue.modulus,
-                    data.authenticationPubKeyInfo.pubKeyValue.rsaKeyValue.exponent
-                )
-
-                val bankEncPubBlob = CryptoUtil.loadRsaPublicKeyFromComponents(
-                    data.encryptionPubKeyInfo.pubKeyValue.rsaKeyValue.modulus,
-                    data.encryptionPubKeyInfo.pubKeyValue.rsaKeyValue.exponent
-                )
 
                 // put bank's keys into database.
                 transaction {
                     val subscriber = EbicsSubscriberEntity.findById(id)
-                    subscriber!!.bankAuthenticationPublicKey = SerialBlob(bankAuthPubBlob.encoded)
-                    subscriber!!.bankEncryptionPublicKey = SerialBlob(bankEncPubBlob.encoded)
+
+                    subscriber!!.bankAuthenticationPublicKey = SerialBlob(
+
+                        CryptoUtil.loadRsaPublicKeyFromComponents(
+                            data.authenticationPubKeyInfo.pubKeyValue.rsaKeyValue.modulus,
+                            data.authenticationPubKeyInfo.pubKeyValue.rsaKeyValue.exponent
+                        ).encoded
+                    )
+
+                    subscriber!!.bankEncryptionPublicKey = SerialBlob(
+                        CryptoUtil.loadRsaPublicKeyFromComponents(
+                            data.authenticationPubKeyInfo.pubKeyValue.rsaKeyValue.modulus,
+                            data.authenticationPubKeyInfo.pubKeyValue.rsaKeyValue.exponent
+                        ).encoded
+                    )
                 }
 
                 call.respondText("Bank keys stored in database\n", ContentType.Text.Plain, HttpStatusCode.OK)
@@ -1039,72 +931,23 @@ fun main() {
 
             post("/ebics/subscribers/{id}/sendHia") {
 
-                val id = expectId(call.parameters["id"]) // caught above
+                val id = expectId(call.parameters["id"])
 
-                val bundle = transaction {
-                    val subscriber = EbicsSubscriberEntity.findById(id) ?: throw SubscriberNotFoundError(HttpStatusCode.NotFound)
-                    val tmpAiKey = CryptoUtil.loadRsaPrivateKey(subscriber.authenticationPrivateKey.toByteArray())
-                    val tmpEncKey = CryptoUtil.loadRsaPrivateKey(subscriber.encryptionPrivateKey.toByteArray())
-
-                    val hiaRequest = EbicsUnsecuredRequest().apply {
-                        version = "H004"
-                        revision = 1
-                        header = EbicsUnsecuredRequest.Header().apply {
-                            authenticate = true
-                            static = EbicsUnsecuredRequest.StaticHeaderType().apply {
-                                orderDetails = EbicsUnsecuredRequest.OrderDetails().apply {
-                                    orderAttribute = "DZNNN"
-                                    orderType = "HIA"
-                                    securityMedium = "0000"
-                                    hostID = subscriber.hostID
-                                    userID = subscriber.userID
-                                    partnerID = subscriber.partnerID
-                                    systemID = subscriber.systemID
-                                }
-                            }
-                            mutable = EbicsUnsecuredRequest.Header.EmptyMutableHeader()
-                        }
-                        body = EbicsUnsecuredRequest.Body().apply {
-                            dataTransfer = EbicsUnsecuredRequest.UnsecuredDataTransfer().apply {
-                                orderData = EbicsUnsecuredRequest.OrderData().apply {
-                                    value = EbicsOrderUtil.encodeOrderDataXml(
-                                        HIARequestOrderData().apply {
-                                            authenticationPubKeyInfo = EbicsTypes.AuthenticationPubKeyInfoType().apply {
-                                                pubKeyValue = EbicsTypes.PubKeyValueType().apply {
-                                                    rsaKeyValue = RSAKeyValueType().apply {
-                                                        exponent = tmpAiKey.publicExponent.toByteArray()
-                                                        modulus = tmpAiKey.modulus.toByteArray()
-                                                    }
-                                                }
-                                                authenticationVersion = "X002"
-                                            }
-                                            encryptionPubKeyInfo = EbicsTypes.EncryptionPubKeyInfoType().apply {
-                                                pubKeyValue = EbicsTypes.PubKeyValueType().apply {
-                                                    rsaKeyValue = RSAKeyValueType().apply {
-                                                        exponent = tmpEncKey.publicExponent.toByteArray()
-                                                        modulus = tmpEncKey.modulus.toByteArray()
-                                                    }
-                                                }
-                                                encryptionVersion = "E002"
-
-                                            }
-                                            partnerID = subscriber.partnerID
-                                            userID = subscriber.userID
-                                        }
-                                    )
-                                }
-                            }
-                        }
-                    }
-                    EbicsContainer<EbicsUnsecuredRequest>(
-                        ebicsUrl = subscriber.ebicsURL,
-                        jaxb = hiaRequest
+                val subscriberData = transaction {
+                    containerInit(
+                        EbicsSubscriberEntity.findById(id) ?: throw SubscriberNotFoundError(HttpStatusCode.NotFound)
                     )
                 }
 
                 val responseJaxb = client.postToBankUnsigned<EbicsUnsecuredRequest, EbicsKeyManagementResponse>(
-                    bundle.ebicsUrl!!,
-                    bundle.jaxb!!
+                    subscriberData.ebicsUrl,
+                    EbicsUnsecuredRequest.createHia(
+                        subscriberData.hostId,
+                        subscriberData.userId,
+                        subscriberData.partnerId,
+                        subscriberData.customerAuthPriv,
+                        subscriberData.customerEncPriv
+                    )
                 )
 
                 if (responseJaxb.value.body.returnCode.value != "000000") {
@@ -1114,7 +957,8 @@ fun main() {
                 call.respondText(
                     "Bank accepted authentication and encryption keys\n",
                     ContentType.Text.Plain,
-                    HttpStatusCode.OK)
+                    HttpStatusCode.OK
+                )
 
                 return@post
             }

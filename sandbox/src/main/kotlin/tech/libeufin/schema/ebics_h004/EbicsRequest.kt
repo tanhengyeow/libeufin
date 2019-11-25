@@ -153,7 +153,8 @@ class EbicsRequest {
     @XmlAccessorType(XmlAccessType.NONE)
     @XmlType(
         name = "",
-        propOrder = ["orderType", "orderID", "orderAttribute", "orderParams"])
+        propOrder = ["orderType", "orderID", "orderAttribute", "orderParams"]
+    )
     class OrderDetails {
         @get:XmlElement(name = "OrderType", required = true)
         @get:XmlJavaTypeAdapter(CollapsedStringAdapter::class)
@@ -177,7 +178,9 @@ class EbicsRequest {
         @get:XmlElements(
             XmlElement(
                 name = "StandardOrderParams",
-                type = StandardOrderParams::class))
+                type = StandardOrderParams::class
+            )
+        )
         var orderParams: OrderParams? = null
     }
 
@@ -272,6 +275,88 @@ class EbicsRequest {
 
     companion object {
 
+        fun createForDownloadReceiptPhase(
+            transactionId: String,
+            hostId: String
+
+        ): EbicsRequest {
+            return EbicsRequest().apply {
+                header = Header().apply {
+                    version = "H004"
+                    revision = 1
+                    authenticate = true
+                    static = StaticHeaderType().apply {
+                        hostID = hostId
+                        transactionID = transactionId
+                    }
+                    mutable = MutableHeader().apply {
+                        transactionPhase = EbicsTypes.TransactionPhaseType.RECEIPT
+                    }
+                }
+                authSignature = SignatureType()
+
+                body = Body().apply {
+                    transferReceipt = TransferReceipt().apply {
+                        authenticate = true
+                        receiptCode = 0 // always true at this point.
+                    }
+                }
+            }
+
+        }
+
+        fun createForDownloadInitializationPhase(
+            userId: String,
+            partnerId: String,
+            hostId: String,
+            nonceArg: ByteArray,
+            date: XMLGregorianCalendar,
+            bankEncPub: RSAPublicKey,
+            bankAuthPub: RSAPublicKey,
+            aOrderType: String
+
+        ): EbicsRequest {
+
+            return EbicsRequest().apply {
+                version = "H004"
+                revision = 1
+                authSignature = SignatureType()
+                body = Body()
+                header = Header().apply {
+                    authenticate = true
+                    static = EbicsRequest.StaticHeaderType().apply {
+                        userID = userId
+                        partnerID = partnerId
+                        hostID = hostId
+                        nonce = nonceArg
+                        timestamp = date
+                        partnerID = partnerId
+                        orderDetails = EbicsRequest.OrderDetails().apply {
+                            orderType = aOrderType
+                            orderAttribute = "DZHNN"
+                            orderParams = EbicsRequest.StandardOrderParams()
+                        }
+                        bankPubKeyDigests = EbicsRequest.BankPubKeyDigests().apply {
+                            authentication = EbicsTypes.PubKeyDigest().apply {
+                                algorithm = "http://www.w3.org/2001/04/xmlenc#sha256"
+                                version = "X002"
+                                value = CryptoUtil.getEbicsPublicKeyHash(bankAuthPub)
+                            }
+                            encryption = EbicsTypes.PubKeyDigest().apply {
+                                algorithm = "http://www.w3.org/2001/04/xmlenc#sha256"
+                                version = "E002"
+                                value = CryptoUtil.getEbicsPublicKeyHash(bankEncPub)
+                            }
+                            securityMedium = "0000"
+                        }
+                        mutable = EbicsRequest.MutableHeader().apply {
+                            transactionPhase = EbicsTypes.TransactionPhaseType.INITIALISATION
+                        }
+                    }
+                }
+            }
+        }
+
         fun createForUploadInitializationPhase(
             cryptoBundle: CryptoUtil.EncryptionResult,
             hostId: String,
@@ -281,7 +366,8 @@ class EbicsRequest {
             date: XMLGregorianCalendar,
             bankAuthPub: RSAPublicKey,
             bankEncPub: RSAPublicKey,
-            segmentsNumber: BigInteger
+            segmentsNumber: BigInteger,
+            aOrderType: String
         ): EbicsRequest {
 
             return EbicsRequest().apply {
@@ -296,7 +382,7 @@ class EbicsRequest {
                         partnerID = partnerId
                         userID = userId
                         orderDetails = EbicsRequest.OrderDetails().apply {
-                            orderType = "TST"
+                            orderType = aOrderType
                             orderAttribute = "OZHNN"
                             orderParams = EbicsRequest.StandardOrderParams()
                         }
@@ -375,18 +461,6 @@ class EbicsRequest {
                     }
                 }
             }
-
-        fun createForDownloadInitializationPhase(): EbicsRequest {
-
-        }
-
-        fun createForDownloadTransferPhase(): EbicsRequest {
-
-
-        }
-
-        fun createForDownloadReceiptPhase(): EbicsRequest {
-
         }
     }
 }

@@ -100,4 +100,36 @@ class EbicsNpkdRequest {
 
     @XmlAccessorType(XmlAccessType.NONE)
     class EmptyBody
+
+    companion object {
+        fun createRequest(
+            hostId: String,
+            partnerId: String,
+            userId: String,
+            aNonce: ByteArray,
+            date: XMLGregorianCalendar
+        ): EbicsNpkdRequest {
+            return EbicsNpkdRequest().apply {
+                version = "H004"
+                revision = 1
+                header = EbicsNpkdRequest.Header().apply {
+                    authenticate = true
+                    mutable = EbicsNpkdRequest.EmptyMutableHeader()
+                    static = EbicsNpkdRequest.StaticHeaderType().apply {
+                        hostID = hostId
+                        partnerID = partnerId
+                        userID = userId
+                        securityMedium = "0000"
+                        orderDetails = EbicsNpkdRequest.OrderDetails()
+                        orderDetails.orderType = "HPB"
+                        orderDetails.orderAttribute = "DZHNN"
+                        nonce = aNonce
+                        timestamp = date
+                    }
+                }
+                body = EbicsNpkdRequest.EmptyBody()
+                authSignature = SignatureType()
+            }
+        }
+    }
 }
