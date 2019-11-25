@@ -1,7 +1,11 @@
 package tech.libeufin.schema.ebics_h004
 
+import io.ktor.http.HttpStatusCode
 import org.apache.xml.security.binding.xmldsig.SignatureType
+import tech.libeufin.sandbox.CryptoUtil
+import tech.libeufin.sandbox.toByteArray
 import java.math.BigInteger
+import java.security.interfaces.RSAPublicKey
 import javax.xml.bind.annotation.*
 import javax.xml.bind.annotation.adapters.CollapsedStringAdapter
 import javax.xml.bind.annotation.adapters.HexBinaryAdapter
@@ -264,5 +268,125 @@ class EbicsRequest {
 
         @get:XmlElement(name = "Encryption")
         lateinit var encryption: EbicsTypes.PubKeyDigest
+    }
+
+    companion object {
+
+        fun createForUploadInitializationPhase(
+            cryptoBundle: CryptoUtil.EncryptionResult,
+            hostId: String,
+            nonceArg: ByteArray,
+            partnerId: String,
+            userId: String,
+            date: XMLGregorianCalendar,
+            bankAuthPub: RSAPublicKey,
+            bankEncPub: RSAPublicKey,
+            segmentsNumber: BigInteger
+        ): EbicsRequest {
+
+            return EbicsRequest().apply {
+                header = EbicsRequest.Header().apply {
+                    version = "H004"
+                    revision = 1
+                    authenticate = true
+                    static = EbicsRequest.StaticHeaderType().apply {
+                        hostID = hostId
+                        nonce = nonceArg
+                        timestamp = date
+                        partnerID = partnerId
+                        userID = userId
+                        orderDetails = EbicsRequest.OrderDetails().apply {
+                            orderType = "TST"
+                            orderAttribute = "OZHNN"
+                            orderParams = EbicsRequest.StandardOrderParams()
+                        }
+                        bankPubKeyDigests = EbicsRequest.BankPubKeyDigests().apply {
+                            authentication = EbicsTypes.PubKeyDigest().apply {
+                                algorithm = "http://www.w3.org/2001/04/xmlenc#sha256"
+                                version = "X002"
+                                value = CryptoUtil.getEbicsPublicKeyHash(bankAuthPub)
+                            }
+                            encryption = EbicsTypes.PubKeyDigest().apply {
+                                algorithm = "http://www.w3.org/2001/04/xmlenc#sha256"
+                                version = "E002"
+                                value = CryptoUtil.getEbicsPublicKeyHash(bankEncPub)
+                            }
+                        }
+                        securityMedium = "0000"
+                        numSegments = segmentsNumber
+                    }
+                    mutable = EbicsRequest.MutableHeader().apply {
+                        transactionPhase = EbicsTypes.TransactionPhaseType.INITIALISATION
+                    }
+                }
+                authSignature = SignatureType()
+                body = EbicsRequest.Body().apply {
+                    dataTransfer = EbicsRequest.DataTransfer().apply {
+                        signatureData = EbicsRequest.SignatureData().apply {
+                            authenticate = true
+                            value = cryptoBundle.encryptedData
+                        }
+                        dataEncryptionInfo = EbicsTypes.DataEncryptionInfo().apply {
+                            transactionKey = cryptoBundle.encryptedTransactionKey
+                            authenticate = true
+                            encryptionPubKeyDigest = EbicsTypes.PubKeyDigest().apply {
+                                algorithm = "http://www.w3.org/2001/04/xmlenc#sha256"
+                                version = "E002"
+                                value = CryptoUtil.getEbicsPublicKeyHash(bankEncPub)
+                            }
+                        }
+                    }
+                }
+            }
+
+
+        }
+
+        fun createForUploadTransferPhase(
+            hostId: String,
+            transactionId: String,
+            segNumber: BigInteger,
+            encryptedData: ByteArray
+
+        ): EbicsRequest {
+
+            return EbicsRequest().apply {
+                header = Header().apply {
+                    version = "H004"
+                    revision = 1
+                    authenticate = true
+                    static = StaticHeaderType().apply {
+                        hostID = hostId
+                        transactionID = transactionId
+                    }
+                    mutable = MutableHeader().apply {
+                        transactionPhase = EbicsTypes.TransactionPhaseType.TRANSFER
+                        segmentNumber = EbicsTypes.SegmentNumber().apply {
+                            lastSegment = true
+                            value = segNumber
+                        }
+                    }
+                }
+
+                authSignature = SignatureType()
+                body = EbicsRequest.Body().apply {
+                    dataTransfer = EbicsRequest.DataTransfer().apply {
+                        orderData = encryptedData
+                    }
+                }
+            }
+
+        fun createForDownloadInitializationPhase(): EbicsRequest {
+
+        }
+
+        fun createForDownloadTransferPhase(): EbicsRequest {
+
+
+        }
+
+        fun createForDownloadReceiptPhase(): EbicsRequest {
+
+        }
     }
 }

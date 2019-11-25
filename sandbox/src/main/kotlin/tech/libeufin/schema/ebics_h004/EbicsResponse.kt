@@ -22,7 +22,7 @@ class EbicsResponse {
     var revision: Int? = null
 
     @get:XmlElement(required = true)
-    lateinit var header: EbicsResponse.Header
+    lateinit var header: Header
 
     @get:XmlElement(name = "AuthSignature", required = true)
     lateinit var authSignature: SignatureType

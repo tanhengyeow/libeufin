@@ -2,6 +2,9 @@ package tech.libeufin.nexus
 
 import javax.crypto.SecretKey
 import org.w3c.dom.Document
+import java.security.PrivateKey
+import java.security.interfaces.RSAPrivateCrtKey
+import java.security.interfaces.RSAPublicKey
 import javax.xml.bind.JAXBElement
 
 
@@ -14,9 +17,9 @@ import javax.xml.bind.JAXBElement
 data class EbicsContainer<T>(
 
     // needed to verify responses
-    val bankAuthPubBlob: ByteArray? = null,
+    val bankAuthPub: RSAPublicKey? = null,
 
-    val bankEncPubBlob: ByteArray? = null,
+    val bankEncPub: RSAPublicKey? = null,
 
     // needed to send the message
     val ebicsUrl: String? = null,
@@ -28,10 +31,10 @@ data class EbicsContainer<T>(
     val plainTransactionKey: SecretKey? = null,
 
     // needed to decrypt data coming from the bank
-    val customerEncPrivBlob: ByteArray? = null,
+    val customerEncPriv: RSAPrivateCrtKey? = null,
 
     // needed to sign documents
-    val customerAuthPrivBlob: ByteArray? = null,
+    val customerAuthPriv: RSAPrivateCrtKey? = null,
 
     val jaxb: T? = null
 )
