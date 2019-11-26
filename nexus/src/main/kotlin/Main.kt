@@ -919,8 +919,8 @@ fun main() {
 
                     subscriber!!.bankEncryptionPublicKey = SerialBlob(
                         CryptoUtil.loadRsaPublicKeyFromComponents(
-                            data.authenticationPubKeyInfo.pubKeyValue.rsaKeyValue.modulus,
-                            data.authenticationPubKeyInfo.pubKeyValue.rsaKeyValue.exponent
+                            data.encryptionPubKeyInfo.pubKeyValue.rsaKeyValue.modulus,
+                            data.encryptionPubKeyInfo.pubKeyValue.rsaKeyValue.exponent
                         ).encoded
                     )
                 }
