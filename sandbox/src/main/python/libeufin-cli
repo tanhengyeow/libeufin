@@ -163,10 +163,10 @@ def prepare(ctx, customer_id):
     required=False,
     default=1)
 @click.option(
-    "--prepare",
+    "--prepare/--no-prepare",
     help="Gets keying done before requesting HTD",
     required=False,
-    default=True)
+    default=False)
 def htd(ctx, customer_id, prepare):
 
     if prepare:

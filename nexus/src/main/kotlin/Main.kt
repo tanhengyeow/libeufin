@@ -405,7 +405,7 @@ fun main() {
                 }
 
 
-                val response = client.postToBankUnsigned<EbicsRequest, EbicsResponse>(
+                val response = client.postToBankSigned<EbicsRequest, EbicsResponse>(
                     subscriberData.ebicsUrl,
                     EbicsRequest.createForDownloadInitializationPhase(
                         subscriberData.userId,
@@ -416,15 +416,14 @@ fun main() {
                         subscriberData.bankEncPub ?: throw BankKeyMissing(HttpStatusCode.PreconditionFailed),
                         subscriberData.bankAuthPub ?: throw BankKeyMissing(HttpStatusCode.PreconditionFailed),
                         "HTD"
-                    )
+                    ),
+                    subscriberData.customerAuthPriv
                 )
                 logger.debug("HTD response: " + XMLUtil.convertJaxbToString<EbicsResponse>(response.value))
 
                 if (response.value.body.returnCode.value != "000000") {
                     throw EbicsError(response.value.body.returnCode.value)
                 }
-
-                // extract payload
 
                 val er = CryptoUtil.EncryptionResult(
                     response.value.body.dataTransfer!!.dataEncryptionInfo!!.transactionKey,
@@ -444,7 +443,7 @@ fun main() {
 
                 val ackRequest = EbicsRequest.createForDownloadReceiptPhase(
                     response.value.header._static.transactionID ?: throw BankInvalidResponse(HttpStatusCode.ExpectationFailed),
-                    subscriberData.userId
+                    subscriberData.hostId
                 )
 
                 val ackResponse = client.postToBankSignedAndVerify<EbicsRequest, EbicsResponse>(
