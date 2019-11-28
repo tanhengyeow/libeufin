@@ -110,12 +110,18 @@ fun main() {
             signaturePrivateKey = SerialBlob(pairC.private.encoded)
         }
 
-        EbicsSubscriberEntity.new {
+        val subscriber = EbicsSubscriberEntity.new {
             partnerId = "PARTNER1"
             userId = "USER1"
             systemId = null
             state = SubscriberState.NEW
             nextOrderID = 1
+        }
+
+        BankCustomerEntity.new {
+            name = "Mina"
+            balance = 0
+            ebicsSubscriber = subscriber
         }
     }
 

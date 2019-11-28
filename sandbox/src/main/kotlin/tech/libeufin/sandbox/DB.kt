@@ -97,15 +97,28 @@ fun Blob.toByteArray(): ByteArray {
 object BankCustomersTable : IntIdTable() {
     // Customer ID is the default 'id' field provided by the constructor.
     val name = varchar("name", CUSTOMER_NAME_MAX_LENGTH).primaryKey()
-    val ebicsSubscriber = reference("ebicsSubscriber", EbicsSubscribersTable)
+    val balance = reference("balance", BalanceTable)
 }
 
 class BankCustomerEntity(id: EntityID<Int>) : IntEntity(id) {
     companion object : IntEntityClass<BankCustomerEntity>(BankCustomersTable)
-
     var name by BankCustomersTable.name
-    var ebicsSubscriber by EbicsSubscriberEntity referencedOn BankCustomersTable.ebicsSubscriber
+    val balance by BalanceTable referencedOn BankCustomersTable.balance
 }
+
+object BalanceTable : IntIdTable() {
+    // Customer ID is the default 'id' field provided by the constructor.
+    val value = int("value")
+    val fraction = int("fraction") // from 0 to 99
+}
+
+class BalanceEntity(id: EntityID<Int>) : IntEntity(id) {
+    companion object : IntEntityClass<BankCustomerEntity>(BankCustomersTable)
+
+    var balance by BalanceTable.balance
+}
+
+
 
 
 /**
@@ -163,6 +176,7 @@ object EbicsSubscribersTable : IntIdTable() {
     val nextOrderID = integer("nextOrderID")
 
     val state = enumeration("state", SubscriberState::class)
+    val balance = reference("balance", BalanceTable)
 }
 
 class EbicsSubscriberEntity(id: EntityID<Int>) : IntEntity(id) {
@@ -179,6 +193,7 @@ class EbicsSubscriberEntity(id: EntityID<Int>) : IntEntity(id) {
     var nextOrderID by EbicsSubscribersTable.nextOrderID
 
     var state by EbicsSubscribersTable.state
+    var balance by BalanceTable referencedOn EbicsSubscribersTable.balance
 }
 
 
