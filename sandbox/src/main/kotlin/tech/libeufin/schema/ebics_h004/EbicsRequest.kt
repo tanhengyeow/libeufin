@@ -305,6 +305,41 @@ class EbicsRequest {
 
         }
 
+        /* Take a time range (useful for C52 and C53) */
+        fun createForDownloadInitializationPhase(
+            userId: String,
+            partnerId: String,
+            hostId: String,
+            nonceArg: ByteArray,
+            date: XMLGregorianCalendar,
+            bankEncPub: RSAPublicKey,
+            bankAuthPub: RSAPublicKey,
+            aOrderType: String,
+            dateStart: XMLGregorianCalendar,
+            dateEnd: XMLGregorianCalendar
+        ): EbicsRequest {
+
+            val tmp = this.createForDownloadInitializationPhase(
+                userId,
+                partnerId,
+                hostId,
+                nonceArg,
+                date,
+                bankEncPub,
+                bankAuthPub,
+                aOrderType
+            )
+
+            (tmp.header.static.orderDetails?.orderParams as StandardOrderParams).apply {
+                dateRange?.apply {
+                    start = dateStart
+                    end = dateEnd
+                }
+            }
+
+            return tmp
+        }
+
         fun createForDownloadInitializationPhase(
             userId: String,
             partnerId: String,

@@ -9,6 +9,12 @@ data class EbicsBackupRequest(
     val passphrase: String
 )
 
+
+data class EbicsDateRange(
+    val start: String, // ISO 8601 calendar date
+    val end: String // ISO 8601 calendar date
+)
+
 /**
  * This object is used twice: as a response to the backup request,
  * and as a request to the backup restore.  Note: in the second case
