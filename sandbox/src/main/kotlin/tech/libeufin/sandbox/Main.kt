@@ -51,11 +51,23 @@ import javax.xml.bind.JAXBContext
 
 val logger: Logger = LoggerFactory.getLogger("tech.libeufin.sandbox")
 
-class CustomerNotFound(id: String?) : Exception("Customer {id} not found")
+class CustomerNotFound(id: String?) : Exception("Customer ${id} not found")
+class BadInputData(inputData: String?) : Exception("Customer provided invalid input data: ${inputData}")
+
 
 fun findCustomer(id: String?): BankCustomerEntity {
-    if (id == null) throw Exception("Client gave null value as 'id'")
-    return BankCustomerEntity.findById(id.toInt()) ?: throw CustomerNotFound(id)
+
+    val idN = try {
+        id!!.toInt()
+    } catch (e: Exception) {
+        e.printStackTrace()
+        throw BadInputData(id)
+    }
+
+    return transaction {
+
+        BankCustomerEntity.findById(idN) ?: throw CustomerNotFound(id)
+    }
 }
 
 fun findEbicsSubscriber(partnerID: String, userID: String, systemID: String?): EbicsSubscriberEntity? {
@@ -101,7 +113,6 @@ inline fun <reified T> Document.toObject(): T {
     return m.unmarshal(this, T::class.java).value
 }
 
-
 fun main() {
     dbCreateTables()
 
@@ -121,7 +132,7 @@ fun main() {
             name = "Mina"
             balance = BalanceEntity.new {
                 value = 0
-                fraction = 0
+                fraction = 99
             }
         }
 
@@ -159,10 +170,13 @@ fun main() {
         routing {
 
             get("/{id}/balance") {
-                val customer = findCustomer(call.parameters["id"])
+                val (name, value, fraction) = transaction {
+                    val tmp = findCustomer(call.parameters["id"])
+                    Triple(tmp.name, tmp.balance.value, tmp.balance.fraction)
+                }
                 call.respond(CustomerBalance(
-                    name = customer.name,
-                    balance = "EUR:{customer.balance.value}.{customer.balance.fraction}"
+                    name = name,
+                    balance = "EUR:${value}.${fraction}"
                 ))
             }
 
