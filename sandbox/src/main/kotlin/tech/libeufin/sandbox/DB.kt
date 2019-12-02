@@ -27,6 +27,7 @@ import org.jetbrains.exposed.sql.transactions.transaction
 import java.sql.Blob
 import java.sql.Connection
 
+
 const val CUSTOMER_NAME_MAX_LENGTH = 20
 const val EBICS_HOST_ID_MAX_LENGTH = 10
 const val EBICS_USER_ID_MAX_LENGTH = 10
@@ -103,22 +104,21 @@ object BankCustomersTable : IntIdTable() {
 class BankCustomerEntity(id: EntityID<Int>) : IntEntity(id) {
     companion object : IntEntityClass<BankCustomerEntity>(BankCustomersTable)
     var name by BankCustomersTable.name
-    val balance by BalanceTable referencedOn BankCustomersTable.balance
+    var balance by BalanceEntity referencedOn BankCustomersTable.balance
 }
 
 object BalanceTable : IntIdTable() {
     // Customer ID is the default 'id' field provided by the constructor.
-    val value = int("value")
-    val fraction = int("fraction") // from 0 to 99
+    val value = integer("value")
+    val fraction = integer("fraction") // from 0 to 99
 }
 
 class BalanceEntity(id: EntityID<Int>) : IntEntity(id) {
     companion object : IntEntityClass<BankCustomerEntity>(BankCustomersTable)
 
-    var balance by BalanceTable.balance
+    var value by BalanceTable.value
+    var fraction by BalanceTable.fraction
 }
-
-
 
 
 /**
@@ -193,7 +193,7 @@ class EbicsSubscriberEntity(id: EntityID<Int>) : IntEntity(id) {
     var nextOrderID by EbicsSubscribersTable.nextOrderID
 
     var state by EbicsSubscribersTable.state
-    var balance by BalanceTable referencedOn EbicsSubscribersTable.balance
+    var balance by BalanceEntity referencedOn EbicsSubscribersTable.balance
 }
 
 
