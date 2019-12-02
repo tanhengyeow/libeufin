@@ -20,9 +20,8 @@
 package tech.libeufin.sandbox
 
 import org.jetbrains.exposed.dao.*
-import org.jetbrains.exposed.sql.Database
+import org.jetbrains.exposed.sql.*
 import org.jetbrains.exposed.sql.transactions.TransactionManager
-import org.jetbrains.exposed.sql.SchemaUtils
 import org.jetbrains.exposed.sql.transactions.transaction
 import java.sql.Blob
 import java.sql.Connection
@@ -91,6 +90,22 @@ fun Blob.toByteArray(): ByteArray {
     return this.binaryStream.readAllBytes()
 }
 
+object BalanceTable : IntIdTable() {
+    // Customer ID is the default 'id' field provided by the constructor.
+    val value = integer("value")
+    val fraction = integer("fraction").check {
+        LessEqOp(it, intParam(100))
+    } // enforcing fractional values to be up to 100
+
+}
+
+class BalanceEntity(id: EntityID<Int>) : IntEntity(id) {
+    companion object : IntEntityClass<BalanceEntity>(BalanceTable)
+
+    var value by BalanceTable.value
+    var fraction by BalanceTable.fraction
+}
+
 /**
  * This table information *not* related to EBICS, for all
  * its customers.
@@ -106,20 +121,6 @@ class BankCustomerEntity(id: EntityID<Int>) : IntEntity(id) {
     var name by BankCustomersTable.name
     var balance by BalanceEntity referencedOn BankCustomersTable.balance
 }
-
-object BalanceTable : IntIdTable() {
-    // Customer ID is the default 'id' field provided by the constructor.
-    val value = integer("value")
-    val fraction = integer("fraction") // from 0 to 99
-}
-
-class BalanceEntity(id: EntityID<Int>) : IntEntity(id) {
-    companion object : IntEntityClass<BankCustomerEntity>(BankCustomersTable)
-
-    var value by BalanceTable.value
-    var fraction by BalanceTable.fraction
-}
-
 
 /**
  * This table stores RSA public keys of subscribers.

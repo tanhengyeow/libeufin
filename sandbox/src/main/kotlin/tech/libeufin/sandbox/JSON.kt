@@ -37,6 +37,11 @@ data class CustomerResponse(
     val id: Int
 )
 
+data class CustomerBalance(
+    val name: String,
+    val balance: String
+)
+
 /**
  * Response for GET /admin/customers/:id
  */
