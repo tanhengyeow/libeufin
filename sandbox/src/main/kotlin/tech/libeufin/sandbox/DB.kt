@@ -100,10 +100,10 @@ object BalancesTable : IntIdTable() {
 }
 
 class BalanceEntity(id: EntityID<Int>) : IntEntity(id) {
-    companion object : IntEntityClass<BalanceEntity>(BalanceTable)
+    companion object : IntEntityClass<BalanceEntity>(BalancesTable)
 
-    var value by BalanceTable.value
-    var fraction by BalanceTable.fraction
+    var value by BalancesTable.value
+    var fraction by BalancesTable.fraction
 }
 
 /**
@@ -113,7 +113,7 @@ class BalanceEntity(id: EntityID<Int>) : IntEntity(id) {
 object BankCustomersTable : IntIdTable() {
     // Customer ID is the default 'id' field provided by the constructor.
     val name = varchar("name", CUSTOMER_NAME_MAX_LENGTH).primaryKey()
-    val balance = reference("balance", BalanceTable)
+    val balance = reference("balance", BalancesTable)
 }
 
 class BankCustomerEntity(id: EntityID<Int>) : IntEntity(id) {
@@ -177,7 +177,7 @@ object EbicsSubscribersTable : IntIdTable() {
     val nextOrderID = integer("nextOrderID")
 
     val state = enumeration("state", SubscriberState::class)
-    val balance = reference("balance", BalanceTable)
+    val balance = reference("balance", BalancesTable)
 }
 
 class EbicsSubscriberEntity(id: EntityID<Int>) : IntEntity(id) {

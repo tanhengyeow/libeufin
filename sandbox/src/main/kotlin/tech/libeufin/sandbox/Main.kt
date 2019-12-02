@@ -125,7 +125,6 @@ fun main() {
             nextOrderID = 1
         }
 
-
         BankCustomerEntity.new {
             name = "Mina"
             balance = BalanceEntity.new {
