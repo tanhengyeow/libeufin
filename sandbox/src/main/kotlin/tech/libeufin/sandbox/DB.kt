@@ -90,7 +90,7 @@ fun Blob.toByteArray(): ByteArray {
     return this.binaryStream.readAllBytes()
 }
 
-object BalanceTable : IntIdTable() {
+object BalancesTable : IntIdTable() {
     // Customer ID is the default 'id' field provided by the constructor.
     val value = integer("value")
     val fraction = integer("fraction").check {
@@ -296,6 +296,7 @@ fun dbCreateTables() {
         // addLogger(StdOutSqlLogger)
 
         SchemaUtils.createMissingTablesAndColumns(
+            BalancesTable,
             BankCustomersTable,
             EbicsSubscribersTable,
             EbicsHostsTable,
