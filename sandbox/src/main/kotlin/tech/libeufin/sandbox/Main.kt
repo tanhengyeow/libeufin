@@ -17,6 +17,7 @@
  * <http://www.gnu.org/licenses/>
  */
 
+
 package tech.libeufin.sandbox
 
 import io.ktor.application.ApplicationCallPipeline
@@ -42,7 +43,6 @@ import org.jetbrains.exposed.sql.transactions.transaction
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 import org.w3c.dom.Document
-import java.lang.NumberFormatException
 import java.security.interfaces.RSAPublicKey
 import java.text.DateFormat
 import javax.sql.rowset.serial.SerialBlob
@@ -92,7 +92,6 @@ data class Subscriber(
     val keys: SubscriberKeys
 )
 
-
 data class SubscriberKeys(
     val authenticationPublicKey: RSAPublicKey,
     val encryptionPublicKey: RSAPublicKey,
@@ -128,21 +127,20 @@ fun main() {
             signaturePrivateKey = SerialBlob(pairC.private.encoded)
         }
 
+
         val customerEntity = BankCustomerEntity.new {
             name = "Mina"
-            balance = BalanceEntity.new {
-                value = 0
-                fraction = 99
+            balance = 0.toFloat()
             }
-        }
 
-        val subscriber = EbicsSubscriberEntity.new {
+
+        EbicsSubscriberEntity.new {
             partnerId = "PARTNER1"
             userId = "USER1"
             systemId = null
             state = SubscriberState.NEW
             nextOrderID = 1
-            balance = customerEntity.balance
+            bankCustomer = customerEntity
         }
     }
 
@@ -170,18 +168,17 @@ fun main() {
         routing {
 
             get("/{id}/balance") {
-                val (name, value, fraction) = transaction {
+                val (name, balanceFloat) = transaction {
                     val tmp = findCustomer(call.parameters["id"])
-                    Triple(tmp.name, tmp.balance.value, tmp.balance.fraction)
+                    Pair(tmp.name, tmp.balance)
                 }
-                call.respond(CustomerBalance(
+                call.respond(
+                    CustomerBalance(
                     name = name,
-                    balance = "EUR:${value}.${fraction}"
-                ))
+                    balance = "EUR:${balanceFloat}"
+                    )
+                )
             }
-
-
-            //trace { logger.info(it.buildText()) }
             get("/") {
                 call.respondText("Hello LibEuFin!\n", ContentType.Text.Plain)
             }

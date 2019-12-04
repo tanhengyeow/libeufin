@@ -16,23 +16,28 @@ class DbTest {
         Database.connect("jdbc:h2:mem:test;DB_CLOSE_DELAY=-1", driver = "org.h2.Driver")
 
         transaction {
-            SchemaUtils.create(BalancesTable)
-        }
 
-        assertFailsWith<ExposedSQLException> {
-            transaction {
-                BalanceEntity.new {
-                    value = 101
-                    fraction = 101
-                }
-            }
-        }
+            SchemaUtils.create(BankCustomersTable)
+            SchemaUtils.create(EbicsSubscribersTable)
+            SchemaUtils.create(EbicsSubscriberPublicKeysTable)
 
-        transaction {
-            BalanceEntity.new {
-                value = 101
-                fraction = 100
+            val customer = BankCustomerEntity.new {
+                name = "username"
+                balance = Float.MIN_VALUE
             }
+
+            val row = EbicsSubscriberEntity.new {
+                userId = "user id"
+                partnerId = "partner id"
+                nextOrderID = 0
+                state = SubscriberState.NEW
+                bankCustomer = customer
+            }
+
+            customer.balance = 100.toFloat()
+
+            logger.info("${row.bankCustomer.balance}")
+            assertTrue(row.bankCustomer.balance.equals(100.toFloat()))
         }
     }
 }

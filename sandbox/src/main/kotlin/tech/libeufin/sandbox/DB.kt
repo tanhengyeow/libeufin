@@ -90,22 +90,6 @@ fun Blob.toByteArray(): ByteArray {
     return this.binaryStream.readAllBytes()
 }
 
-object BalancesTable : IntIdTable() {
-    // Customer ID is the default 'id' field provided by the constructor.
-    val value = integer("value")
-    val fraction = integer("fraction").check {
-        LessEqOp(it, intParam(100))
-    } // enforcing fractional values to be up to 100
-
-}
-
-class BalanceEntity(id: EntityID<Int>) : IntEntity(id) {
-    companion object : IntEntityClass<BalanceEntity>(BalancesTable)
-
-    var value by BalancesTable.value
-    var fraction by BalancesTable.fraction
-}
-
 /**
  * This table information *not* related to EBICS, for all
  * its customers.
@@ -113,13 +97,13 @@ class BalanceEntity(id: EntityID<Int>) : IntEntity(id) {
 object BankCustomersTable : IntIdTable() {
     // Customer ID is the default 'id' field provided by the constructor.
     val name = varchar("name", CUSTOMER_NAME_MAX_LENGTH).primaryKey()
-    val balance = reference("balance", BalancesTable)
+    val balance = float("balance")
 }
 
 class BankCustomerEntity(id: EntityID<Int>) : IntEntity(id) {
     companion object : IntEntityClass<BankCustomerEntity>(BankCustomersTable)
     var name by BankCustomersTable.name
-    var balance by BalanceEntity referencedOn BankCustomersTable.balance
+    var balance by BankCustomersTable.balance
 }
 
 /**
@@ -129,7 +113,6 @@ object EbicsSubscriberPublicKeysTable : IntIdTable() {
     val rsaPublicKey = blob("rsaPublicKey")
     val state = enumeration("state", KeyState::class)
 }
-
 
 /**
  * Definition of a row in the [EbicsSubscriberPublicKeyEntity] table
@@ -177,8 +160,9 @@ object EbicsSubscribersTable : IntIdTable() {
     val nextOrderID = integer("nextOrderID")
 
     val state = enumeration("state", SubscriberState::class)
-    val balance = reference("balance", BalancesTable)
+    val bankCustomer = reference("bankCustomer", BankCustomersTable)
 }
+
 
 class EbicsSubscriberEntity(id: EntityID<Int>) : IntEntity(id) {
     companion object : IntEntityClass<EbicsSubscriberEntity>(EbicsSubscribersTable)
@@ -192,9 +176,8 @@ class EbicsSubscriberEntity(id: EntityID<Int>) : IntEntity(id) {
     var authenticationKey by EbicsSubscriberPublicKeyEntity optionalReferencedOn EbicsSubscribersTable.authenticationKey
 
     var nextOrderID by EbicsSubscribersTable.nextOrderID
-
     var state by EbicsSubscribersTable.state
-    var balance by BalanceEntity referencedOn EbicsSubscribersTable.balance
+    var bankCustomer by BankCustomerEntity referencedOn EbicsSubscribersTable.bankCustomer
 }
 
 
@@ -297,7 +280,6 @@ fun dbCreateTables() {
         // addLogger(StdOutSqlLogger)
 
         SchemaUtils.createMissingTablesAndColumns(
-            BalancesTable,
             BankCustomersTable,
             EbicsSubscribersTable,
             EbicsHostsTable,
