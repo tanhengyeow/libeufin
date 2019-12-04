@@ -4,6 +4,7 @@ import org.jetbrains.exposed.exceptions.ExposedSQLException
 import org.jetbrains.exposed.sql.Database
 import org.jetbrains.exposed.sql.SchemaUtils
 import org.jetbrains.exposed.sql.transactions.transaction
+import org.joda.time.DateTime
 import org.junit.Test
 import kotlin.test.assertFailsWith
 import kotlin.test.assertTrue
@@ -17,27 +18,22 @@ class DbTest {
 
         transaction {
 
+            SchemaUtils.create(BankTransactionsTable)
             SchemaUtils.create(BankCustomersTable)
-            SchemaUtils.create(EbicsSubscribersTable)
-            SchemaUtils.create(EbicsSubscriberPublicKeysTable)
 
             val customer = BankCustomerEntity.new {
-                name = "username"
-                balance = Float.MIN_VALUE
+                name = "employee"
             }
 
-            val row = EbicsSubscriberEntity.new {
-                userId = "user id"
-                partnerId = "partner id"
-                nextOrderID = 0
-                state = SubscriberState.NEW
-                bankCustomer = customer
+            val ledgerEntry = BankTransactionEntity.new {
+                amountSign = 1
+                amountValue = 5
+                amountFraction = 0
+                counterpart = "IBAN"
+                subject = "Salary"
+                date = DateTime.now()
+                localCustomer = customer
             }
-
-            customer.balance = 100.toFloat()
-
-            logger.info("${row.bankCustomer.balance}")
-            assertTrue(row.bankCustomer.balance.equals(100.toFloat()))
         }
     }
 }

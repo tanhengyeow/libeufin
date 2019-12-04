@@ -28,7 +28,6 @@ def cli(ctx, base_url, bank_base_url):
 def ebics():
     pass
 
-
 @ebics.command(help="Restore private keys backup.")
 @click.pass_obj
 @click.option(

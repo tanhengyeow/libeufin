@@ -32,6 +32,8 @@ const val EBICS_HOST_ID_MAX_LENGTH = 10
 const val EBICS_USER_ID_MAX_LENGTH = 10
 const val EBICS_PARTNER_ID_MAX_LENGTH = 10
 const val EBICS_SYSTEM_ID_MAX_LENGTH = 10
+const val MAX_ID_LENGTH = 21 // enough to contain IBANs
+const val MAX_SUBJECT_LENGTH = 140 // okay?
 
 /**
  * All the states to give a subscriber.
@@ -90,6 +92,39 @@ fun Blob.toByteArray(): ByteArray {
     return this.binaryStream.readAllBytes()
 }
 
+object BankTransactionsTable : IntIdTable() {
+
+    /* Using varchar to store the IBAN - or possibly other formats
+     * - from the counterpart.  */
+    val counterpart = varchar("counterpart", MAX_ID_LENGTH)
+    val amountSign = integer("amountSign").check { (it eq 1) or (it eq -1)}
+    val amountValue = integer("amountValue").check { GreaterEqOp(it, intParam(0)) }
+    val amountFraction = integer("amountFraction").check { LessOp(it, intParam(100)) }
+    val subject = varchar("subject", MAX_SUBJECT_LENGTH)
+    val date = date("date")
+    val localCustomer = reference("localCustomer", BankCustomersTable)
+}
+
+class BankTransactionEntity(id: EntityID<Int>) : IntEntity(id) {
+
+    companion object : IntEntityClass<BankTransactionEntity>(BankTransactionsTable)
+
+    /* the id of the local customer involved in this transaction,
+    * either as the credit or the debit part; makes lookups easier */
+    var localCustomer by BankCustomerEntity referencedOn BankTransactionsTable.localCustomer
+
+    /* keeping as strings, as to allow hosting IBANs and/or other
+    * unobvious formats.  */
+    var counterpart by BankTransactionsTable.counterpart
+
+    var subject by BankTransactionsTable.subject
+    var date by BankTransactionsTable.date
+
+    var amountValue by BankTransactionsTable.amountValue
+    var amountFraction by BankTransactionsTable.amountFraction
+    var amountSign by BankTransactionsTable.amountSign
+}
+
 /**
  * This table information *not* related to EBICS, for all
  * its customers.
@@ -97,14 +132,13 @@ fun Blob.toByteArray(): ByteArray {
 object BankCustomersTable : IntIdTable() {
     // Customer ID is the default 'id' field provided by the constructor.
     val name = varchar("name", CUSTOMER_NAME_MAX_LENGTH).primaryKey()
-    val balance = float("balance")
 }
 
 class BankCustomerEntity(id: EntityID<Int>) : IntEntity(id) {
     companion object : IntEntityClass<BankCustomerEntity>(BankCustomersTable)
     var name by BankCustomersTable.name
-    var balance by BankCustomersTable.balance
 }
+
 
 /**
  * This table stores RSA public keys of subscribers.

@@ -130,7 +130,6 @@ fun main() {
 
         val customerEntity = BankCustomerEntity.new {
             name = "Mina"
-            balance = 0.toFloat()
             }
 
 
@@ -168,17 +167,19 @@ fun main() {
         routing {
 
             get("/{id}/balance") {
-                val (name, balanceFloat) = transaction {
-                    val tmp = findCustomer(call.parameters["id"])
-                    Pair(tmp.name, tmp.balance)
+                val (name, balance) = transaction {
+                    val tmp: BankCustomerEntity = findCustomer(call.parameters["id"])
+                    Pair(tmp.name, 0) // fixme/todo!
                 }
+
                 call.respond(
                     CustomerBalance(
                     name = name,
-                    balance = "EUR:${balanceFloat}"
+                    balance = "EUR:${balance}"
                     )
                 )
             }
+
             get("/") {
                 call.respondText("Hello LibEuFin!\n", ContentType.Text.Plain)
             }
