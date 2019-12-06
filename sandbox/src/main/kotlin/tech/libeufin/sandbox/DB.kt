@@ -371,6 +371,7 @@ fun dbCreateTables() {
     transaction {
 
         SchemaUtils.createMissingTablesAndColumns(
+            BankTransactionsTable,
             BankCustomersTable,
             EbicsSubscribersTable,
             EbicsHostsTable,

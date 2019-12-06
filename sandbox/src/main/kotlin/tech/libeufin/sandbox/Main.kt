@@ -40,6 +40,7 @@ import io.ktor.server.engine.embeddedServer
 import io.ktor.server.netty.Netty
 import org.jetbrains.exposed.sql.and
 import org.jetbrains.exposed.sql.transactions.transaction
+import org.joda.time.DateTime
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 import org.w3c.dom.Document
@@ -118,6 +119,10 @@ inline fun <reified T> Document.toObject(): T {
     return m.unmarshal(this, T::class.java).value
 }
 
+fun sampleTransactions() {
+
+}
+
 fun main() {
     dbCreateTables()
 
@@ -138,7 +143,6 @@ fun main() {
             name = "Mina"
             }
 
-
         EbicsSubscriberEntity.new {
             partnerId = "PARTNER1"
             userId = "USER1"
@@ -146,6 +150,17 @@ fun main() {
             state = SubscriberState.NEW
             nextOrderID = 1
             bankCustomer = customerEntity
+        }
+
+        for (i in 1..10) {
+            BankTransactionEntity.new {
+                counterpart = "IBAN"
+                amount = Amount(1)
+                subject = "transaction $i"
+                date = DateTime.now()
+                localCustomer = customerEntity
+            }
+
         }
     }
 
@@ -179,7 +194,14 @@ fun main() {
             get("/{id}/balance") {
                 val (name, balance) = transaction {
                     val tmp: BankCustomerEntity = findCustomer(call.parameters["id"])
-                    Pair(tmp.name, 0) // fixme/todo!
+
+                    var ret = Amount(0)
+                    BankTransactionEntity.find {
+                        BankTransactionsTable.localCustomer eq tmp.id
+                    }.forEach {
+                        ret += it.amount
+                    }
+                    Pair(tmp.name, ret)
                 }
 
                 call.respond(
@@ -188,6 +210,8 @@ fun main() {
                     balance = "EUR:${balance}"
                     )
                 )
+
+                return@get
             }
 
             get("/") {
