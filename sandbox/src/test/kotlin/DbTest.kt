@@ -6,9 +6,7 @@ import org.jetbrains.exposed.sql.SchemaUtils
 import org.jetbrains.exposed.sql.transactions.transaction
 import org.joda.time.DateTime
 import org.junit.Before
-import org.junit.Rule
 import org.junit.Test
-import org.junit.rules.ExpectedException
 import java.io.ByteArrayOutputStream
 import java.io.PrintStream
 import java.math.BigDecimal
@@ -18,8 +16,6 @@ import java.math.RoundingMode
 import kotlin.math.abs
 import kotlin.test.assertFailsWith
 import kotlin.test.assertTrue
-
-
 
 
 class DbTest {
@@ -43,7 +39,6 @@ class DbTest {
     fun goodAmount() {
 
         transaction {
-
             BankTransactionEntity.new {
                 amount = Amount("1")
                 counterpart = "IBAN"
