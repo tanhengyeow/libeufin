@@ -19,10 +19,15 @@
 
 package tech.libeufin.sandbox
 
+import io.ktor.http.HttpStatusCode
 import org.jetbrains.exposed.dao.*
 import org.jetbrains.exposed.sql.*
 import org.jetbrains.exposed.sql.transactions.TransactionManager
 import org.jetbrains.exposed.sql.transactions.transaction
+import java.lang.ArithmeticException
+import java.math.BigDecimal
+import java.math.MathContext
+import java.math.RoundingMode
 import java.sql.Blob
 import java.sql.Connection
 
@@ -92,14 +97,67 @@ fun Blob.toByteArray(): ByteArray {
     return this.binaryStream.readAllBytes()
 }
 
-object BankTransactionsTable : IntIdTable() {
+/**
+ * Any number can become a Amount IF it does NOT need to be rounded to comply to the scale == 2.
+ */
+typealias Amount = BigDecimal
+
+open class IntIdTableWithAmount : IntIdTable() {
+
+    class AmountColumnType : ColumnType() {
+        override fun sqlType(): String  = "DECIMAL(${NUMBER_MAX_DIGITS}, ${SCALE_TWO})"
+
+        override fun valueFromDB(value: Any): Any {
+
+            val valueFromDB = super.valueFromDB(value)
+            try {
+                return when (valueFromDB) {
+                    is BigDecimal -> valueFromDB.setScale(SCALE_TWO, RoundingMode.UNNECESSARY)
+                    is Double -> BigDecimal.valueOf(valueFromDB).setScale(SCALE_TWO, RoundingMode.UNNECESSARY)
+                    is Float -> BigDecimal(java.lang.Float.toString(valueFromDB)).setScale(
+                        SCALE_TWO,
+                        RoundingMode.UNNECESSARY
+                    )
+                    is Int -> BigDecimal(valueFromDB)
+                    is Long -> BigDecimal.valueOf(valueFromDB)
+                    else -> valueFromDB
+                }
+            } catch (e: Exception) {
+                e.printStackTrace()
+                throw BadAmount(value)
+            }
+
+        }
+
+        override fun valueToDB(value: Any?): Any? {
+
+            try {
+                (value as BigDecimal).setScale(SCALE_TWO, RoundingMode.UNNECESSARY)
+            } catch (e: Exception) {
+                e.printStackTrace()
+                throw BadAmount(value)
+            }
+
+            return super.valueToDB(value)
+        }
+    }
+
+    /**
+     * Make sure the number entered by upper layers does not need any rounding
+     * to conform to scale == 2
+     */
+    fun amount(name: String): Column<Amount> {
+        return registerColumn(name, AmountColumnType())
+    }
+}
+
+
+object BankTransactionsTable : IntIdTableWithAmount() {
 
     /* Using varchar to store the IBAN - or possibly other formats
      * - from the counterpart.  */
     val counterpart = varchar("counterpart", MAX_ID_LENGTH)
-    val amountSign = integer("amountSign").check { (it eq 1) or (it eq -1)}
-    val amountValue = integer("amountValue").check { GreaterEqOp(it, intParam(0)) }
-    val amountFraction = integer("amountFraction").check { LessOp(it, intParam(100)) }
+    val amount = amount("amount")
     val subject = varchar("subject", MAX_SUBJECT_LENGTH)
     val date = date("date")
     val localCustomer = reference("localCustomer", BankCustomersTable)
@@ -119,11 +177,11 @@ class BankTransactionEntity(id: EntityID<Int>) : IntEntity(id) {
 
     var subject by BankTransactionsTable.subject
     var date by BankTransactionsTable.date
-
-    var amountValue by BankTransactionsTable.amountValue
-    var amountFraction by BankTransactionsTable.amountFraction
-    var amountSign by BankTransactionsTable.amountSign
+    var amount by BankTransactionsTable.amount
 }
+
+
+
 
 /**
  * This table information *not* related to EBICS, for all
@@ -311,7 +369,6 @@ fun dbCreateTables() {
     TransactionManager.manager.defaultIsolationLevel = Connection.TRANSACTION_SERIALIZABLE
 
     transaction {
-        // addLogger(StdOutSqlLogger)
 
         SchemaUtils.createMissingTablesAndColumns(
             BankCustomersTable,

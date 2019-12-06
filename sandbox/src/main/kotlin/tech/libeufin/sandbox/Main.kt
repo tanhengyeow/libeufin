@@ -43,6 +43,8 @@ import org.jetbrains.exposed.sql.transactions.transaction
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 import org.w3c.dom.Document
+import java.lang.ArithmeticException
+import java.math.BigDecimal
 import java.security.interfaces.RSAPublicKey
 import java.text.DateFormat
 import javax.sql.rowset.serial.SerialBlob
@@ -53,6 +55,10 @@ val logger: Logger = LoggerFactory.getLogger("tech.libeufin.sandbox")
 
 class CustomerNotFound(id: String?) : Exception("Customer ${id} not found")
 class BadInputData(inputData: String?) : Exception("Customer provided invalid input data: ${inputData}")
+class BadAmount(badValue: Any?) : Exception("Value '${badValue}' is not a valid amount")
+class UnacceptableFractional(statusCode: HttpStatusCode, badNumber: BigDecimal) : Exception(
+    "Unacceptable fractional part ${badNumber}"
+)
 
 
 fun findCustomer(id: String?): BankCustomerEntity {
@@ -155,6 +161,10 @@ fun main() {
             exception<Throwable> { cause ->
                 logger.error("Exception while handling '${call.request.uri}'", cause)
                 call.respondText("Internal server error.", ContentType.Text.Plain, HttpStatusCode.InternalServerError)
+            }
+            exception<ArithmeticException> { cause ->
+                logger.error("Exception while handling '${call.request.uri}'", cause)
+                call.respondText("Invalid arithmetic attempted.", ContentType.Text.Plain, HttpStatusCode.InternalServerError)
             }
         }
         // TODO: add another intercept call that adds schema validation before the response is sent
