@@ -39,6 +39,8 @@ const val EBICS_PARTNER_ID_MAX_LENGTH = 10
 const val EBICS_SYSTEM_ID_MAX_LENGTH = 10
 const val MAX_ID_LENGTH = 21 // enough to contain IBANs
 const val MAX_SUBJECT_LENGTH = 140 // okay?
+const val NUMBER_MAX_DIGITS = 20
+const val SCALE_TWO = 2
 
 /**
  * All the states to give a subscriber.
@@ -179,8 +181,6 @@ class BankTransactionEntity(id: EntityID<Int>) : IntEntity(id) {
     var date by BankTransactionsTable.date
     var amount by BankTransactionsTable.amount
 }
-
-
 
 
 /**

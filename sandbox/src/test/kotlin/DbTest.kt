@@ -73,7 +73,6 @@ class DbTest {
 
     @Test
     fun badAmount() {
-
         assertFailsWith<BadAmount> {
             transaction {
                 BankTransactionEntity.new {
