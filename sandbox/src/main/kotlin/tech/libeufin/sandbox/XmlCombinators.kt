@@ -1,15 +1,31 @@
 package tech.libeufin.sandbox
 
 import com.sun.xml.txw2.output.IndentingXMLStreamWriter
+import org.jetbrains.exposed.sql.Op
 import java.io.StringWriter
+import java.util.*
 import javax.xml.stream.XMLOutputFactory
 import javax.xml.stream.XMLStreamWriter
 
 class XmlElementBuilder(val w: XMLStreamWriter) {
-    fun element(name: String, f: XmlElementBuilder.() -> Unit = {}) {
-        w.writeStartElement(name)
-        f(this)
+
+    fun element(path: MutableList<String>, f: XmlElementBuilder.() -> Unit = {}) {
+
+        if (path.isEmpty()) {
+            f(this)
+            return
+        }
+
+        w.writeStartElement(path.removeAt(0))
+        this.element(path, f)
         w.writeEndElement()
+
+    }
+
+    fun element(path: String, f: XmlElementBuilder.() -> Unit = {}) {
+
+        val splitPath = path.trim('/').split("/").toMutableList()
+        this.element(splitPath, f)
     }
 
     fun attribute(name: String, value: String) {

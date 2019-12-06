@@ -22,13 +22,20 @@ package tech.libeufin.sandbox
 import org.junit.Test
 
 class XmlCombinatorsTest {
+
     @Test
     fun testBasicXmlBuilding() {
         val s = constructXml(indent = true) {
             namespace("ebics", "urn:org:ebics:H004")
             root("ebics:ebicsRequest") {
                 attribute("version", "H004")
-                element("foo")
+                element("a/b/c") {
+                    attribute("attribute-of", "c")
+                    element("//d/e/f//") {
+                        attribute("nested", "true")
+                        element("g/h/")
+                    }
+                }
             }
         }
         println(s)
