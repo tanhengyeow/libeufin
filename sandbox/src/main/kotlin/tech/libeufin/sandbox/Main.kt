@@ -157,7 +157,7 @@ fun main() {
             bankCustomer = customerEntity
         }
 
-        for (i in listOf<Amount>(Amount(1), Amount(-3), Amount(9), Amount("6.02"))) {
+        for (i in listOf<Amount>(Amount("-0.44"), Amount("6.02"))) {
             BankTransactionEntity.new {
                 counterpart = "IBAN"
                 amount = i
