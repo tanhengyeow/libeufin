@@ -155,7 +155,7 @@ fun main() {
             bankCustomer = customerEntity
         }
 
-        for (i in IntRange(0, 4) + IntRange(6, 10)) {
+        for (i in listOf(1, 3, 9, 10)) {
             BankTransactionEntity.new {
                 counterpart = "IBAN"
                 amount = Amount(5 - i)
@@ -207,9 +207,12 @@ fun main() {
                 val ret = CustomerHistoryResponse()
 
                 transaction {
+                    val customer = findCustomer(call.parameters["id"])
 
                     BankTransactionEntity.find {
-                        BankTransactionsTable.date.between(startDate, endDate)
+                        BankTransactionsTable.localCustomer eq customer.id and
+                                BankTransactionsTable.date.between(startDate, endDate)
+
                     }.forEach {
                         ret.history.add(
                             CustomerHistoryResponseElement(
@@ -242,7 +245,7 @@ fun main() {
                 call.respond(
                     CustomerBalance(
                     name = name,
-                    balance = "EUR:${balance}"
+                    balance = "${balance} EUR"
                     )
                 )
 
