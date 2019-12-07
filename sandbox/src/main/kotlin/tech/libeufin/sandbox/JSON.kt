@@ -54,6 +54,22 @@ data class CustomerEbicsInfo(
     val userId: String
 )
 
+data class CustomerHistoryRequest(
+    val start: String,
+    val end: String
+)
+
+data class CustomerHistoryResponseElement(
+    var amount: String,
+    val subject: String,
+    val counterpart: String,
+    val date: String
+)
+
+data class CustomerHistoryResponse(
+    var history: MutableList<CustomerHistoryResponseElement> = mutableListOf()
+)
+
 /**
  * Wrapper type around initialization letters
  * for RSA keys.

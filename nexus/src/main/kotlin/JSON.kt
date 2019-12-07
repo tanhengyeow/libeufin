@@ -2,7 +2,7 @@ package tech.libeufin.nexus
 
 import com.google.gson.annotations.JsonAdapter
 import com.squareup.moshi.JsonClass
-
+import org.joda.time.DateTime
 
 
 data class EbicsBackupRequest(
@@ -57,11 +57,4 @@ data class EbicsSubscriberInfoResponse(
  */
 data class EbicsSubscribersResponse(
     val ebicsSubscribers: List<EbicsSubscriberInfoResponse>
-)
-
-/**
- * Error message.
- */
-data class NexusError(
-    val message: String
 )

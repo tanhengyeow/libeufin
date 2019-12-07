@@ -14,6 +14,7 @@ import java.math.BigInteger
 import java.math.MathContext
 import java.math.RoundingMode
 import kotlin.math.abs
+import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertTrue
 
@@ -85,6 +86,35 @@ class DbTest {
                     }
                 }
             }
+        }
+    }
+
+    @Test
+    fun timeBasedQuery() {
+
+
+        val NQUERIES = 10
+
+        transaction {
+
+            for (i in 1..NQUERIES) {
+                BankTransactionEntity.new {
+                    amount = Amount("1")
+                    counterpart = "IBAN"
+                    subject = "Salary"
+                    date = DateTime.now()
+                    localCustomer = BankCustomerEntity.new {
+                        name = "employee"
+                    }
+                }
+            }
+
+            assertEquals(
+                NQUERIES,
+                BankTransactionEntity.find {
+                    BankTransactionsTable.date.between(DateTime.parse("1970-01-01"), DateTime.parse("2999-12-31"))
+                }.count()
+            )
         }
     }
 }

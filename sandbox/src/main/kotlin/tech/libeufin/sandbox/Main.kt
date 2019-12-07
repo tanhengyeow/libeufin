@@ -38,7 +38,10 @@ import io.ktor.routing.post
 import io.ktor.routing.routing
 import io.ktor.server.engine.embeddedServer
 import io.ktor.server.netty.Netty
+import org.jetbrains.exposed.sql.GreaterEqOp
+import org.jetbrains.exposed.sql.LessEqOp
 import org.jetbrains.exposed.sql.and
+import org.jetbrains.exposed.sql.dateTimeParam
 import org.jetbrains.exposed.sql.transactions.transaction
 import org.joda.time.DateTime
 import org.slf4j.Logger
@@ -152,10 +155,10 @@ fun main() {
             bankCustomer = customerEntity
         }
 
-        for (i in 1..10) {
+        for (i in IntRange(0, 4) + IntRange(6, 10)) {
             BankTransactionEntity.new {
                 counterpart = "IBAN"
-                amount = Amount(1)
+                amount = Amount(5 - i)
                 subject = "transaction $i"
                 date = DateTime.now()
                 localCustomer = customerEntity
@@ -190,6 +193,38 @@ fun main() {
             }
         }
         routing {
+
+            post("/{id}/history") {
+
+                logger.debug("/history fired up")
+
+                val req = call.receive<CustomerHistoryRequest>()
+                val startDate = DateTime.parse(req.start)
+                val endDate = DateTime.parse(req.end)
+
+                logger.debug("Fetching history from ${startDate.toString()}, to ${endDate.toString()}")
+
+                val ret = CustomerHistoryResponse()
+
+                transaction {
+
+                    BankTransactionEntity.find {
+                        BankTransactionsTable.date.between(startDate, endDate)
+                    }.forEach {
+                        ret.history.add(
+                            CustomerHistoryResponseElement(
+                                subject = it.subject,
+                                amount = "${it.amount.toString()} EUR",
+                                counterpart = it.counterpart,
+                                date = it.date.toString("Y-M-d")
+                            )
+                        )
+                    }
+                }
+
+                call.respond(ret)
+                return@post
+            }
 
             get("/{id}/balance") {
                 val (name, balance) = transaction {

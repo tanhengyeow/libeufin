@@ -112,6 +112,7 @@ open class IntIdTableWithAmount : IntIdTable() {
         override fun valueFromDB(value: Any): Any {
 
             val valueFromDB = super.valueFromDB(value)
+
             try {
                 return when (valueFromDB) {
                     is BigDecimal -> valueFromDB.setScale(SCALE_TWO, RoundingMode.UNNECESSARY)
@@ -128,11 +129,9 @@ open class IntIdTableWithAmount : IntIdTable() {
                 e.printStackTrace()
                 throw BadAmount(value)
             }
-
         }
 
         override fun valueToDB(value: Any?): Any? {
-
             try {
                 (value as BigDecimal).setScale(SCALE_TWO, RoundingMode.UNNECESSARY)
             } catch (e: Exception) {
@@ -140,6 +139,10 @@ open class IntIdTableWithAmount : IntIdTable() {
                 throw BadAmount(value)
             }
 
+            if ((value as BigDecimal).compareTo(BigDecimal.ZERO) == 0) {
+                logger.error("Cannot have transactions of ZERO amount")
+                throw BadAmount(value)
+            }
             return super.valueToDB(value)
         }
     }

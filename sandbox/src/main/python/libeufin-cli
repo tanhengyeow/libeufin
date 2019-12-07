@@ -280,7 +280,7 @@ def new(obj, user_id, partner_id, system_id, host_id, ebics_url):
         partner_id = "PARTNER{}".format(salt)
 
     url = urljoin(obj["base_url"], "/ebics/subscribers")
-    body = json=dict(
+    body = dict(
             ebicsURL=obj["base_url"],
             userID=user_id,
             partnerID=partner_id,
@@ -292,6 +292,26 @@ def new(obj, user_id, partner_id, system_id, host_id, ebics_url):
 
     try:
         resp = post(url, json=body)
+    except Exception:
+        print("Could not reach the bank")
+        return
+
+    print(resp.content.decode("utf-8"))
+
+@nonebics.command(help="Ask the list of transactions related to one account")
+@click.pass_obj
+@click.option(
+    "--user-id",
+    help="ID of the bank customer (no EBICS correlation implied/needed)" ,
+    required=False,
+    default=1
+)
+def history(obj, user_id):
+
+    url = urljoin(obj["bank_base_url"], f"/{user_id}/history")
+    print(url)
+    try:
+        resp = post(url, json=dict(start="2000-01-01", end="2999-12-31"))
     except Exception:
         print("Could not reach the bank")
         return

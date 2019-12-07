@@ -41,6 +41,7 @@ import io.ktor.server.netty.Netty
 import org.apache.xml.security.binding.xmldsig.RSAKeyValueType
 import org.apache.xml.security.binding.xmldsig.SignatureType
 import org.jetbrains.exposed.sql.transactions.transaction
+import org.joda.time.DateTime
 import org.slf4j.LoggerFactory
 import tech.libeufin.sandbox.*
 import tech.libeufin.schema.ebics_h004.*
@@ -197,9 +198,10 @@ fun main() {
                 val id = expectId(call.parameters["id"])
                 val body = call.receive<EbicsDateRange>()
 
-                val startDate = LocalDate.parse(body.start)
-                val endDate = LocalDate.parse(body.end)
+                val startDate = DateTime.parse(body.start)
+                val endDate = DateTime.parse(body.end)
                 // will throw DateTimeParseException if strings are malformed.
+
 
 
                 val subscriberData = transaction {
@@ -213,8 +215,8 @@ fun main() {
                         "C52",
                         getNonce(128),
                         getGregorianDate(),
-                        getGregorianDate(startDate.year, startDate.monthValue, startDate.dayOfMonth),
-                        getGregorianDate(endDate.year, endDate.monthValue, endDate.dayOfMonth)
+                        getGregorianDate(startDate.year, startDate.monthOfYear, startDate.dayOfMonth),
+                        getGregorianDate(endDate.year, endDate.monthOfYear, endDate.dayOfMonth)
                     ),
                     subscriberData.customerAuthPriv
                 )
