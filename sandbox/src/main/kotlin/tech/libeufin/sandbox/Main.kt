@@ -122,8 +122,10 @@ inline fun <reified T> Document.toObject(): T {
     return m.unmarshal(this, T::class.java).value
 }
 
-fun sampleTransactions() {
+fun BigDecimal.signToString(): String {
 
+    return if (this.signum() > 0) "+" else ""
+    // minus sign is added by default already.
 }
 
 fun main() {
@@ -155,10 +157,10 @@ fun main() {
             bankCustomer = customerEntity
         }
 
-        for (i in listOf(1, 3, 9, 10)) {
+        for (i in listOf<Amount>(Amount(1), Amount(-3), Amount(9), Amount("6.02"))) {
             BankTransactionEntity.new {
                 counterpart = "IBAN"
-                amount = Amount(5 - i)
+                amount = i
                 subject = "transaction $i"
                 date = DateTime.now()
                 localCustomer = customerEntity
@@ -217,7 +219,7 @@ fun main() {
                         ret.history.add(
                             CustomerHistoryResponseElement(
                                 subject = it.subject,
-                                amount = "${it.amount.toString()} EUR",
+                                amount = "${it.amount.signToString()}${it.amount.toString()} EUR",
                                 counterpart = it.counterpart,
                                 date = it.date.toString("Y-M-d")
                             )
