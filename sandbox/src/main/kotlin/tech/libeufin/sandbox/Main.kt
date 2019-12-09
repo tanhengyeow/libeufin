@@ -46,6 +46,7 @@ import org.jetbrains.exposed.sql.transactions.transaction
 import org.joda.time.DateTime
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
+import org.slf4j.event.Level
 import org.w3c.dom.Document
 import java.lang.ArithmeticException
 import java.math.BigDecimal
@@ -54,8 +55,6 @@ import java.text.DateFormat
 import javax.sql.rowset.serial.SerialBlob
 import javax.xml.bind.JAXBContext
 
-
-val logger: Logger = LoggerFactory.getLogger("tech.libeufin.sandbox")
 
 class CustomerNotFound(id: String?) : Exception("Customer ${id} not found")
 class BadInputData(inputData: String?) : Exception("Customer provided invalid input data: ${inputData}")
@@ -128,8 +127,7 @@ fun BigDecimal.signToString(): String {
     // minus sign is added by default already.
 }
 
-fun main() {
-    dbCreateTables()
+fun sampleData() {
 
     transaction {
         val pairA = CryptoUtil.generateRsaKeyPair(2048)
@@ -146,7 +144,7 @@ fun main() {
 
         val customerEntity = BankCustomerEntity.new {
             name = "Mina"
-            }
+        }
 
         EbicsSubscriberEntity.new {
             partnerId = "PARTNER1"
@@ -169,8 +167,22 @@ fun main() {
         }
     }
 
+
+}
+
+val LOGGER: Logger = LoggerFactory.getLogger("tech.libeufin.sandbox")
+
+fun main() {
+
+    dbCreateTables()
+    sampleData()
+
     val server = embeddedServer(Netty, port = 5000) {
-        install(CallLogging)
+        install(CallLogging) {
+            this.level = Level.DEBUG
+            this.logger = LOGGER
+
+        }
         install(ContentNegotiation) {
             gson {
                 setDateFormat(DateFormat.LONG)
@@ -179,11 +191,11 @@ fun main() {
         }
         install(StatusPages) {
             exception<Throwable> { cause ->
-                logger.error("Exception while handling '${call.request.uri}'", cause)
+                LOGGER.error("Exception while handling '${call.request.uri}'", cause)
                 call.respondText("Internal server error.", ContentType.Text.Plain, HttpStatusCode.InternalServerError)
             }
             exception<ArithmeticException> { cause ->
-                logger.error("Exception while handling '${call.request.uri}'", cause)
+                LOGGER.error("Exception while handling '${call.request.uri}'", cause)
                 call.respondText("Invalid arithmetic attempted.", ContentType.Text.Plain, HttpStatusCode.InternalServerError)
             }
         }
@@ -198,13 +210,13 @@ fun main() {
 
             post("/{id}/history") {
 
-                logger.debug("/history fired up")
+                LOGGER.debug("/history fired up")
 
                 val req = call.receive<CustomerHistoryRequest>()
                 val startDate = DateTime.parse(req.start)
                 val endDate = DateTime.parse(req.end)
 
-                logger.debug("Fetching history from ${startDate.toString()}, to ${endDate.toString()}")
+                LOGGER.debug("Fetching history from ${startDate.toString()}, to ${endDate.toString()}")
 
                 val ret = CustomerHistoryResponse()
 
@@ -309,6 +321,6 @@ fun main() {
             }
         }
     }
-    logger.info("Up and running")
+    LOGGER.info("Up and running")
     server.start(wait = true)
 }

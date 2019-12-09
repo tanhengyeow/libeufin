@@ -140,7 +140,7 @@ open class IntIdTableWithAmount : IntIdTable() {
             }
 
             if ((value as BigDecimal).compareTo(BigDecimal.ZERO) == 0) {
-                logger.error("Cannot have transactions of ZERO amount")
+                LOGGER.error("Cannot have transactions of ZERO amount")
                 throw BadAmount(value)
             }
             return super.valueToDB(value)

@@ -104,7 +104,7 @@ private suspend fun ApplicationCall.respondEbicsKeyManagement(
         }
     }
     val text = XMLUtil.convertJaxbToString(responseXml)
-    logger.info("responding with:\n${text}")
+    LOGGER.info("responding with:\n${text}")
     respondText(text, ContentType.Application.Xml, HttpStatusCode.OK)
 }
 
@@ -124,7 +124,7 @@ private suspend fun ApplicationCall.handleEbicsHia(header: EbicsUnsecuredRequest
     transaction {
         val ebicsSubscriber = findEbicsSubscriber(header.static.partnerID, header.static.userID, header.static.systemID)
         if (ebicsSubscriber == null) {
-            logger.warn("ebics subscriber not found")
+            LOGGER.warn("ebics subscriber not found")
             throw EbicsInvalidRequestError()
         }
         ebicsSubscriber.authenticationKey = EbicsSubscriberPublicKeyEntity.new {
@@ -159,7 +159,7 @@ private suspend fun ApplicationCall.handleEbicsIni(header: EbicsUnsecuredRequest
         val ebicsSubscriber =
             findEbicsSubscriber(header.static.partnerID, header.static.userID, header.static.systemID)
         if (ebicsSubscriber == null) {
-            logger.warn("ebics subscriber ('${header.static.partnerID}' / '${header.static.userID}' / '${header.static.systemID}') not found")
+            LOGGER.warn("ebics subscriber ('${header.static.partnerID}' / '${header.static.userID}' / '${header.static.systemID}') not found")
             throw EbicsInvalidRequestError()
         }
         ebicsSubscriber.signatureKey = EbicsSubscriberPublicKeyEntity.new {
@@ -172,7 +172,7 @@ private suspend fun ApplicationCall.handleEbicsIni(header: EbicsUnsecuredRequest
             else -> ebicsSubscriber.state
         }
     }
-    logger.info("Signature key inserted in database _and_ subscriber state changed accordingly")
+    LOGGER.info("Signature key inserted in database _and_ subscriber state changed accordingly")
     respondEbicsKeyManagement("[EBICS_OK]", "000000", bankReturnCode = "000000", orderId = "OR01")
 }
 
@@ -201,7 +201,7 @@ private suspend fun ApplicationCall.handleEbicsHpb(
     }
     val validationResult =
         XMLUtil.verifyEbicsDocument(requestDocument, subscriberKeys.authenticationPublicKey)
-    logger.info("validationResult: $validationResult")
+    LOGGER.info("validationResult: $validationResult")
     if (!validationResult) {
         throw EbicsKeyManagementError("invalid signature", "90000");
     }
@@ -242,7 +242,7 @@ private fun ApplicationCall.ensureEbicsHost(requestHostID: String): EbicsHostPub
         val ebicsHost =
             EbicsHostEntity.find { EbicsHostsTable.hostID.upperCase() eq requestHostID.toUpperCase() }.firstOrNull()
         if (ebicsHost == null) {
-            logger.warn("client requested unknown HostID")
+            LOGGER.warn("client requested unknown HostID")
             throw EbicsKeyManagementError("[EBICS_INVALID_HOST_ID]", "091011")
         }
         val encryptionPrivateKey = CryptoUtil.loadRsaPrivateKey(ebicsHost.encryptionPrivateKey.toByteArray())
@@ -258,7 +258,7 @@ private fun ApplicationCall.ensureEbicsHost(requestHostID: String): EbicsHostPub
 
 private suspend fun ApplicationCall.receiveEbicsXml(): Document {
     val body: String = receiveText()
-    logger.debug("Data received: $body")
+    LOGGER.debug("Data received: $body")
     val requestDocument: Document? = XMLUtil.parseStringIntoDom(body)
     if (requestDocument == null || (!XMLUtil.validateFromDom(requestDocument))) {
         throw EbicsInvalidXmlError()
@@ -458,12 +458,12 @@ fun queryEbicsTransactionDetails(ebicsRequest: EbicsRequest): EbicsTransactionDe
 suspend fun ApplicationCall.ebicsweb() {
     val requestDocument = receiveEbicsXml()
 
-    logger.info("Processing ${requestDocument.documentElement.localName}")
+    LOGGER.info("Processing ${requestDocument.documentElement.localName}")
 
     when (requestDocument.documentElement.localName) {
         "ebicsUnsecuredRequest" -> {
             val requestObject = requestDocument.toObject<EbicsUnsecuredRequest>()
-            logger.info("Serving a ${requestObject.header.static.orderDetails.orderType} request")
+            LOGGER.info("Serving a ${requestObject.header.static.orderDetails.orderType} request")
 
             val orderData = requestObject.body.dataTransfer.orderData.value
             val header = requestObject.header
@@ -719,7 +719,7 @@ suspend fun ApplicationCall.ebicsweb() {
         }
         else -> {
             /* Log to console and return "unknown type" */
-            logger.info("Unknown message, just logging it!")
+            LOGGER.info("Unknown message, just logging it!")
             respond(
                 HttpStatusCode.NotImplemented,
                 SandboxError("Not Implemented")
