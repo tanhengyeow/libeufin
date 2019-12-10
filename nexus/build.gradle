@@ -26,7 +26,7 @@ dependencies {
     implementation "org.jetbrains.kotlin:kotlin-stdlib-jdk8"
     implementation "io.ktor:ktor-gson:1.1.5"
     implementation group: 'io.ktor', name: 'ktor-gson', version: '0.9.0'
-    implementation "org.jetbrains.exposed:exposed:0.17.3"
+    implementation "org.jetbrains.exposed:exposed:0.17.6"
     implementation "io.ktor:ktor-server-netty:1.2.4"
     implementation "ch.qos.logback:logback-classic:1.2.3"
     implementation group: 'javax.xml.bind', name: 'jaxb-api', version: '2.3.1'

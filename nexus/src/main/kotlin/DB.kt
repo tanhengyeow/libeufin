@@ -1,11 +1,8 @@
 package tech.libeufin.nexus
 
-import org.jetbrains.exposed.dao.EntityID
-import org.jetbrains.exposed.dao.IntEntity
-import org.jetbrains.exposed.dao.IntEntityClass
-import org.jetbrains.exposed.dao.IntIdTable
-import org.jetbrains.exposed.sql.Database
-import org.jetbrains.exposed.sql.SchemaUtils
+import org.jetbrains.exposed.dao.*
+import org.jetbrains.exposed.sql.*
+import org.jetbrains.exposed.sql.transactions.TransactionManager
 import org.jetbrains.exposed.sql.transactions.transaction
 
 object EbicsSubscribersTable : IntIdTable() {

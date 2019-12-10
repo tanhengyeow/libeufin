@@ -207,7 +207,7 @@ fun main() {
             }
         }
         routing {
-
+            
             post("/{id}/history") {
 
                 LOGGER.debug("/history fired up")
