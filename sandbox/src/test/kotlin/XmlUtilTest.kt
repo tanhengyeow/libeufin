@@ -3,6 +3,7 @@ package tech.libeufin.sandbox
 import org.apache.xml.security.binding.xmldsig.SignatureType
 import org.junit.Test
 import org.junit.Assert.*
+import org.junit.Ignore
 import org.junit.rules.ExpectedException
 import org.xml.sax.SAXParseException
 import tech.libeufin.schema.ebics_h004.EbicsKeyManagementResponse
@@ -66,7 +67,7 @@ class XmlUtilTest {
             </HTDResponseOrderData>""".trimIndent()
         )
 
-        logger.debug(tmp.value.partnerInfo.orderInfoList[0].description)
+        LOGGER.debug(tmp.value.partnerInfo.orderInfoList[0].description)
     }
 
     @Test
@@ -75,7 +76,7 @@ class XmlUtilTest {
             XMLUtil.convertStringToJaxb<EbicsKeyManagementResponse>("<malformed xml>")
         } catch (e: javax.xml.bind.UnmarshalException) {
             // just ensuring this is the exception
-            logger.info("caught")
+            LOGGER.info("caught")
             return
         }
 
@@ -113,6 +114,7 @@ class XmlUtilTest {
         kotlin.test.assertFalse(XMLUtil.verifyEbicsDocument(doc, otherPair.public))
     }
 
+    @Ignore
     @Test
     fun verifySigningWithConversion() {
 

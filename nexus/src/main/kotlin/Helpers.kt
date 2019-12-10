@@ -5,7 +5,7 @@ import io.ktor.client.request.post
 import io.ktor.http.HttpStatusCode
 import tech.libeufin.sandbox.CryptoUtil
 import tech.libeufin.sandbox.XMLUtil
-import tech.libeufin.sandbox.logger
+import tech.libeufin.sandbox.LOGGER
 import tech.libeufin.sandbox.toByteArray
 import tech.libeufin.schema.ebics_h004.EbicsRequest
 import tech.libeufin.schema.ebics_s001.UserSignatureData
@@ -214,9 +214,9 @@ suspend inline fun <reified T, reified S> HttpClient.postToBankSignedAndVerify(
     XMLUtil.signEbicsDocument(doc, priv)
 
     val response: String = this.postToBank(url, XMLUtil.convertDomToString(doc))
-    logger.debug("About to verify: ${response}")
+    LOGGER.debug("About to verify: ${response}")
 
-    val responseString = try {
+    val responseDocument = try {
 
         XMLUtil.parseStringIntoDom(response)
     } catch (e: Exception) {
@@ -224,7 +224,7 @@ suspend inline fun <reified T, reified S> HttpClient.postToBankSignedAndVerify(
         throw UnparsableResponse(HttpStatusCode.BadRequest, response)
     }
 
-    if (!XMLUtil.verifyEbicsDocument(responseString, pub)) {
+    if (!XMLUtil.verifyEbicsDocument(responseDocument, pub)) {
 
         throw BadSignature(HttpStatusCode.NotAcceptable)
     }
