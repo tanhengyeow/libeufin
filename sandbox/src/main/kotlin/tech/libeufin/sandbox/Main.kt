@@ -170,6 +170,34 @@ fun sampleData() {
 
 }
 
+fun extractHistoryForEach(id: Int, start: String?, end: String?, builder: (BankTransactionEntity) -> Any) {
+    val s = if (start != null) DateTime.parse(start) else DateTime(0)
+    val e = if (end != null) DateTime.parse(end) else DateTime.now()
+
+    transaction {
+        BankTransactionEntity.find {
+            BankTransactionsTable.localCustomer eq id and
+                    BankTransactionsTable.date.between(s, e)
+        }.forEach {
+            builder(it)
+        }
+    }
+}
+
+fun calculateBalance(id: Int, start: String?, end: String?): BigDecimal {
+    val s = if (start != null) DateTime.parse(start) else DateTime(0)
+    val e = if (end != null) DateTime.parse(end) else DateTime.now()
+
+    var ret = BigDecimal(0)
+
+    transaction {
+        BankTransactionEntity.find {
+            BankTransactionsTable.localCustomer eq id and BankTransactionsTable.date.between(s, e)
+        }.forEach { ret += it.amount }
+    }
+    return ret
+}
+
 val LOGGER: Logger = LoggerFactory.getLogger("tech.libeufin.sandbox")
 
 fun main() {
@@ -207,10 +235,8 @@ fun main() {
             }
         }
         routing {
-            
-            post("/{id}/history") {
 
-                LOGGER.debug("/history fired up")
+            post("/{id}/history") {
 
                 val req = call.receive<CustomerHistoryRequest>()
                 val startDate = DateTime.parse(req.start)
@@ -218,47 +244,31 @@ fun main() {
 
                 LOGGER.debug("Fetching history from ${startDate.toString()}, to ${endDate.toString()}")
 
+                val customer = findCustomer(call.parameters["id"])
                 val ret = CustomerHistoryResponse()
 
-                transaction {
-                    val customer = findCustomer(call.parameters["id"])
-
-                    BankTransactionEntity.find {
-                        BankTransactionsTable.localCustomer eq customer.id and
-                                BankTransactionsTable.date.between(startDate, endDate)
-
-                    }.forEach {
-                        ret.history.add(
-                            CustomerHistoryResponseElement(
-                                subject = it.subject,
-                                amount = "${it.amount.signToString()}${it.amount.toString()} EUR",
-                                counterpart = it.counterpart,
-                                date = it.date.toString("Y-M-d")
-                            )
+                extractHistoryForEach(customer.id.value, req.start, req.end) {
+                    ret.history.add(
+                        CustomerHistoryResponseElement(
+                            subject = it.subject,
+                            amount = "${it.amount.signToString()}${it.amount} EUR",
+                            counterpart = it.counterpart,
+                            date = it.date.toString("Y-M-d")
                         )
-                    }
+                    )
                 }
-
                 call.respond(ret)
                 return@post
             }
 
             get("/{id}/balance") {
-                val (name, balance) = transaction {
-                    val tmp: BankCustomerEntity = findCustomer(call.parameters["id"])
 
-                    var ret = Amount(0)
-                    BankTransactionEntity.find {
-                        BankTransactionsTable.localCustomer eq tmp.id
-                    }.forEach {
-                        ret += it.amount
-                    }
-                    Pair(tmp.name, ret)
-                }
+                val customer = findCustomer(call.parameters["id"])
+                val balance = calculateBalance(customer.id.value, null, null)
 
                 call.respond(
                     CustomerBalance(
-                    name = name,
+                    name = customer.name,
                     balance = "${balance} EUR"
                     )
                 )

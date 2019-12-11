@@ -55,8 +55,8 @@ data class CustomerEbicsInfo(
 )
 
 data class CustomerHistoryRequest(
-    val start: String,
-    val end: String
+    val start: String?,
+    val end: String?
 )
 
 data class CustomerHistoryResponseElement(

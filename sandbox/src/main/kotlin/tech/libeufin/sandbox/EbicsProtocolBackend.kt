@@ -471,6 +471,7 @@ suspend fun ApplicationCall.ebicsweb() {
             when (header.static.orderDetails.orderType) {
                 "INI" -> handleEbicsIni(header, orderData)
                 "HIA" -> handleEbicsHia(header, orderData)
+                // "C52" -> handleEbicsC52(header, orderData)
                 else -> throw EbicsInvalidXmlError()
             }
         }
