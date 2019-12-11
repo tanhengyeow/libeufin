@@ -239,10 +239,7 @@ fun main() {
             post("/{id}/history") {
 
                 val req = call.receive<CustomerHistoryRequest>()
-                val startDate = DateTime.parse(req.start)
-                val endDate = DateTime.parse(req.end)
-
-                LOGGER.debug("Fetching history from ${startDate.toString()}, to ${endDate.toString()}")
+                LOGGER.debug("Fetching history from ${req.start}, to ${req.end}")
 
                 val customer = findCustomer(call.parameters["id"])
                 val ret = CustomerHistoryResponse()

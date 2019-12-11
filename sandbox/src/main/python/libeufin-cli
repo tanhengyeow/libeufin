@@ -306,12 +306,24 @@ def new(obj, user_id, partner_id, system_id, host_id, ebics_url):
     required=False,
     default=1
 )
-def history(obj, user_id):
+@click.option(
+    "--start",
+    help="starting date for history elements (YYYY-MM-DD)" ,
+    required=False,
+    default=None
+)
+@click.option(
+    "--end",
+    help="ending date for history elements (YYYY-MM-DD)" ,
+    required=False,
+    default=None
+)
+def history(obj, user_id, start, end):
 
     url = urljoin(obj["bank_base_url"], f"/{user_id}/history")
     print(url)
     try:
-        resp = post(url, json=dict(start="2000-01-01", end="2999-12-31"))
+        resp = post(url, json=dict(start=start, end=end))
     except Exception:
         print("Could not reach the bank")
         return
