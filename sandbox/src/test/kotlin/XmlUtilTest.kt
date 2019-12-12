@@ -19,7 +19,6 @@ class XmlUtilTest {
     @Test
     fun deserializeConsecutiveLists() {
 
-        // NOTE: this needs wrapping elements to be parsed into a JAXB object.
         val tmp = XMLUtil.convertStringToJaxb<HTDResponseOrderData>("""
             <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
             <HTDResponseOrderData xmlns="urn:org:ebics:H004">
@@ -30,31 +29,31 @@ class XmlUtilTest {
                 <BankInfo>
                   <HostID>host01</HostID>
                 </BankInfo>
-                  <AccountInfo Currency="EUR" Description="ACCT" ID="acctid1">
-                    <AccountNumber international="true">DE21500105174751659277</AccountNumber>
-                    <BankCode international="true">INGDDEFFXXX</BankCode>
-                    <AccountHolder>Mina Musterfrau</AccountHolder>
-                  </AccountInfo>
-                  <AccountInfo Currency="EUR" Description="glsdemoacct" ID="glsdemo">
-                    <AccountNumber international="true">DE91430609670123123123</AccountNumber>
-                    <BankCode international="true">GENODEM1GLS</BankCode>
-                    <AccountHolder>Mina Musterfrau</AccountHolder>
-                  </AccountInfo>
-                  <OrderInfo>
-                    <OrderType>C53</OrderType>
-                    <TransferType>Download</TransferType>
-                    <Description>foo</Description>
-                  </OrderInfo>
-                  <OrderInfo>
-                    <OrderType>C52</OrderType>
-                    <TransferType>Download</TransferType>
-                    <Description>foo</Description>
-                  </OrderInfo>
-                  <OrderInfo>
-                    <OrderType>CCC</OrderType>
-                    <TransferType>Upload</TransferType>
-                    <Description>foo</Description>
-                  </OrderInfo>
+                <AccountInfo Currency="EUR" Description="ACCT" ID="acctid1">
+                  <AccountNumber international="true">DE21500105174751659277</AccountNumber>
+                  <BankCode international="true">INGDDEFFXXX</BankCode>
+                  <AccountHolder>Mina Musterfrau</AccountHolder>
+                </AccountInfo>
+                <AccountInfo Currency="EUR" Description="glsdemoacct" ID="glsdemo">
+                  <AccountNumber international="true">DE91430609670123123123</AccountNumber>
+                  <BankCode international="true">GENODEM1GLS</BankCode>
+                  <AccountHolder>Mina Musterfrau</AccountHolder>
+                </AccountInfo>
+                <OrderInfo>
+                  <OrderType>C53</OrderType>
+                  <TransferType>Download</TransferType>
+                  <Description>foo</Description>
+                </OrderInfo>
+                <OrderInfo>
+                  <OrderType>C52</OrderType>
+                  <TransferType>Download</TransferType>
+                  <Description>foo</Description>
+                </OrderInfo>
+                <OrderInfo>
+                  <OrderType>CCC</OrderType>
+                  <TransferType>Upload</TransferType>
+                  <Description>foo</Description>
+                </OrderInfo>
               </PartnerInfo>
               <UserInfo>
                 <UserID Status="5">USER1</UserID>
@@ -78,7 +77,6 @@ class XmlUtilTest {
             LOGGER.info("caught")
             return
         }
-
         assertTrue(false)
     }
 
@@ -113,7 +111,6 @@ class XmlUtilTest {
         kotlin.test.assertFalse(XMLUtil.verifyEbicsDocument(doc, otherPair.public))
     }
 
-    @Ignore
     @Test
     fun verifySigningWithConversion() {
 
