@@ -4,10 +4,10 @@ import org.apache.xml.security.binding.xmldsig.SignatureType
 import org.junit.Test
 import org.junit.Assert.*
 import org.junit.Ignore
-import tech.libeufin.util.schema.ebics_h004.EbicsKeyManagementResponse
-import tech.libeufin.util.schema.ebics_h004.EbicsResponse
-import tech.libeufin.util.schema.ebics_h004.EbicsTypes
-import tech.libeufin.util.schema.ebics_h004.HTDResponseOrderData
+import tech.libeufin.util.ebics_h004.EbicsKeyManagementResponse
+import tech.libeufin.util.ebics_h004.EbicsResponse
+import tech.libeufin.util.ebics_h004.EbicsTypes
+import tech.libeufin.util.ebics_h004.HTDResponseOrderData
 import tech.libeufin.util.CryptoUtil
 import tech.libeufin.util.XMLUtil
 import java.security.KeyPairGenerator

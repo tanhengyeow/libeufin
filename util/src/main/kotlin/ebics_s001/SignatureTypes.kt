@@ -17,7 +17,7 @@
  * <http://www.gnu.org/licenses/>
  */
 
-package tech.libeufin.util.schema.ebics_s001
+package tech.libeufin.util.ebics_s001
 
 import org.apache.xml.security.binding.xmldsig.RSAKeyValueType
 import org.apache.xml.security.binding.xmldsig.X509DataType

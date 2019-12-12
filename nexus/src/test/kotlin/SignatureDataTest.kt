@@ -4,8 +4,8 @@ import tech.libeufin.util.XMLUtil
 import org.apache.xml.security.binding.xmldsig.SignatureType
 import org.junit.Test
 import tech.libeufin.util.CryptoUtil
-import tech.libeufin.util.schema.ebics_h004.EbicsRequest
-import tech.libeufin.util.schema.ebics_h004.EbicsTypes
+import tech.libeufin.util.ebics_h004.EbicsRequest
+import tech.libeufin.util.ebics_h004.EbicsTypes
 import java.math.BigInteger
 
 class SignatureDataTest {

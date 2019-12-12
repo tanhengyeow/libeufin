@@ -1,4 +1,4 @@
-package tech.libeufin.util.schema.ebics_h004
+package tech.libeufin.util.ebics_h004
 
 import org.apache.xml.security.binding.xmldsig.SignatureType
 import javax.xml.bind.annotation.*

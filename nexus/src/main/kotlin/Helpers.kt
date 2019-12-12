@@ -5,8 +5,8 @@ import io.ktor.client.request.post
 import io.ktor.http.HttpStatusCode
 import tech.libeufin.util.CryptoUtil
 import tech.libeufin.util.XMLUtil
-import tech.libeufin.util.schema.ebics_h004.EbicsRequest
-import tech.libeufin.util.schema.ebics_s001.UserSignatureData
+import tech.libeufin.util.ebics_h004.EbicsRequest
+import tech.libeufin.util.ebics_s001.UserSignatureData
 import tech.libeufin.util.toByteArray
 import java.math.BigInteger
 import java.security.PrivateKey
@@ -184,6 +184,8 @@ fun signOrder(
  * response already converted in JAXB.
  */
 suspend inline fun HttpClient.postToBank(url: String, body: String): String {
+
+    LOGGER.debug("Posting: $body")
 
     val response = try {
         this.post<String>(

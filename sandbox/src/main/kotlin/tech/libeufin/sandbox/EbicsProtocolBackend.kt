@@ -32,11 +32,11 @@ import org.jetbrains.exposed.sql.stringParam
 import org.jetbrains.exposed.sql.transactions.transaction
 import org.jetbrains.exposed.sql.upperCase
 import org.w3c.dom.Document
-import tech.libeufin.util.schema.ebics_h004.*
-import tech.libeufin.util.schema.ebics_hev.HEVResponse
-import tech.libeufin.util.schema.ebics_hev.SystemReturnCodeType
-import tech.libeufin.util.schema.ebics_s001.SignatureTypes
-import tech.libeufin.util.schema.ebics_s001.UserSignatureData
+import tech.libeufin.util.ebics_h004.*
+import tech.libeufin.util.ebics_hev.HEVResponse
+import tech.libeufin.util.ebics_hev.SystemReturnCodeType
+import tech.libeufin.util.ebics_s001.SignatureTypes
+import tech.libeufin.util.ebics_s001.UserSignatureData
 import tech.libeufin.util.CryptoUtil
 import tech.libeufin.util.EbicsOrderUtil
 import tech.libeufin.util.XMLUtil
@@ -314,6 +314,7 @@ private suspend fun ApplicationCall.receiveEbicsXml(): Document {
     LOGGER.debug("Data received: $body")
     val requestDocument: Document? = XMLUtil.parseStringIntoDom(body)
     if (requestDocument == null || (!XMLUtil.validateFromDom(requestDocument))) {
+        println("Problematic document was: $requestDocument")
         throw EbicsInvalidXmlError()
     }
     return requestDocument

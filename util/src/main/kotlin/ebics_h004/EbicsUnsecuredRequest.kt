@@ -1,8 +1,8 @@
-package tech.libeufin.util.schema.ebics_h004
+package tech.libeufin.util.ebics_h004
 
 import org.apache.xml.security.binding.xmldsig.RSAKeyValueType
 import tech.libeufin.util.EbicsOrderUtil
-import tech.libeufin.util.schema.ebics_s001.SignatureTypes
+import tech.libeufin.util.ebics_s001.SignatureTypes
 import java.security.interfaces.RSAPrivateCrtKey
 import javax.xml.bind.annotation.*
 import javax.xml.bind.annotation.adapters.CollapsedStringAdapter

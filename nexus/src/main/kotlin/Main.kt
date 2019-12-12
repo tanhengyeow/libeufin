@@ -41,7 +41,7 @@ import org.jetbrains.exposed.sql.transactions.transaction
 import org.joda.time.DateTime
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
-import tech.libeufin.util.schema.ebics_h004.*
+import tech.libeufin.util.ebics_h004.*
 import tech.libeufin.util.*
 import java.text.DateFormat
 import javax.sql.rowset.serial.SerialBlob
@@ -488,15 +488,13 @@ fun main() {
             post("/ebics/subscribers/{id}/sendIni") {
 
                 val id = expectId(call.parameters["id"]) // caught above
-                val iniRequest = EbicsUnsecuredRequest()
-
                 val subscriberData = transaction {
                     containerInit(
                         EbicsSubscriberEntity.findById(id) ?: throw SubscriberNotFoundError(HttpStatusCode.NotFound)
                     )
                 }
 
-                val theRequest = EbicsUnsecuredRequest.createIni(
+                val iniRequest = EbicsUnsecuredRequest.createIni(
                     subscriberData.hostId,
                     subscriberData.userId,
                     subscriberData.partnerId,
@@ -505,7 +503,7 @@ fun main() {
 
                 val responseJaxb = client.postToBankUnsigned<EbicsUnsecuredRequest, EbicsKeyManagementResponse>(
                     subscriberData.ebicsUrl,
-                    theRequest
+                    iniRequest
                 )
 
                 if (responseJaxb.value.body.returnCode.value != "000000") {
