@@ -1,3 +1,4 @@
 rootProject.name = 'libeufin'
 include("sandbox")
 include("nexus")
+include("util")
