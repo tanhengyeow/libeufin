@@ -20,6 +20,7 @@
 package tech.libeufin.sandbox
 
 import org.junit.Test
+import tech.libeufin.util.constructXml
 
 class XmlCombinatorsTest {
 
@@ -36,6 +37,7 @@ class XmlCombinatorsTest {
                         element("g/h/")
                     }
                 }
+                element("one more")
             }
         }
         println(s)

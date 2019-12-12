@@ -7,7 +7,7 @@
         namespace = "http://www.ebics.org/H000",
         elementFormDefault = XmlNsForm.QUALIFIED
 )
-package tech.libeufin.schema.ebics_hev;
+package schema.ebics_hev;
 
 import javax.xml.bind.annotation.XmlNsForm;
 import javax.xml.bind.annotation.XmlSchema;

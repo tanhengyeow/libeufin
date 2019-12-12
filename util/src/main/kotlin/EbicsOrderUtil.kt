@@ -17,7 +17,7 @@
  * <http://www.gnu.org/licenses/>
  */
 
-package tech.libeufin.sandbox
+package tech.libeufin.util
 
 import java.lang.IllegalArgumentException
 import java.security.SecureRandom

@@ -1,3 +1,4 @@
+
 <configuration>
     <appender name="STDOUT" class="ch.qos.logback.core.ConsoleAppender">
         <encoder>
@@ -21,7 +22,7 @@
         </encoder>
     </appender>
 
-    <logger name="tech.libeufin.sandbox" level="DEBUG"  additivity="false">
+    <logger name="tech.libeufin.util" level="TRACE"  additivity="false">
         <appender-ref ref="STDOUT" />
         <appender-ref ref="SANDBOX-FILE" />
     </logger>

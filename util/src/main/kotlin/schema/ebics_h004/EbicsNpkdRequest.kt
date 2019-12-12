@@ -1,4 +1,4 @@
-package tech.libeufin.schema.ebics_h004
+package tech.libeufin.util.schema.ebics_h004
 
 import org.apache.xml.security.binding.xmldsig.SignatureType
 import javax.xml.bind.annotation.*
@@ -112,22 +112,22 @@ class EbicsNpkdRequest {
             return EbicsNpkdRequest().apply {
                 version = "H004"
                 revision = 1
-                header = EbicsNpkdRequest.Header().apply {
+                header = Header().apply {
                     authenticate = true
-                    mutable = EbicsNpkdRequest.EmptyMutableHeader()
-                    static = EbicsNpkdRequest.StaticHeaderType().apply {
+                    mutable = EmptyMutableHeader()
+                    static = StaticHeaderType().apply {
                         hostID = hostId
                         partnerID = partnerId
                         userID = userId
                         securityMedium = "0000"
-                        orderDetails = EbicsNpkdRequest.OrderDetails()
+                        orderDetails = OrderDetails()
                         orderDetails.orderType = "HPB"
                         orderDetails.orderAttribute = "DZHNN"
                         nonce = aNonce
                         timestamp = date
                     }
                 }
-                body = EbicsNpkdRequest.EmptyBody()
+                body = EmptyBody()
                 authSignature = SignatureType()
             }
         }

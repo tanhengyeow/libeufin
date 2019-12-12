@@ -46,7 +46,7 @@ application {
 }
 
 dependencies {
-    implementation project(":sandbox")
+    implementation project(":util")
     compile "io.ktor:ktor-client-apache:1.2.4"
 }
 

@@ -1,4 +1,4 @@
-package tech.libeufin.sandbox
+package tech.libeufin.util
 
 fun ByteArray.toHexString() : String {
     return this.joinToString("") {

@@ -1,9 +1,7 @@
-package tech.libeufin.sandbox
+package tech.libeufin.util
 
 import com.sun.xml.txw2.output.IndentingXMLStreamWriter
-import org.jetbrains.exposed.sql.Op
 import java.io.StringWriter
-import java.util.*
 import javax.xml.stream.XMLOutputFactory
 import javax.xml.stream.XMLStreamWriter
 
@@ -23,7 +21,6 @@ class XmlElementBuilder(val w: XMLStreamWriter) {
     }
 
     fun element(path: String, f: XmlElementBuilder.() -> Unit = {}) {
-
         val splitPath = path.trim('/').split("/").toMutableList()
         this.element(splitPath, f)
     }

@@ -38,16 +38,14 @@ import io.ktor.routing.post
 import io.ktor.routing.routing
 import io.ktor.server.engine.embeddedServer
 import io.ktor.server.netty.Netty
-import org.jetbrains.exposed.sql.GreaterEqOp
-import org.jetbrains.exposed.sql.LessEqOp
 import org.jetbrains.exposed.sql.and
-import org.jetbrains.exposed.sql.dateTimeParam
 import org.jetbrains.exposed.sql.transactions.transaction
 import org.joda.time.DateTime
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 import org.slf4j.event.Level
 import org.w3c.dom.Document
+import tech.libeufin.util.CryptoUtil
 import java.lang.ArithmeticException
 import java.math.BigDecimal
 import java.security.interfaces.RSAPublicKey
@@ -163,11 +161,8 @@ fun sampleData() {
                 date = DateTime.now()
                 localCustomer = customerEntity
             }
-
         }
     }
-
-
 }
 
 fun extractHistoryForEach(id: Int, start: String?, end: String?, builder: (BankTransactionEntity) -> Any) {

@@ -25,7 +25,6 @@ import io.ktor.application.ApplicationCallPipeline
 import io.ktor.application.call
 import io.ktor.application.install
 import io.ktor.client.*
-import io.ktor.client.request.post
 import io.ktor.features.ContentNegotiation
 import io.ktor.features.StatusPages
 import io.ktor.gson.gson
@@ -38,30 +37,23 @@ import io.ktor.response.respondText
 import io.ktor.routing.*
 import io.ktor.server.engine.embeddedServer
 import io.ktor.server.netty.Netty
-import org.apache.xml.security.binding.xmldsig.RSAKeyValueType
-import org.apache.xml.security.binding.xmldsig.SignatureType
 import org.jetbrains.exposed.sql.transactions.transaction
 import org.joda.time.DateTime
+import org.slf4j.Logger
 import org.slf4j.LoggerFactory
-import tech.libeufin.sandbox.*
-import tech.libeufin.schema.ebics_h004.*
+import tech.libeufin.util.schema.ebics_h004.*
+import tech.libeufin.util.*
 import java.text.DateFormat
 import javax.sql.rowset.serial.SerialBlob
-import javax.xml.bind.JAXBElement
-import tech.libeufin.schema.ebics_s001.SignatureTypes
-import tech.libeufin.schema.ebics_s001.UserSignatureData
+import tech.libeufin.util.toHexString
+import tech.libeufin.util.CryptoUtil
+import tech.libeufin.util.EbicsOrderUtil
+import tech.libeufin.util.XMLUtil
 import java.math.BigInteger
-import java.security.PrivateKey
-import java.security.SecureRandom
-import java.security.interfaces.RSAPrivateCrtKey
 import java.text.SimpleDateFormat
 import java.util.*
 import java.util.zip.DeflaterInputStream
 import javax.crypto.EncryptedPrivateKeyInfo
-import javax.xml.datatype.DatatypeFactory
-import javax.xml.datatype.XMLGregorianCalendar
-import java.security.interfaces.RSAPublicKey
-import java.time.LocalDate
 
 
 fun testData() {
@@ -94,7 +86,7 @@ data class BadSignature(val statusCode: HttpStatusCode) : Exception("Signature v
 data class BadBackup(val statusCode: HttpStatusCode) : Exception("Could not restore backed up keys")
 data class BankInvalidResponse(val statusCode: HttpStatusCode) : Exception("Missing data from bank response")
 
-
+val LOGGER: Logger = LoggerFactory.getLogger("tech.libeufin.nexus")
 
 fun main() {
     dbCreateTables()

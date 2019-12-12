@@ -1,14 +1,12 @@
-package tech.libeufin.schema.ebics_h004
+package tech.libeufin.util.schema.ebics_h004
 
 import org.apache.xml.security.binding.xmldsig.SignatureType
-import tech.libeufin.sandbox.CryptoUtil
+import tech.libeufin.util.CryptoUtil
 import java.math.BigInteger
 import javax.xml.bind.annotation.*
 import javax.xml.bind.annotation.adapters.CollapsedStringAdapter
-import javax.xml.bind.annotation.adapters.HexBinaryAdapter
 import javax.xml.bind.annotation.adapters.NormalizedStringAdapter
 import javax.xml.bind.annotation.adapters.XmlJavaTypeAdapter
-import javax.xml.namespace.QName
 
 @XmlAccessorType(XmlAccessType.NONE)
 @XmlType(name = "", propOrder = ["header", "authSignature", "body"])
@@ -129,21 +127,22 @@ class EbicsResponse {
             return EbicsResponse().apply {
                 this.version = "H004"
                 this.revision = 1
-                this.header = EbicsResponse.Header().apply {
+                this.header = Header().apply {
                     this.authenticate = true
-                    this._static = EbicsResponse.StaticHeaderType().apply {
+                    this._static = StaticHeaderType().apply {
                         this.transactionID = transactionID
                     }
-                    this.mutable = EbicsResponse.MutableHeaderType().apply {
-                        this.transactionPhase = EbicsTypes.TransactionPhaseType.INITIALISATION
+                    this.mutable = MutableHeaderType().apply {
+                        this.transactionPhase =
+                            EbicsTypes.TransactionPhaseType.INITIALISATION
                         this.orderID = orderID
                         this.reportText = "[EBICS_OK] OK"
                         this.returnCode = "000000"
                     }
                 }
                 this.authSignature = SignatureType()
-                this.body = EbicsResponse.Body().apply {
-                    this.returnCode = EbicsResponse.ReturnCode().apply {
+                this.body = Body().apply {
+                    this.returnCode = ReturnCode().apply {
                         this.authenticate = true
                         this.value = "000000"
                     }
@@ -156,13 +155,14 @@ class EbicsResponse {
             return EbicsResponse().apply {
                 this.version = "H004"
                 this.revision = 1
-                this.header = EbicsResponse.Header().apply {
+                this.header = Header().apply {
                     this.authenticate = true
-                    this._static = EbicsResponse.StaticHeaderType().apply {
+                    this._static = StaticHeaderType().apply {
                         this.transactionID = transactionID
                     }
-                    this.mutable = EbicsResponse.MutableHeaderType().apply {
-                        this.transactionPhase = EbicsTypes.TransactionPhaseType.RECEIPT
+                    this.mutable = MutableHeaderType().apply {
+                        this.transactionPhase =
+                            EbicsTypes.TransactionPhaseType.RECEIPT
                         if (positiveAck) {
                             this.reportText = "[EBICS_DOWNLOAD_POSTPROCESS_DONE] Received positive receipt"
                             this.returnCode = "011000"
@@ -173,8 +173,8 @@ class EbicsResponse {
                     }
                 }
                 this.authSignature = SignatureType()
-                this.body = EbicsResponse.Body().apply {
-                    this.returnCode = EbicsResponse.ReturnCode().apply {
+                this.body = Body().apply {
+                    this.returnCode = ReturnCode().apply {
                         this.authenticate = true
                         this.value = "000000"
                     }
@@ -192,13 +192,14 @@ class EbicsResponse {
             return EbicsResponse().apply {
                 this.version = "H004"
                 this.revision = 1
-                this.header = EbicsResponse.Header().apply {
+                this.header = Header().apply {
                     this.authenticate = true
-                    this._static = EbicsResponse.StaticHeaderType().apply {
+                    this._static = StaticHeaderType().apply {
                         this.transactionID = transactionID
                     }
-                    this.mutable = EbicsResponse.MutableHeaderType().apply {
-                        this.transactionPhase = EbicsTypes.TransactionPhaseType.TRANSFER
+                    this.mutable = MutableHeaderType().apply {
+                        this.transactionPhase =
+                            EbicsTypes.TransactionPhaseType.TRANSFER
                         this.segmentNumber = EbicsTypes.SegmentNumber().apply {
                             this.value = BigInteger.valueOf(segmentNumber.toLong())
                             if (lastSegment) {
@@ -211,8 +212,8 @@ class EbicsResponse {
                     }
                 }
                 this.authSignature = SignatureType()
-                this.body = EbicsResponse.Body().apply {
-                    this.returnCode = EbicsResponse.ReturnCode().apply {
+                this.body = Body().apply {
+                    this.returnCode = ReturnCode().apply {
                         this.authenticate = true
                         this.value = "000000"
                     }
@@ -230,14 +231,15 @@ class EbicsResponse {
             return EbicsResponse().apply {
                 this.version = "H004"
                 this.revision = 1
-                this.header = EbicsResponse.Header().apply {
+                this.header = Header().apply {
                     this.authenticate = true
-                    this._static = EbicsResponse.StaticHeaderType().apply {
+                    this._static = StaticHeaderType().apply {
                         this.transactionID = transactionID
                         this.numSegments = BigInteger.valueOf(numSegments.toLong())
                     }
-                    this.mutable = EbicsResponse.MutableHeaderType().apply {
-                        this.transactionPhase = EbicsTypes.TransactionPhaseType.INITIALISATION
+                    this.mutable = MutableHeaderType().apply {
+                        this.transactionPhase =
+                            EbicsTypes.TransactionPhaseType.INITIALISATION
                         this.segmentNumber = EbicsTypes.SegmentNumber().apply {
                             this.lastSegment = (numSegments == 1)
                             this.value = BigInteger.valueOf(1)
@@ -247,22 +249,23 @@ class EbicsResponse {
                     }
                 }
                 this.authSignature = SignatureType()
-                this.body = EbicsResponse.Body().apply {
-                    this.returnCode = EbicsResponse.ReturnCode().apply {
+                this.body = Body().apply {
+                    this.returnCode = ReturnCode().apply {
                         this.authenticate = true
                         this.value = "000000"
                     }
-                    this.dataTransfer = EbicsResponse.DataTransferResponseType().apply {
+                    this.dataTransfer = DataTransferResponseType().apply {
                         this.dataEncryptionInfo = EbicsTypes.DataEncryptionInfo().apply {
                             this.authenticate = true
-                            this.encryptionPubKeyDigest = EbicsTypes.PubKeyDigest().apply {
+                            this.encryptionPubKeyDigest = EbicsTypes.PubKeyDigest()
+                                .apply {
                                 this.algorithm = "http://www.w3.org/2001/04/xmlenc#sha256"
                                 this.version = "E002"
                                 this.value = enc.pubKeyDigest
                             }
                             this.transactionKey = enc.encryptedTransactionKey
                         }
-                        this.orderData = EbicsResponse.OrderData().apply {
+                        this.orderData = OrderData().apply {
                             this.value = encodedData.substring(0, Math.min(segmentSize, encodedData.length))
                         }
                     }

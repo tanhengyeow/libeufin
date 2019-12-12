@@ -1,8 +1,8 @@
-package tech.libeufin.schema.ebics_h004
+package tech.libeufin.util.schema.ebics_h004
 
 import org.apache.xml.security.binding.xmldsig.RSAKeyValueType
-import tech.libeufin.sandbox.EbicsOrderUtil
-import tech.libeufin.schema.ebics_s001.SignatureTypes
+import tech.libeufin.util.EbicsOrderUtil
+import tech.libeufin.util.schema.ebics_s001.SignatureTypes
 import java.security.interfaces.RSAPrivateCrtKey
 import javax.xml.bind.annotation.*
 import javax.xml.bind.annotation.adapters.CollapsedStringAdapter
@@ -122,10 +122,10 @@ class EbicsUnsecuredRequest {
 
                 version = "H004"
                 revision = 1
-                header = EbicsUnsecuredRequest.Header().apply {
+                header = Header().apply {
                     authenticate = true
-                    static = EbicsUnsecuredRequest.StaticHeaderType().apply {
-                        orderDetails = EbicsUnsecuredRequest.OrderDetails().apply {
+                    static = StaticHeaderType().apply {
+                        orderDetails = OrderDetails().apply {
                             orderAttribute = "DZNNN"
                             orderType = "HIA"
                             securityMedium = "0000"
@@ -134,14 +134,15 @@ class EbicsUnsecuredRequest {
                             partnerID = partnerId
                         }
                     }
-                    mutable = EbicsUnsecuredRequest.Header.EmptyMutableHeader()
+                    mutable = Header.EmptyMutableHeader()
                 }
-                body = EbicsUnsecuredRequest.Body().apply {
-                    dataTransfer = EbicsUnsecuredRequest.UnsecuredDataTransfer().apply {
-                        orderData = EbicsUnsecuredRequest.OrderData().apply {
+                body = Body().apply {
+                    dataTransfer = UnsecuredDataTransfer().apply {
+                        orderData = OrderData().apply {
                             value = EbicsOrderUtil.encodeOrderDataXml(
                                 HIARequestOrderData().apply {
-                                    authenticationPubKeyInfo = EbicsTypes.AuthenticationPubKeyInfoType().apply {
+                                    authenticationPubKeyInfo = EbicsTypes.AuthenticationPubKeyInfoType()
+                                        .apply {
                                         pubKeyValue = EbicsTypes.PubKeyValueType().apply {
                                             rsaKeyValue = RSAKeyValueType().apply {
                                                 exponent = authKey.publicExponent.toByteArray()
@@ -150,7 +151,8 @@ class EbicsUnsecuredRequest {
                                         }
                                         authenticationVersion = "X002"
                                     }
-                                    encryptionPubKeyInfo = EbicsTypes.EncryptionPubKeyInfoType().apply {
+                                    encryptionPubKeyInfo = EbicsTypes.EncryptionPubKeyInfoType()
+                                        .apply {
                                         pubKeyValue = EbicsTypes.PubKeyValueType().apply {
                                             rsaKeyValue = RSAKeyValueType().apply {
                                                 exponent = encKey.publicExponent.toByteArray()
@@ -180,10 +182,10 @@ class EbicsUnsecuredRequest {
             return EbicsUnsecuredRequest().apply {
                 version = "H004"
                 revision = 1
-                header = EbicsUnsecuredRequest.Header().apply {
+                header = Header().apply {
                     authenticate = true
-                    static = EbicsUnsecuredRequest.StaticHeaderType().apply {
-                        orderDetails = EbicsUnsecuredRequest.OrderDetails().apply {
+                    static = StaticHeaderType().apply {
+                        orderDetails = OrderDetails().apply {
                             orderAttribute = "DZNNN"
                             orderType = "INI"
                             securityMedium = "0000"
@@ -192,11 +194,11 @@ class EbicsUnsecuredRequest {
                             partnerID = partnerId
                         }
                     }
-                    mutable = EbicsUnsecuredRequest.Header.EmptyMutableHeader()
+                    mutable = Header.EmptyMutableHeader()
                 }
                 body = Body().apply {
-                    dataTransfer = EbicsUnsecuredRequest.UnsecuredDataTransfer().apply {
-                        orderData = EbicsUnsecuredRequest.OrderData().apply {
+                    dataTransfer = UnsecuredDataTransfer().apply {
+                        orderData = OrderData().apply {
                             value = EbicsOrderUtil.encodeOrderDataXml(
                                 SignatureTypes.SignaturePubKeyOrderData().apply {
                                     signaturePubKeyInfo = SignatureTypes.SignaturePubKeyInfoType().apply {

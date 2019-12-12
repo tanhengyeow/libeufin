@@ -1,4 +1,4 @@
-package tech.libeufin.schema.ebics_s001
+package tech.libeufin.util.schema.ebics_s001
 
 import javax.xml.bind.annotation.*
 

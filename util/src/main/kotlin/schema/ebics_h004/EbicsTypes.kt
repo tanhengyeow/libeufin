@@ -17,7 +17,7 @@
  * <http://www.gnu.org/licenses/>
  */
 
-package tech.libeufin.schema.ebics_h004
+package tech.libeufin.util.schema.ebics_h004
 
 import org.apache.xml.security.binding.xmldsig.RSAKeyValueType
 import org.w3c.dom.Element
@@ -241,7 +241,7 @@ object EbicsTypes {
         lateinit var orderType: String
 
         @get:XmlElement(name = "FileFormat")
-        val fileFormat: EbicsTypes.FileFormatType? = null
+        val fileFormat: FileFormatType? = null
 
         @get:XmlElement(name = "TransferType")
         lateinit var transferType: String
@@ -288,7 +288,7 @@ object EbicsTypes {
         var orderTypes: String? = null
 
         @get:XmlElement(name = "FileFormat")
-        val fileFormat: EbicsTypes.FileFormatType? = null
+        val fileFormat: FileFormatType? = null
 
         @get:XmlElement(name = "AccountID")
         val accountID: String? = null
@@ -325,8 +325,8 @@ object EbicsTypes {
         @get:XmlElement(name = "HostID")
         lateinit var hostID: String
 
-        @get:XmlElement(type = EbicsTypes.Parameter::class)
-        var parameters: List<EbicsTypes.Parameter>? = null
+        @get:XmlElement(type = Parameter::class)
+        var parameters: List<Parameter>? = null
     }
 
     @XmlAccessorType(XmlAccessType.NONE)

@@ -13,23 +13,16 @@
         </encoder>
     </appender>
 
-    <appender name="NEXUS-FILE" class="ch.qos.logback.core.FileAppender">
-        <file>/tmp/nexus.log</file>
-        <append>false</append>
-        <encoder>
-            <pattern>%-5relative %-5level %logger{35} - %msg%n</pattern>
-        </encoder>
-    </appender>
-
     <logger name="tech.libeufin.sandbox" level="DEBUG"  additivity="false">
         <appender-ref ref="STDOUT" />
         <appender-ref ref="SANDBOX-FILE" />
     </logger>
 
-    <logger name="tech.libeufin.nexus" level="TRACE"  additivity="false">
+    <logger name="tech.libeufin.util" level="TRACE"  additivity="false">
         <appender-ref ref="STDOUT" />
-        <appender-ref ref="NEXUS-FILE" />
+        <appender-ref ref="SANDBOX-FILE" />
     </logger>
+
 
     <logger name="io.netty" level="WARN" />
     <logger name="ktor" level="WARN" />

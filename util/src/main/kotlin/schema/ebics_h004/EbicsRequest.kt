@@ -1,9 +1,7 @@
-package tech.libeufin.schema.ebics_h004
+package tech.libeufin.util.schema.ebics_h004
 
-import io.ktor.http.HttpStatusCode
 import org.apache.xml.security.binding.xmldsig.SignatureType
-import tech.libeufin.sandbox.CryptoUtil
-import tech.libeufin.sandbox.toByteArray
+import tech.libeufin.util.CryptoUtil
 import java.math.BigInteger
 import java.security.interfaces.RSAPublicKey
 import javax.xml.bind.annotation.*
@@ -259,7 +257,7 @@ class EbicsRequest {
         @get:XmlElement(name = "Start")
         lateinit var start: XMLGregorianCalendar
 
-        @get:XmlElement(name = "END")
+        @get:XmlElement(name = "End")
         lateinit var end: XMLGregorianCalendar
     }
 
@@ -319,7 +317,7 @@ class EbicsRequest {
             dateEnd: XMLGregorianCalendar
         ): EbicsRequest {
 
-            val tmp = this.createForDownloadInitializationPhase(
+            val tmp = createForDownloadInitializationPhase(
                 userId,
                 partnerId,
                 hostId,
@@ -359,19 +357,19 @@ class EbicsRequest {
                 body = Body()
                 header = Header().apply {
                     authenticate = true
-                    static = EbicsRequest.StaticHeaderType().apply {
+                    static = StaticHeaderType().apply {
                         userID = userId
                         partnerID = partnerId
                         hostID = hostId
                         nonce = nonceArg
                         timestamp = date
                         partnerID = partnerId
-                        orderDetails = EbicsRequest.OrderDetails().apply {
+                        orderDetails = OrderDetails().apply {
                             orderType = aOrderType
                             orderAttribute = "DZHNN"
-                            orderParams = EbicsRequest.StandardOrderParams()
+                            orderParams = StandardOrderParams()
                         }
-                        bankPubKeyDigests = EbicsRequest.BankPubKeyDigests().apply {
+                        bankPubKeyDigests = BankPubKeyDigests().apply {
                             authentication = EbicsTypes.PubKeyDigest().apply {
                                 algorithm = "http://www.w3.org/2001/04/xmlenc#sha256"
                                 version = "X002"
@@ -384,8 +382,9 @@ class EbicsRequest {
                             }
                             securityMedium = "0000"
                         }
-                        mutable = EbicsRequest.MutableHeader().apply {
-                            transactionPhase = EbicsTypes.TransactionPhaseType.INITIALISATION
+                        mutable = MutableHeader().apply {
+                            transactionPhase =
+                                EbicsTypes.TransactionPhaseType.INITIALISATION
                         }
                     }
                 }
@@ -406,22 +405,22 @@ class EbicsRequest {
         ): EbicsRequest {
 
             return EbicsRequest().apply {
-                header = EbicsRequest.Header().apply {
+                header = Header().apply {
                     version = "H004"
                     revision = 1
                     authenticate = true
-                    static = EbicsRequest.StaticHeaderType().apply {
+                    static = StaticHeaderType().apply {
                         hostID = hostId
                         nonce = nonceArg
                         timestamp = date
                         partnerID = partnerId
                         userID = userId
-                        orderDetails = EbicsRequest.OrderDetails().apply {
+                        orderDetails = OrderDetails().apply {
                             orderType = aOrderType
                             orderAttribute = "OZHNN"
-                            orderParams = EbicsRequest.StandardOrderParams()
+                            orderParams = StandardOrderParams()
                         }
-                        bankPubKeyDigests = EbicsRequest.BankPubKeyDigests().apply {
+                        bankPubKeyDigests = BankPubKeyDigests().apply {
                             authentication = EbicsTypes.PubKeyDigest().apply {
                                 algorithm = "http://www.w3.org/2001/04/xmlenc#sha256"
                                 version = "X002"
@@ -436,14 +435,15 @@ class EbicsRequest {
                         securityMedium = "0000"
                         numSegments = segmentsNumber
                     }
-                    mutable = EbicsRequest.MutableHeader().apply {
-                        transactionPhase = EbicsTypes.TransactionPhaseType.INITIALISATION
+                    mutable = MutableHeader().apply {
+                        transactionPhase =
+                            EbicsTypes.TransactionPhaseType.INITIALISATION
                     }
                 }
                 authSignature = SignatureType()
-                body = EbicsRequest.Body().apply {
-                    dataTransfer = EbicsRequest.DataTransfer().apply {
-                        signatureData = EbicsRequest.SignatureData().apply {
+                body = Body().apply {
+                    dataTransfer = DataTransfer().apply {
+                        signatureData = SignatureData().apply {
                             authenticate = true
                             value = cryptoBundle.encryptedData
                         }
@@ -490,8 +490,8 @@ class EbicsRequest {
                 }
 
                 authSignature = SignatureType()
-                body = EbicsRequest.Body().apply {
-                    dataTransfer = EbicsRequest.DataTransfer().apply {
+                body = Body().apply {
+                    dataTransfer = DataTransfer().apply {
                         orderData = encryptedData
                     }
                 }

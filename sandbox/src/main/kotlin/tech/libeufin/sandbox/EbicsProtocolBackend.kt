@@ -27,16 +27,20 @@ import io.ktor.request.receiveText
 import io.ktor.response.respond
 import io.ktor.response.respondText
 import org.apache.xml.security.binding.xmldsig.RSAKeyValueType
-import org.apache.xml.security.c14n.Canonicalizer
 import org.jetbrains.exposed.sql.and
+import org.jetbrains.exposed.sql.stringParam
 import org.jetbrains.exposed.sql.transactions.transaction
 import org.jetbrains.exposed.sql.upperCase
 import org.w3c.dom.Document
-import tech.libeufin.schema.ebics_h004.*
-import tech.libeufin.schema.ebics_hev.HEVResponse
-import tech.libeufin.schema.ebics_hev.SystemReturnCodeType
-import tech.libeufin.schema.ebics_s001.SignatureTypes
-import tech.libeufin.schema.ebics_s001.UserSignatureData
+import tech.libeufin.util.schema.ebics_h004.*
+import tech.libeufin.util.schema.ebics_hev.HEVResponse
+import tech.libeufin.util.schema.ebics_hev.SystemReturnCodeType
+import tech.libeufin.util.schema.ebics_s001.SignatureTypes
+import tech.libeufin.util.schema.ebics_s001.UserSignatureData
+import tech.libeufin.util.CryptoUtil
+import tech.libeufin.util.EbicsOrderUtil
+import tech.libeufin.util.XMLUtil
+import tech.libeufin.util.*
 import java.security.interfaces.RSAPrivateCrtKey
 import java.util.*
 import java.util.zip.DeflaterInputStream
@@ -58,7 +62,6 @@ private class EbicsInvalidOrderType : EbicsRequestError(
     "[EBICS_UNSUPPORTED_ORDER_TYPE] Order type not supported",
     "091005"
 )
-
 
 private suspend fun ApplicationCall.respondEbicsKeyManagement(
     errorText: String,
@@ -108,6 +111,56 @@ private suspend fun ApplicationCall.respondEbicsKeyManagement(
     respondText(text, ContentType.Application.Xml, HttpStatusCode.OK)
 }
 
+private fun ApplicationCall.handleEbicsC52(header: EbicsRequest.Header) {
+
+    val userId = header.static.userID!!
+    val od = header.static.orderDetails ?: throw Exception("Need 'OrderDetails'")
+    val op = od.orderParams ?: throw Exception("Need 'StandardOrderParams'")
+
+    /**
+     * (StandardOrderParams (DateRange (Start, End)))
+     */
+
+    val subscriber = transaction {
+        EbicsSubscriberEntity.find {
+            stringParam(userId) eq EbicsSubscribersTable.userId // will have to match partner and system IDs
+        }
+    }.firstOrNull() ?: throw Exception("Unknown subscriber")
+
+    val history = extractHistoryForEach(
+        subscriber.bankCustomer.id.value,
+        (op as EbicsRequest.StandardOrderParams).dateRange?.start.toString(),
+        op.dateRange?.end.toString()) { println(it) }
+
+    val ret = constructXml(indent = true) {
+        namespace("foo", "bar")
+        root("foo:BkToCstmrAcctRpt") {
+            element("GrpHdr") {
+
+                element("MsgId") {
+                    text("id under group header")
+                }
+                element("CreDtTm") {
+                    text("now")
+                }
+            }
+            element("Rpt") {
+                element("Id") {
+                    text("id under report")
+                }
+                element("Acct") {
+                    text("account identifier")
+                }
+
+            }
+
+
+        }
+    }
+
+    // val str = XMLUtil.convertJaxbToString(ret)
+    // return str.toByteArray()
+}
 
 private suspend fun ApplicationCall.handleEbicsHia(header: EbicsUnsecuredRequest.Header, orderData: ByteArray) {
     val plainOrderData = InflaterInputStream(orderData.inputStream()).use {
@@ -444,17 +497,6 @@ fun signEbicsResponseX002(ebicsResponse: EbicsResponse, privateKey: RSAPrivateCr
     return signedDoc
 }
 
-
-class EbicsTransactionDetails(
-
-)
-
-
-fun queryEbicsTransactionDetails(ebicsRequest: EbicsRequest): EbicsTransactionDetails {
-    throw NotImplementedError()
-}
-
-
 suspend fun ApplicationCall.ebicsweb() {
     val requestDocument = receiveEbicsXml()
 
@@ -471,7 +513,6 @@ suspend fun ApplicationCall.ebicsweb() {
             when (header.static.orderDetails.orderType) {
                 "INI" -> handleEbicsIni(header, orderData)
                 "HIA" -> handleEbicsHia(header, orderData)
-                // "C52" -> handleEbicsC52(header, orderData)
                 else -> throw EbicsInvalidXmlError()
             }
         }
@@ -562,6 +603,7 @@ suspend fun ApplicationCall.ebicsweb() {
                             val response = when (orderType) {
                                 "HTD" -> handleEbicsHtd()
                                 "HKD" -> handleEbicsHkd()
+                                // "C52" -> handleEbicsC52(requestObject.header)
                                 else -> throw EbicsInvalidXmlError()
                             }
 

@@ -1,10 +1,9 @@
 package tech.libeufin.nexus
 
-import okio.internal.commonAsUtf8ToByteArray
-import tech.libeufin.sandbox.XMLUtil
+import tech.libeufin.util.XMLUtil
 import org.apache.xml.security.binding.xmldsig.SignatureType
 import org.junit.Test
-import tech.libeufin.sandbox.CryptoUtil
+import tech.libeufin.util.CryptoUtil
 import tech.libeufin.schema.ebics_h004.EbicsRequest
 import tech.libeufin.schema.ebics_h004.EbicsTypes
 import java.math.BigInteger

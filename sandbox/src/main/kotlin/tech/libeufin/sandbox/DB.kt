@@ -95,10 +95,6 @@ enum class KeyState {
     RELEASED
 }
 
-fun Blob.toByteArray(): ByteArray {
-    return this.binaryStream.readAllBytes()
-}
-
 /**
  * Any number can become a Amount IF it does NOT need to be rounded to comply to the scale == 2.
  */

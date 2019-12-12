@@ -1,7 +1,7 @@
 package tech.libeufin.nexus
 
 import org.junit.Test
-import tech.libeufin.sandbox.toHexString
+import tech.libeufin.util.toHexString
 
 class LetterFormatTest {
 
