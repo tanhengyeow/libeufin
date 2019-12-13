@@ -4,7 +4,7 @@ import junit.framework.TestCase.assertEquals
 import org.apache.xml.security.binding.xmldsig.SignatureType
 import org.junit.Test
 import org.w3c.dom.Element
-import tech.libeufin.util.schema.ebics_h004.*
+import tech.libeufin.util.ebics_h004.*
 import tech.libeufin.util.ebics_hev.HEVResponse
 import tech.libeufin.util.ebics_hev.SystemReturnCodeType
 import tech.libeufin.util.ebics_s001.SignatureTypes
