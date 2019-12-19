@@ -20,6 +20,7 @@
 package tech.libeufin.util
 
 import com.sun.org.apache.xerces.internal.dom.DOMInputImpl
+import com.sun.xml.bind.marshaller.NamespacePrefixMapper
 import org.w3c.dom.Document
 import org.w3c.dom.Node
 import org.w3c.dom.NodeList
@@ -57,6 +58,14 @@ import javax.xml.xpath.XPath
 import javax.xml.xpath.XPathConstants
 import javax.xml.xpath.XPathFactory
 
+class DefaultNamespaces : NamespacePrefixMapper() {
+    override fun getPreferredPrefix(namespaceUri: String?, suggestion: String?, requirePrefix: Boolean): String? {
+        if (namespaceUri == "http://www.w3.org/2000/09/xmldsig#") return "ds"
+        return null
+    }
+}
+
+
 /**
  * Helpers for dealing with XML in EBICS.
  */
@@ -89,7 +98,6 @@ class XMLUtil private constructor() {
             return NodeSetData { nodeList.iterator() }
         }
     }
-
     /**
      * Validator for EBICS messages.
      */
@@ -198,6 +206,7 @@ class XMLUtil private constructor() {
             val jc = JAXBContext.newInstance(T::class.java)
             val m = jc.createMarshaller()
             m.setProperty(Marshaller.JAXB_FORMATTED_OUTPUT, true)
+            m.setProperty("com.sun.xml.bind.namespacePrefixMapper", DefaultNamespaces())
             m.marshal(obj, sw)
             return sw.toString()
         }
@@ -209,6 +218,7 @@ class XMLUtil private constructor() {
             val jc = JAXBContext.newInstance(T::class.java)
             val m = jc.createMarshaller()
             m.setProperty(Marshaller.JAXB_FORMATTED_OUTPUT, true)
+            m.setProperty("com.sun.xml.bind.namespacePrefixMapper", DefaultNamespaces())
             m.marshal(obj, doc)
             return doc
         }
