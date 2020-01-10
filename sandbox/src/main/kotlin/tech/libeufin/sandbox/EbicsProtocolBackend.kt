@@ -1,4 +1,4 @@
-/*
+</*
  * This file is part of LibEuFin.
  * Copyright (C) 2019 Stanisci and Dold.
 
@@ -604,7 +604,7 @@ suspend fun ApplicationCall.ebicsweb() {
                             val response = when (orderType) {
                                 "HTD" -> handleEbicsHtd()
                                 "HKD" -> handleEbicsHkd()
-                                // "C52" -> handleEbicsC52(requestObject.header)
+                                "C52" -> handleEbicsC52(requestObject.header)
                                 else -> throw EbicsInvalidXmlError()
                             }
 
