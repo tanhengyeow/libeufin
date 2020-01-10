@@ -111,7 +111,7 @@ private suspend fun ApplicationCall.respondEbicsKeyManagement(
     respondText(text, ContentType.Application.Xml, HttpStatusCode.OK)
 }
 
-private fun ApplicationCall.handleEbicsC52(header: EbicsRequest.Header) {
+private fun ApplicationCall.handleEbicsC52(header: EbicsRequest.Header): ByteArray {
 
     val userId = header.static.userID!!
     val od = header.static.orderDetails ?: throw Exception("Need 'OrderDetails'")
@@ -151,15 +151,12 @@ private fun ApplicationCall.handleEbicsC52(header: EbicsRequest.Header) {
                 element("Acct") {
                     text("account identifier")
                 }
-
             }
-
-
         }
     }
 
-    // val str = XMLUtil.convertJaxbToString(ret)
-    // return str.toByteArray()
+    val str = XMLUtil.convertJaxbToString(ret)
+    return str.toByteArray()
 }
 
 private suspend fun ApplicationCall.handleEbicsHia(header: EbicsUnsecuredRequest.Header, orderData: ByteArray) {
