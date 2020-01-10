@@ -139,10 +139,11 @@ fun sampleData() {
             signaturePrivateKey = SerialBlob(pairC.private.encoded)
         }
 
-
         val customerEntity = BankCustomerEntity.new {
             name = "Mina"
         }
+
+        LOGGER.debug("Creating customer number: ${customerEntity.id}")
 
         EbicsSubscriberEntity.new {
             partnerId = "PARTNER1"
@@ -165,6 +166,13 @@ fun sampleData() {
     }
 }
 
+/**
+ * Finds the history for a customer.
+ *
+ * @param id the customer whose history must be returned.  This
+ * id is local to the bank and is not reused/encoded into other
+ * EBICS id values.
+ */
 fun extractHistoryForEach(id: Int, start: String?, end: String?, builder: (BankTransactionEntity) -> Any) {
     val s = if (start != null) DateTime.parse(start) else DateTime(0)
     val e = if (end != null) DateTime.parse(end) else DateTime.now()
