@@ -72,7 +72,6 @@ fun findCustomer(id: String?): BankCustomerEntity {
     }
 
     return transaction {
-
         BankCustomerEntity.findById(idN) ?: throw CustomerNotFound(id)
     }
 }

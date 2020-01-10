@@ -366,6 +366,7 @@ fun dbCreateTables() {
     Database.connect("jdbc:sqlite:libeufin-sandbox.sqlite3", "org.sqlite.JDBC")
     // Database.connect("jdbc:h2:mem:test;DB_CLOSE_DELAY=-1", driver = "org.h2.Driver")
     TransactionManager.manager.defaultIsolationLevel = Connection.TRANSACTION_SERIALIZABLE
+    addLogger(StdOutSqlLogger)
 
     transaction {
 
