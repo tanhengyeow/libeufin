@@ -1,4 +1,4 @@
-</*
+/*
  * This file is part of LibEuFin.
  * Copyright (C) 2019 Stanisci and Dold.
 
