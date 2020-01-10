@@ -36,6 +36,18 @@ class DbTest {
 
     }
 
+
+    @Test
+    fun customers() {
+        transaction {
+            BankCustomerEntity.new {
+                name = "Test Name"
+            }
+            findCustomer("1")
+        }
+    }
+
+
     @Test
     fun goodAmount() {
 
