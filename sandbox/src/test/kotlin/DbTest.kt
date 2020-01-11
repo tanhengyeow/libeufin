@@ -41,7 +41,7 @@ class DbTest {
     fun customers() {
         transaction {
             BankCustomerEntity.new {
-                name = "Test Name"
+                customerName = "Test Name"
             }
             findCustomer("1")
         }
@@ -58,7 +58,7 @@ class DbTest {
                 subject = "Salary"
                 date = DateTime.now()
                 localCustomer = BankCustomerEntity.new {
-                    name = "employee"
+                    customerName = "employee"
                 }
             }
 
@@ -68,7 +68,7 @@ class DbTest {
                 subject = "Salary"
                 date = DateTime.now()
                 localCustomer = BankCustomerEntity.new {
-                    name = "employee"
+                    customerName = "employee"
                 }
             }
 
@@ -78,7 +78,7 @@ class DbTest {
                 subject = "Salary"
                 date = DateTime.now()
                 localCustomer = BankCustomerEntity.new {
-                    name = "employee"
+                    customerName = "employee"
                 }
             }
         }
@@ -94,7 +94,7 @@ class DbTest {
                     subject = "Salary"
                     date = DateTime.now()
                     localCustomer = BankCustomerEntity.new {
-                        name = "employee"
+                        customerName = "employee"
                     }
                 }
             }
@@ -116,7 +116,7 @@ class DbTest {
                     subject = "Salary"
                     date = DateTime.now()
                     localCustomer = BankCustomerEntity.new {
-                        name = "employee"
+                        customerName = "employee"
                     }
                 }
             }
