@@ -3,6 +3,7 @@ package tech.libeufin.nexus
 import io.ktor.client.HttpClient
 import io.ktor.client.request.post
 import io.ktor.http.HttpStatusCode
+import tech.libeufin.util.getGregorianDate
 import tech.libeufin.util.CryptoUtil
 import tech.libeufin.util.XMLUtil
 import tech.libeufin.util.ebics_h004.EbicsRequest
