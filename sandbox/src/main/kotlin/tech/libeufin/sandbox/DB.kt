@@ -345,14 +345,12 @@ class EbicsOrderSignatureEntity(id: EntityID<Int>) : IntEntity(id) {
     var signatureValue by EbicsOrderSignaturesTable.signatureValue
 }
 
-
 object EbicsUploadTransactionChunksTable : IdTable<String>() {
     override val id =
         text("transactionID").entityId()
     val chunkIndex = integer("chunkIndex")
     val chunkContent = blob("chunkContent")
 }
-
 
 class EbicsUploadTransactionChunkEntity(id : EntityID<String>): Entity<String>(id) {
     companion object : EntityClass<String, EbicsUploadTransactionChunkEntity>(EbicsUploadTransactionChunksTable)
@@ -363,12 +361,12 @@ class EbicsUploadTransactionChunkEntity(id : EntityID<String>): Entity<String>(i
 
 
 fun dbCreateTables() {
-    Database.connect("jdbc:sqlite:libeufin-sandbox.sqlite3", "org.sqlite.JDBC")
-    // Database.connect("jdbc:h2:mem:test;DB_CLOSE_DELAY=-1", driver = "org.h2.Driver")
+    // Database.connect("jdbc:sqlite:libeufin-sandbox.sqlite3", "org.sqlite.JDBC")
+    Database.connect("jdbc:h2:mem:test;DB_CLOSE_DELAY=-1", driver = "org.h2.Driver")
     TransactionManager.manager.defaultIsolationLevel = Connection.TRANSACTION_SERIALIZABLE
 
     transaction {
-
+        addLogger(StdOutSqlLogger)
         SchemaUtils.create(
             BankTransactionsTable,
             BankCustomersTable,

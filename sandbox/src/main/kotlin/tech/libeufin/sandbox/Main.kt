@@ -38,6 +38,8 @@ import io.ktor.routing.post
 import io.ktor.routing.routing
 import io.ktor.server.engine.embeddedServer
 import io.ktor.server.netty.Netty
+import org.jetbrains.exposed.sql.StdOutSqlLogger
+import org.jetbrains.exposed.sql.addLogger
 import org.jetbrains.exposed.sql.and
 import org.jetbrains.exposed.sql.transactions.transaction
 import org.joda.time.DateTime
@@ -53,7 +55,6 @@ import java.text.DateFormat
 import javax.sql.rowset.serial.SerialBlob
 import javax.xml.bind.JAXBContext
 
-
 class CustomerNotFound(id: String?) : Exception("Customer ${id} not found")
 class BadInputData(inputData: String?) : Exception("Customer provided invalid input data: ${inputData}")
 class BadAmount(badValue: Any?) : Exception("Value '${badValue}' is not a valid amount")
@@ -61,6 +62,7 @@ class UnacceptableFractional(statusCode: HttpStatusCode, badNumber: BigDecimal) 
     "Unacceptable fractional part ${badNumber}"
 )
 
+val LOGGER: Logger = LoggerFactory.getLogger("tech.libeufin.sandbox")
 
 fun findCustomer(id: String?): BankCustomerEntity {
 
@@ -72,6 +74,7 @@ fun findCustomer(id: String?): BankCustomerEntity {
     }
 
     return transaction {
+        addLogger(StdOutSqlLogger)
         BankCustomerEntity.findById(idN) ?: throw CustomerNotFound(id)
     }
 }
@@ -139,6 +142,7 @@ fun sampleData() {
         }
 
         val customerEntity = BankCustomerEntity.new {
+            addLogger(StdOutSqlLogger)
             name = "Mina"
         }
 
@@ -199,8 +203,6 @@ fun calculateBalance(id: Int, start: String?, end: String?): BigDecimal {
     }
     return ret
 }
-
-val LOGGER: Logger = LoggerFactory.getLogger("tech.libeufin.sandbox")
 
 fun main() {
 
