@@ -152,7 +152,6 @@ open class IntIdTableWithAmount : IntIdTable() {
     }
 }
 
-
 object BankTransactionsTable : IntIdTableWithAmount() {
 
     /* Using varchar to store the IBAN - or possibly other formats
@@ -188,12 +187,12 @@ class BankTransactionEntity(id: EntityID<Int>) : IntEntity(id) {
  */
 object BankCustomersTable : IntIdTable() {
     // Customer ID is the default 'id' field provided by the constructor.
-    val name = varchar("name", CUSTOMER_NAME_MAX_LENGTH).primaryKey()
+    val customerName = varchar("customerName", CUSTOMER_NAME_MAX_LENGTH)
 }
 
 class BankCustomerEntity(id: EntityID<Int>) : IntEntity(id) {
     companion object : IntEntityClass<BankCustomerEntity>(BankCustomersTable)
-    var name by BankCustomersTable.name
+    var customerName by BankCustomersTable.customerName
 }
 
 
@@ -368,8 +367,8 @@ fun dbCreateTables() {
     transaction {
         addLogger(StdOutSqlLogger)
         SchemaUtils.create(
-            BankTransactionsTable,
             BankCustomersTable,
+            BankTransactionsTable,
             EbicsSubscribersTable,
             EbicsHostsTable,
             EbicsDownloadTransactionsTable,

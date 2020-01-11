@@ -143,7 +143,7 @@ fun sampleData() {
 
         val customerEntity = BankCustomerEntity.new {
             addLogger(StdOutSqlLogger)
-            name = "Mina"
+            customerName = "Mina"
         }
 
         LOGGER.debug("Creating customer number: ${customerEntity.id}")
@@ -269,7 +269,7 @@ fun main() {
 
                 call.respond(
                     CustomerBalance(
-                    name = customer.name,
+                    name = customer.customerName,
                     balance = "${balance} EUR"
                     )
                 )
