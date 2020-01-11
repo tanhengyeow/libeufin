@@ -111,15 +111,13 @@ private suspend fun ApplicationCall.respondEbicsKeyManagement(
     respondText(text, ContentType.Application.Xml, HttpStatusCode.OK)
 }
 
+/* intra-day account traffic */
 private fun ApplicationCall.handleEbicsC52(header: EbicsRequest.Header): ByteArray {
 
     val userId = header.static.userID!!
     val od = header.static.orderDetails ?: throw Exception("Need 'OrderDetails'")
     val op = od.orderParams ?: throw Exception("Need 'StandardOrderParams'")
 
-    /**
-     * (StandardOrderParams (DateRange (Start, End)))
-     */
 
     val subscriber = transaction {
         EbicsSubscriberEntity.find {
@@ -129,8 +127,9 @@ private fun ApplicationCall.handleEbicsC52(header: EbicsRequest.Header): ByteArr
 
     val history = extractHistoryForEach(
         subscriber.bankCustomer.id.value,
-        (op as EbicsRequest.StandardOrderParams).dateRange?.start.toString(),
-        op.dateRange?.end.toString()) { println(it) }
+        getGregorianDate().toString(),
+        getGregorianDate().toString()
+    ) { println(it) }
 
     val ret = constructXml(indent = true) {
         namespace("foo", "bar")

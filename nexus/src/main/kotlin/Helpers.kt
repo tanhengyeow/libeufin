@@ -37,7 +37,6 @@ fun createDownloadInitializationPhase(
     )
 }
 
-
 fun createDownloadInitializationPhase(
     subscriberData: EbicsContainer,
     orderType: String,
@@ -60,7 +59,6 @@ fun createDownloadInitializationPhase(
         dateEnd
     )
 }
-
 
 fun createUploadInitializationPhase(
     subscriberData: EbicsContainer,
@@ -257,8 +255,6 @@ suspend inline fun <reified T, reified S> HttpClient.postToBankSigned(
     }
 }
 
-
-
 /**
  * do NOT verify the bank's signature
  */
@@ -284,18 +280,4 @@ fun getNonce(size: Int): ByteArray {
     val ret = ByteArray(size / 8)
     sr.nextBytes(ret)
     return ret
-}
-
-/* explicit point in time */
-fun getGregorianDate(year: Int, month: Int, day: Int): XMLGregorianCalendar {
-    val gregorianCalendar = GregorianCalendar(year, month, day)
-    val datatypeFactory = DatatypeFactory.newInstance()
-    return datatypeFactory.newXMLGregorianCalendar(gregorianCalendar)
-}
-
-/* now */
-fun getGregorianDate(): XMLGregorianCalendar {
-    val gregorianCalendar = GregorianCalendar()
-    val datatypeFactory = DatatypeFactory.newInstance()
-    return datatypeFactory.newXMLGregorianCalendar(gregorianCalendar)
 }
