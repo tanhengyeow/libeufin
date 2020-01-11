@@ -128,6 +128,10 @@ private fun ApplicationCall.handleEbicsC52(header: EbicsRequest.Header): ByteArr
         subscriber.bankCustomer.id.value,
         getGregorianDate().toString(),
         getGregorianDate().toString()
+        /* Previous style where dates were fetched from the request:
+        op as EbicsRequest.StandardOrderParams).dateRange?.start.toString(),
+-       op.dateRange?.end.toString()
+         */
     ) { println(it) }
 
     val ret = constructXml(indent = true) {
