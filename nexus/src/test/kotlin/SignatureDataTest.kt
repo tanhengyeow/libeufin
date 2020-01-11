@@ -7,6 +7,7 @@ import tech.libeufin.util.CryptoUtil
 import tech.libeufin.util.ebics_h004.EbicsRequest
 import tech.libeufin.util.ebics_h004.EbicsTypes
 import java.math.BigInteger
+import tech.libeufin.util.getGregorianDate
 
 class SignatureDataTest {
 
