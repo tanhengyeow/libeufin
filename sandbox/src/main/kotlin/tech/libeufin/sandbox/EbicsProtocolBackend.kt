@@ -118,7 +118,6 @@ private fun ApplicationCall.handleEbicsC52(header: EbicsRequest.Header): ByteArr
     val od = header.static.orderDetails ?: throw Exception("Need 'OrderDetails'")
     val op = od.orderParams ?: throw Exception("Need 'StandardOrderParams'")
 
-
     val subscriber = transaction {
         EbicsSubscriberEntity.find {
             stringParam(userId) eq EbicsSubscribersTable.userId // will have to match partner and system IDs
@@ -153,9 +152,7 @@ private fun ApplicationCall.handleEbicsC52(header: EbicsRequest.Header): ByteArr
             }
         }
     }
-
-    val str = XMLUtil.convertJaxbToString(ret)
-    return str.toByteArray()
+    return ret.toByteArray()
 }
 
 private suspend fun ApplicationCall.handleEbicsHia(header: EbicsUnsecuredRequest.Header, orderData: ByteArray) {
