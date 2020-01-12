@@ -367,17 +367,17 @@ fun handleEbicsHtd(): ByteArray {
             }
             this.orderInfoList = listOf(
                 EbicsTypes.AuthOrderInfoType().apply {
-                    this.description = "foo"
+                    this.description = "foo1"
                     this.orderType = "C53"
                     this.transferType = "Download"
                 },
                 EbicsTypes.AuthOrderInfoType().apply {
-                    this.description = "foo"
+                    this.description = "foo2"
                     this.orderType = "C52"
                     this.transferType = "Download"
                 },
                 EbicsTypes.AuthOrderInfoType().apply {
-                    this.description = "foo"
+                    this.description = "foo3"
                     this.orderType = "CCC"
                     this.transferType = "Upload"
                 }
