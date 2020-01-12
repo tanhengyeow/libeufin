@@ -391,7 +391,7 @@ fun handleEbicsHtd(): ByteArray {
             }
             this.permissionList = listOf(
                 EbicsTypes.UserPermission().apply {
-                    this.orderTypes = "C54 C53 C52 CCC"
+                    this.orderTypes = "C53 C52 CCC"
                 }
             )
         }
