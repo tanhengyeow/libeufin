@@ -385,6 +385,11 @@ fun handleEbicsHtd(): ByteArray {
                     this.description = "foo4"
                     this.orderType = "VMK"
                     this.transferType = "Download"
+                },
+                EbicsTypes.AuthOrderInfoType().apply {
+                    this.description = "foo5"
+                    this.orderType = "STA"
+                    this.transferType = "Download"
                 }
             )
         }
@@ -396,7 +401,7 @@ fun handleEbicsHtd(): ByteArray {
             }
             this.permissionList = listOf(
                 EbicsTypes.UserPermission().apply {
-                    this.orderTypes = "C53 C52 CCC VMK"
+                    this.orderTypes = "C53 C52 CCC VMK STA"
                 }
             )
         }
