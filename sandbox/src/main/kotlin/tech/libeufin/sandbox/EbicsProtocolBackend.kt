@@ -126,12 +126,16 @@ private fun ApplicationCall.handleEbicsC52(header: EbicsRequest.Header): ByteArr
 
     val history = extractHistoryForEach(
         subscriber.bankCustomer.id.value,
-        getGregorianDate().toString(),
-        getGregorianDate().toString()
-        /* Previous style where dates were fetched from the request:
-        op as EbicsRequest.StandardOrderParams).dateRange?.start.toString(),
--       op.dateRange?.end.toString()
-         */
+        try {
+            (op as EbicsRequest.StandardOrderParams).dateRange?.start.toString()
+        } catch (e: Exception) {
+            getGregorianDate().toString()
+        },
+        try {
+            (op as EbicsRequest.StandardOrderParams).dateRange?.end.toString()
+        } catch (e: Exception) {
+            getGregorianDate().toString()
+        }
     ) { println(it) }
 
     val ret = constructXml(indent = true) {
