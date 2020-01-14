@@ -611,7 +611,10 @@ suspend fun ApplicationCall.ebicsweb() {
                             val response = when (orderType) {
                                 "HTD" -> handleEbicsHtd()
                                 "HKD" -> handleEbicsHkd()
+
+                                /* Temporarily handling C52/C53 with same logic */
                                 "C52" -> handleEbicsC52(requestObject.header)
+                                "C53" -> handleEbicsC52(requestObject.header)
                                 else -> throw EbicsInvalidXmlError()
                             }
 
