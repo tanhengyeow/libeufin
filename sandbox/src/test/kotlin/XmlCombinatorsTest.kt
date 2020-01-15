@@ -20,9 +20,41 @@
 package tech.libeufin.sandbox
 
 import org.junit.Test
+import tech.libeufin.util.XmlElementBuilder
 import tech.libeufin.util.constructXml
 
 class XmlCombinatorsTest {
+
+    @Test
+    fun testWithModularity() {
+        fun module(base: XmlElementBuilder) {
+            base.element("module")
+        }
+        val s = constructXml {
+            root("root") {
+                module(this)
+            }
+        }
+        println(s)
+    }
+
+    @Test
+    fun testWithIterable() {
+        val s = constructXml(indent = true) {
+            namespace("iter", "able")
+            root("iterable") {
+                element("endOfDocument") {
+                    for (i in 1..10)
+                        element("$i") {
+                            element("$i$i") {
+                                text("$i$i$i")
+                            }
+                        }
+                }
+            }
+        }
+        println(s)
+    }
 
     @Test
     fun testBasicXmlBuilding() {

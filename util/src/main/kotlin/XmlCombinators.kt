@@ -7,17 +7,18 @@ import javax.xml.stream.XMLStreamWriter
 
 class XmlElementBuilder(val w: XMLStreamWriter) {
 
+    /**
+     * First consumes all the path's components, and _then_ starts applying f.
+     */
     fun element(path: MutableList<String>, f: XmlElementBuilder.() -> Unit = {}) {
-
+        /* the wanted path got constructed, go on with f's logic now.  */
         if (path.isEmpty()) {
-            f(this)
+            f()
             return
         }
-
         w.writeStartElement(path.removeAt(0))
         this.element(path, f)
         w.writeEndElement()
-
     }
 
     fun element(path: String, f: XmlElementBuilder.() -> Unit = {}) {
@@ -59,7 +60,7 @@ class XmlDocumentBuilder {
     fun root(name: String, f: XmlElementBuilder.() -> Unit) {
         val elementBuilder = XmlElementBuilder(writer)
         writer.writeStartElement(name)
-        f(elementBuilder)
+        elementBuilder.f()
         writer.writeEndElement()
     }
 }
