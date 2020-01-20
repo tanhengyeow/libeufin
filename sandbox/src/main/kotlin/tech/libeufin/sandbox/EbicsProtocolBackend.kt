@@ -123,17 +123,17 @@ private suspend fun ApplicationCall.respondEbicsKeyManagement(
  * @param base the sub-node where to start attaching history elements.
  *
  */
-private fun iterHistory(customerId: Int, request: EbicsRequest, base: XmlElementBuilder) {
+private fun iterHistory(customerId: Int, header: EbicsRequest.Header, base: XmlElementBuilder) {
 
     extractHistoryForEach(
         customerId,
         try {
-            (request.header.static.orderDetails?.orderParams as EbicsRequest.StandardOrderParams).dateRange?.start.toString()
+            (header.static.orderDetails?.orderParams as EbicsRequest.StandardOrderParams).dateRange?.start.toString()
         } catch (e: Exception) {
             getGregorianDate().toString()
         },
         try {
-            (request.header.static.orderDetails?.orderParams as EbicsRequest.StandardOrderParams).dateRange?.end.toString()
+            (header.static.orderDetails?.orderParams as EbicsRequest.StandardOrderParams).dateRange?.end.toString()
         } catch (e: Exception) {
             getGregorianDate().toString()
         }
@@ -236,7 +236,7 @@ private fun balance(base: XmlElementBuilder) {
  * @param history the list of all the history elements
  * @param type 52 or 53.
  */
-private fun constructCamtResponse(type: Int, customerId: Int, request: EbicsRequest): String {
+private fun constructCamtResponse(type: Int, customerId: Int, header: EbicsRequest.Header): String {
 
     val camt = constructXml(indent = true) {
 
@@ -252,7 +252,7 @@ private fun constructCamtResponse(type: Int, customerId: Int, request: EbicsRequ
             element(if (type == 52) "Rpt" else "Stmt") {
 
                 balance(this)
-                iterHistory(customerId, request, this)
+                iterHistory(customerId, header, this)
             }
         }
     }
@@ -272,104 +272,7 @@ private fun ApplicationCall.handleEbicsC52(header: EbicsRequest.Header): ByteArr
         }
     }.firstOrNull() ?: throw Exception("Unknown subscriber")
 
-    // call history builder here
-
-    val ret = constructXml(indent = true) {
-        namespace("foo", "bar")
-        root("foo:BkToCstmrAcctRpt") {
-            element("GrpHdr") {
-                element("MsgId") {
-                    // unique identifier for a message
-                    text("id under group header")
-                }
-            }
-            /*
-             * NOTE: Rpt elements can be 1 or more
-             */
-            element("Rpt") {
-                element("Id") {
-                    // unique identificator for a report.
-                    text("id under report")
-                }
-                element("Acct") {
-                    // mandatory account identifier
-                    text("account identifier")
-                }
-                element("Bal") {
-                    element("Tp") {
-                        // FIXME: type
-                        element("CdOrPrTry") {
-                            /**
-                             * FIXME: code-or-proprietary
-                             * This section specifies the 'balance type', either in a
-                             * 'coded' format or in a proprietary one.
-                             */
-                        }
-                    }
-                    element("Amt") {
-                        /**
-                         * FIXME: Amount
-                         */
-                        attribute("Ccy", "EUR")
-                        BigDecimal("1.00")
-                    }
-                    element("CdtDbtInd") {
-                        /**
-                         * FIXME: credit-debit-indicator
-                         * Indicates whether the balance is a 'credit' ("CRDT") or a 'debit' ("DBIT") balance.
-                         */
-                    }
-                    element("Dt") {
-                        /**
-                         * FIXME: date, in YYYY-MM-DD format
-                         */
-                    }
-                }
-                element("Ntry") {
-                    /* FIXME: one statement in an account history.
-                     * NOTE: this element can appear from 0 to unbounded number of times.
-                     * */
-                    element("Amt") {
-                        /* FIXME: amount of this entry */
-                    }
-                    element("CdtDbtInd") {
-                        /* FIXME: as above, whether the entry witnesses debit or credit */
-                    }
-                    element("Sts") {
-                        /* FIXME: status of the entry (see 2.4.2.15.5 from the ISO20022 reference document.)
-                        *
-                        * From the original text:
-                        * "Status of an entry on the books of the account servicer"
-                        */
-                    }
-                    element("BkTxCd") {
-                        /* FIXME: Bank-transaction-code, see section 2.4.2.15.10.
-
-                        *  From the original text:
-                        *
-                        *  "Set of elements used to fully identify the type of underlying
-                        *   transaction resulting in an entry"
-                        */
-                    }
-                    element("BookgDt") {
-                        /**
-                         * FIXME, Booking-date: when the entry was posted on the books
-                         * of the account servicer; do not necessarily implies that assets
-                         * become available.  NOTE: this element is optional.
-                         */
-                    }
-                    element("ValDt") {
-                        /**
-                         * FIXME, Value-date: when the asset corresponding to one entry
-                         * becomes available (or unavailable, in case of debit type entry)
-                         * to the account owner.  NOTE: this element is optional.
-                         */
-                    }
-                }
-            }
-        }
-    }
-    return ret.toByteArray()
+    return constructCamtResponse(52, subscriber.bankCustomer.id.value, header).toByteArray()
 }
 
 private suspend fun ApplicationCall.handleEbicsHia(header: EbicsUnsecuredRequest.Header, orderData: ByteArray) {
