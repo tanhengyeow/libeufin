@@ -613,6 +613,17 @@ fun main() {
                     )
                 }
                 val payload = "PAYLOAD"
+
+                if (subscriberData.bankEncPub == null) {
+                    call.respondText(
+                        "Bank encryption key not found, request HPB first!\n",
+                        ContentType.Text.Plain,
+                        HttpStatusCode.NotFound
+                    )
+                    return@post
+                }
+
+
                 val usd_encrypted = CryptoUtil.encryptEbicsE002(
                     EbicsOrderUtil.encodeOrderDataXml(
 
