@@ -2,12 +2,15 @@ package tech.libeufin.util.ebics_h004
 
 import org.apache.xml.security.binding.xmldsig.SignatureType
 import tech.libeufin.util.CryptoUtil
+import tech.libeufin.util.LOGGER
+import tech.libeufin.util.XMLUtil
 import java.math.BigInteger
 import java.security.interfaces.RSAPublicKey
 import javax.xml.bind.annotation.*
 import javax.xml.bind.annotation.adapters.CollapsedStringAdapter
 import javax.xml.bind.annotation.adapters.HexBinaryAdapter
 import javax.xml.bind.annotation.adapters.XmlJavaTypeAdapter
+import javax.xml.datatype.DatatypeConstants
 import javax.xml.datatype.XMLGregorianCalendar
 
 @XmlAccessorType(XmlAccessType.NONE)
@@ -255,9 +258,11 @@ class EbicsRequest {
     @XmlType(name = "", propOrder = ["start", "end"])
     class DateRange {
         @get:XmlElement(name = "Start")
+        @get:XmlSchemaType(name = "date")
         lateinit var start: XMLGregorianCalendar
 
         @get:XmlElement(name = "End")
+        @get:XmlSchemaType(name = "date")
         lateinit var end: XMLGregorianCalendar
     }
 
@@ -317,6 +322,12 @@ class EbicsRequest {
             dateEnd: XMLGregorianCalendar
         ): EbicsRequest {
 
+            /**
+             * Make sure there is NO time portion.
+             */
+            dateStart.timezone = DatatypeConstants.FIELD_UNDEFINED
+            dateEnd.timezone = DatatypeConstants.FIELD_UNDEFINED
+
             val tmp = createForDownloadInitializationPhase(
                 userId,
                 partnerId,
@@ -328,11 +339,9 @@ class EbicsRequest {
                 aOrderType
             )
 
-            (tmp.header.static.orderDetails?.orderParams as StandardOrderParams).apply {
-                dateRange?.apply {
-                    start = dateStart
-                    end = dateEnd
-                }
+            (tmp.header.static.orderDetails?.orderParams as StandardOrderParams).dateRange = DateRange().apply {
+                start = dateStart
+                end = dateEnd
             }
 
             return tmp
