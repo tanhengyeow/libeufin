@@ -25,6 +25,7 @@ import io.ktor.application.ApplicationCallPipeline
 import io.ktor.application.call
 import io.ktor.application.install
 import io.ktor.client.*
+import io.ktor.features.CallLogging
 import io.ktor.features.ContentNegotiation
 import io.ktor.features.StatusPages
 import io.ktor.gson.gson
@@ -41,6 +42,7 @@ import org.jetbrains.exposed.sql.transactions.transaction
 import org.joda.time.DateTime
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
+import org.slf4j.event.Level
 import tech.libeufin.util.ebics_h004.*
 import tech.libeufin.util.*
 import java.text.DateFormat
@@ -98,6 +100,12 @@ fun main() {
     val logger = LoggerFactory.getLogger("tech.libeufin.nexus")
 
     val server = embeddedServer(Netty, port = 5001) {
+
+        install(CallLogging) {
+            this.level = Level.DEBUG
+            this.logger = LOGGER
+
+        }
 
         install(ContentNegotiation) {
 
@@ -194,8 +202,6 @@ fun main() {
                 val endDate = DateTime.parse(body.end)
                 // will throw DateTimeParseException if strings are malformed.
 
-
-
                 val subscriberData = transaction {
                     containerInit(EbicsSubscriberEntity.findById(id) ?: throw SubscriberNotFoundError(HttpStatusCode.NotFound))
                 }
@@ -212,6 +218,12 @@ fun main() {
                     ),
                     subscriberData.customerAuthPriv
                 )
+
+                call.respondText(
+                    "Nothing crashed!",
+                    ContentType.Text.Plain,
+                    HttpStatusCode.OK)
+                return@post
             }
 
             get("/ebics/subscribers/{id}/sendHtd") {
