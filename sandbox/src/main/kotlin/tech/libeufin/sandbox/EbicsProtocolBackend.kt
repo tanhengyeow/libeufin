@@ -128,13 +128,15 @@ private fun iterHistory(customerId: Int, header: EbicsRequest.Header, base: XmlE
     extractHistoryForEach(
         customerId,
         try {
-            (header.static.orderDetails?.orderParams as EbicsRequest.StandardOrderParams).dateRange?.start.toString()
+            (header.static.orderDetails?.orderParams as EbicsRequest.StandardOrderParams).dateRange!!.start.toString()
         } catch (e: Exception) {
+            LOGGER.debug("Asked to iterate over history with NO start date; default to now")
             getGregorianDate().toString()
         },
         try {
-            (header.static.orderDetails?.orderParams as EbicsRequest.StandardOrderParams).dateRange?.end.toString()
+            (header.static.orderDetails?.orderParams as EbicsRequest.StandardOrderParams).dateRange!!.end.toString()
         } catch (e: Exception) {
+            LOGGER.debug("Asked to iterate over history with NO end date; default to now")
             getGregorianDate().toString()
         }
     ) {

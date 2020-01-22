@@ -170,13 +170,16 @@ fun sampleData() {
 }
 
 /**
- * Finds the history for a customer.
+ * Finds the history for a customer
  *
  * @param id the customer whose history must be returned.  This
  * id is local to the bank and is not reused/encoded into other
  * EBICS id values.
+ * @param builder lambda function that will loop over all the results.
  */
 fun extractHistoryForEach(id: Int, start: String?, end: String?, builder: (BankTransactionEntity) -> Any) {
+
+    LOGGER.debug("Fetching history from $start to $end")
     val s = if (start != null) DateTime.parse(start) else DateTime(0)
     val e = if (end != null) DateTime.parse(end) else DateTime.now()
 

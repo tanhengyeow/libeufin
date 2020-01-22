@@ -9,10 +9,12 @@ data class EbicsBackupRequest(
     val passphrase: String
 )
 
-
 data class EbicsDateRange(
-    val start: String, // ISO 8601 calendar date
-    val end: String // ISO 8601 calendar date
+    /**
+     * ISO 8601 calendar dates: YEAR-MONTH(01-12)-DAY(1-31)
+     */
+    val start: String,
+    val end: String
 )
 
 /**
