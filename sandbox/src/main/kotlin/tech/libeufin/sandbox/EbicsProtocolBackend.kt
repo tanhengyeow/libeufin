@@ -53,12 +53,28 @@ import javax.sql.rowset.serial.SerialBlob
 open class EbicsRequestError(val errorText: String, val errorCode: String) :
     Exception("EBICS request management error: $errorText ($errorCode)")
 
-class EbicsInvalidRequestError : EbicsRequestError("[EBICS_INVALID_REQUEST] Invalid request", "060102")
+class EbicsInvalidRequestError : EbicsRequestError(
+    "[EBICS_INVALID_REQUEST] Invalid request",
+    "060102"
+)
+
+/**
+ * This error is thrown whenever the Subscriber's state is not suitable
+ * for the requested action.  For example, the subscriber sends a EbicsRequest
+ * message without having first uploaded their keys (#5973).
+ */
+class EbicsSubscriberStateError : EbicsRequestError(
+    "[EBICS_INVALID_USER_OR_USER_STATE] Subscriber unknown or subscriber state inadmissible",
+    "091002"
+)
 
 open class EbicsKeyManagementError(val errorText: String, val errorCode: String) :
     Exception("EBICS key management error: $errorText ($errorCode)")
 
-private class EbicsInvalidXmlError : EbicsKeyManagementError("[EBICS_INVALID_XML]", "091010")
+private class EbicsInvalidXmlError : EbicsKeyManagementError(
+    "[EBICS_INVALID_XML]",
+    "091010"
+)
 
 private class EbicsInvalidOrderType : EbicsRequestError(
     "[EBICS_UNSUPPORTED_ORDER_TYPE] Order type not supported",
@@ -356,7 +372,7 @@ private suspend fun ApplicationCall.handleEbicsHpb(
             throw EbicsInvalidRequestError()
         }
         if (ebicsSubscriber.state != SubscriberState.INITIALIZED) {
-            throw EbicsInvalidRequestError()
+            throw EbicsSubscriberStateError()
         }
         val authPubBlob = ebicsSubscriber.authenticationKey!!.rsaPublicKey
         val encPubBlob = ebicsSubscriber.encryptionKey!!.rsaPublicKey
@@ -694,7 +710,8 @@ suspend fun ApplicationCall.ebicsweb() {
                 }
 
                 if (ebicsHost == null) throw EbicsInvalidRequestError()
-                if (subscriber == null) throw EbicsInvalidRequestError()
+                if (subscriber == null || subscriber.state != SubscriberState.INITIALIZED)
+                    throw EbicsSubscriberStateError()
 
                 val hostAuthPriv = CryptoUtil.loadRsaPrivateKey(
                     ebicsHost.authenticationPrivateKey
