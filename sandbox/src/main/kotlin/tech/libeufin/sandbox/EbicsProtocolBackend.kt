@@ -710,6 +710,11 @@ suspend fun ApplicationCall.ebicsweb() {
                 }
 
                 if (ebicsHost == null) throw EbicsInvalidRequestError()
+
+                /**
+                 * NOTE: production logic must check against READY state (the
+                 * one activated after the subscriber confirms their keys via post)
+                 */
                 if (subscriber == null || subscriber.state != SubscriberState.INITIALIZED)
                     throw EbicsSubscriberStateError()
 
