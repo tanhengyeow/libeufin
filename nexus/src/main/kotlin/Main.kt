@@ -219,10 +219,13 @@ fun main() {
                     subscriberData.customerAuthPriv
                 )
 
+                val payload: ByteArray = decryptAndDecompressResponse(response.value, subscriberData.customerEncPriv)
+
                 call.respondText(
-                    "Nothing crashed!",
+                    payload.toString(Charsets.UTF_8),
                     ContentType.Text.Plain,
                     HttpStatusCode.OK)
+
                 return@post
             }
 

@@ -3,12 +3,11 @@ package tech.libeufin.nexus
 import io.ktor.client.HttpClient
 import io.ktor.client.request.post
 import io.ktor.http.HttpStatusCode
-import tech.libeufin.util.getGregorianDate
-import tech.libeufin.util.CryptoUtil
-import tech.libeufin.util.XMLUtil
+import tech.libeufin.util.*
 import tech.libeufin.util.ebics_h004.EbicsRequest
+import tech.libeufin.util.ebics_h004.EbicsResponse
+import tech.libeufin.util.ebics_h004.EbicsTypes
 import tech.libeufin.util.ebics_s001.UserSignatureData
-import tech.libeufin.util.toByteArray
 import java.math.BigInteger
 import java.security.PrivateKey
 import java.security.SecureRandom
@@ -18,6 +17,29 @@ import java.util.*
 import javax.xml.bind.JAXBElement
 import javax.xml.datatype.DatatypeFactory
 import javax.xml.datatype.XMLGregorianCalendar
+
+
+/**
+ * Wrapper around the lower decryption routine, that takes a EBICS response
+ * object containing a encrypted payload, and return the plain version of it
+ * (including decompression).
+ */
+fun decryptAndDecompressResponse(response: EbicsResponse, privateKey: RSAPrivateCrtKey): ByteArray {
+
+    val er = CryptoUtil.EncryptionResult(
+        response.body.dataTransfer!!.dataEncryptionInfo!!.transactionKey,
+        (response.body.dataTransfer!!.dataEncryptionInfo as EbicsTypes.DataEncryptionInfo)
+            .encryptionPubKeyDigest.value,
+        Base64.getDecoder().decode(response.body.dataTransfer!!.orderData.value)
+    )
+
+    val dataCompr = CryptoUtil.decryptEbicsE002(
+        er,
+        privateKey
+    )
+
+    return EbicsOrderUtil.decodeOrderData(dataCompr)
+}
 
 fun createDownloadInitializationPhase(
     subscriberData: EbicsContainer,

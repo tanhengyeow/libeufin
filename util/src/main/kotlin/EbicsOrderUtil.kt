@@ -28,6 +28,14 @@ import java.util.zip.InflaterInputStream
  * Helpers for dealing with order compression, encryption, decryption, chunking and re-assembly.
  */
 object EbicsOrderUtil {
+
+    // Decompression only, no XML involved.
+    fun decodeOrderData(encodedOrderData: ByteArray): ByteArray {
+        return InflaterInputStream(encodedOrderData.inputStream()).use {
+            it.readAllBytes()
+        }
+    }
+
     inline fun <reified T> decodeOrderDataXml(encodedOrderData: ByteArray): T {
         return InflaterInputStream(encodedOrderData.inputStream()).use {
             val bytes = it.readAllBytes()
