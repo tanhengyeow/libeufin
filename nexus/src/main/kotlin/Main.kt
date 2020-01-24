@@ -645,9 +645,7 @@ fun main() {
                     createUploadInitializationPhase(
                         subscriberData,
                         "TST",
-                        usd_encrypted,
-                        getNonce(128),
-                        getGregorianDate()
+                        usd_encrypted
                     ),
                     subscriberData.bankAuthPub!!,
                     subscriberData.customerEncPriv
