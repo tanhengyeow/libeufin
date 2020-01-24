@@ -12,12 +12,12 @@ from getpass import getpass
 
 @click.group()
 @click.option(
-    "--base-url", default="http://localhost:5001/",
+    "--nexus-base-url", default="http://localhost:5001/",
     help="Base URL of the nexus (defaults to http://localhost:5001/)"
 )
 @click.pass_context
-def cli(ctx, base_url):
-    ctx.obj = dict(base_url=base_url)
+def cli(ctx, nexus_base_url):
+    ctx.obj = dict(nexus_base_url=nexus_base_url)
 
 @cli.group()
 def ebics():
@@ -267,17 +267,17 @@ def subscribers(obj):
 @click.option(
     "--ebics-url",
     help="URL of the EBICS server (defaults to http://localhost:5001/)",
-    required=False
+    required=True
 )
 @click.option(
     "--user-id",
-    help="ID of the user to add in the system" ,
-    required=False
+    help="ID of the user to add in the system",
+    required=True
 )
 @click.option(
     "--partner-id",
     help="ID of the partner associated with the user" ,
-    required=False
+    required=True
 )
 @click.option(
     "--system-id",
@@ -291,18 +291,9 @@ def subscribers(obj):
     default="host01"
 )
 def new_subscriber(obj, user_id, partner_id, system_id, host_id, ebics_url):
-    import random
-    
-    salt = random.randrange(0, 1000000000)
-    if not user_id:
-        user_id = "USER{}".format(salt)
-
-    if not partner_id:
-        partner_id = "PARTNER{}".format(salt)
-
-    url = urljoin(obj["base_url"], "/ebics/subscribers")
+    nexus_url = urljoin(obj["nexus_base_url"], "/ebics/subscribers")
     body = dict(
-            ebicsURL=obj["base_url"],
+            ebicsURL=ebics_url,
             userID=user_id,
             partnerID=partner_id,
             hostID=host_id
@@ -312,9 +303,9 @@ def new_subscriber(obj, user_id, partner_id, system_id, host_id, ebics_url):
         body.update(system_id)
 
     try:
-        resp = post(url, json=body)
+        resp = post(nexus_url, json=body)
     except Exception:
-        print("Could not reach the bank")
+        print("Could not reach the Nexus")
         return
 
     print(resp.content.decode("utf-8"))
