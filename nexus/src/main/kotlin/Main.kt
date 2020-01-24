@@ -301,8 +301,9 @@ fun main() {
                 var recipientLine = "TODO"
                 val customerIdLine = "TODO"
 
-                var dateLine = ""
-                var timeLine = ""
+                var dateLine = dateFormat.format(now)
+                var timeLine = timeFormat.format(now)
+
                 var userIdLine = ""
                 var esExponentLine = ""
                 var esModulusLine = ""
@@ -322,8 +323,7 @@ fun main() {
                 val dateFormat = SimpleDateFormat("DD.MM.YYYY")
                 val timeFormat = SimpleDateFormat("HH.mm.ss")
 
-                dateLine = dateFormat.format(now)
-                timeLine = timeFormat.format(now)
+
 
 
                 transaction {
@@ -703,7 +703,7 @@ fun main() {
                 }
 
                 val response = client.postToBankSigned<EbicsNpkdRequest, EbicsKeyManagementResponse>(
-                    bundle.ebicsUrl!!,
+                    bundle.ebicsUrl,
                     EbicsNpkdRequest.createRequest(
                         bundle.hostId,
                         bundle.partnerId,
@@ -743,7 +743,7 @@ fun main() {
                         ).encoded
                     )
 
-                    subscriber!!.bankEncryptionPublicKey = SerialBlob(
+                    subscriber.bankEncryptionPublicKey = SerialBlob(
                         CryptoUtil.loadRsaPublicKeyFromComponents(
                             data.encryptionPubKeyInfo.pubKeyValue.rsaKeyValue.modulus,
                             data.encryptionPubKeyInfo.pubKeyValue.rsaKeyValue.exponent
