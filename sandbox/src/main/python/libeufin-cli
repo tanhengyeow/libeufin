@@ -15,27 +15,29 @@ from getpass import getpass
     "--base-url", default="http://localhost:5001/",
     help="Base URL of the nexus (defaults to http://localhost:5001/)"
 )
-@click.option(
-    "--bank-base-url", default="http://localhost:5000/",
-    help="Base URL of the bank (defaults to http://localhost:5000/)"
-)
 @click.pass_context
-def cli(ctx, base_url, bank_base_url):
-    ctx.obj = dict(base_url=base_url, bank_base_url=bank_base_url)
+def cli(ctx, base_url):
+    ctx.obj = dict(base_url=base_url)
 
 @cli.group()
 def ebics():
     pass
 
 @cli.group()
-def native():
+@click.option(
+    "--sandbox-base-url", default="http://localhost:5000/",
+    help="Base URL of the Sandbox (defaults to http://localhost:5000/)"
+)
+@click.pass_context
+def native(ctx, sandbox_base_url):
+    ctx.obj.update(bank_base_url=bank_base_url)
     pass
 
 @ebics.command(help="Restore private keys backup.")
 @click.pass_obj
 @click.option(
     "--customer-id",
-    help="numerical ID of the customer at the Nexus",
+    help="Numerical ID of the customer at the Nexus",
     required=False,
     default=1)
 @click.option(
@@ -74,7 +76,7 @@ def restore(obj, customer_id, backup_file):
 @click.pass_obj
 @click.option(
     "--customer-id",
-    help="numerical ID of the customer at the Nexus",
+    help="Numerical ID of the customer at the Nexus",
     required=False,
     default=1)
 @click.option(
@@ -109,11 +111,11 @@ def backup(obj, customer_id, output_file):
     print("Backup stored in {}".format(output_file))
 
 
-@ebics.command(help="send TST message")
+@ebics.command(help="Send TST message")
 @click.pass_obj
 @click.option(
     "--customer-id",
-    help="numerical ID of the customer at the Nexus",
+    help="Numerical ID of the customer at the Nexus",
     required=False,
     default=1)
 def tst(obj, customer_id):
@@ -129,11 +131,11 @@ def tst(obj, customer_id):
 
 
 
-@ebics.command(help="send C52 message")
+@ebics.command(help="Send C52 message")
 @click.pass_obj
 @click.option(
     "--customer-id",
-    help="numerical ID of the customer at the Nexus",
+    help="Numerical ID of the customer at the Nexus",
     required=False,
     default=1)
 def c52(obj, customer_id):
@@ -148,11 +150,11 @@ def c52(obj, customer_id):
     print(resp.content.decode("utf-8"))
 
 
-@ebics.command(help="send INI message")
+@ebics.command(help="Send INI message")
 @click.pass_obj
 @click.option(
     "--customer-id",
-    help="numerical ID of the customer at the Nexus",
+    help="Numerical ID of the customer at the Nexus",
     required=False,
     default=1)
 def ini(obj, customer_id):
@@ -173,7 +175,7 @@ def ini(obj, customer_id):
 @click.pass_context
 @click.option(
     "--customer-id",
-    help="numerical ID of the customer at the Nexus",
+    help="Numerical ID of the customer at the Nexus",
     required=False,
     default=1)
 def prepare(ctx, customer_id):
@@ -182,11 +184,11 @@ def prepare(ctx, customer_id):
     ctx.invoke(sync)
 
 
-@ebics.command(help="send HTD message")
+@ebics.command(help="Send HTD message")
 @click.pass_context
 @click.option(
     "--customer-id",
-    help="numerical ID of the customer at the Nexus",
+    help="Numerical ID of the customer at the Nexus",
     required=False,
     default=1)
 @click.option(
@@ -210,11 +212,11 @@ def htd(ctx, customer_id, prepare):
 
     print(resp.content.decode("utf-8"))
 
-@ebics.command(help="send HIA message")
+@ebics.command(help="Send HIA message")
 @click.pass_obj
 @click.option(
     "--customer-id",
-    help="numerical ID of the customer at the Nexus",
+    help="Numerical ID of the customer at the Nexus",
     required=False,
     default=1)
 def hia(obj, customer_id):
@@ -228,11 +230,11 @@ def hia(obj, customer_id):
 
     print(resp.content.decode("utf-8"))
 
-@ebics.command(help="send HPB message")
+@ebics.command(help="Send HPB message")
 @click.pass_obj
 @click.option(
     "--customer-id",
-    help="numerical ID of the customer at the Nexus",
+    help="Numerical ID of the customer at the Nexus",
     required=False,
     default=1)
 def sync(obj, customer_id):
@@ -247,7 +249,7 @@ def sync(obj, customer_id):
     print(resp.content.decode("utf-8"))
 
 
-@ebics.command(help="retrieve all subscribers in the system")
+@ebics.command(help="Retrieve all subscribers in the system")
 @click.pass_obj
 def subscribers(obj):
     
@@ -260,7 +262,7 @@ def subscribers(obj):
 
     print(resp.content.decode("utf-8"))
 
-@ebics.command(help="insert new subscriber into Nexus")
+@ebics.command(help="Activate a new subscriber into Nexus")
 @click.pass_obj
 @click.option(
     "--ebics-url",
@@ -288,7 +290,7 @@ def subscribers(obj):
     required=False,
     default="host01"
 )
-def new(obj, user_id, partner_id, system_id, host_id, ebics_url):
+def new_subscriber(obj, user_id, partner_id, system_id, host_id, ebics_url):
     import random
     
     salt = random.randrange(0, 1000000000)
@@ -327,13 +329,13 @@ def new(obj, user_id, partner_id, system_id, host_id, ebics_url):
 )
 @click.option(
     "--start",
-    help="starting date for history elements (YYYY-MM-DD)" ,
+    help="Starting date for history elements (YYYY-MM-DD)" ,
     required=False,
     default=None
 )
 @click.option(
     "--end",
-    help="ending date for history elements (YYYY-MM-DD)" ,
+    help="Ending date for history elements (YYYY-MM-DD)" ,
     required=False,
     default=None
 )
