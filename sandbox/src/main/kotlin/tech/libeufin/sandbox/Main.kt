@@ -283,7 +283,7 @@ fun main() {
                 return@get
             }
 
-            get("/admin/get/subscribers") {
+            get("/admin/subscribers") {
                 var ret = AdminGetSubscribers()
                 transaction {
                     EbicsSubscriberEntity.all().forEach {
@@ -308,7 +308,7 @@ fun main() {
                         partnerId = body.partnerID
                         userId = body.userID
                         systemId = null
-                        hostId = body.hostID
+                        hostId = body.hostID.toUpperCase()
                         state = SubscriberState.NEW
                         nextOrderID = 1
                         bankCustomer = customerEntity

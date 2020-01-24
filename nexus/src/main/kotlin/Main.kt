@@ -699,7 +699,6 @@ fun main() {
                         EbicsSubscriberEntity.findById(id) ?: throw SubscriberNotFoundError(HttpStatusCode.NotFound)
                     )
                 }
-
                 val response = client.postToBankSigned<EbicsNpkdRequest, EbicsKeyManagementResponse>(
                     bundle.ebicsUrl,
                     EbicsNpkdRequest.createRequest(
