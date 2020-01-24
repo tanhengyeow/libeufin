@@ -59,7 +59,7 @@ import javax.xml.bind.JAXBContext
 class CustomerNotFound(id: String?) : Exception("Customer ${id} not found")
 class BadInputData(inputData: String?) : Exception("Customer provided invalid input data: ${inputData}")
 class BadAmount(badValue: Any?) : Exception("Value '${badValue}' is not a valid amount")
-class UnacceptableFractional(statusCode: HttpStatusCode, badNumber: BigDecimal) : Exception(
+class UnacceptableFractional(badNumber: BigDecimal) : Exception(
     "Unacceptable fractional part ${badNumber}"
 )
 
