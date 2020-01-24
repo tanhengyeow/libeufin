@@ -207,7 +207,7 @@ fun calculateBalance(id: Int, start: String?, end: String?): BigDecimal {
 
     transaction {
         BankTransactionEntity.find {
-            BankTransactionsTable.localCustomer eq id and BankTransactionsTable.operationDate.between(s, e)
+            BankTransactionsTable.localCustomer eq id and BankTransactionsTable.operationDate.between(s.millis, e.millis)
         }.forEach { ret += it.amount }
     }
     return ret
