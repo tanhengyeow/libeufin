@@ -282,7 +282,6 @@ private fun ApplicationCall.handleEbicsC52(header: EbicsRequest.Header): ByteArr
 
     val userId = header.static.userID!!
     val od = header.static.orderDetails ?: throw Exception("Need 'OrderDetails'")
-    val op = od.orderParams ?: throw Exception("Need 'StandardOrderParams'")
 
     val subscriber = transaction {
         EbicsSubscriberEntity.find {
@@ -744,8 +743,6 @@ suspend fun ApplicationCall.ebicsweb() {
                         val transactionID = EbicsOrderUtil.generateTransactionId()
                         val orderType =
                             requestObject.header.static.orderDetails?.orderType ?: throw EbicsInvalidRequestError()
-                        val partnerID = staticHeader.partnerID ?: throw EbicsInvalidRequestError()
-                        val userID = staticHeader.userID ?: throw EbicsInvalidRequestError()
                         if (staticHeader.numSegments == null) {
                             println("handling initialization for order type $orderType")
                             val response = when (orderType) {
@@ -865,8 +862,6 @@ suspend fun ApplicationCall.ebicsweb() {
                                 if (sigs.count() == 0) {
                                     throw EbicsInvalidRequestError()
                                 }
-
-                                val customCanon = unzippedData.filter { it != '\r'.toByte() && it != '\n'.toByte() && it != (26).toByte()}.toByteArray()
 
                                 for (sig in sigs) {
                                     if (sig.signatureAlgorithm == "A006") {

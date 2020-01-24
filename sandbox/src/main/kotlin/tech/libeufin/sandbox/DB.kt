@@ -135,7 +135,7 @@ open class IntIdTableWithAmount : IntIdTable() {
                 throw BadAmount(value)
             }
 
-            if ((value as BigDecimal).compareTo(BigDecimal.ZERO) == 0) {
+            if (value.compareTo(BigDecimal.ZERO) == 0) {
                 LOGGER.error("Cannot have transactions of ZERO amount")
                 throw BadAmount(value)
             }
