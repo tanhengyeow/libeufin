@@ -39,7 +39,7 @@ data class EbicsSubscriberInfoRequest(
     val hostID: String,
     val partnerID: String,
     val userID: String,
-    val systemID: String
+    val systemID: String? = null
 )
 
 /**
