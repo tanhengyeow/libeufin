@@ -74,7 +74,7 @@ class DbTest {
                 }
             }
 
-            val x = BankTransactionEntity.new {
+            BankTransactionEntity.new {
                 amount = Amount("1.110000000000") // BigDecimal does not crop the trailing zeros
                 counterpart = "IBAN"
                 subject = "Salary"
