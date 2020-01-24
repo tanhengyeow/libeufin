@@ -129,7 +129,7 @@ class DbTest {
             assertEquals(
                 NQUERIES,
                 BankTransactionEntity.find {
-                    BankTransactionsTable.date.between(DateTime.parse("1970-01-01"), DateTime.parse("2999-12-31"))
+                    BankTransactionsTable.valueDate.between(DateTime.parse("1970-01-01").millis, DateTime.parse("2999-12-31").millis)
                 }.count()
             )
         }
