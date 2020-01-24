@@ -27,10 +27,8 @@ import io.ktor.request.receiveText
 import io.ktor.response.respond
 import io.ktor.response.respondText
 import org.apache.xml.security.binding.xmldsig.RSAKeyValueType
-import org.jetbrains.exposed.sql.and
-import org.jetbrains.exposed.sql.stringParam
+import org.jetbrains.exposed.sql.*
 import org.jetbrains.exposed.sql.transactions.transaction
-import org.jetbrains.exposed.sql.upperCase
 import org.w3c.dom.Document
 import tech.libeufin.util.ebics_h004.*
 import tech.libeufin.util.ebics_hev.HEVResponse
@@ -421,10 +419,11 @@ private suspend fun ApplicationCall.handleEbicsHpb(
  */
 private fun ApplicationCall.ensureEbicsHost(requestHostID: String): EbicsHostPublicInfo {
     return transaction {
+        addLogger(StdOutSqlLogger)
         val ebicsHost =
             EbicsHostEntity.find { EbicsHostsTable.hostID.upperCase() eq requestHostID.toUpperCase() }.firstOrNull()
         if (ebicsHost == null) {
-            LOGGER.warn("client requested unknown HostID")
+            LOGGER.warn("client requested unknown HostID ${requestHostID}")
             throw EbicsKeyManagementError("[EBICS_INVALID_HOST_ID]", "091011")
         }
         val encryptionPrivateKey = CryptoUtil.loadRsaPrivateKey(ebicsHost.encryptionPrivateKey.toByteArray())

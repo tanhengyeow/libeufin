@@ -153,7 +153,7 @@ fun sampleData() {
             partnerId = "PARTNER1"
             userId = "USER1"
             systemId = null
-            hostId = "HOST1"
+            hostId = "HOST01"
             state = SubscriberState.NEW
             nextOrderID = 1
             bankCustomer = customerEntity
@@ -308,7 +308,7 @@ fun main() {
                         partnerId = body.partnerID
                         userId = body.userID
                         systemId = null
-                        hostId = body.hostID.toUpperCase()
+                        hostId = body.hostID
                         state = SubscriberState.NEW
                         nextOrderID = 1
                         bankCustomer = customerEntity

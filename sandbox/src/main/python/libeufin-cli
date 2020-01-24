@@ -333,8 +333,7 @@ def subscribers(obj):
 @click.option(
     "--host-id",
     help="ID of the EBICS server" ,
-    required=False,
-    default="host01"
+    required=True
 )
 def new_subscriber(obj, user_id, partner_id, system_id, host_id, ebics_url):
     nexus_url = urljoin(obj["nexus_base_url"], "/ebics/subscribers")

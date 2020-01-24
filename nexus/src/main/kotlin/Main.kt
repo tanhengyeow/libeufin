@@ -434,19 +434,23 @@ fun main() {
 
             get("/ebics/subscribers") {
 
-                val ebicsSubscribers = transaction {
-                    EbicsSubscriberEntity.all().map {
-                        EbicsSubscriberInfoResponse(
-                            accountID = it.id.value,
-                            hostID = it.hostID,
-                            partnerID = it.partnerID,
-                            systemID = it.systemID,
-                            ebicsURL = it.ebicsURL,
-                            userID = it.userID
+                var ret = EbicsSubscribersResponse()
+                transaction {
+                    EbicsSubscriberEntity.all().forEach {
+                        ret.ebicsSubscribers.add(
+                            EbicsSubscriberInfoResponse(
+                                accountID = it.id.value,
+                                hostID = it.hostID,
+                                partnerID = it.partnerID,
+                                systemID = it.systemID,
+                                ebicsURL = it.ebicsURL,
+                                userID = it.userID
+                            )
                         )
                     }
                 }
-                call.respond(EbicsSubscribersResponse(ebicsSubscribers))
+                call.respond(ret)
+                return@get
             }
 
             get("/ebics/subscribers/{id}") {
