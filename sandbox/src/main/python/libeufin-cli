@@ -30,7 +30,7 @@ def ebics():
 )
 @click.pass_context
 def native(ctx, sandbox_base_url):
-    ctx.obj.update(bank_base_url=bank_base_url)
+    ctx.obj.update(sandbox_base_url=sandbox_base_url)
     pass
 
 @ebics.command(help="Restore private keys backup.")
@@ -332,7 +332,7 @@ def new_subscriber(obj, user_id, partner_id, system_id, host_id, ebics_url):
 )
 def history(obj, user_id, start, end):
 
-    url = urljoin(obj["bank_base_url"], f"/{user_id}/history")
+    url = urljoin(obj["sandbox_base_url"], f"/{user_id}/history")
     print(url)
     try:
         resp = post(url, json=dict(start=start, end=end))
@@ -353,7 +353,7 @@ def history(obj, user_id, start, end):
 )
 def balance(obj, user_id):
     
-    url = urljoin(obj["bank_base_url"], f"/{user_id}/balance")
+    url = urljoin(obj["sandbox_base_url"], f"/{user_id}/balance")
     print(url)
     try:
         resp = get(url)
