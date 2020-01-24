@@ -86,9 +86,7 @@ fun createDownloadInitializationPhase(
 fun createUploadInitializationPhase(
     subscriberData: EbicsContainer,
     orderType: String,
-    cryptoBundle: CryptoUtil.EncryptionResult,
-    nonce: ByteArray,
-    date: XMLGregorianCalendar
+    cryptoBundle: CryptoUtil.EncryptionResult
 ): EbicsRequest {
 
     return EbicsRequest.createForUploadInitializationPhase(
