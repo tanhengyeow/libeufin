@@ -7,7 +7,6 @@ import hashlib
 import errno
 from datetime import datetime
 from requests import post, get
-from Crypto.PublicKey import RSA 
 from urllib.parse import urljoin
 from getpass import getpass
 

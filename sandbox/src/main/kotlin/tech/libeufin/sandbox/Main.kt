@@ -183,8 +183,6 @@ fun sampleData() {
  * @param builder lambda function that will loop over all the results.
  */
 fun extractHistoryForEach(id: Int, start: String?, end: String?, builder: (BankTransactionEntity) -> Any) {
-
-
     val s = if (start != null) DateTime.parse(start) else DateTime(0)
     val e = if (end != null) DateTime.parse(end) else DateTime.now()
 
@@ -193,7 +191,7 @@ fun extractHistoryForEach(id: Int, start: String?, end: String?, builder: (BankT
     transaction {
         addLogger(StdOutSqlLogger)
         BankTransactionEntity.find {
-            BankTransactionsTable.localCustomer eq id and BankTransactionsTable.valueDate.between(s, e)
+            BankTransactionsTable.localCustomer eq id and BankTransactionsTable.valueDate.between(s.millis, e.millis)
         }.forEach {
             LOGGER.debug("Found history element: $it")
             builder(it)
