@@ -84,7 +84,7 @@ fun constructXml(indent: Boolean = false, f: XmlDocumentBuilder.() -> Unit): Str
 class XmlDocumentDestructor {
 }
 
-fun <T>destructXml(input: String, f: XmlDocumentDestructor.() -> T): T {
+fun <T>destructXml(f: XmlDocumentDestructor.() -> T): T {
     val d = XmlDocumentDestructor()
     return f(d)
 }

@@ -281,7 +281,6 @@ private fun constructCamtResponse(type: Int, customerId: Int, header: EbicsReque
 private fun ApplicationCall.handleEbicsC52(header: EbicsRequest.Header): ByteArray {
 
     val userId = header.static.userID!!
-    val od = header.static.orderDetails ?: throw Exception("Need 'OrderDetails'")
 
     val subscriber = transaction {
         EbicsSubscriberEntity.find {
