@@ -272,7 +272,6 @@ fun main() {
             }
 
             get("/{id}/balance") {
-
                 val customer = findCustomer(call.parameters["id"])
                 val balance = calculateBalance(customer.id.value, null, null)
                 call.respond(
@@ -309,6 +308,7 @@ fun main() {
                         partnerId = body.partnerID
                         userId = body.userID
                         systemId = null
+                        hostId = body.hostID
                         state = SubscriberState.NEW
                         nextOrderID = 1
                         bankCustomer = customerEntity

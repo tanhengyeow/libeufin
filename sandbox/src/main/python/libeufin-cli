@@ -65,7 +65,6 @@ def add_subscriber(sandbox_url, user_id, partner_id, host_id, name):
 
     print(resp.content.decode("utf-8"))
 
-
 @cli.group()
 def ebics():
     pass
