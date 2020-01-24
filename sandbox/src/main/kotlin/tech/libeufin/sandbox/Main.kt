@@ -38,6 +38,7 @@ import io.ktor.routing.post
 import io.ktor.routing.routing
 import io.ktor.server.engine.embeddedServer
 import io.ktor.server.netty.Netty
+import org.jetbrains.exposed.sql.Date
 import org.jetbrains.exposed.sql.StdOutSqlLogger
 import org.jetbrains.exposed.sql.addLogger
 import org.jetbrains.exposed.sql.and
@@ -162,7 +163,8 @@ fun sampleData() {
                 counterpart = "IBAN"
                 amount = i
                 subject = "transaction $i"
-                date = DateTime.now()
+                operationDate = DateTime.now()
+                valueDate = DateTime.now()
                 localCustomer = customerEntity
             }
         }
@@ -170,7 +172,10 @@ fun sampleData() {
 }
 
 /**
- * Finds the history for a customer
+ * Finds the history for a customer, given dates of 'value'.  This date
+ * specifies the point in time where a operation settled.  The other type
+ * of date is 'operation', that indicates the point in time where the
+ * transaction was created in the bank's system.
  *
  * @param id the customer whose history must be returned.  This
  * id is local to the bank and is not reused/encoded into other
@@ -179,15 +184,18 @@ fun sampleData() {
  */
 fun extractHistoryForEach(id: Int, start: String?, end: String?, builder: (BankTransactionEntity) -> Any) {
 
-    LOGGER.debug("Fetching history from $start to $end")
+
     val s = if (start != null) DateTime.parse(start) else DateTime(0)
     val e = if (end != null) DateTime.parse(end) else DateTime.now()
 
+    LOGGER.debug("Fetching history from $s to $e")
+
     transaction {
+        addLogger(StdOutSqlLogger)
         BankTransactionEntity.find {
-            BankTransactionsTable.localCustomer eq id and
-                    BankTransactionsTable.date.between(s, e)
+            BankTransactionsTable.localCustomer eq id and BankTransactionsTable.valueDate.between(s, e)
         }.forEach {
+            LOGGER.debug("Found history element: $it")
             builder(it)
         }
     }
@@ -201,7 +209,7 @@ fun calculateBalance(id: Int, start: String?, end: String?): BigDecimal {
 
     transaction {
         BankTransactionEntity.find {
-            BankTransactionsTable.localCustomer eq id and BankTransactionsTable.date.between(s, e)
+            BankTransactionsTable.localCustomer eq id and BankTransactionsTable.operationDate.between(s, e)
         }.forEach { ret += it.amount }
     }
     return ret
@@ -246,8 +254,6 @@ fun main() {
             post("/{id}/history") {
 
                 val req = call.receive<CustomerHistoryRequest>()
-                LOGGER.debug("Fetching history from ${req.start}, to ${req.end}")
-
                 val customer = findCustomer(call.parameters["id"])
                 val ret = CustomerHistoryResponse()
 
@@ -257,7 +263,8 @@ fun main() {
                             subject = it.subject,
                             amount = "${it.amount.signToString()}${it.amount} EUR",
                             counterpart = it.counterpart,
-                            date = it.date.toString("Y-M-d")
+                            operationDate = it.operationDate.toString("Y-M-d"),
+                            valueDate = it.operationDate.toString("Y-M-d")
                         )
                     )
                 }

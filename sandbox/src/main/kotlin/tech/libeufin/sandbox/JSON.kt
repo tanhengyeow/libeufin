@@ -63,7 +63,8 @@ data class CustomerHistoryResponseElement(
     var amount: String,
     val subject: String,
     val counterpart: String,
-    val date: String
+    val operationDate: String,
+    val valueDate: String
 )
 
 data class CustomerHistoryResponse(

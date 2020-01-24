@@ -159,7 +159,8 @@ object BankTransactionsTable : IntIdTableWithAmount() {
     val counterpart = varchar("counterpart", MAX_ID_LENGTH)
     val amount = amount("amount")
     val subject = varchar("subject", MAX_SUBJECT_LENGTH)
-    val date = date("date")
+    val operationDate = datetime("operationDate")
+    val valueDate = datetime("valueDate")
     val localCustomer = reference("localCustomer", BankCustomersTable)
 }
 
@@ -176,7 +177,8 @@ class BankTransactionEntity(id: EntityID<Int>) : IntEntity(id) {
     var counterpart by BankTransactionsTable.counterpart
 
     var subject by BankTransactionsTable.subject
-    var date by BankTransactionsTable.date
+    var operationDate by BankTransactionsTable.operationDate
+    var valueDate by BankTransactionsTable.valueDate
     var amount by BankTransactionsTable.amount
 }
 
