@@ -301,9 +301,6 @@ fun main() {
                 var recipientLine = "TODO"
                 val customerIdLine = "TODO"
 
-                var dateLine = dateFormat.format(now)
-                var timeLine = timeFormat.format(now)
-
                 var userIdLine = ""
                 var esExponentLine = ""
                 var esModulusLine = ""
@@ -322,6 +319,9 @@ fun main() {
                 val now = Date()
                 val dateFormat = SimpleDateFormat("DD.MM.YYYY")
                 val timeFormat = SimpleDateFormat("HH.mm.ss")
+                var dateLine = dateFormat.format(now)
+                var timeLine = timeFormat.format(now)
+
 
 
 
