@@ -20,6 +20,53 @@ def cli(ctx, nexus_base_url):
     ctx.obj = dict(nexus_base_url=nexus_base_url)
 
 @cli.group()
+def admin():
+    pass
+
+@admin.command(help="Instruct the Sandbox to create a new EBICS Subscriber")
+@click.option(
+    "--sandbox-url",
+    help="URL (with path) of the Sandbox that will activate the new Subscriber",
+    required=True
+)
+@click.option(
+    "--user-id",
+    help="EBICS user ID",
+    required=True
+)
+@click.option(
+    "--partner-id",
+    help="EBICS partner ID",
+    required=True
+)
+@click.option(
+    "--host-id",
+    help="EBICS host ID",
+    required=True
+)
+@click.option(
+    "--name",
+    help="Name of the person associated with the user ID",
+    required=True
+)
+def add_subscriber(sandbox_url, user_id, partner_id, host_id, name):
+    body = dict(
+            userID=user_id,
+            partnerID=partner_id,
+            hostID=host_id,
+            name=name
+    )
+
+    try:
+        resp = post(sandbox_url, json=body)
+    except Exception:
+        print("Could not reach the Sandbox")
+        return
+
+    print(resp.content.decode("utf-8"))
+
+
+@cli.group()
 def ebics():
     pass
 

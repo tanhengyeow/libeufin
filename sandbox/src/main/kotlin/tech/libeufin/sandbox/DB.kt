@@ -244,6 +244,7 @@ object EbicsSubscribersTable : IntIdTable() {
     val userId = text("userID")
     val partnerId = text("partnerID")
     val systemId = text("systemID").nullable()
+    val hostId = text("hostID")
 
     val signatureKey = reference("signatureKey", EbicsSubscriberPublicKeysTable).nullable()
     val encryptionKey = reference("encryptionKey", EbicsSubscriberPublicKeysTable).nullable()
@@ -262,6 +263,7 @@ class EbicsSubscriberEntity(id: EntityID<Int>) : IntEntity(id) {
     var userId by EbicsSubscribersTable.userId
     var partnerId by EbicsSubscribersTable.partnerId
     var systemId by EbicsSubscribersTable.systemId
+    var hostId by EbicsSubscribersTable.hostId
 
     var signatureKey by EbicsSubscriberPublicKeyEntity optionalReferencedOn EbicsSubscribersTable.signatureKey
     var encryptionKey by EbicsSubscriberPublicKeyEntity optionalReferencedOn EbicsSubscribersTable.encryptionKey

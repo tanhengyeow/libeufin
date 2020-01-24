@@ -153,6 +153,7 @@ fun sampleData() {
             partnerId = "PARTNER1"
             userId = "USER1"
             systemId = null
+            hostId = "HOST1"
             state = SubscriberState.NEW
             nextOrderID = 1
             bankCustomer = customerEntity
@@ -274,15 +275,48 @@ fun main() {
 
                 val customer = findCustomer(call.parameters["id"])
                 val balance = calculateBalance(customer.id.value, null, null)
-
                 call.respond(
                     CustomerBalance(
                     name = customer.customerName,
                     balance = "${balance} EUR"
                     )
                 )
-
                 return@get
+            }
+
+            get("/admin/get/subscribers") {
+                var ret = AdminGetSubscribers()
+                transaction {
+                    EbicsSubscriberEntity.all().forEach {
+                        ret.subscribers.add(
+                            AdminSubscriberElement(
+                            userId = it.userId, partnerID = it.partnerId, hostID = it.hostId, name = it.bankCustomer.customerName))
+                    }
+                }
+                call.respond(ret)
+                return@get
+            }
+
+            post("/admin/add/subscriber") {
+                val body = call.receive<AdminAddSubscriberRequest>()
+
+                transaction {
+                    val customerEntity = BankCustomerEntity.new {
+                        addLogger(StdOutSqlLogger)
+                        customerName = body.name
+                    }
+                    EbicsSubscriberEntity.new {
+                        partnerId = body.partnerID
+                        userId = body.userID
+                        systemId = null
+                        state = SubscriberState.NEW
+                        nextOrderID = 1
+                        bankCustomer = customerEntity
+                    }
+                }
+
+                call.respondText("Subscriber created.", ContentType.Text.Plain, HttpStatusCode.OK)
+                return@post
             }
 
             get("/") {

@@ -144,3 +144,22 @@ data class EbicsHostCreateRequest(
     val hostID: String,
     val ebicsVersion: String
 )
+
+data class AdminAddSubscriberRequest(
+    val name: String, // person's name
+    val hostID: String,
+    val partnerID: String,
+    val userID: String,
+    val systemID: String? = null
+)
+
+data class AdminSubscriberElement(
+    var name: String,
+    var userId: String,
+    var partnerID: String,
+    var hostID: String
+)
+
+data class AdminGetSubscribers(
+    var subscribers: MutableList<AdminSubscriberElement> = mutableListOf()
+)

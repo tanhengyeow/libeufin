@@ -108,10 +108,8 @@ fun main() {
         }
 
         install(ContentNegotiation) {
-
             moshi {
             }
-
             gson {
                 setDateFormat(DateFormat.LONG)
                 setPrettyPrinting()
