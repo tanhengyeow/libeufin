@@ -261,8 +261,8 @@ fun main() {
                             subject = it.subject,
                             amount = "${it.amount.signToString()}${it.amount} EUR",
                             counterpart = it.counterpart,
-                            operationDate = it.operationDate.toString("Y-M-d"),
-                            valueDate = it.operationDate.toString("Y-M-d")
+                            operationDate = DateTime(it.operationDate).toString("Y-M-d"),
+                            valueDate = DateTime(it.valueDate).toString("Y-M-d")
                         )
                     )
                 }
