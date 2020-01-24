@@ -163,8 +163,8 @@ fun sampleData() {
                 counterpart = "IBAN"
                 amount = i
                 subject = "transaction $i"
-                operationDate = DateTime.now()
-                valueDate = DateTime.now()
+                operationDate = DateTime.now().millis
+                valueDate = DateTime.now().millis
                 localCustomer = customerEntity
             }
         }

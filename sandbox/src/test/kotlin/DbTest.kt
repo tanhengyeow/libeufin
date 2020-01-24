@@ -56,8 +56,8 @@ class DbTest {
                 amount = Amount("1")
                 counterpart = "IBAN"
                 subject = "Salary"
-                operationDate = DateTime.now()
-                valueDate = DateTime.now()
+                operationDate = DateTime.now().millis
+                valueDate = DateTime.now().millis
                 localCustomer = BankCustomerEntity.new {
                     customerName = "employee"
                 }
@@ -67,8 +67,8 @@ class DbTest {
                 amount = Amount("1.11")
                 counterpart = "IBAN"
                 subject = "Salary"
-                operationDate = DateTime.now()
-                valueDate = DateTime.now()
+                operationDate = DateTime.now().millis
+                valueDate = DateTime.now().millis
                 localCustomer = BankCustomerEntity.new {
                     customerName = "employee"
                 }
@@ -78,8 +78,8 @@ class DbTest {
                 amount = Amount("1.110000000000") // BigDecimal does not crop the trailing zeros
                 counterpart = "IBAN"
                 subject = "Salary"
-                operationDate = DateTime.now()
-                valueDate = DateTime.now()
+                operationDate = DateTime.now().millis
+                valueDate = DateTime.now().millis
                 localCustomer = BankCustomerEntity.new {
                     customerName = "employee"
                 }
@@ -95,8 +95,8 @@ class DbTest {
                     amount = Amount("1.10001")
                     counterpart = "IBAN"
                     subject = "Salary"
-                    operationDate = DateTime.now()
-                    valueDate = DateTime.now()
+                    operationDate = DateTime.now().millis
+                    valueDate = DateTime.now().millis
                     localCustomer = BankCustomerEntity.new {
                         customerName = "employee"
                     }
@@ -118,8 +118,8 @@ class DbTest {
                     amount = Amount("1")
                     counterpart = "IBAN"
                     subject = "Salary"
-                    operationDate = DateTime.now()
-                    valueDate = DateTime.now()
+                    operationDate = DateTime.now().millis
+                    valueDate = DateTime.now().millis
                     localCustomer = BankCustomerEntity.new {
                         customerName = "employee"
                     }

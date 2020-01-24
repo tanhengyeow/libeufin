@@ -159,8 +159,8 @@ object BankTransactionsTable : IntIdTableWithAmount() {
     val counterpart = varchar("counterpart", MAX_ID_LENGTH)
     val amount = amount("amount")
     val subject = varchar("subject", MAX_SUBJECT_LENGTH)
-    val operationDate = datetime("operationDate")
-    val valueDate = datetime("valueDate")
+    val operationDate = long("operationDate")
+    val valueDate = long("valueDate")
     val localCustomer = reference("localCustomer", BankCustomersTable)
 }
 
