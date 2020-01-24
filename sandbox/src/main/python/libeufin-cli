@@ -57,7 +57,7 @@ def restore(obj, customer_id, backup_file):
     passphrase = getpass("Passphrase: ")
     backup_json["passphrase"] = passphrase
 
-    url = urljoin(obj["base_url"], "/ebics/subscribers/{}/restoreBackup".format(customer_id))
+    url = urljoin(obj["nexus_base_url"], "/ebics/subscribers/{}/restoreBackup".format(customer_id))
 
     try:
         response = post(url, json=backup_json)
@@ -92,7 +92,7 @@ def backup(obj, customer_id, output_file):
         print("Passphrase differs, exiting.")
         return
 
-    url = urljoin(obj["base_url"], "/ebics/subscribers/{}/backup".format(customer_id))
+    url = urljoin(obj["nexus_base_url"], "/ebics/subscribers/{}/backup".format(customer_id))
 
     try:
         response = post(url, json=dict(passphrase=passphrase))
@@ -120,7 +120,7 @@ def backup(obj, customer_id, output_file):
     default=1)
 def tst(obj, customer_id):
     
-    url = urljoin(obj["base_url"], "/ebics/subscribers/{}/sendTst".format(customer_id))
+    url = urljoin(obj["nexus_base_url"], "/ebics/subscribers/{}/sendTst".format(customer_id))
     try:
         resp = post(url)
     except Exception:
@@ -140,7 +140,7 @@ def tst(obj, customer_id):
     default=1)
 def c52(obj, customer_id):
     
-    url = urljoin(obj["base_url"], "/ebics/subscribers/{}/sendC52".format(customer_id))
+    url = urljoin(obj["nexus_base_url"], "/ebics/subscribers/{}/sendC52".format(customer_id))
     try:
         resp = post(url, json=dict(start="1970-01-01", end="2020-12-31"))
     except Exception:
@@ -159,7 +159,7 @@ def c52(obj, customer_id):
     default=1)
 def ini(obj, customer_id):
     
-    url = urljoin(obj["base_url"], "/ebics/subscribers/{}/sendIni".format(customer_id))
+    url = urljoin(obj["nexus_base_url"], "/ebics/subscribers/{}/sendIni".format(customer_id))
     try:
         resp = post(url)
     except Exception:
@@ -203,7 +203,7 @@ def htd(ctx, customer_id, prepare):
         ctx.invoke(hia)
         ctx.invoke(sync)
 
-    url = urljoin(ctx.obj["base_url"], "/ebics/subscribers/{}/sendHtd".format(customer_id))
+    url = urljoin(ctx.obj["nexus_base_url"], "/ebics/subscribers/{}/sendHtd".format(customer_id))
     try:
         resp = get(url)
     except Exception:
@@ -221,7 +221,7 @@ def htd(ctx, customer_id, prepare):
     default=1)
 def hia(obj, customer_id):
     
-    url = urljoin(obj["base_url"], "/ebics/subscribers/{}/sendHia".format(customer_id))
+    url = urljoin(obj["nexus_base_url"], "/ebics/subscribers/{}/sendHia".format(customer_id))
     try:
         resp = post(url)
     except Exception:
@@ -239,7 +239,7 @@ def hia(obj, customer_id):
     default=1)
 def sync(obj, customer_id):
     
-    url = urljoin(obj["base_url"], "/ebics/subscribers/{}/sync".format(customer_id))
+    url = urljoin(obj["nexus_base_url"], "/ebics/subscribers/{}/sync".format(customer_id))
     try:
         resp = post(url)
     except Exception:
@@ -253,7 +253,7 @@ def sync(obj, customer_id):
 @click.pass_obj
 def subscribers(obj):
     
-    url = urljoin(obj["base_url"], "/ebics/subscribers")
+    url = urljoin(obj["nexus_base_url"], "/ebics/subscribers")
     try:
         resp = get(url)
     except Exception:
