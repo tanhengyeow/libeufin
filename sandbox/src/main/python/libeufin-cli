@@ -266,7 +266,7 @@ def subscribers(obj):
 @click.pass_obj
 @click.option(
     "--ebics-url",
-    help="URL of the EBICS server (defaults to http://localhost:5001/)",
+    help="URL of the EBICS server",
     required=True
 )
 @click.option(
