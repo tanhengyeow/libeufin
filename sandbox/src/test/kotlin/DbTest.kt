@@ -67,7 +67,8 @@ class DbTest {
                 amount = Amount("1.11")
                 counterpart = "IBAN"
                 subject = "Salary"
-                date = DateTime.now()
+                operationDate = DateTime.now()
+                valueDate = DateTime.now()
                 localCustomer = BankCustomerEntity.new {
                     customerName = "employee"
                 }
@@ -117,7 +118,8 @@ class DbTest {
                     amount = Amount("1")
                     counterpart = "IBAN"
                     subject = "Salary"
-                    date = DateTime.now()
+                    operationDate = DateTime.now()
+                    valueDate = DateTime.now()
                     localCustomer = BankCustomerEntity.new {
                         customerName = "employee"
                     }
