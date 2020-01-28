@@ -33,7 +33,6 @@ class DbTest {
             SchemaUtils.create(BankTransactionsTable)
             SchemaUtils.create(BankCustomersTable)
         }
-
     }
 
 

@@ -6,8 +6,11 @@ import org.jetbrains.exposed.sql.transactions.TransactionManager
 import org.jetbrains.exposed.sql.transactions.transaction
 import java.sql.Connection
 
+const val ID_MAX_LENGTH = 50
 
-object EbicsSubscribersTable : IntIdTable() {
+object EbicsSubscribersTable : IdTable<String>() {
+
+    override val id = varchar("id", ID_MAX_LENGTH).entityId().primaryKey()
     val ebicsURL = text("ebicsURL")
     val hostID = text("hostID")
     val partnerID = text("partnerID")
@@ -20,10 +23,9 @@ object EbicsSubscribersTable : IntIdTable() {
     val bankAuthenticationPublicKey = blob("bankAuthenticationPublicKey").nullable()
 }
 
-class EbicsSubscriberEntity(id: EntityID<Int>) : IntEntity(id) {
-    companion object : IntEntityClass<EbicsSubscriberEntity>(
-        EbicsSubscribersTable
-    )
+class EbicsSubscriberEntity(id: EntityID<String>) : Entity<String>(id) {
+
+    companion object : EntityClass<String, EbicsSubscriberEntity>(EbicsSubscribersTable)
 
     var ebicsURL by EbicsSubscribersTable.ebicsURL
     var hostID by EbicsSubscribersTable.hostID

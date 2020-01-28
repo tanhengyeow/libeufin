@@ -170,13 +170,8 @@ fun chunkString(input: String): String {
 
 }
 
-fun expectId(param: String?): Int {
-
-    try {
-        return param!!.toInt()
-    } catch (e: Exception) {
-        throw NotAnIdError(HttpStatusCode.BadRequest)
-    }
+fun expectId(param: String?): String {
+    return param ?: throw NotAnIdError(HttpStatusCode.BadRequest)
 }
 
 fun signOrder(
