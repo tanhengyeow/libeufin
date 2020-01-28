@@ -1,4 +1,4 @@
-package tech.libeufin.nexus.tech.libeufin.nexus
+package tech.libeufin.nexus
 
 import org.jetbrains.exposed.dao.*
 import org.jetbrains.exposed.sql.*
@@ -40,8 +40,8 @@ fun dbCreateTables() {
 
     transaction {
         addLogger(StdOutSqlLogger)
-        SchemaUtils.create(
+         SchemaUtils.create(
             EbicsSubscribersTable
-        )
+         )
     }
 }

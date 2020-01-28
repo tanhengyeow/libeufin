@@ -1,4 +1,4 @@
-package tech.libeufin.nexus.tech.libeufin.nexus
+package tech.libeufin.nexus
 
 import com.squareup.moshi.JsonClass
 

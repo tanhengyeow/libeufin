@@ -17,7 +17,7 @@
  * <http://www.gnu.org/licenses/>
  */
 
-package tech.libeufin.nexus.tech.libeufin.nexus
+package tech.libeufin.nexus
 
 import com.ryanharter.ktor.moshi.moshi
 import com.squareup.moshi.JsonDataException
@@ -57,7 +57,6 @@ import java.util.*
 import java.util.zip.DeflaterInputStream
 import javax.crypto.EncryptedPrivateKeyInfo
 
-
 fun testData() {
 
     val pairA = CryptoUtil.generateRsaKeyPair(2048)
@@ -92,7 +91,7 @@ val LOGGER: Logger = LoggerFactory.getLogger("tech.libeufin.nexus")
 
 fun main() {
     dbCreateTables()
-    testData() // gets always id == 1
+    // testData()
     val client = HttpClient(){
         expectSuccess = false // this way, it does not throw exceptions on != 200 responses.
     }
