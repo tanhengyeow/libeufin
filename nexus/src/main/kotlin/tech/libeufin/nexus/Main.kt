@@ -51,6 +51,8 @@ import tech.libeufin.util.toHexString
 import tech.libeufin.util.CryptoUtil
 import tech.libeufin.util.EbicsOrderUtil
 import tech.libeufin.util.XMLUtil
+import tech.libeufin.util.ebics_hev.HEVRequest
+import tech.libeufin.util.ebics_hev.HEVResponse
 import java.math.BigInteger
 import java.text.SimpleDateFormat
 import java.util.*
@@ -499,17 +501,31 @@ fun main() {
                 call.respond(HttpStatusCode.OK, response)
                 return@get
             }
+            get("/ebics/{id}/sendHev") {
+                val id = expectId(call.parameters["id"])
+                val (ebicsUrl, hostID) = transaction {
+                    val customer = EbicsSubscriberEntity.findById(id)
+                        ?: throw SubscriberNotFoundError(HttpStatusCode.NotFound)
+                    Pair(customer.ebicsURL, customer.hostID)
+                }
+                val request = HEVRequest().apply {
+                    hostId = hostID
+                }
+                val response = client.postToBankUnsigned<HEVRequest, HEVResponse>(ebicsUrl, request)
+                call.respond(
+                    HttpStatusCode.OK,
+                    EbicsHevResponse(response.value.versionNumber as List<String>)
+                )
+                return@get
+            }
 
             post("/ebics/subscribers") {
 
                 val body = call.receive<EbicsSubscriberInfoRequest>()
-
                 val pairA = CryptoUtil.generateRsaKeyPair(2048)
                 val pairB = CryptoUtil.generateRsaKeyPair(2048)
                 val pairC = CryptoUtil.generateRsaKeyPair(2048)
-
                 val id = transaction {
-
                     EbicsSubscriberEntity.new {
                         ebicsURL = body.ebicsURL
                         hostID = body.hostID
@@ -519,10 +535,8 @@ fun main() {
                         signaturePrivateKey = SerialBlob(pairA.private.encoded)
                         encryptionPrivateKey = SerialBlob(pairB.private.encoded)
                         authenticationPrivateKey = SerialBlob(pairC.private.encoded)
-
                     }.id.value
                 }
-
                 call.respondText(
                     "Subscriber registered, ID: ${id}",
                     ContentType.Text.Plain,
@@ -530,12 +544,8 @@ fun main() {
                 )
                 return@post
             }
-
-
             post("/ebics/subscribers/{id}/sendIni") {
-
-                val id =
-                    expectId(call.parameters["id"]) // caught above
+                val id = expectId(call.parameters["id"])
                 val subscriberData = transaction {
                     containerInit(
                         EbicsSubscriberEntity.findById(id)
@@ -544,72 +554,56 @@ fun main() {
                             )
                     )
                 }
-
                 val iniRequest = EbicsUnsecuredRequest.createIni(
                     subscriberData.hostId,
                     subscriberData.userId,
                     subscriberData.partnerId,
                     subscriberData.customerSignPriv
                 )
-
                 val responseJaxb = client.postToBankUnsigned<EbicsUnsecuredRequest, EbicsKeyManagementResponse>(
                     subscriberData.ebicsUrl,
                     iniRequest
                 )
-
                 if (responseJaxb.value.body.returnCode.value != "000000") {
                     throw EbicsError(responseJaxb.value.body.returnCode.value)
                 }
-
                 call.respondText("Bank accepted signature key\n", ContentType.Text.Plain, HttpStatusCode.OK)
                 return@post
             }
 
             post("/ebics/subscribers/{id}/restoreBackup") {
-
                 val body = call.receive<EbicsKeysBackup>()
                 val id = expectId(call.parameters["id"])
-
                 val (authKey, encKey, sigKey) = try {
-
                     Triple(
-
                         CryptoUtil.decryptKey(
                             EncryptedPrivateKeyInfo(body.authBlob), body.passphrase!!
                         ),
-
                         CryptoUtil.decryptKey(
                             EncryptedPrivateKeyInfo(body.encBlob), body.passphrase
                         ),
-
                         CryptoUtil.decryptKey(
                             EncryptedPrivateKeyInfo(body.sigBlob), body.passphrase
                         )
                     )
-
                 } catch (e: Exception) {
                     e.printStackTrace()
                     throw BadBackup(HttpStatusCode.BadRequest)
                 }
-
                 transaction {
                     val subscriber = EbicsSubscriberEntity.findById(id) ?: throw SubscriberNotFoundError(
                         HttpStatusCode.NotFound
                     )
-
                     subscriber.encryptionPrivateKey = SerialBlob(encKey.encoded)
                     subscriber.authenticationPrivateKey = SerialBlob(authKey.encoded)
                     subscriber.signaturePrivateKey = SerialBlob(sigKey.encoded)
                 }
-
                 call.respondText(
                     "Keys successfully restored",
                     ContentType.Text.Plain,
                     HttpStatusCode.OK
                 )
-
             }
-
             post("/ebics/subscribers/{id}/backup") {
 
                 val id = expectId(call.parameters["id"])
@@ -619,33 +613,26 @@ fun main() {
                     val subscriber = EbicsSubscriberEntity.findById(id) ?: throw SubscriberNotFoundError(
                         HttpStatusCode.NotFound
                     )
-
-
                     EbicsKeysBackup(
-
                         authBlob = CryptoUtil.encryptKey(
                             subscriber.authenticationPrivateKey.toByteArray(),
                             body.passphrase
                         ),
-
                         encBlob = CryptoUtil.encryptKey(
                             subscriber.encryptionPrivateKey.toByteArray(),
                             body.passphrase
                         ),
-
                         sigBlob = CryptoUtil.encryptKey(
                             subscriber.signaturePrivateKey.toByteArray(),
                             body.passphrase
                         )
                     )
                 }
-
                 call.response.headers.append("Content-Disposition", "attachment")
                 call.respond(
                     HttpStatusCode.OK,
                     content
                 )
-
             }
             post("/ebics/subscribers/{id}/sendTst") {
 

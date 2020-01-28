@@ -26,6 +26,16 @@ import javax.xml.bind.annotation.adapters.XmlJavaTypeAdapter
 
 @XmlAccessorType(XmlAccessType.NONE)
 @XmlType(
+    name = "HEVRequestDataType"
+)
+@XmlRootElement(name = "ebicsHEVRequest")
+class HEVRequest{
+    @get:XmlElement(name = "HostID", required = true)
+    lateinit var hostId: String
+}
+
+@XmlAccessorType(XmlAccessType.NONE)
+@XmlType(
     name = "HEVResponseDataType",
     propOrder = ["systemReturnCode", "versionNumber", "any"]
 )

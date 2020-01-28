@@ -1,8 +1,5 @@
 package tech.libeufin.nexus
 
-import com.squareup.moshi.JsonClass
-
-
 data class EbicsBackupRequest(
     val passphrase: String
 )
@@ -56,4 +53,8 @@ data class EbicsSubscriberInfoResponse(
  */
 data class EbicsSubscribersResponse(
     val ebicsSubscribers: MutableList<EbicsSubscriberInfoResponse> = mutableListOf()
+)
+
+data class EbicsHevResponse(
+    val versions: List<String>
 )

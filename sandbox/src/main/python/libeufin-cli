@@ -109,6 +109,23 @@ def native(ctx, sandbox_base_url):
     ctx.obj.update(sandbox_base_url=sandbox_base_url)
     pass
 
+@ebics.command(help="Send the HEV message to the bank.")
+@click.pass_obj
+@click.option(
+    "--customer_id",
+    help="Customer id",
+    required=True
+)
+def send_hev(customer_id):
+    url = urljoin(obj["nexus_base_url"], "/ebics/{}/sendHev".format(customer_id))
+    try:
+        resp = get(url)
+    except Exception:
+        print("Unsuccessful request")
+        return
+
+    print(resp.content.decode("utf-8"))
+
 @ebics.command(help="Restore private keys backup.")
 @click.pass_obj
 @click.option(

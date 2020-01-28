@@ -15,26 +15,17 @@ import javax.xml.bind.JAXBElement
  * the time.
  */
 data class EbicsContainer(
-
     val partnerId: String,
-
     val userId: String,
-
-
     var bankAuthPub: RSAPublicKey?,
     var bankEncPub: RSAPublicKey?,
-
     // needed to send the message
     val ebicsUrl: String,
-
     // needed to craft further messages
     val hostId: String,
-
     // needed to decrypt data coming from the bank
     val customerEncPriv: RSAPrivateCrtKey,
-
     // needed to sign documents
     val customerAuthPriv: RSAPrivateCrtKey,
-
     val customerSignPriv: RSAPrivateCrtKey
 )

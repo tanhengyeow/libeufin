@@ -110,8 +110,12 @@ fun createUploadInitializationPhase(
     )
 }
 
+/**
+ * Usually, queries must return lots of data from within a transaction
+ * block.  For convenience, we wrap such data into a EbicsContainer, so
+ * that only one object is always returned from the transaction block.
+ */
 fun containerInit(subscriber: EbicsSubscriberEntity): EbicsContainer {
-
     var bankAuthPubValue: RSAPublicKey? = null
     if (subscriber.bankAuthenticationPublicKey != null) {
         bankAuthPubValue = CryptoUtil.loadRsaPublicKey(
@@ -124,7 +128,6 @@ fun containerInit(subscriber: EbicsSubscriberEntity): EbicsContainer {
             subscriber.bankEncryptionPublicKey?.toByteArray()!!
         )
     }
-
     return EbicsContainer(
         bankAuthPub = bankAuthPubValue,
         bankEncPub = bankEncPubValue,
@@ -138,7 +141,6 @@ fun containerInit(subscriber: EbicsSubscriberEntity): EbicsContainer {
         customerAuthPriv = CryptoUtil.loadRsaPrivateKey(subscriber.authenticationPrivateKey.toByteArray()),
         customerEncPriv = CryptoUtil.loadRsaPrivateKey(subscriber.authenticationPrivateKey.toByteArray())
     )
-
 }
 
 /**
