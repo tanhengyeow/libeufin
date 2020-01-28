@@ -31,7 +31,6 @@ data class EbicsKeysBackup(
  * This object is POSTed by clients _after_ having created
  * a EBICS subscriber at the sandbox.
  */
-@JsonClass(generateAdapter = true) // USED?
 data class EbicsSubscriberInfoRequest(
     val ebicsURL: String,
     val hostID: String,
