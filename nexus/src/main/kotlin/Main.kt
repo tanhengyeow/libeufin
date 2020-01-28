@@ -227,6 +227,13 @@ fun main() {
                 return@post
             }
 
+            post("/ebics/subscribers/{id}/restore-backup") {
+                // Creates a *new* customer with nexus-internal identifier "id"
+                // and imports the backup into it.
+                // This endpoint *fails* if a subscriber with the same nexus-internal id
+                // already exists.
+            }
+
             get("/ebics/subscribers/{id}/sendHtd") {
                 val id = expectId(call.parameters["id"])
                 val subscriberData = transaction {
