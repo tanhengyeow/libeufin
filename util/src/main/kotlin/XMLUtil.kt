@@ -30,9 +30,11 @@ import org.xml.sax.ErrorHandler
 import org.xml.sax.InputSource
 import org.xml.sax.SAXException
 import org.xml.sax.SAXParseException
+import tech.libeufin.util.ebics_h004.EbicsResponse
 import java.io.*
 import java.security.PrivateKey
 import java.security.PublicKey
+import java.security.interfaces.RSAPrivateCrtKey
 import javax.xml.XMLConstants
 import javax.xml.bind.JAXBContext
 import javax.xml.bind.JAXBElement
@@ -308,6 +310,13 @@ class XMLUtil private constructor() {
             return builder.parse(InputSource(xmlInputStream))
         }
 
+        fun signEbicsResponse(ebicsResponse: EbicsResponse, privateKey: RSAPrivateCrtKey): String {
+            val doc = convertJaxbToDocument(ebicsResponse)
+            signEbicsDocument(doc, privateKey)
+            val signedDoc = XMLUtil.convertDomToString(doc)
+            println("response: $signedDoc")
+            return signedDoc
+        }
 
         /**
          * Sign an EBICS document with the authentication and identity signature.

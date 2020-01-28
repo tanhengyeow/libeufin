@@ -17,8 +17,6 @@
  * <http://www.gnu.org/licenses/>
  */
 
-package tech.libeufin.sandbox
-
 import org.junit.Test
 import tech.libeufin.util.CryptoUtil
 import java.security.KeyPairGenerator

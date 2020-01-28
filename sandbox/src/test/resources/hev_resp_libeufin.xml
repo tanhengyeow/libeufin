@@ -1,9 +1,0 @@
-<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-<ns2:ebicsHEVResponse xmlns:ns2="http://www.ebics.org/H000">
-  <ns2:SystemReturnCode>
-    <ns2:ReturnCode>000000</ns2:ReturnCode>
-    <ns2:ReportText>EBICS_OK</ns2:ReportText>
-  </ns2:SystemReturnCode>
-  <ns2:VersionNumber ProtocolVersion="H003">02.40</ns2:VersionNumber>
-  <ns2:VersionNumber ProtocolVersion="H004">02.50</ns2:VersionNumber>
-</ns2:ebicsHEVResponse>

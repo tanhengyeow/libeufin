@@ -237,7 +237,6 @@ object CryptoUtil {
 
 
     fun decryptKey(data: EncryptedPrivateKeyInfo, passphrase: String): RSAPrivateCrtKey {
-
         /* make key out of passphrase */
         val pbeKeySpec = PBEKeySpec(passphrase.toCharArray())
         val keyFactory = SecretKeyFactory.getInstance(data.algName)

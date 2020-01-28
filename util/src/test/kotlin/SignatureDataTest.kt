@@ -1,14 +1,11 @@
-package tech.libeufin.nexus
-
-import tech.libeufin.util.XMLUtil
 import org.apache.xml.security.binding.xmldsig.SignatureType
 import org.junit.Test
-import tech.libeufin.nexus.getNonce
 import tech.libeufin.util.CryptoUtil
+import tech.libeufin.util.XMLUtil
 import tech.libeufin.util.ebics_h004.EbicsRequest
 import tech.libeufin.util.ebics_h004.EbicsTypes
-import java.math.BigInteger
 import tech.libeufin.util.getGregorianDate
+import java.math.BigInteger
 
 class SignatureDataTest {
 
@@ -24,7 +21,7 @@ class SignatureDataTest {
                 authenticate = true
                 static = EbicsRequest.StaticHeaderType().apply {
                     hostID = "some host ID"
-                    nonce = getNonce(128)
+                    nonce = "nonce".toByteArray()
                     timestamp = getGregorianDate()
                     partnerID = "some partner ID"
                     userID = "some user ID"
@@ -64,7 +61,8 @@ class SignatureDataTest {
                             encryptionPubKeyDigest = EbicsTypes.PubKeyDigest().apply {
                                 algorithm = "http://www.w3.org/2001/04/xmlenc#sha256"
                                 version = "E002"
-                                value = CryptoUtil.getEbicsPublicKeyHash(pair.public)
+                                value =
+                                    CryptoUtil.getEbicsPublicKeyHash(pair.public)
                             }
                         }
                         hostId = "a host ID"

@@ -39,6 +39,7 @@ import tech.libeufin.util.CryptoUtil
 import tech.libeufin.util.EbicsOrderUtil
 import tech.libeufin.util.XMLUtil
 import tech.libeufin.util.*
+import tech.libeufin.util.XMLUtil.Companion.signEbicsResponse
 import java.awt.List
 import java.math.BigDecimal
 import java.security.interfaces.RSAPrivateCrtKey
@@ -628,13 +629,6 @@ fun handleEbicsHkd(): ByteArray {
 }
 
 
-fun signEbicsResponseX002(ebicsResponse: EbicsResponse, privateKey: RSAPrivateCrtKey): String {
-    val doc = XMLUtil.convertJaxbToDocument(ebicsResponse)
-    XMLUtil.signEbicsDocument(doc, privateKey)
-    val signedDoc = XMLUtil.convertDomToString(doc)
-    println("response: $signedDoc")
-    return signedDoc
-}
 
 suspend fun ApplicationCall.ebicsweb() {
     val requestDocument = receiveEbicsXml()
@@ -900,7 +894,7 @@ suspend fun ApplicationCall.ebicsweb() {
                         EbicsResponse.createForDownloadReceiptPhase(requestTransactionID, receiptCode == 0)
                     }
                 }
-                signEbicsResponseX002(ebicsResponse, hostAuthPriv)
+                signEbicsResponse(ebicsResponse, hostAuthPriv)
             }
             respondText(responseXmlStr, ContentType.Application.Xml, HttpStatusCode.OK)
         }

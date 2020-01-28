@@ -1,9 +1,6 @@
-package tech.libeufin.sandbox
-
 import org.apache.xml.security.binding.xmldsig.SignatureType
 import org.junit.Test
 import org.junit.Assert.*
-import org.junit.Ignore
 import tech.libeufin.util.ebics_h004.EbicsKeyManagementResponse
 import tech.libeufin.util.ebics_h004.EbicsResponse
 import tech.libeufin.util.ebics_h004.EbicsTypes
@@ -13,6 +10,8 @@ import tech.libeufin.util.XMLUtil
 import java.security.KeyPairGenerator
 import java.util.*
 import javax.xml.transform.stream.StreamSource
+import tech.libeufin.util.LOGGER
+import tech.libeufin.util.XMLUtil.Companion.signEbicsResponse
 
 class XmlUtilTest {
 
@@ -135,7 +134,7 @@ class XmlUtilTest {
             }
         }
 
-        val signature = signEbicsResponseX002(response, pair.private)
+        val signature = signEbicsResponse(response, pair.private)
         val signatureJaxb = XMLUtil.convertStringToJaxb<EbicsResponse>(signature)
 
         assertTrue(
