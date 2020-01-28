@@ -1,8 +1,6 @@
-package tech.libeufin.nexus
+package tech.libeufin.nexus.tech.libeufin.nexus
 
-import com.google.gson.annotations.JsonAdapter
 import com.squareup.moshi.JsonClass
-import org.joda.time.DateTime
 
 
 data class EbicsBackupRequest(

@@ -1,4 +1,4 @@
-package tech.libeufin.nexus
+package tech.libeufin.nexus.tech.libeufin.nexus
 
 import javax.crypto.SecretKey
 import org.w3c.dom.Document

@@ -1,8 +1,7 @@
-package tech.libeufin.nexus
+package tech.libeufin.nexus.tech.libeufin.nexus
 
 import org.jetbrains.exposed.dao.*
 import org.jetbrains.exposed.sql.*
-import org.jetbrains.exposed.sql.transactions.TransactionManager
 import org.jetbrains.exposed.sql.transactions.transaction
 
 
@@ -20,7 +19,9 @@ object EbicsSubscribersTable : IntIdTable() {
 }
 
 class EbicsSubscriberEntity(id: EntityID<Int>) : IntEntity(id) {
-    companion object : IntEntityClass<EbicsSubscriberEntity>(EbicsSubscribersTable)
+    companion object : IntEntityClass<EbicsSubscriberEntity>(
+        EbicsSubscribersTable
+    )
 
     var ebicsURL by EbicsSubscribersTable.ebicsURL
     var hostID by EbicsSubscribersTable.hostID
@@ -35,7 +36,7 @@ class EbicsSubscriberEntity(id: EntityID<Int>) : IntEntity(id) {
 }
 
 fun dbCreateTables() {
-    Database.connect("jdbc:h2:mem:test;DB_CLOSE_DELAY=-1", driver = "org.h2.Driver")
+    Database.connect("jdbc:sqlite:libeufin-nexus.sqlite3", "org.sqlite.JDBC")
 
     transaction {
         addLogger(StdOutSqlLogger)

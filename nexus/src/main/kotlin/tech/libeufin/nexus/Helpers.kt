@@ -1,4 +1,4 @@
-package tech.libeufin.nexus
+package tech.libeufin.nexus.tech.libeufin.nexus
 
 import io.ktor.client.HttpClient
 import io.ktor.client.request.post
@@ -15,7 +15,6 @@ import java.security.interfaces.RSAPrivateCrtKey
 import java.security.interfaces.RSAPublicKey
 import java.util.*
 import javax.xml.bind.JAXBElement
-import javax.xml.datatype.DatatypeFactory
 import javax.xml.datatype.XMLGregorianCalendar
 
 
@@ -54,8 +53,12 @@ fun createDownloadInitializationPhase(
         subscriberData.hostId,
         nonce,
         date,
-        subscriberData.bankEncPub ?: throw BankKeyMissing(HttpStatusCode.PreconditionFailed),
-        subscriberData.bankAuthPub ?: throw BankKeyMissing(HttpStatusCode.PreconditionFailed),
+        subscriberData.bankEncPub ?: throw BankKeyMissing(
+            HttpStatusCode.PreconditionFailed
+        ),
+        subscriberData.bankAuthPub ?: throw BankKeyMissing(
+            HttpStatusCode.PreconditionFailed
+        ),
         orderType
     )
 }
@@ -75,8 +78,12 @@ fun createDownloadInitializationPhase(
         subscriberData.hostId,
         nonce,
         date,
-        subscriberData.bankEncPub ?: throw BankKeyMissing(HttpStatusCode.PreconditionFailed),
-        subscriberData.bankAuthPub ?: throw BankKeyMissing(HttpStatusCode.PreconditionFailed),
+        subscriberData.bankEncPub ?: throw BankKeyMissing(
+            HttpStatusCode.PreconditionFailed
+        ),
+        subscriberData.bankAuthPub ?: throw BankKeyMissing(
+            HttpStatusCode.PreconditionFailed
+        ),
         orderType,
         dateStart,
         dateEnd
@@ -241,7 +248,10 @@ suspend inline fun <reified T, reified S> HttpClient.postToBankSignedAndVerify(
         XMLUtil.parseStringIntoDom(response)
     } catch (e: Exception) {
 
-        throw UnparsableResponse(HttpStatusCode.BadRequest, response)
+        throw UnparsableResponse(
+            HttpStatusCode.BadRequest,
+            response
+        )
     }
 
     if (!XMLUtil.verifyEbicsDocument(responseDocument, pub)) {
@@ -254,7 +264,10 @@ suspend inline fun <reified T, reified S> HttpClient.postToBankSignedAndVerify(
         return XMLUtil.convertStringToJaxb(response)
     } catch (e: Exception) {
 
-        throw UnparsableResponse(HttpStatusCode.BadRequest, response)
+        throw UnparsableResponse(
+            HttpStatusCode.BadRequest,
+            response
+        )
     }
 }
 
@@ -272,7 +285,10 @@ suspend inline fun <reified T, reified S> HttpClient.postToBankSigned(
     try {
         return XMLUtil.convertStringToJaxb(response)
     } catch (e: Exception) {
-        throw UnparsableResponse(HttpStatusCode.BadRequest, response)
+        throw UnparsableResponse(
+            HttpStatusCode.BadRequest,
+            response
+        )
     }
 }
 
@@ -289,7 +305,10 @@ suspend inline fun <reified T, reified S> HttpClient.postToBankUnsigned(
     try {
         return XMLUtil.convertStringToJaxb(response)
     } catch (e: Exception) {
-        throw UnparsableResponse(HttpStatusCode.BadRequest, response)
+        throw UnparsableResponse(
+            HttpStatusCode.BadRequest,
+            response
+        )
     }
 }
 

@@ -17,7 +17,7 @@
  * <http://www.gnu.org/licenses/>
  */
 
-package tech.libeufin.nexus
+package tech.libeufin.nexus.tech.libeufin.nexus
 
 import com.ryanharter.ktor.moshi.moshi
 import com.squareup.moshi.JsonDataException
@@ -201,7 +201,13 @@ fun main() {
                 // will throw DateTimeParseException if strings are malformed.
 
                 val subscriberData = transaction {
-                    containerInit(EbicsSubscriberEntity.findById(id) ?: throw SubscriberNotFoundError(HttpStatusCode.NotFound))
+                    containerInit(
+                        EbicsSubscriberEntity.findById(
+                            id
+                        ) ?: throw SubscriberNotFoundError(
+                            HttpStatusCode.NotFound
+                        )
+                    )
                 }
 
                 val response = client.postToBankSigned<EbicsRequest, EbicsResponse>(
@@ -217,7 +223,11 @@ fun main() {
                     subscriberData.customerAuthPriv
                 )
 
-                val payload: ByteArray = decryptAndDecompressResponse(response.value, subscriberData.customerEncPriv)
+                val payload: ByteArray =
+                    decryptAndDecompressResponse(
+                        response.value,
+                        subscriberData.customerEncPriv
+                    )
 
                 call.respondText(
                     payload.toString(Charsets.UTF_8),
@@ -237,7 +247,13 @@ fun main() {
             get("/ebics/subscribers/{id}/sendHtd") {
                 val id = expectId(call.parameters["id"])
                 val subscriberData = transaction {
-                    containerInit(EbicsSubscriberEntity.findById(id) ?: throw SubscriberNotFoundError(HttpStatusCode.NotFound))
+                    containerInit(
+                        EbicsSubscriberEntity.findById(
+                            id
+                        ) ?: throw SubscriberNotFoundError(
+                            HttpStatusCode.NotFound
+                        )
+                    )
                 }
 
                 val response = client.postToBankSigned<EbicsRequest, EbicsResponse>(
@@ -274,14 +290,18 @@ fun main() {
                 logger.debug("HTD payload is: ${XMLUtil.convertJaxbToString(data)}")
 
                 val ackRequest = EbicsRequest.createForDownloadReceiptPhase(
-                    response.value.header._static.transactionID ?: throw BankInvalidResponse(HttpStatusCode.ExpectationFailed),
+                    response.value.header._static.transactionID ?: throw BankInvalidResponse(
+                        HttpStatusCode.ExpectationFailed
+                    ),
                     subscriberData.hostId
                 )
 
                 val ackResponse = client.postToBankSignedAndVerify<EbicsRequest, EbicsResponse>(
                     subscriberData.ebicsUrl,
                     ackRequest,
-                    subscriberData.bankAuthPub ?: throw BankKeyMissing(HttpStatusCode.PreconditionFailed),
+                    subscriberData.bankAuthPub ?: throw BankKeyMissing(
+                        HttpStatusCode.PreconditionFailed
+                    ),
                     subscriberData.customerAuthPriv
                 )
 
@@ -332,7 +352,9 @@ fun main() {
 
 
                 transaction {
-                    val subscriber = EbicsSubscriberEntity.findById(id) ?: throw SubscriberNotFoundError(HttpStatusCode.NotFound)
+                    val subscriber = EbicsSubscriberEntity.findById(id) ?: throw SubscriberNotFoundError(
+                        HttpStatusCode.NotFound
+                    )
 
                     val signPubTmp = CryptoUtil.getRsaPublicFromPrivate(
                         CryptoUtil.loadRsaPrivateKey(subscriber.signaturePrivateKey.toByteArray())
@@ -463,7 +485,9 @@ fun main() {
             get("/ebics/subscribers/{id}") {
                 val id = expectId(call.parameters["id"])
                 val response = transaction {
-                    val tmp = EbicsSubscriberEntity.findById(id) ?: throw SubscriberNotFoundError(HttpStatusCode.NotFound)
+                    val tmp = EbicsSubscriberEntity.findById(id) ?: throw SubscriberNotFoundError(
+                        HttpStatusCode.NotFound
+                    )
                     EbicsSubscriberInfoResponse(
                         accountID = tmp.id.value,
                         hostID = tmp.hostID,
@@ -511,10 +535,14 @@ fun main() {
 
             post("/ebics/subscribers/{id}/sendIni") {
 
-                val id = expectId(call.parameters["id"]) // caught above
+                val id =
+                    expectId(call.parameters["id"]) // caught above
                 val subscriberData = transaction {
                     containerInit(
-                        EbicsSubscriberEntity.findById(id) ?: throw SubscriberNotFoundError(HttpStatusCode.NotFound)
+                        EbicsSubscriberEntity.findById(id)
+                            ?: throw SubscriberNotFoundError(
+                                HttpStatusCode.NotFound
+                            )
                     )
                 }
 
@@ -566,7 +594,9 @@ fun main() {
                 }
 
                 transaction {
-                    val subscriber = EbicsSubscriberEntity.findById(id) ?: throw SubscriberNotFoundError(HttpStatusCode.NotFound)
+                    val subscriber = EbicsSubscriberEntity.findById(id) ?: throw SubscriberNotFoundError(
+                        HttpStatusCode.NotFound
+                    )
 
                     subscriber.encryptionPrivateKey = SerialBlob(encKey.encoded)
                     subscriber.authenticationPrivateKey = SerialBlob(authKey.encoded)
@@ -587,7 +617,9 @@ fun main() {
                 val body = call.receive<EbicsBackupRequest>()
 
                 val content = transaction {
-                    val subscriber = EbicsSubscriberEntity.findById(id) ?: throw SubscriberNotFoundError(HttpStatusCode.NotFound)
+                    val subscriber = EbicsSubscriberEntity.findById(id) ?: throw SubscriberNotFoundError(
+                        HttpStatusCode.NotFound
+                    )
 
 
                     EbicsKeysBackup(
@@ -599,7 +631,8 @@ fun main() {
 
                         encBlob = CryptoUtil.encryptKey(
                             subscriber.encryptionPrivateKey.toByteArray(),
-                            body.passphrase),
+                            body.passphrase
+                        ),
 
                         sigBlob = CryptoUtil.encryptKey(
                             subscriber.signaturePrivateKey.toByteArray(),
@@ -621,7 +654,10 @@ fun main() {
 
                 val subscriberData = transaction {
                     containerInit(
-                        EbicsSubscriberEntity.findById(id) ?: throw SubscriberNotFoundError(HttpStatusCode.NotFound)
+                        EbicsSubscriberEntity.findById(id)
+                            ?: throw SubscriberNotFoundError(
+                                HttpStatusCode.NotFound
+                            )
                     )
                 }
                 val payload = "PAYLOAD"
@@ -707,7 +743,10 @@ fun main() {
                 val id = expectId(call.parameters["id"])
                 val bundle = transaction {
                     containerInit(
-                        EbicsSubscriberEntity.findById(id) ?: throw SubscriberNotFoundError(HttpStatusCode.NotFound)
+                        EbicsSubscriberEntity.findById(id)
+                            ?: throw SubscriberNotFoundError(
+                                HttpStatusCode.NotFound
+                            )
                     )
                 }
                 val response = client.postToBankSigned<EbicsNpkdRequest, EbicsKeyManagementResponse>(
@@ -769,7 +808,10 @@ fun main() {
 
                 val subscriberData = transaction {
                     containerInit(
-                        EbicsSubscriberEntity.findById(id) ?: throw SubscriberNotFoundError(HttpStatusCode.NotFound)
+                        EbicsSubscriberEntity.findById(id)
+                            ?: throw SubscriberNotFoundError(
+                                HttpStatusCode.NotFound
+                            )
                     )
                 }
 
