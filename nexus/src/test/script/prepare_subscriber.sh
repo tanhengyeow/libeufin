@@ -37,7 +37,7 @@ read x
 
 printf "\n"
 exe_echo libeufin-cli ebics new-subscriber \
-  --ebics-url http://localhost:5001/ebicsweb \
+  --ebics-url http://localhost:5000/ebicsweb \
   --user-id "user$1" \
   --partner-id "partner$1" \
   --host-id "host$1" && sleep 1

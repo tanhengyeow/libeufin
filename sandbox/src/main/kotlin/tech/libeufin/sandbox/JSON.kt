@@ -141,7 +141,7 @@ data class EbicsHostResponse(
 )
 
 data class EbicsHostCreateRequest(
-    val hostID: String,
+    val hostId: String,
     val ebicsVersion: String
 )
 

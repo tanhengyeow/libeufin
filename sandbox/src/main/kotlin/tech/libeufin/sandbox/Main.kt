@@ -330,12 +330,30 @@ fun main() {
             }
             post("/ebics/hosts") {
                 val req = call.receive<EbicsHostCreateRequest>()
+
+                val pairA = CryptoUtil.generateRsaKeyPair(2048)
+                val pairB = CryptoUtil.generateRsaKeyPair(2048)
+                val pairC = CryptoUtil.generateRsaKeyPair(2048)
+
                 transaction {
+                    addLogger(StdOutSqlLogger)
                     EbicsHostEntity.new {
                         this.ebicsVersion = req.ebicsVersion
-                        this.hostId = hostId
+                        this.hostId = req.hostId
+                        this.authenticationPrivateKey = SerialBlob(pairA.private.encoded)
+                        this.encryptionPrivateKey = SerialBlob(pairB.private.encoded)
+                        this.signaturePrivateKey = SerialBlob(pairC.private.encoded)
+
                     }
                 }
+
+                call.respondText(
+                    "Host created.",
+                    ContentType.Text.Plain,
+                    HttpStatusCode.OK
+                )
+                return@post
+
             }
             get("/ebics/hosts/{id}") {
                 val resp = transaction {

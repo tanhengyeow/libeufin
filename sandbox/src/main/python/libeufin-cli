@@ -23,6 +23,36 @@ def cli(ctx, nexus_base_url):
 def admin():
     pass
 
+
+@admin.command(help="Instruct the Sandbox to create a new EBICS host ID.")
+@click.option(
+    "--sandbox-url",
+    help="URL (with path) of the Sandbox that will activate the new Subscriber",
+    required=True
+)
+@click.option(
+    "--host-id",
+    help="EBICS host ID",
+    required=True
+)
+@click.option(
+    "--ebics-version",
+    help="EBICS version to support",
+    required=True
+)
+def add_host(sandbox_url, host_id, ebics_version):
+    body = dict(
+        hostId=host_id,
+        ebicsVersion=ebics_version
+    )
+    try:
+        resp = post(sandbox_url, json=body)
+    except Exception:
+        print("Could not reach the Sandbox")
+        return
+
+    print(resp.content.decode("utf-8"))
+
 @admin.command(help="Instruct the Sandbox to create a new EBICS Subscriber")
 @click.option(
     "--sandbox-url",
