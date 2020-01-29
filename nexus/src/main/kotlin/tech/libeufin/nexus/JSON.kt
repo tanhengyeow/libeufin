@@ -4,6 +4,10 @@ data class EbicsBackupRequest(
     val passphrase: String
 )
 
+data class NexusError(
+    val message: String
+)
+
 data class EbicsDateRange(
     /**
      * ISO 8601 calendar dates: YEAR-MONTH(01-12)-DAY(1-31)

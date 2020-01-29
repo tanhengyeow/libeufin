@@ -15,14 +15,11 @@ def cli():
     pass
 
 @cli.group()
-@click.argument(
-    "bank-base-url"
-)
 @click.pass_context
-def admin(ctx, bank_base_url):
-    ctx.obj = dict(bank_base_url=bank_base_url)
+def admin(ctx):
+    pass
 
-@admin.command(help="Instruct the Sandbox to create a new EBICS host ID.")
+@admin.command(help="Instruct the Bank to create a new EBICS host ID.")
 @click.option(
     "--host-id",
     help="EBICS host ID",
@@ -33,9 +30,12 @@ def admin(ctx, bank_base_url):
     help="EBICS version to support",
     required=True
 )
+@click.argument(
+    "bank-base-url"
+)
 @click.pass_obj
-def add_host(obj, host_id, ebics_version):
-    url = urljoin(obj["bank_base_url"], "/ebics/hosts")
+def add_host(obj, host_id, ebics_version, bank_base_url):
+    url = urljoin(bank_base_url, "/ebics/hosts")
     body = dict(
         hostId=host_id,
         ebicsVersion=ebics_version
@@ -70,7 +70,10 @@ def add_host(obj, host_id, ebics_version):
     help="Name of the person associated with the user ID",
     required=True
 )
-def add_subscriber(obj, user_id, partner_id, host_id, name):
+@click.argument(
+    "bank-base-url"
+)
+def add_subscriber(obj, user_id, partner_id, host_id, name, bank_base_url):
     body = dict(
             userID=user_id,
             partnerID=partner_id,
@@ -78,7 +81,7 @@ def add_subscriber(obj, user_id, partner_id, host_id, name):
             name=name
     )
 
-    url = urljoin(obj["bank_base_url"], "/admin/add/subscriber")
+    url = urljoin(bank_base_url, "/admin/add/subscriber")
     try:
         resp = post(url, json=body)
     except Exception as e:
@@ -88,20 +91,12 @@ def add_subscriber(obj, user_id, partner_id, host_id, name):
     print(resp.content.decode("utf-8"))
 
 @cli.group()
-@click.argument(
-    "nexus-base-url"
-)
 @click.pass_context
-def ebics(ctx, nexus_base_url):
-    ctx.obj = dict(nexus_base_url=nexus_base_url)
+def ebics(ctx):
+    pass
 
 @cli.group()
-@click.argument(
-    "bank-base-url"
-)
-@click.pass_context
-def native(ctx, bank_base_url):
-    ctx.obj.update(bank_base_url=bank_base_url)
+def native():
     pass
 
 @ebics.command(help="Send the HEV message to the bank.")
@@ -111,8 +106,11 @@ def native(ctx, bank_base_url):
     help="Customer id",
     required=True
 )
-def hev(obj, account_id):
-    url = urljoin(obj["nexus_base_url"], "/ebics/{}/sendHev".format(account_id))
+@click.argument(
+  "nexus-base-url"
+)
+def hev(obj, account_id, nexus_base_url):
+    url = urljoin(nexus_base_url, "/ebics/{}/sendHev".format(account_id))
     try:
         resp = get(url)
     except Exception:
@@ -126,14 +124,17 @@ def hev(obj, account_id):
 @click.option(
     "--account-id",
     help="Numerical ID of the customer at the Nexus",
-    required=False,
-    default=1)
+    required=True
+)
 @click.option(
     "--backup-file",
     help="File where the backup is stored",
     required=False,
     default="/tmp/backup.json")
-def restore(obj, account_id, backup_file):
+@click.argument(
+  "nexus-base-url"
+)
+def restore(obj, account_id, backup_file, nexus_base_url):
     try:
         backup = open(backup_file, "r")
     except Exception:
@@ -145,7 +146,7 @@ def restore(obj, account_id, backup_file):
     passphrase = getpass("Passphrase: ")
     backup_json["passphrase"] = passphrase
 
-    url = urljoin(obj["nexus_base_url"], "/ebics/subscribers/{}/restoreBackup".format(account_id))
+    url = urljoin(nexus_base_url, "/ebics/subscribers/{}/restoreBackup".format(account_id))
 
     try:
         response = post(url, json=backup_json)
@@ -165,14 +166,17 @@ def restore(obj, account_id, backup_file):
 @click.option(
     "--account-id",
     help="Numerical ID of the customer at the Nexus",
-    required=False,
-    default=1)
+    required=True
+)
 @click.option(
     "--output-file",
     help="File that will store the backup",
     required=False,
     default="/tmp/backup.json")
-def backup(obj, account_id, output_file):
+@click.argument(
+  "nexus-base-url"
+)
+def backup(obj, account_id, output_file, nexus_base_url):
     passphrase = getpass("Passphrase: ")
     passphrase_again = getpass("Passphrase (again): ")
 
@@ -180,7 +184,7 @@ def backup(obj, account_id, output_file):
         print("Passphrase differs, exiting.")
         return
 
-    url = urljoin(obj["nexus_base_url"], "/ebics/subscribers/{}/backup".format(account_id))
+    url = urljoin(nexus_base_url, "/ebics/subscribers/{}/backup".format(account_id))
 
     try:
         response = post(url, json=dict(passphrase=passphrase))
@@ -204,11 +208,14 @@ def backup(obj, account_id, output_file):
 @click.option(
     "--account-id",
     help="Numerical ID of the customer at the Nexus",
-    required=False,
-    default=1)
-def tst(obj, account_id):
+    required=True
+)
+@click.argument(
+  "nexus-base-url"
+)
+def tst(obj, account_id, nexus_base_url):
     
-    url = urljoin(obj["nexus_base_url"], "/ebics/subscribers/{}/sendTst".format(account_id))
+    url = urljoin(nexus_base_url, "/ebics/subscribers/{}/sendTst".format(account_id))
     try:
         resp = post(url)
     except Exception:
@@ -217,18 +224,19 @@ def tst(obj, account_id):
 
     print(resp.content.decode("utf-8"))
 
-
-
 @ebics.command(help="Send C52 message")
 @click.pass_obj
 @click.option(
     "--account-id",
     help="Numerical ID of the customer at the Nexus",
-    required=False,
-    default=1)
-def c52(obj, account_id):
+    required=True
+)
+@click.argument(
+  "nexus-base-url"
+)
+def c52(obj, account_id, nexus_base_url):
     
-    url = urljoin(obj["nexus_base_url"], "/ebics/subscribers/{}/sendC52".format(account_id))
+    url = urljoin(nexus_base_url, "/ebics/subscribers/{}/sendC52".format(account_id))
     try:
         resp = post(url, json=dict(start="1970-01-01", end="2020-12-31"))
     except Exception:
@@ -243,11 +251,14 @@ def c52(obj, account_id):
 @click.option(
     "--account-id",
     help="Numerical ID of the customer at the Nexus",
-    required=False,
-    default=1)
-def ini(obj, account_id):
+    required=True
+)
+@click.argument(
+    "nexus-base-url"
+)
+def ini(obj, account_id, nexus_base_url):
     
-    url = urljoin(obj["nexus_base_url"], "/ebics/subscribers/{}/sendIni".format(account_id))
+    url = urljoin(nexus_base_url, "/ebics/subscribers/{}/sendIni".format(account_id))
     try:
         resp = post(url)
     except Exception:
@@ -257,41 +268,44 @@ def ini(obj, account_id):
     print(resp.content.decode("utf-8"))
 
 
-
-
 @ebics.command(help="Give and get keys.")
 @click.pass_context
 @click.option(
     "--account-id",
     help="Numerical ID of the customer at the Nexus",
-    required=False,
-    default=1)
-def prepare(ctx, account_id):
-    ctx.invoke(ini)
-    ctx.invoke(hia)
-    ctx.invoke(sync)
-
+    required=True
+)
+@click.argument(
+    "nexus-base-url"
+)
+def prepare(ctx, account_id, nexus_base_url):
+    ctx.invoke(ini, account_id=account_id, nexus_base_url=nexus_base_url)
+    ctx.invoke(hia, account_id=account_id, nexus_base_url=nexus_base_url)
+    ctx.invoke(sync, account_id=account_id, nexus_base_url=nexus_base_url)
 
 @ebics.command(help="Send HTD message")
 @click.pass_context
 @click.option(
     "--account-id",
     help="Numerical ID of the customer at the Nexus",
-    required=False,
-    default=1)
+    required=True
+)
 @click.option(
     "--prepare/--no-prepare",
     help="Gets keying done before requesting HTD",
     required=False,
     default=False)
-def htd(ctx, account_id, prepare):
+@click.argument(
+  "nexus-base-url"
+)
+def htd(ctx, account_id, prepare, nexus_base_url):
 
     if prepare:
         ctx.invoke(ini)
         ctx.invoke(hia)
         ctx.invoke(sync)
 
-    url = urljoin(ctx.obj["nexus_base_url"], "/ebics/subscribers/{}/sendHtd".format(account_id))
+    url = urljoin(nexus_base_url, "/ebics/subscribers/{}/sendHtd".format(account_id))
     try:
         resp = get(url)
     except Exception:
@@ -305,11 +319,14 @@ def htd(ctx, account_id, prepare):
 @click.option(
     "--account-id",
     help="Numerical ID of the customer at the Nexus",
-    required=False,
-    default=1)
-def hia(obj, account_id):
+    required=True
+)
+@click.argument(
+  "nexus-base-url"
+)
+def hia(obj, account_id, nexus_base_url):
     
-    url = urljoin(obj["nexus_base_url"], "/ebics/subscribers/{}/sendHia".format(account_id))
+    url = urljoin(nexus_base_url, "/ebics/subscribers/{}/sendHia".format(account_id))
     try:
         resp = post(url)
     except Exception:
@@ -323,11 +340,14 @@ def hia(obj, account_id):
 @click.option(
     "--account-id",
     help="Numerical ID of the customer at the Nexus",
-    required=False,
-    default=1)
-def sync(obj, account_id):
+    required=True
+)
+@click.argument(
+  "nexus-base-url"
+)
+def sync(obj, account_id, nexus_base_url):
     
-    url = urljoin(obj["nexus_base_url"], "/ebics/subscribers/{}/sync".format(account_id))
+    url = urljoin(nexus_base_url, "/ebics/subscribers/{}/sync".format(account_id))
     try:
         resp = post(url)
     except Exception:
@@ -339,9 +359,12 @@ def sync(obj, account_id):
 
 @ebics.command(help="Retrieve all the customers managed by Nexus")
 @click.pass_obj
-def subscribers(obj):
+@click.argument(
+  "nexus-base-url"
+)
+def subscribers(obj, nexus_base_url):
     
-    url = urljoin(obj["nexus_base_url"], "/ebics/subscribers")
+    url = urljoin(nexus_base_url, "/ebics/subscribers")
     try:
         resp = get(url)
     except Exception:
@@ -382,8 +405,11 @@ def subscribers(obj):
     help="ID of the EBICS server" ,
     required=True
 )
-def new_subscriber(obj, account_id, user_id, partner_id, system_id, host_id, ebics_url):
-    nexus_url = urljoin(obj["nexus_base_url"], "/ebics/{}/subscribers".format(account_id))
+@click.argument(
+  "nexus-base-url"
+)
+def new_subscriber(obj, account_id, user_id, partner_id, system_id, host_id, ebics_url, nexus_base_url):
+    nexus_url = urljoin(nexus_base_url, "/ebics/{}/subscribers".format(account_id))
     body = dict(
             ebicsURL=ebics_url,
             userID=user_id,
@@ -406,8 +432,7 @@ def new_subscriber(obj, account_id, user_id, partner_id, system_id, host_id, ebi
 @click.option(
     "--user-id",
     help="ID of the bank customer (no EBICS correlation implied/needed)" ,
-    required=False,
-    default=1
+    required=True
 )
 @click.option(
     "--start",
@@ -421,10 +446,12 @@ def new_subscriber(obj, account_id, user_id, partner_id, system_id, host_id, ebi
     required=False,
     default=None
 )
-@click.pass_obj
-def history(obj, user_id, start, end):
+@click.argument(
+  "bank-base-url"
+)
+def history(user_id, start, end, bank_base_url):
 
-    url = urljoin(obj["bank_base_url"], f"/{user_id}/history")
+    url = urljoin(bank_base_url, f"/{user_id}/history")
     print(url)
     try:
         resp = post(url, json=dict(start=start, end=end))
@@ -438,14 +465,16 @@ def history(obj, user_id, start, end):
 @native.command(help="Ask the balance for a given customer of the bank")
 @click.option(
     "--user-id",
-    help="ID of the bank customer (no EBICS correlation implied/needed)" ,
-    required=False,
-    default=1
+    help="ID of the bank customer (no EBICS correlation implied/needed)",
+    required=True
+)
+@click.argument(
+  "bank-base-url"
 )
 @click.pass_obj
-def balance(obj, user_id):
+def balance(obj, user_id, bank_base_url):
     
-    url = urljoin(obj["bank_base_url"], f"/{user_id}/balance")
+    url = urljoin(bank_base_url, f"/{user_id}/balance")
     print(url)
     try:
         resp = get(url)

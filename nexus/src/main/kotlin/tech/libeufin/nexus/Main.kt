@@ -516,18 +516,25 @@ fun main() {
                 val pairA = CryptoUtil.generateRsaKeyPair(2048)
                 val pairB = CryptoUtil.generateRsaKeyPair(2048)
                 val pairC = CryptoUtil.generateRsaKeyPair(2048)
-                val row = transaction {
-                    EbicsSubscriberEntity.new(id = expectId(call.parameters["id"])) {
-                        ebicsURL = body.ebicsURL
-                        hostID = body.hostID
-                        partnerID = body.partnerID
-                        userID = body.userID
-                        systemID = body.systemID
-                        signaturePrivateKey = SerialBlob(pairA.private.encoded)
-                        encryptionPrivateKey = SerialBlob(pairB.private.encoded)
-                        authenticationPrivateKey = SerialBlob(pairC.private.encoded)
+                val row = try {
+                    transaction {
+                        EbicsSubscriberEntity.new(id = expectId(call.parameters["id"])) {
+                            ebicsURL = body.ebicsURL
+                            hostID = body.hostID
+                            partnerID = body.partnerID
+                            userID = body.userID
+                            systemID = body.systemID
+                            signaturePrivateKey = SerialBlob(pairA.private.encoded)
+                            encryptionPrivateKey = SerialBlob(pairB.private.encoded)
+                            authenticationPrivateKey = SerialBlob(pairC.private.encoded)
+                        }
                     }
+                } catch (e: Exception) {
+                    print(e)
+                    call.respond(NexusError("Could not store the new account into database"))
+                    return@post
                 }
+
                 call.respondText(
                     "Subscriber registered, ID: ${row.id.value}",
                     ContentType.Text.Plain,
