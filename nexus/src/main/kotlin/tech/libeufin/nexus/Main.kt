@@ -511,14 +511,13 @@ fun main() {
                 return@get
             }
 
-            post("/ebics/subscribers") {
-
+            post("/ebics/{id}/subscribers") {
                 val body = call.receive<EbicsSubscriberInfoRequest>()
                 val pairA = CryptoUtil.generateRsaKeyPair(2048)
                 val pairB = CryptoUtil.generateRsaKeyPair(2048)
                 val pairC = CryptoUtil.generateRsaKeyPair(2048)
-                val id = transaction {
-                    EbicsSubscriberEntity.new {
+                val row = transaction {
+                    EbicsSubscriberEntity.new(id = expectId(call.parameters["id"])) {
                         ebicsURL = body.ebicsURL
                         hostID = body.hostID
                         partnerID = body.partnerID
@@ -527,10 +526,10 @@ fun main() {
                         signaturePrivateKey = SerialBlob(pairA.private.encoded)
                         encryptionPrivateKey = SerialBlob(pairB.private.encoded)
                         authenticationPrivateKey = SerialBlob(pairC.private.encoded)
-                    }.id.value
+                    }
                 }
                 call.respondText(
-                    "Subscriber registered, ID: ${id}",
+                    "Subscriber registered, ID: ${row.id.value}",
                     ContentType.Text.Plain,
                     HttpStatusCode.OK
                 )

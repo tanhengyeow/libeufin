@@ -320,11 +320,9 @@ fun main() {
             }
             post("/ebics/hosts") {
                 val req = call.receive<EbicsHostCreateRequest>()
-
                 val pairA = CryptoUtil.generateRsaKeyPair(2048)
                 val pairB = CryptoUtil.generateRsaKeyPair(2048)
                 val pairC = CryptoUtil.generateRsaKeyPair(2048)
-
                 transaction {
                     addLogger(StdOutSqlLogger)
                     EbicsHostEntity.new {
@@ -336,7 +334,6 @@ fun main() {
 
                     }
                 }
-
                 call.respondText(
                     "Host created.",
                     ContentType.Text.Plain,
