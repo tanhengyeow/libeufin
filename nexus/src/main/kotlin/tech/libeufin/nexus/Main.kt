@@ -453,7 +453,6 @@ fun main() {
             }
 
             get("/ebics/subscribers") {
-
                 var ret = EbicsSubscribersResponse()
                 transaction {
                     EbicsSubscriberEntity.all().forEach {
@@ -534,7 +533,6 @@ fun main() {
                     call.respond(NexusError("Could not store the new account into database"))
                     return@post
                 }
-
                 call.respondText(
                     "Subscriber registered, ID: ${row.id.value}",
                     ContentType.Text.Plain,
@@ -575,13 +573,13 @@ fun main() {
                 val (authKey, encKey, sigKey) = try {
                     Triple(
                         CryptoUtil.decryptKey(
-                            EncryptedPrivateKeyInfo(body.authBlob), body.passphrase!!
+                            EncryptedPrivateKeyInfo(base64ToBytes(body.authBlob)), body.passphrase!!
                         ),
                         CryptoUtil.decryptKey(
-                            EncryptedPrivateKeyInfo(body.encBlob), body.passphrase
+                            EncryptedPrivateKeyInfo(base64ToBytes(body.encBlob)), body.passphrase
                         ),
                         CryptoUtil.decryptKey(
-                            EncryptedPrivateKeyInfo(body.sigBlob), body.passphrase
+                            EncryptedPrivateKeyInfo(base64ToBytes(body.sigBlob)), body.passphrase
                         )
                     )
                 } catch (e: Exception) {
@@ -606,24 +604,23 @@ fun main() {
 
                 val id = expectId(call.parameters["id"])
                 val body = call.receive<EbicsBackupRequest>()
-
                 val content = transaction {
                     val subscriber = EbicsSubscriberEntity.findById(id) ?: throw SubscriberNotFoundError(
                         HttpStatusCode.NotFound
                     )
                     EbicsKeysBackup(
-                        authBlob = CryptoUtil.encryptKey(
+                        authBlob = bytesToBase64(CryptoUtil.encryptKey(
                             subscriber.authenticationPrivateKey.toByteArray(),
                             body.passphrase
-                        ),
-                        encBlob = CryptoUtil.encryptKey(
+                        )),
+                        encBlob = bytesToBase64(CryptoUtil.encryptKey(
                             subscriber.encryptionPrivateKey.toByteArray(),
                             body.passphrase
-                        ),
-                        sigBlob = CryptoUtil.encryptKey(
+                        )),
+                        sigBlob = bytesToBase64(CryptoUtil.encryptKey(
                             subscriber.signaturePrivateKey.toByteArray(),
                             body.passphrase
-                        )
+                        ))
                     )
                 }
                 call.response.headers.append("Content-Disposition", "attachment")
@@ -654,8 +651,6 @@ fun main() {
                     )
                     return@post
                 }
-
-
                 val usd_encrypted = CryptoUtil.encryptEbicsE002(
                     EbicsOrderUtil.encodeOrderDataXml(
 
@@ -668,7 +663,6 @@ fun main() {
                     ),
                     subscriberData.bankEncPub!!
                 )
-
                 val response = client.postToBankSignedAndVerify<EbicsRequest, EbicsResponse>(
                     subscriberData.ebicsUrl,
                     createUploadInitializationPhase(
@@ -679,43 +673,35 @@ fun main() {
                     subscriberData.bankAuthPub!!,
                     subscriberData.customerEncPriv
                 )
-
                 if (response.value.body.returnCode.value != "000000") {
                     throw EbicsError(response.value.body.returnCode.value)
                 }
-
                 logger.debug("INIT phase passed!")
-
                 /* now send actual payload */
                 val compressedInnerPayload = DeflaterInputStream(
                     payload.toByteArray().inputStream()
 
                 ).use { it.readAllBytes() }
-
                 val encryptedPayload = CryptoUtil.encryptEbicsE002withTransactionKey(
                     compressedInnerPayload,
                     subscriberData.bankEncPub!!,
                     usd_encrypted.plainTransactionKey!!
                 )
-
                 val tmp = EbicsRequest.createForUploadTransferPhase(
                     subscriberData.hostId,
                     response.value.header._static.transactionID!!,
                     BigInteger.ONE,
                     encryptedPayload.encryptedData
                 )
-
                 val responseTransaction = client.postToBankSignedAndVerify<EbicsRequest, EbicsResponse>(
                     subscriberData.ebicsUrl,
                     tmp,
                     subscriberData.bankAuthPub!!,
                     subscriberData.customerAuthPriv
                 )
-
                 if (responseTransaction.value.body.returnCode.value != "000000") {
                     throw EbicsError(response.value.body.returnCode.value)
                 }
-
                 call.respondText(
                     "TST INITIALIZATION & TRANSACTION phases succeeded\n",
                     ContentType.Text.Plain,
@@ -744,24 +730,20 @@ fun main() {
                     ),
                     bundle.customerAuthPriv
                 )
-
                 if (response.value.body.returnCode.value != "000000") {
                     throw EbicsError(response.value.body.returnCode.value)
                 }
-
                 val er = CryptoUtil.EncryptionResult(
                     response.value.body.dataTransfer!!.dataEncryptionInfo!!.transactionKey,
                     (response.value.body.dataTransfer!!.dataEncryptionInfo as EbicsTypes.DataEncryptionInfo)
                         .encryptionPubKeyDigest.value,
                     response.value.body.dataTransfer!!.orderData.value
                 )
-
                 val dataCompr = CryptoUtil.decryptEbicsE002(
                     er,
                     bundle.customerEncPriv
                 )
                 val data = EbicsOrderUtil.decodeOrderDataXml<HPBResponseOrderData>(dataCompr)
-
                 // put bank's keys into database.
                 transaction {
                     val subscriber = EbicsSubscriberEntity.findById(id)
@@ -773,7 +755,6 @@ fun main() {
                             data.authenticationPubKeyInfo.pubKeyValue.rsaKeyValue.exponent
                         ).encoded
                     )
-
                     subscriber.bankEncryptionPublicKey = SerialBlob(
                         CryptoUtil.loadRsaPublicKeyFromComponents(
                             data.encryptionPubKeyInfo.pubKeyValue.rsaKeyValue.modulus,
@@ -798,7 +779,6 @@ fun main() {
                             )
                     )
                 }
-
                 val responseJaxb = client.postToBankUnsigned<EbicsUnsecuredRequest, EbicsKeyManagementResponse>(
                     subscriberData.ebicsUrl,
                     EbicsUnsecuredRequest.createHia(
@@ -809,17 +789,14 @@ fun main() {
                         subscriberData.customerEncPriv
                     )
                 )
-
                 if (responseJaxb.value.body.returnCode.value != "000000") {
                     throw EbicsError(responseJaxb.value.body.returnCode.value)
                 }
-
                 call.respondText(
                     "Bank accepted authentication and encryption keys\n",
                     ContentType.Text.Plain,
                     HttpStatusCode.OK
                 )
-
                 return@post
             }
         }
