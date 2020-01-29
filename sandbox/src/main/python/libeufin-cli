@@ -295,12 +295,10 @@ def prepare(ctx, account_id, nexus_base_url):
   "nexus-base-url"
 )
 def htd(ctx, account_id, prepare, nexus_base_url):
-
     if prepare:
         ctx.invoke(ini)
         ctx.invoke(hia)
         ctx.invoke(sync)
-
     url = urljoin(nexus_base_url, "/ebics/subscribers/{}/sendHtd".format(account_id))
     try:
         resp = get(url)
@@ -321,14 +319,12 @@ def htd(ctx, account_id, prepare, nexus_base_url):
   "nexus-base-url"
 )
 def hia(obj, account_id, nexus_base_url):
-    
     url = urljoin(nexus_base_url, "/ebics/subscribers/{}/sendHia".format(account_id))
     try:
         resp = post(url)
     except Exception:
         print("Could not reach the bank")
         return
-
     print(resp.content.decode("utf-8"))
 
 @ebics.command(help="Send HPB message")
@@ -412,10 +408,8 @@ def new_subscriber(obj, account_id, user_id, partner_id, system_id, host_id, ebi
             partnerID=partner_id,
             hostID=host_id
     )
-
     if system_id:
         body.update(system_id)
-
     try:
         resp = post(nexus_url, json=body)
     except Exception:

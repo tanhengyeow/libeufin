@@ -186,13 +186,11 @@ fun main() {
                 return@intercept finish()
             }
         }
-
         routing {
             get("/") {
                 call.respondText("Hello by Nexus!\n")
                 return@get
             }
-
             post("/ebics/subscribers/{id}/sendC52") {
                 val id = expectId(call.parameters["id"])
                 val body = call.receive<EbicsDateRange>()
@@ -210,7 +208,6 @@ fun main() {
                         )
                     )
                 }
-
                 val response = client.postToBankSigned<EbicsRequest, EbicsResponse>(
                     subscriberData.ebicsUrl,
                     createDownloadInitializationPhase(
@@ -223,13 +220,11 @@ fun main() {
                     ),
                     subscriberData.customerAuthPriv
                 )
-
                 val payload: ByteArray =
                     decryptAndDecompressResponse(
                         response.value,
                         subscriberData.customerEncPriv
                     )
-
                 call.respondText(
                     payload.toString(Charsets.UTF_8),
                     ContentType.Text.Plain,
@@ -258,13 +253,10 @@ fun main() {
                     ),
                     subscriberData.customerAuthPriv
                 )
-
                 logger.debug("HTD response: " + XMLUtil.convertJaxbToString<EbicsResponse>(response.value))
-
                 if (response.value.body.returnCode.value != "000000") {
                     throw EbicsError(response.value.body.returnCode.value)
                 }
-
                 val er = CryptoUtil.EncryptionResult(
                     response.value.body.dataTransfer!!.dataEncryptionInfo!!.transactionKey,
                     (response.value.body.dataTransfer!!.dataEncryptionInfo as EbicsTypes.DataEncryptionInfo)
@@ -277,17 +269,13 @@ fun main() {
                     subscriberData.customerEncPriv
                 )
                 val data = EbicsOrderUtil.decodeOrderDataXml<HTDResponseOrderData>(dataCompr)
-
-
                 logger.debug("HTD payload is: ${XMLUtil.convertJaxbToString(data)}")
-
                 val ackRequest = EbicsRequest.createForDownloadReceiptPhase(
                     response.value.header._static.transactionID ?: throw BankInvalidResponse(
                         HttpStatusCode.ExpectationFailed
                     ),
                     subscriberData.hostId
                 )
-
                 val ackResponse = client.postToBankSignedAndVerify<EbicsRequest, EbicsResponse>(
                     subscriberData.ebicsUrl,
                     ackRequest,
@@ -296,20 +284,16 @@ fun main() {
                     ),
                     subscriberData.customerAuthPriv
                 )
-
                 logger.debug("HTD final response: " + XMLUtil.convertJaxbToString<EbicsResponse>(response.value))
-
                 if (ackResponse.value.body.returnCode.value != "000000") {
                     throw EbicsError(response.value.body.returnCode.value)
                 }
-
                 call.respondText(
                     "Success! Details (temporarily) reported on the Nexus console.",
                     ContentType.Text.Plain,
                     HttpStatusCode.OK
                 )
             }
-
             get("/ebics/subscribers/{id}/keyletter") {
                 val id = expectId(call.parameters["id"])
                 var usernameLine = "TODO"
@@ -452,7 +436,6 @@ fun main() {
                 call.respond(ret)
                 return@get
             }
-
             get("/ebics/subscribers/{id}") {
                 val id = expectId(call.parameters["id"])
                 val response = transaction {
@@ -766,7 +749,6 @@ fun main() {
                 call.respondText("Bank keys stored in database\n", ContentType.Text.Plain, HttpStatusCode.OK)
                 return@post
             }
-
             post("/ebics/subscribers/{id}/sendHia") {
                 val id = expectId(call.parameters["id"])
                 val subscriberData = transaction {
@@ -799,7 +781,6 @@ fun main() {
             }
         }
     }
-
     logger.info("Up and running")
     server.start(wait = true)
 }
