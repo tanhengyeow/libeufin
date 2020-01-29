@@ -38,6 +38,8 @@ import io.ktor.response.respondText
 import io.ktor.routing.*
 import io.ktor.server.engine.embeddedServer
 import io.ktor.server.netty.Netty
+import org.jetbrains.exposed.sql.StdOutSqlLogger
+import org.jetbrains.exposed.sql.addLogger
 import org.jetbrains.exposed.sql.transactions.transaction
 import org.joda.time.DateTime
 import org.slf4j.Logger
@@ -66,12 +68,12 @@ fun testData() {
     val pairC = CryptoUtil.generateRsaKeyPair(2048)
 
     transaction {
+        addLogger(StdOutSqlLogger)
         EbicsSubscriberEntity.new {
             ebicsURL = "http://localhost:5000/ebicsweb"
             userID = "USER1"
             partnerID = "PARTNER1"
             hostID = "host01"
-
             signaturePrivateKey = SerialBlob(pairA.private.encoded)
             encryptionPrivateKey = SerialBlob(pairB.private.encoded)
             authenticationPrivateKey = SerialBlob(pairC.private.encoded)
@@ -93,7 +95,7 @@ val LOGGER: Logger = LoggerFactory.getLogger("tech.libeufin.nexus")
 
 fun main() {
     dbCreateTables()
-    // testData()
+    testData()
     val client = HttpClient(){
         expectSuccess = false // this way, it does not throw exceptions on != 200 responses.
     }
@@ -320,13 +322,10 @@ fun main() {
             }
 
             get("/ebics/subscribers/{id}/keyletter") {
-
                 val id = expectId(call.parameters["id"])
-
                 var usernameLine = "TODO"
                 var recipientLine = "TODO"
                 val customerIdLine = "TODO"
-
                 var userIdLine = ""
                 var esExponentLine = ""
                 var esModulusLine = ""
@@ -337,20 +336,14 @@ fun main() {
                 var esKeyHashLine = ""
                 var encKeyHashLine = ""
                 var authKeyHashLine = ""
-
                 val esVersionLine = "A006"
                 val authVersionLine = "X002"
                 val encVersionLine = "E002"
-
                 val now = Date()
                 val dateFormat = SimpleDateFormat("DD.MM.YYYY")
                 val timeFormat = SimpleDateFormat("HH.mm.ss")
                 var dateLine = dateFormat.format(now)
                 var timeLine = timeFormat.format(now)
-
-
-
-
 
                 transaction {
                     val subscriber = EbicsSubscriberEntity.findById(id) ?: throw SubscriberNotFoundError(
@@ -460,7 +453,6 @@ fun main() {
                     HttpStatusCode.OK
                 )
             }
-
 
             get("/ebics/subscribers") {
 

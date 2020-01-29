@@ -116,7 +116,7 @@ def native(ctx, sandbox_base_url):
     help="Customer id",
     required=True
 )
-def hev(customer_id):
+def hev(obj, customer_id):
     url = urljoin(obj["nexus_base_url"], "/ebics/{}/sendHev".format(customer_id))
     try:
         resp = get(url)
