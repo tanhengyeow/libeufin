@@ -333,12 +333,10 @@ fun main() {
                 val timeFormat = SimpleDateFormat("HH.mm.ss")
                 var dateLine = dateFormat.format(now)
                 var timeLine = timeFormat.format(now)
-
                 transaction {
                     val subscriber = EbicsSubscriberEntity.findById(id) ?: throw SubscriberNotFoundError(
                         HttpStatusCode.NotFound
                     )
-
                     val signPubTmp = CryptoUtil.getRsaPublicFromPrivate(
                         CryptoUtil.loadRsaPrivateKey(subscriber.signaturePrivateKey.toByteArray())
                     )
@@ -348,23 +346,17 @@ fun main() {
                     val encPubTmp = CryptoUtil.getRsaPublicFromPrivate(
                         CryptoUtil.loadRsaPrivateKey(subscriber.encryptionPrivateKey.toByteArray())
                     )
-
                     userIdLine = subscriber.userID
-
                     esExponentLine = signPubTmp.publicExponent.toByteArray().toHexString()
                     esModulusLine = signPubTmp.modulus.toByteArray().toHexString()
-
                     encExponentLine = encPubTmp.publicExponent.toByteArray().toHexString()
                     encModulusLine = encPubTmp.modulus.toByteArray().toHexString()
-
                     authExponentLine = authPubTmp.publicExponent.toByteArray().toHexString()
                     authModulusLine = authPubTmp.modulus.toByteArray().toHexString()
-
                     esKeyHashLine = CryptoUtil.getEbicsPublicKeyHash(signPubTmp).toHexString()
                     encKeyHashLine = CryptoUtil.getEbicsPublicKeyHash(encPubTmp).toHexString()
                     authKeyHashLine = CryptoUtil.getEbicsPublicKeyHash(authPubTmp).toHexString()
                 }
-
                 val iniLetter = """
                     |Name: ${usernameLine}
                     |Date: ${dateLine}
@@ -426,7 +418,6 @@ fun main() {
                     |SHA-256 hash:
                     |${chunkString(encKeyHashLine)}              
 
-
                     |I hereby confirm the above public keys for my electronic signature.
                     
                     |__________
@@ -442,7 +433,6 @@ fun main() {
                     HttpStatusCode.OK
                 )
             }
-
             get("/ebics/subscribers") {
                 var ret = EbicsSubscribersResponse()
                 transaction {
@@ -500,7 +490,6 @@ fun main() {
                 )
                 return@get
             }
-
             post("/ebics/{id}/subscribers") {
                 val body = call.receive<EbicsSubscriberInfoRequest>()
                 val pairA = CryptoUtil.generateRsaKeyPair(2048)
@@ -557,7 +546,6 @@ fun main() {
                 call.respondText("Bank accepted signature key\n", ContentType.Text.Plain, HttpStatusCode.OK)
                 return@post
             }
-
             post("/ebics/subscribers/{id}/restoreBackup") {
                 val body = call.receive<EbicsKeysBackup>()
                 val id = expectId(call.parameters["id"])
