@@ -9,7 +9,6 @@ import java.sql.Connection
 const val ID_MAX_LENGTH = 50
 
 object EbicsSubscribersTable : IdTable<String>() {
-
     override val id = varchar("id", ID_MAX_LENGTH).entityId().primaryKey()
     val ebicsURL = text("ebicsURL")
     val hostID = text("hostID")
@@ -24,7 +23,6 @@ object EbicsSubscribersTable : IdTable<String>() {
 }
 
 class EbicsSubscriberEntity(id: EntityID<String>) : Entity<String>(id) {
-
     companion object : EntityClass<String, EbicsSubscriberEntity>(EbicsSubscribersTable)
     var ebicsURL by EbicsSubscribersTable.ebicsURL
     var hostID by EbicsSubscribersTable.hostID
@@ -41,7 +39,6 @@ class EbicsSubscriberEntity(id: EntityID<String>) : Entity<String>(id) {
 fun dbCreateTables() {
     Database.connect("jdbc:sqlite:libeufin-nexus.sqlite3", "org.sqlite.JDBC")
     TransactionManager.manager.defaultIsolationLevel = Connection.TRANSACTION_SERIALIZABLE
-
     transaction {
         addLogger(StdOutSqlLogger)
          SchemaUtils.create(

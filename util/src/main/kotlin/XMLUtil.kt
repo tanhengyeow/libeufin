@@ -104,16 +104,12 @@ class XMLUtil private constructor() {
      * Validator for EBICS messages.
      */
     private val validator = try {
-
     } catch (e: SAXException) {
         e.printStackTrace()
         throw e
     }
-
     companion object {
-
         private var cachedEbicsValidator: Validator? = null
-
         private fun getEbicsValidator(): Validator {
             val currentValidator = cachedEbicsValidator
             if (currentValidator != null)
@@ -160,7 +156,6 @@ class XMLUtil private constructor() {
             cachedEbicsValidator = newValidator
             return newValidator
         }
-
         /**
          *
          * @param xmlDoc the XML document to validate
@@ -175,7 +170,6 @@ class XMLUtil private constructor() {
             }
             return true;
         }
-
         /**
          * Validates the DOM against the Schema(s) of this object.
          * @param domDocument DOM to validate
@@ -190,7 +184,6 @@ class XMLUtil private constructor() {
             }
             return true
         }
-
         /**
          * Craft object to be passed to the XML validator.
          * @param xmlString XML body, as read from the POST body.
@@ -201,8 +194,6 @@ class XMLUtil private constructor() {
             val xmlSource = StreamSource(xmlInputStream)
             return validate(xmlSource)
         }
-
-
         inline fun <reified T> convertJaxbToString(obj: T): String {
             val sw = StringWriter()
             val jc = JAXBContext.newInstance(T::class.java)
@@ -212,7 +203,6 @@ class XMLUtil private constructor() {
             m.marshal(obj, sw)
             return sw.toString()
         }
-
         inline fun <reified T> convertJaxbToDocument(obj: T): Document {
             val dbf: DocumentBuilderFactory  = DocumentBuilderFactory.newInstance()
             dbf.isNamespaceAware = true
@@ -224,7 +214,6 @@ class XMLUtil private constructor() {
             m.marshal(obj, doc)
             return doc
         }
-
         /**
          * Convert a XML string to the JAXB representation.
          *
@@ -239,7 +228,6 @@ class XMLUtil private constructor() {
                 T::class.java
             )
         }
-
         /**
          * Extract String from DOM.
          *
@@ -260,7 +248,6 @@ class XMLUtil private constructor() {
             t.transform(DOMSource(document), StreamResult(sw))
             return sw.toString()
         }
-
         /**
          * Convert a node to a string without the XML declaration or
          * indentation.
@@ -269,17 +256,13 @@ class XMLUtil private constructor() {
             /* Make Transformer.  */
             val tf = TransformerFactory.newInstance()
             val t = tf.newTransformer()
-
             t.setOutputProperty(OutputKeys.OMIT_XML_DECLARATION, "yes");
-
             /* Make string writer.  */
             val sw = StringWriter()
-
             /* Extract string.  */
             t.transform(DOMSource(node), StreamResult(sw))
             return sw.toString()
         }
-
         /**
          * Convert a DOM document to the JAXB representation.
          *
@@ -288,14 +271,11 @@ class XMLUtil private constructor() {
          * @return the JAXB object reflecting the original XML document.
          */
         fun <T> convertDomToJaxb(finalType: Class<T>, document: Document): JAXBElement<T> {
-
             val jc = JAXBContext.newInstance(finalType)
-
             /* Marshalling the object into the document.  */
             val m = jc.createUnmarshaller()
             return m.unmarshal(document, finalType) // document "went" into Jaxb
         }
-
         /**
          * Parse string into XML DOM.
          * @param xmlString the string to parse.
@@ -309,7 +289,6 @@ class XMLUtil private constructor() {
             val builder = factory.newDocumentBuilder()
             return builder.parse(InputSource(xmlInputStream))
         }
-
         fun signEbicsResponse(ebicsResponse: EbicsResponse, privateKey: RSAPrivateCrtKey): String {
             val doc = convertJaxbToDocument(ebicsResponse)
             signEbicsDocument(doc, privateKey)
@@ -317,7 +296,6 @@ class XMLUtil private constructor() {
             println("response: $signedDoc")
             return signedDoc
         }
-
         /**
          * Sign an EBICS document with the authentication and identity signature.
          */
@@ -330,11 +308,9 @@ class XMLUtil private constructor() {
                         else -> throw IllegalArgumentException()
                     }
                 }
-
                 override fun getPrefix(p0: String?): String {
                     throw UnsupportedOperationException()
                 }
-
                 override fun getPrefixes(p0: String?): MutableIterator<String> {
                     throw UnsupportedOperationException()
                 }
@@ -360,20 +336,15 @@ class XMLUtil private constructor() {
             val dsc = DOMSignContext(signingPriv, authSigNode)
             dsc.defaultNamespacePrefix = "ds"
             dsc.uriDereferencer = EbicsSigUriDereferencer()
-
             dsc.setProperty("javax.xml.crypto.dsig.cacheReference", true)
-
             sig.sign(dsc)
-
             println("canon data: " + sig.signedInfo.canonicalizedData.readAllBytes().toString(Charsets.UTF_8))
-
             val innerSig = authSigNode.firstChild
             while (innerSig.hasChildNodes()) {
                 authSigNode.appendChild(innerSig.firstChild)
             }
             authSigNode.removeChild(innerSig)
         }
-
         fun verifyEbicsDocument(doc: Document, signingPub: PublicKey): Boolean {
             val xpath = XPathFactory.newInstance().newXPath()
             xpath.namespaceContext = object : NamespaceContext {
@@ -383,11 +354,9 @@ class XMLUtil private constructor() {
                         else -> throw IllegalArgumentException()
                     }
                 }
-
                 override fun getPrefix(p0: String?): String {
                     throw UnsupportedOperationException()
                 }
-
                 override fun getPrefixes(p0: String?): MutableIterator<String> {
                     throw UnsupportedOperationException()
                 }

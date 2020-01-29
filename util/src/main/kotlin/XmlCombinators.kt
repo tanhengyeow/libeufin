@@ -6,7 +6,6 @@ import javax.xml.stream.XMLOutputFactory
 import javax.xml.stream.XMLStreamWriter
 
 class XmlElementBuilder(val w: XMLStreamWriter) {
-
     /**
      * First consumes all the path's components, and _then_ starts applying f.
      */
@@ -20,16 +19,13 @@ class XmlElementBuilder(val w: XMLStreamWriter) {
         this.element(path, f)
         w.writeEndElement()
     }
-
     fun element(path: String, f: XmlElementBuilder.() -> Unit = {}) {
         val splitPath = path.trim('/').split("/").toMutableList()
         this.element(splitPath, f)
     }
-
     fun attribute(name: String, value: String) {
         w.writeAttribute(name, value)
     }
-
     fun text(content: String) {
         w.writeCharacters(content)
     }
@@ -38,7 +34,6 @@ class XmlElementBuilder(val w: XMLStreamWriter) {
 class XmlDocumentBuilder {
 
     private var maybeWriter: XMLStreamWriter? = null
-
     internal var writer: XMLStreamWriter
         get() {
             val w = maybeWriter
@@ -47,16 +42,12 @@ class XmlDocumentBuilder {
         set(w: XMLStreamWriter) {
             maybeWriter = w
         }
-
-
     fun namespace(prefix: String, uri: String) {
         writer.setPrefix(prefix, uri)
     }
-
     fun defaultNamespace(uri: String) {
         writer.setDefaultNamespace(uri)
     }
-
     fun root(name: String, f: XmlElementBuilder.() -> Unit) {
         val elementBuilder = XmlElementBuilder(writer)
         writer.writeStartElement(name)

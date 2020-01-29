@@ -43,20 +43,16 @@ object CryptoUtil {
      * RSA key pair.
      */
     data class RsaCrtKeyPair(val private: RSAPrivateCrtKey, val public: RSAPublicKey)
-
     class EncryptionResult(
         val encryptedTransactionKey: ByteArray,
         val pubKeyDigest: ByteArray,
         val encryptedData: ByteArray,
-
         /**
          * This key needs to be reused between different upload phases.
          */
         val plainTransactionKey: SecretKey? = null
     )
-
     private val bouncyCastleProvider = BouncyCastleProvider()
-
     /**
      * Load an RSA private key from its binary PKCS#8 encoding.
      */
@@ -67,7 +63,6 @@ object CryptoUtil {
             throw Exception("wrong encoding")
         return priv
     }
-
     /**
      * Load an RSA public key from its binary X509 encoding.
      */
@@ -78,7 +73,6 @@ object CryptoUtil {
             throw Exception("wrong encoding")
         return pub
     }
-
     /**
      * Load an RSA public key from its binary X509 encoding.
      */
@@ -89,7 +83,6 @@ object CryptoUtil {
             throw Exception("wrong encoding")
         return pub
     }
-
     /**
      * Generate a fresh RSA key pair.
      *
@@ -107,7 +100,6 @@ object CryptoUtil {
             throw Exception("key generation failed")
         return RsaCrtKeyPair(priv, pub)
     }
-
     /**
      * Load an RSA public key from its components.
      *
@@ -123,7 +115,6 @@ object CryptoUtil {
         val tmp = RSAPublicKeySpec(modulusBigInt, exponentBigInt)
         return keyFactory.generatePublic(tmp) as RSAPublicKey
     }
-
     /**
      * Hash an RSA public key according to the EBICS standard (EBICS 2.5: 4.4.1.2.3).
      */
@@ -135,7 +126,6 @@ object CryptoUtil {
         val digest = MessageDigest.getInstance("SHA-256")
         return digest.digest(keyBytes.toByteArray())
     }
-
     fun encryptEbicsE002(data: ByteArray, encryptionPublicKey: RSAPublicKey): EncryptionResult {
         val keygen = KeyGenerator.getInstance("AES", bouncyCastleProvider)
         keygen.init(128)
@@ -146,7 +136,6 @@ object CryptoUtil {
             transactionKey
         )
     }
-
     /**
      * Encrypt data according to the EBICS E002 encryption process.
      */
@@ -155,7 +144,6 @@ object CryptoUtil {
         encryptionPublicKey: RSAPublicKey,
         transactionKey: SecretKey
     ): EncryptionResult {
-
         val symmetricCipher = Cipher.getInstance("AES/CBC/X9.23Padding",
             bouncyCastleProvider
         )
@@ -175,7 +163,6 @@ object CryptoUtil {
             transactionKey
         )
     }
-
     fun decryptEbicsE002(enc: EncryptionResult, privateKey: RSAPrivateCrtKey): ByteArray {
         return decryptEbicsE002(
             enc.encryptedTransactionKey,
@@ -183,7 +170,6 @@ object CryptoUtil {
             privateKey
         )
     }
-
     fun decryptEbicsE002(encryptedTransactionKey: ByteArray, encryptedData: ByteArray, privateKey: RSAPrivateCrtKey): ByteArray {
         val asymmetricCipher = Cipher.getInstance("RSA/None/PKCS1Padding",
             bouncyCastleProvider
@@ -200,7 +186,6 @@ object CryptoUtil {
         val data = symmetricCipher.doFinal(encryptedData)
         return data
     }
-
     /**
      * Signing algorithm corresponding to the EBICS A006 signing process.
      *
@@ -215,7 +200,6 @@ object CryptoUtil {
         signature.update(data)
         return signature.sign()
     }
-
     fun verifyEbicsA006(sig: ByteArray, data: ByteArray, publicKey: RSAPublicKey): Boolean {
         val signature = Signature.getInstance("SHA256withRSA/PSS", bouncyCastleProvider)
         signature.setParameter(PSSParameterSpec("SHA-256", "MGF1", MGF1ParameterSpec.SHA256, 32, 1))
@@ -223,7 +207,6 @@ object CryptoUtil {
         signature.update(data)
         return signature.verify(sig)
     }
-
     fun digestEbicsOrderA006(orderData: ByteArray): ByteArray {
         val digest = MessageDigest.getInstance("SHA-256")
         for (b in orderData) {
@@ -234,14 +217,11 @@ object CryptoUtil {
         }
         return digest.digest()
     }
-
-
     fun decryptKey(data: EncryptedPrivateKeyInfo, passphrase: String): RSAPrivateCrtKey {
         /* make key out of passphrase */
         val pbeKeySpec = PBEKeySpec(passphrase.toCharArray())
         val keyFactory = SecretKeyFactory.getInstance(data.algName)
         val secretKey = keyFactory.generateSecret(pbeKeySpec)
-
         /* Make a cipher */
         val cipher = Cipher.getInstance(data.algName)
         cipher.init(
@@ -249,7 +229,6 @@ object CryptoUtil {
             secretKey,
             data.algParameters // has hash count and salt
         )
-
         /* Ready to decrypt */
         val decryptedKeySpec: PKCS8EncodedKeySpec = data.getKeySpec(cipher)
         val priv = KeyFactory.getInstance("RSA").generatePrivate(decryptedKeySpec)
@@ -257,36 +236,27 @@ object CryptoUtil {
             throw Exception("wrong encoding")
         return priv
     }
-
     fun encryptKey(data: ByteArray, passphrase: String): ByteArray {
-
         /* Cipher parameters: salt and hash count */
         val hashIterations = 30
         val salt = ByteArray(8)
         SecureRandom().nextBytes(salt)
         val pbeParameterSpec = PBEParameterSpec(salt, hashIterations)
-
         /* *Other* cipher parameters: symmetric key (from password) */
         val pbeAlgorithm = "PBEWithSHA1AndDESede"
         val pbeKeySpec = PBEKeySpec(passphrase.toCharArray())
         val keyFactory = SecretKeyFactory.getInstance(pbeAlgorithm)
         val secretKey = keyFactory.generateSecret(pbeKeySpec)
-
         /* Make a cipher */
         val cipher = Cipher.getInstance(pbeAlgorithm)
         cipher.init(Cipher.ENCRYPT_MODE, secretKey, pbeParameterSpec)
-
         /* ready to encrypt now */
         val cipherText = cipher.doFinal(data)
-
         /* Must now bundle a PKCS#8-compatible object, that contains
          * algorithm, salt and hash count information */
-
         val bundleAlgorithmParams = AlgorithmParameters.getInstance(pbeAlgorithm)
         bundleAlgorithmParams.init(pbeParameterSpec)
-
         val bundle = EncryptedPrivateKeyInfo(bundleAlgorithmParams, cipherText)
-
         return bundle.encoded
     }
 }

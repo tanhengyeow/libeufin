@@ -1,12 +1,7 @@
 package tech.libeufin.nexus
 
-import javax.crypto.SecretKey
-import org.w3c.dom.Document
-import java.security.PrivateKey
 import java.security.interfaces.RSAPrivateCrtKey
 import java.security.interfaces.RSAPublicKey
-import javax.xml.bind.JAXBElement
-
 
 /**
  * This class is a mere container that keeps data found
