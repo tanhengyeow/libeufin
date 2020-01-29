@@ -24,19 +24,16 @@ import javax.xml.datatype.XMLGregorianCalendar
  * (including decompression).
  */
 fun decryptAndDecompressResponse(response: EbicsResponse, privateKey: RSAPrivateCrtKey): ByteArray {
-
     val er = CryptoUtil.EncryptionResult(
         response.body.dataTransfer!!.dataEncryptionInfo!!.transactionKey,
         (response.body.dataTransfer!!.dataEncryptionInfo as EbicsTypes.DataEncryptionInfo)
             .encryptionPubKeyDigest.value,
         Base64.getDecoder().decode(response.body.dataTransfer!!.orderData.value)
     )
-
     val dataCompr = CryptoUtil.decryptEbicsE002(
         er,
         privateKey
     )
-
     return EbicsOrderUtil.decodeOrderData(dataCompr)
 }
 
@@ -46,7 +43,6 @@ fun createDownloadInitializationPhase(
     nonce: ByteArray,
     date: XMLGregorianCalendar
 ): EbicsRequest {
-
     return EbicsRequest.createForDownloadInitializationPhase(
         subscriberData.userId,
         subscriberData.partnerId,
@@ -71,7 +67,6 @@ fun createDownloadInitializationPhase(
     dateStart: XMLGregorianCalendar,
     dateEnd: XMLGregorianCalendar
 ): EbicsRequest {
-
     return EbicsRequest.createForDownloadInitializationPhase(
         subscriberData.userId,
         subscriberData.partnerId,
@@ -95,7 +90,6 @@ fun createUploadInitializationPhase(
     orderType: String,
     cryptoBundle: CryptoUtil.EncryptionResult
 ): EbicsRequest {
-
     return EbicsRequest.createForUploadInitializationPhase(
         cryptoBundle,
         subscriberData.hostId,
@@ -147,29 +141,22 @@ fun containerInit(subscriber: EbicsSubscriberEntity): EbicsContainer {
  * Inserts spaces every 2 characters, and a newline after 8 pairs.
  */
 fun chunkString(input: String): String {
-
     val ret = StringBuilder()
     var columns = 0
-
     for (i in input.indices) {
-
         if ((i + 1).rem(2) == 0) {
-
             if (columns == 7) {
                 ret.append(input[i] + "\n")
                 columns = 0
                 continue
             }
-
             ret.append(input[i] + " ")
             columns++
             continue
         }
         ret.append(input[i])
     }
-
     return ret.toString()
-
 }
 
 fun expectId(param: String?): String {
@@ -182,7 +169,6 @@ fun signOrder(
     partnerId: String,
     userId: String
 ): UserSignatureData {
-
     val ES_signature = CryptoUtil.signEbicsA006(
         CryptoUtil.digestEbicsOrderA006(orderBlob),
         signKey
@@ -197,19 +183,15 @@ fun signOrder(
             }
         )
     }
-
     return userSignatureData
 }
-
 
 /**
  * @return null when the bank could not be reached, otherwise returns the
  * response already converted in JAXB.
  */
 suspend inline fun HttpClient.postToBank(url: String, body: String): String {
-
     LOGGER.debug("Posting: $body")
-
     val response = try {
         this.post<String>(
             urlString = url,
@@ -220,7 +202,6 @@ suspend inline fun HttpClient.postToBank(url: String, body: String): String {
     } catch (e: Exception) {
         throw UnreachableBankError(HttpStatusCode.InternalServerError)
     }
-
     return response
 }
 
@@ -233,34 +214,24 @@ suspend inline fun <reified T, reified S> HttpClient.postToBankSignedAndVerify(
     pub: RSAPublicKey,
     priv: RSAPrivateCrtKey
 ): JAXBElement<S> {
-
     val doc = XMLUtil.convertJaxbToDocument(body)
     XMLUtil.signEbicsDocument(doc, priv)
-
     val response: String = this.postToBank(url, XMLUtil.convertDomToString(doc))
     LOGGER.debug("About to verify: ${response}")
-
     val responseDocument = try {
-
         XMLUtil.parseStringIntoDom(response)
     } catch (e: Exception) {
-
         throw UnparsableResponse(
             HttpStatusCode.BadRequest,
             response
         )
     }
-
     if (!XMLUtil.verifyEbicsDocument(responseDocument, pub)) {
-
         throw BadSignature(HttpStatusCode.NotAcceptable)
     }
-
     try {
-
         return XMLUtil.convertStringToJaxb(response)
     } catch (e: Exception) {
-
         throw UnparsableResponse(
             HttpStatusCode.BadRequest,
             response
@@ -273,12 +244,9 @@ suspend inline fun <reified T, reified S> HttpClient.postToBankSigned(
     body: T,
     priv: PrivateKey
 ): JAXBElement<S> {
-
     val doc = XMLUtil.convertJaxbToDocument(body)
     XMLUtil.signEbicsDocument(doc, priv)
-
     val response: String = this.postToBank(url, XMLUtil.convertDomToString(doc))
-
     try {
         return XMLUtil.convertStringToJaxb(response)
     } catch (e: Exception) {
@@ -296,9 +264,7 @@ suspend inline fun <reified T, reified S> HttpClient.postToBankUnsigned(
     url: String,
     body: T
 ): JAXBElement<S> {
-
     val response: String = this.postToBank(url, XMLUtil.convertJaxbToString(body))
-
     try {
         return XMLUtil.convertStringToJaxb(response)
     } catch (e: Exception) {
