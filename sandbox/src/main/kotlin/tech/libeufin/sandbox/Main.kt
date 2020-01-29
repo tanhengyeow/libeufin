@@ -62,9 +62,7 @@ class BadAmount(badValue: Any?) : Exception("Value '${badValue}' is not a valid 
 class UnacceptableFractional(badNumber: BigDecimal) : Exception(
     "Unacceptable fractional part ${badNumber}"
 )
-
 val LOGGER: Logger = LoggerFactory.getLogger("tech.libeufin.sandbox")
-
 fun findCustomer(id: String?): BankCustomerEntity {
 
     val idN = try {
@@ -94,7 +92,6 @@ fun findEbicsSubscriber(partnerID: String, userID: String, systemID: String?): E
     }.firstOrNull()
 }
 
-
 data class Subscriber(
     val partnerID: String,
     val userID: String,
@@ -108,13 +105,11 @@ data class SubscriberKeys(
     val signaturePublicKey: RSAPublicKey
 )
 
-
 data class EbicsHostPublicInfo(
     val hostID: String,
     val encryptionPublicKey: RSAPublicKey,
     val authenticationPublicKey: RSAPublicKey
 )
-
 
 inline fun <reified T> Document.toObject(): T {
     val jc = JAXBContext.newInstance(T::class.java)
@@ -129,7 +124,6 @@ fun BigDecimal.signToString(): String {
 }
 
 fun sampleData() {
-
     transaction {
         val pairA = CryptoUtil.generateRsaKeyPair(2048)
         val pairB = CryptoUtil.generateRsaKeyPair(2048)
@@ -141,14 +135,11 @@ fun sampleData() {
             encryptionPrivateKey = SerialBlob(pairB.private.encoded)
             signaturePrivateKey = SerialBlob(pairC.private.encoded)
         }
-
         val customerEntity = BankCustomerEntity.new {
             addLogger(StdOutSqlLogger)
             customerName = "Mina"
         }
-
         LOGGER.debug("Creating customer number: ${customerEntity.id}")
-
         EbicsSubscriberEntity.new {
             partnerId = "PARTNER1"
             userId = "USER1"
@@ -158,7 +149,6 @@ fun sampleData() {
             nextOrderID = 1
             bankCustomer = customerEntity
         }
-
         for (i in listOf<Amount>(Amount("-0.44"), Amount("6.02"))) {
             BankTransactionEntity.new {
                 counterpart = "IBAN"

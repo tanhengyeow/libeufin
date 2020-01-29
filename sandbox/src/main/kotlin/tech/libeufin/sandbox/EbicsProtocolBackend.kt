@@ -659,6 +659,7 @@ suspend fun ApplicationCall.ebicsweb() {
             }
 
             val strResp = XMLUtil.convertJaxbToString(hevResponse)
+            LOGGER.debug("HEV response: $strResp")
             respondText(strResp, ContentType.Application.Xml, HttpStatusCode.OK)
         }
         "ebicsNoPubKeyDigestsRequest" -> {

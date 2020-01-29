@@ -152,8 +152,8 @@ class XMLUtil private constructor() {
                 }
             }
             val schemaInputs: Array<Source> = listOf("xsd/ebics_H004.xsd", "xsd/ebics_hev.xsd").map {
-                val resUrl = classLoader.getResource(it) ?: throw FileNotFoundException("Schema file $it not found.")
-                StreamSource(File(resUrl.toURI()))
+                val stream = classLoader.getResourceAsStream(it) ?: throw FileNotFoundException("Schema file $it not found.")
+                StreamSource(stream)
             }.toTypedArray()
             val bundle = sf.newSchema(schemaInputs)
             val newValidator = bundle.newValidator()

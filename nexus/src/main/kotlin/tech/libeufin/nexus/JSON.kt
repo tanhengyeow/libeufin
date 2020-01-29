@@ -55,6 +55,12 @@ data class EbicsSubscribersResponse(
     val ebicsSubscribers: MutableList<EbicsSubscriberInfoResponse> = mutableListOf()
 )
 
+data class ProtocolAndVersion(
+    val protocol: String,
+    val version: String,
+    val host: String
+)
+
 data class EbicsHevResponse(
-    val versions: List<String>
+    val versions: List<ProtocolAndVersion>
 )

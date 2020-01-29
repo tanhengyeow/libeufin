@@ -39,6 +39,7 @@ import io.ktor.routing.*
 import io.ktor.server.engine.embeddedServer
 import io.ktor.server.netty.Netty
 import org.jetbrains.exposed.dao.EntityID
+import org.jetbrains.exposed.exceptions.ExposedSQLException
 import org.jetbrains.exposed.sql.StdOutSqlLogger
 import org.jetbrains.exposed.sql.addLogger
 import org.jetbrains.exposed.sql.transactions.transaction
@@ -63,22 +64,24 @@ import java.util.zip.DeflaterInputStream
 import javax.crypto.EncryptedPrivateKeyInfo
 
 fun testData() {
-
     val pairA = CryptoUtil.generateRsaKeyPair(2048)
     val pairB = CryptoUtil.generateRsaKeyPair(2048)
     val pairC = CryptoUtil.generateRsaKeyPair(2048)
-
-    transaction {
-        addLogger(StdOutSqlLogger)
-        EbicsSubscriberEntity.new(id = "default-customer") {
-            ebicsURL = "http://localhost:5000/ebicsweb"
-            userID = "USER1"
-            partnerID = "PARTNER1"
-            hostID = "host01"
-            signaturePrivateKey = SerialBlob(pairA.private.encoded)
-            encryptionPrivateKey = SerialBlob(pairB.private.encoded)
-            authenticationPrivateKey = SerialBlob(pairC.private.encoded)
+    try {
+        transaction {
+            addLogger(StdOutSqlLogger)
+            EbicsSubscriberEntity.new(id = "default-customer") {
+                ebicsURL = "http://localhost:5000/ebicsweb"
+                userID = "USER1"
+                partnerID = "PARTNER1"
+                hostID = "host01"
+                signaturePrivateKey = SerialBlob(pairA.private.encoded)
+                encryptionPrivateKey = SerialBlob(pairB.private.encoded)
+                authenticationPrivateKey = SerialBlob(pairC.private.encoded)
+            }
         }
+    } catch (e: ExposedSQLException) {
+        LOGGER.info("Likely primary key collision for sample data: accepted")
     }
 }
 
@@ -100,17 +103,13 @@ fun main() {
     val client = HttpClient(){
         expectSuccess = false // this way, it does not throw exceptions on != 200 responses.
     }
-
     val logger = LoggerFactory.getLogger("tech.libeufin.nexus")
-
     val server = embeddedServer(Netty, port = 5001) {
-
         install(CallLogging) {
             this.level = Level.DEBUG
             this.logger = LOGGER
 
         }
-
         install(ContentNegotiation) {
             moshi {
             }
@@ -119,7 +118,6 @@ fun main() {
                 setPrettyPrinting()
             }
         }
-
         install(StatusPages) {
             exception<Throwable> { cause ->
                 logger.error("Exception while handling '${call.request.uri}'", cause)
@@ -182,7 +180,6 @@ fun main() {
                 )
             }
         }
-
         intercept(ApplicationCallPipeline.Fallback) {
             if (this.call.response.status() == null) {
                 call.respondText("Not found (no route matched).\n", ContentType.Text.Plain, HttpStatusCode.NotFound)
@@ -505,9 +502,11 @@ fun main() {
                     hostId = hostID
                 }
                 val response = client.postToBankUnsigned<HEVRequest, HEVResponse>(ebicsUrl, request)
+                // here, response is gueranteed to be successful, no need to check the status code.
                 call.respond(
                     HttpStatusCode.OK,
-                    EbicsHevResponse(response.value.versionNumber as List<String>)
+                    EbicsHevResponse(response.value.versionNumber!!.map {
+                        ProtocolAndVersion(it.value, it.protocolVersion, hostID) })
                 )
                 return@get
             }
