@@ -22,6 +22,10 @@ data class EbicsDateRange(
  * the client must provide the passphrase.
  */
 data class EbicsKeysBackup(
+    val userID: String,
+    val partnerID: String,
+    val hostID: String,
+    val ebicsURL: String,
     val authBlob: String,
     val encBlob: String,
     val sigBlob: String,

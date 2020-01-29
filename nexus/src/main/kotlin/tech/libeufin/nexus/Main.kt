@@ -237,14 +237,6 @@ fun main() {
 
                 return@post
             }
-
-            post("/ebics/subscribers/{id}/restore-backup") {
-                // Creates a *new* customer with nexus-internal identifier "id"
-                // and imports the backup into it.
-                // This endpoint *fails* if a subscriber with the same nexus-internal id
-                // already exists.
-            }
-
             get("/ebics/subscribers/{id}/sendHtd") {
                 val id = expectId(call.parameters["id"])
                 val subscriberData = transaction {
@@ -256,7 +248,6 @@ fun main() {
                         )
                     )
                 }
-
                 val response = client.postToBankSigned<EbicsRequest, EbicsResponse>(
                     subscriberData.ebicsUrl,
                     createDownloadInitializationPhase(
@@ -570,6 +561,16 @@ fun main() {
             post("/ebics/subscribers/{id}/restoreBackup") {
                 val body = call.receive<EbicsKeysBackup>()
                 val id = expectId(call.parameters["id"])
+                val subscriber = transaction {
+                    EbicsSubscriberEntity.findById(id)
+                }
+                if (subscriber != null) {
+                    call.respond(
+                        HttpStatusCode.Conflict,
+                        NexusError("ID exists, please choose a new one")
+                    )
+                    return@post
+                }
                 val (authKey, encKey, sigKey) = try {
                     Triple(
                         CryptoUtil.decryptKey(
@@ -584,31 +585,47 @@ fun main() {
                     )
                 } catch (e: Exception) {
                     e.printStackTrace()
+                    LOGGER.info("Restoring keys failed, probably due to wrong passphrase")
                     throw BadBackup(HttpStatusCode.BadRequest)
                 }
-                transaction {
-                    val subscriber = EbicsSubscriberEntity.findById(id) ?: throw SubscriberNotFoundError(
-                        HttpStatusCode.NotFound
-                    )
-                    subscriber.encryptionPrivateKey = SerialBlob(encKey.encoded)
-                    subscriber.authenticationPrivateKey = SerialBlob(authKey.encoded)
-                    subscriber.signaturePrivateKey = SerialBlob(sigKey.encoded)
+                LOGGER.info("Restoring keys, creating new user: $id")
+                try {
+                    transaction {
+                        EbicsSubscriberEntity.new(id = expectId(call.parameters["id"])) {
+                            ebicsURL = body.ebicsURL
+                            hostID = body.hostID
+                            partnerID = body.partnerID
+                            userID = body.userID
+                            signaturePrivateKey = SerialBlob(sigKey.encoded)
+                            encryptionPrivateKey = SerialBlob(encKey.encoded)
+                            authenticationPrivateKey = SerialBlob(authKey.encoded)
+                        }
+                    }
+                } catch (e: Exception) {
+                    print(e)
+                    call.respond(NexusError("Could not store the new account $id into database"))
+                    return@post
                 }
                 call.respondText(
                     "Keys successfully restored",
                     ContentType.Text.Plain,
                     HttpStatusCode.OK
                 )
+                return@post
             }
+            /* performs a keys backup */
             post("/ebics/subscribers/{id}/backup") {
-
                 val id = expectId(call.parameters["id"])
                 val body = call.receive<EbicsBackupRequest>()
-                val content = transaction {
+                val response = transaction {
                     val subscriber = EbicsSubscriberEntity.findById(id) ?: throw SubscriberNotFoundError(
                         HttpStatusCode.NotFound
                     )
                     EbicsKeysBackup(
+                        userID = subscriber.userID,
+                        hostID = subscriber.hostID,
+                        partnerID = subscriber.partnerID,
+                        ebicsURL = subscriber.ebicsURL,
                         authBlob = bytesToBase64(CryptoUtil.encryptKey(
                             subscriber.authenticationPrivateKey.toByteArray(),
                             body.passphrase
@@ -626,13 +643,11 @@ fun main() {
                 call.response.headers.append("Content-Disposition", "attachment")
                 call.respond(
                     HttpStatusCode.OK,
-                    content
+                    response
                 )
             }
             post("/ebics/subscribers/{id}/sendTst") {
-
                 val id = expectId(call.parameters["id"])
-
                 val subscriberData = transaction {
                     containerInit(
                         EbicsSubscriberEntity.findById(id)
@@ -642,7 +657,6 @@ fun main() {
                     )
                 }
                 val payload = "PAYLOAD"
-
                 if (subscriberData.bankEncPub == null) {
                     call.respondText(
                         "Bank encryption key not found, request HPB first!\n",
@@ -708,7 +722,6 @@ fun main() {
                     HttpStatusCode.OK
                 )
             }
-            
             post("/ebics/subscribers/{id}/sync") {
                 val id = expectId(call.parameters["id"])
                 val bundle = transaction {
@@ -762,15 +775,12 @@ fun main() {
                         ).encoded
                     )
                 }
-
                 call.respondText("Bank keys stored in database\n", ContentType.Text.Plain, HttpStatusCode.OK)
                 return@post
             }
 
             post("/ebics/subscribers/{id}/sendHia") {
-
                 val id = expectId(call.parameters["id"])
-
                 val subscriberData = transaction {
                     containerInit(
                         EbicsSubscriberEntity.findById(id)

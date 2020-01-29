@@ -154,12 +154,8 @@ def restore(obj, account_id, backup_file, nexus_base_url):
         print("Could not reach the bank")
         return
 
-    if response.status_code != 200:
-        print("Unsuccessful status code gotten: {}".format(response.status_code))
-        return
-
-    print("Keys successfully restored")
-
+    print("Status code: {}".format(response.status_code))
+    print("Nexus says: {}".format(response.content.decode("utf-8")))
 
 @ebics.command(help="Obtain passphrase-protected private keys")
 @click.pass_obj
