@@ -50,7 +50,6 @@ dependencies {
 
 
 application {
-
     mainClassName = "tech.libeufin.sandbox.MainKt"
 }
 

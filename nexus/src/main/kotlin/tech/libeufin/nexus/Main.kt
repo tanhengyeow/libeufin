@@ -38,6 +38,7 @@ import io.ktor.response.respondText
 import io.ktor.routing.*
 import io.ktor.server.engine.embeddedServer
 import io.ktor.server.netty.Netty
+import org.jetbrains.exposed.dao.EntityID
 import org.jetbrains.exposed.sql.StdOutSqlLogger
 import org.jetbrains.exposed.sql.addLogger
 import org.jetbrains.exposed.sql.transactions.transaction
@@ -69,7 +70,7 @@ fun testData() {
 
     transaction {
         addLogger(StdOutSqlLogger)
-        EbicsSubscriberEntity.new {
+        EbicsSubscriberEntity.new(id = "default-customer") {
             ebicsURL = "http://localhost:5000/ebicsweb"
             userID = "USER1"
             partnerID = "PARTNER1"

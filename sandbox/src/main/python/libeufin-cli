@@ -342,7 +342,7 @@ def sync(obj, customer_id):
     print(resp.content.decode("utf-8"))
 
 
-@ebics.command(help="Retrieve all subscribers in the system")
+@ebics.command(help="Retrieve all the customers managed by Nexus")
 @click.pass_obj
 def subscribers(obj):
     
@@ -350,7 +350,7 @@ def subscribers(obj):
     try:
         resp = get(url)
     except Exception:
-        print("Could not reach the bank")
+        print("Could not reach Nexus at {}".format(url))
         return
 
     print(resp.content.decode("utf-8"))

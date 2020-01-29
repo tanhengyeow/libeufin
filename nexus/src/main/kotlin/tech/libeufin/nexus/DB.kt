@@ -26,7 +26,6 @@ object EbicsSubscribersTable : IdTable<String>() {
 class EbicsSubscriberEntity(id: EntityID<String>) : Entity<String>(id) {
 
     companion object : EntityClass<String, EbicsSubscriberEntity>(EbicsSubscribersTable)
-
     var ebicsURL by EbicsSubscribersTable.ebicsURL
     var hostID by EbicsSubscribersTable.hostID
     var partnerID by EbicsSubscribersTable.partnerID
