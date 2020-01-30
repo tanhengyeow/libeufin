@@ -157,6 +157,27 @@ def restore(obj, account_id, backup_file, nexus_base_url):
     print("Status code: {}".format(response.status_code))
     print("Nexus says: {}".format(response.content.decode("utf-8")))
 
+@ebics.command(help="Obtain public keys of a nexus ebics account")
+@click.pass_obj
+@click.option(
+    "--account-id",
+    help="Numerical ID of the customer at the Nexus",
+    required=True
+)
+@click.argument(
+  "nexus-base-url"
+)
+def pubkeys(obj, account_id, nexus_base_url):
+    url = urljoin(nexus_base_url, "/ebics/subscribers/{}/pubkeys".format(account_id))
+
+    try:
+        response = get(url)
+    except Exception as e:
+        print("Could not reach nexus:", e)
+        return
+
+    print(response.content.decode("utf-8"))
+
 @ebics.command(help="Obtain passphrase-protected private keys")
 @click.pass_obj
 @click.option(

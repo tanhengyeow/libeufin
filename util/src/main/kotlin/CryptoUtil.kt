@@ -115,6 +115,7 @@ object CryptoUtil {
         val tmp = RSAPublicKeySpec(modulusBigInt, exponentBigInt)
         return keyFactory.generatePublic(tmp) as RSAPublicKey
     }
+
     /**
      * Hash an RSA public key according to the EBICS standard (EBICS 2.5: 4.4.1.2.3).
      */
@@ -126,6 +127,7 @@ object CryptoUtil {
         val digest = MessageDigest.getInstance("SHA-256")
         return digest.digest(keyBytes.toByteArray())
     }
+
     fun encryptEbicsE002(data: ByteArray, encryptionPublicKey: RSAPublicKey): EncryptionResult {
         val keygen = KeyGenerator.getInstance("AES", bouncyCastleProvider)
         keygen.init(128)

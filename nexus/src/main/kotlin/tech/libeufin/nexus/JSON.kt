@@ -32,6 +32,13 @@ data class EbicsKeysBackup(
     val passphrase: String? = null
 )
 
+
+data class EbicsPubKeyInfo(
+    val authPub: String,
+    val encPub: String,
+    val sigPub: String
+)
+
 /**
  * This object is POSTed by clients _after_ having created
  * a EBICS subscriber at the sandbox.

@@ -38,6 +38,7 @@ import io.ktor.response.respondText
 import io.ktor.routing.*
 import io.ktor.server.engine.embeddedServer
 import io.ktor.server.netty.Netty
+import io.ktor.util.encodeBase64
 import org.jetbrains.exposed.dao.EntityID
 import org.jetbrains.exposed.exceptions.ExposedSQLException
 import org.jetbrains.exposed.sql.StdOutSqlLogger
@@ -584,6 +585,31 @@ fun main() {
                 )
                 return@post
             }
+
+            get("/ebics/subscribers/{id}/pubkeys") {
+                val id = expectId(call.parameters["id"])
+                val response = transaction {
+                    val subscriber = EbicsSubscriberEntity.findById(id) ?: throw SubscriberNotFoundError(
+                        HttpStatusCode.NotFound
+                    )
+                    val authPriv = CryptoUtil.loadRsaPrivateKey(subscriber.authenticationPrivateKey.toByteArray())
+                    val authPub = CryptoUtil.getRsaPublicFromPrivate(authPriv)
+                    val encPriv = CryptoUtil.loadRsaPrivateKey(subscriber.encryptionPrivateKey.toByteArray())
+                    val encPub = CryptoUtil.getRsaPublicFromPrivate(encPriv)
+                    val sigPriv = CryptoUtil.loadRsaPrivateKey(subscriber.signaturePrivateKey.toByteArray())
+                    val sigPub = CryptoUtil.getRsaPublicFromPrivate(sigPriv)
+                    EbicsPubKeyInfo(
+                        bytesToBase64(authPub.encoded),
+                        bytesToBase64(encPub.encoded),
+                        bytesToBase64(sigPub.encoded)
+                        )
+                }
+                call.respond(
+                    HttpStatusCode.OK,
+                    response
+                )
+            }
+
             /* performs a keys backup */
             post("/ebics/subscribers/{id}/backup") {
                 val id = expectId(call.parameters["id"])
