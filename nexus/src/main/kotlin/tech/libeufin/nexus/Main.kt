@@ -315,9 +315,10 @@ fun main() {
                 val encVersionLine = "E002"
                 val now = Date()
                 val dateFormat = SimpleDateFormat("DD.MM.YYYY")
-                val timeFormat = SimpleDateFormat("HH.mm.ss")
-                var dateLine = dateFormat.format(now)
-                var timeLine = timeFormat.format(now)
+                val timeFormat = SimpleDateFormat("HH:mm:ss")
+                val dateLine = dateFormat.format(now)
+                val timeLine = timeFormat.format(now)
+                var hostID = ""
                 transaction {
                     val subscriber = EbicsSubscriberEntity.findById(id) ?: throw SubscriberNotFoundError(
                         HttpStatusCode.NotFound
@@ -331,6 +332,7 @@ fun main() {
                     val encPubTmp = CryptoUtil.getRsaPublicFromPrivate(
                         CryptoUtil.loadRsaPrivateKey(subscriber.encryptionPrivateKey.toByteArray())
                     )
+                    hostID = subscriber.hostID
                     userIdLine = subscriber.userID
                     esExponentLine = signPubTmp.publicExponent.toByteArray().toHexString()
                     esModulusLine = signPubTmp.modulus.toByteArray().toHexString()
@@ -347,8 +349,9 @@ fun main() {
                     |Date: ${dateLine}
                     |Time: ${timeLine}
                     |Recipient: ${recipientLine}
+                    |Host ID: ${hostID}
                     |User ID: ${userIdLine}
-                    |Customer ID: ${customerIdLine}
+                    |Partner ID: ${customerIdLine}
                     |ES version: ${esVersionLine}
                     
                     |Public key for the electronic signature:
@@ -369,6 +372,7 @@ fun main() {
                     
                     |__________
                     |Signature
+                    |
                 """.trimMargin()
 
                 val hiaLetter = """
@@ -376,8 +380,9 @@ fun main() {
                     |Date: ${dateLine}
                     |Time: ${timeLine}
                     |Recipient: ${recipientLine}
+                    |Host ID: ${hostID}
                     |User ID: ${userIdLine}
-                    |Customer ID: ${customerIdLine}
+                    |Partner ID: ${customerIdLine}
                     |Identification and authentication signature version: ${authVersionLine}
                     |Encryption version: ${encVersionLine}
                     
@@ -410,6 +415,7 @@ fun main() {
                     
                     |__________
                     |Signature
+                    |
                 """.trimMargin()
 
                 call.respondText(
@@ -682,7 +688,7 @@ fun main() {
                         usd_encrypted
                     ),
                     subscriberData.bankAuthPub!!,
-                    subscriberData.customerEncPriv
+                    subscriberData.customerAuthPriv
                 )
                 if (response.value.body.returnCode.value != "000000") {
                     throw EbicsError(response.value.body.returnCode.value)
