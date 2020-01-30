@@ -1,5 +1,7 @@
 package tech.libeufin.util
+import java.math.BigInteger
 import java.util.*
+
 
 fun ByteArray.toHexString() : String {
     return this.joinToString("") {
@@ -13,4 +15,11 @@ fun bytesToBase64(bytes: ByteArray): String {
 
 fun base64ToBytes(encoding: String): ByteArray {
     return Base64.getDecoder().decode(encoding)
+}
+
+fun BigInteger.toUnsignedHexString(): String {
+    val signedValue = this.toByteArray()
+    require(signedValue[0] == 0.toByte()) { "value must be a positive BigInteger" }
+    val bytes = Arrays.copyOfRange(signedValue, 1, signedValue.size)
+    return bytes.toHexString()
 }

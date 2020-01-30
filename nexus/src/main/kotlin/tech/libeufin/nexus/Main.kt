@@ -334,12 +334,12 @@ fun main() {
                     )
                     hostID = subscriber.hostID
                     userIdLine = subscriber.userID
-                    esExponentLine = signPubTmp.publicExponent.toByteArray().toHexString()
-                    esModulusLine = signPubTmp.modulus.toByteArray().toHexString()
-                    encExponentLine = encPubTmp.publicExponent.toByteArray().toHexString()
-                    encModulusLine = encPubTmp.modulus.toByteArray().toHexString()
-                    authExponentLine = authPubTmp.publicExponent.toByteArray().toHexString()
-                    authModulusLine = authPubTmp.modulus.toByteArray().toHexString()
+                    esExponentLine = signPubTmp.publicExponent.toUnsignedHexString()
+                    esModulusLine = signPubTmp.modulus.toUnsignedHexString()
+                    encExponentLine = encPubTmp.publicExponent.toUnsignedHexString()
+                    encModulusLine = encPubTmp.modulus.toUnsignedHexString()
+                    authExponentLine = authPubTmp.publicExponent.toUnsignedHexString()
+                    authModulusLine = authPubTmp.modulus.toUnsignedHexString()
                     esKeyHashLine = CryptoUtil.getEbicsPublicKeyHash(signPubTmp).toHexString()
                     encKeyHashLine = CryptoUtil.getEbicsPublicKeyHash(encPubTmp).toHexString()
                     authKeyHashLine = CryptoUtil.getEbicsPublicKeyHash(authPubTmp).toHexString()
