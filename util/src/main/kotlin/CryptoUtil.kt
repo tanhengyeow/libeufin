@@ -121,9 +121,10 @@ object CryptoUtil {
      */
     fun getEbicsPublicKeyHash(publicKey: RSAPublicKey): ByteArray {
         val keyBytes = ByteArrayOutputStream()
-        keyBytes.writeBytes(publicKey.publicExponent.toUnsignedHexString().toByteArray())
+        keyBytes.writeBytes(publicKey.publicExponent.toUnsignedHexString().toLowerCase().trimStart('0').toByteArray())
         keyBytes.write(' '.toInt())
-        keyBytes.writeBytes(publicKey.modulus.toUnsignedHexString().toByteArray())
+        keyBytes.writeBytes(publicKey.modulus.toUnsignedHexString().toLowerCase().trimStart('0').toByteArray())
+        println("buffer before hashing: '${keyBytes.toString(Charsets.UTF_8)}'")
         val digest = MessageDigest.getInstance("SHA-256")
         return digest.digest(keyBytes.toByteArray())
     }
