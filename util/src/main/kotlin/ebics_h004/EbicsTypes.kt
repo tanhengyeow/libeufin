@@ -345,13 +345,13 @@ object EbicsTypes {
             XmlElement(name = "AccountNumber", type = GeneralAccountNumber::class),
             XmlElement(name = "NationalAccountNumber", type = NationalAccountNumber::class)
         )
-        var accountNumberList: List<AbstractAccountNumber>? = null
+        var accountNumberList: List<AbstractAccountNumber>? = LinkedList<AbstractAccountNumber>()
 
         @get:XmlElements(
             XmlElement(name = "BankCode", type = GeneralBankCode::class),
             XmlElement(name = "NationalBankCode", type = NationalBankCode::class)
         )
-        var bankCodeList: List<AbstractBankCode>? = null
+        var bankCodeList: List<AbstractBankCode>? = LinkedList<AbstractBankCode>()
 
         @get:XmlElement(name = "AccountHolder")
         var accountHolder: String? = null

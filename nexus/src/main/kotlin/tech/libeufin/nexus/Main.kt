@@ -258,6 +258,11 @@ fun main() {
                 if (response.value.body.returnCode.value != "000000") {
                     throw EbicsError(response.value.body.returnCode.value)
                 }
+
+                val encPubKeyDigestViaBank = (response.value.body.dataTransfer!!.dataEncryptionInfo as EbicsTypes.DataEncryptionInfo)
+                    .encryptionPubKeyDigest.value;
+                println("encPubKeyDigestViaBank ${encPubKeyDigestViaBank.toHexString()}")
+
                 val er = CryptoUtil.EncryptionResult(
                     response.value.body.dataTransfer!!.dataEncryptionInfo!!.transactionKey,
                     (response.value.body.dataTransfer!!.dataEncryptionInfo as EbicsTypes.DataEncryptionInfo)
@@ -267,7 +272,7 @@ fun main() {
 
                 val dataCompr = CryptoUtil.decryptEbicsE002(
                     er,
-                    subscriberData.customerEncPriv
+                    subscriberData.customerAuthPriv
                 )
                 val data = EbicsOrderUtil.decodeOrderDataXml<HTDResponseOrderData>(dataCompr)
                 logger.debug("HTD payload is: ${XMLUtil.convertJaxbToString(data)}")
@@ -725,6 +730,7 @@ fun main() {
                     HttpStatusCode.OK
                 )
             }
+
             post("/ebics/subscribers/{id}/sync") {
                 val id = expectId(call.parameters["id"])
                 val bundle = transaction {
@@ -749,15 +755,20 @@ fun main() {
                 if (response.value.body.returnCode.value != "000000") {
                     throw EbicsError(response.value.body.returnCode.value)
                 }
+                val encPubKeyDigestViaBank = (response.value.body.dataTransfer!!.dataEncryptionInfo as EbicsTypes.DataEncryptionInfo)
+                    .encryptionPubKeyDigest.value;
+                val customerEncPub = CryptoUtil.getRsaPublicFromPrivate(bundle.customerEncPriv);
+                val encPubKeyDigestViaNexus = CryptoUtil.getEbicsPublicKeyHash(customerEncPub)
+                println("encPubKeyDigestViaBank: ${encPubKeyDigestViaBank.toHexString()}")
+                println("encPubKeyDigestViaNexus: ${encPubKeyDigestViaNexus.toHexString()}")
                 val er = CryptoUtil.EncryptionResult(
                     response.value.body.dataTransfer!!.dataEncryptionInfo!!.transactionKey,
-                    (response.value.body.dataTransfer!!.dataEncryptionInfo as EbicsTypes.DataEncryptionInfo)
-                        .encryptionPubKeyDigest.value,
+                    encPubKeyDigestViaBank,
                     response.value.body.dataTransfer!!.orderData.value
                 )
                 val dataCompr = CryptoUtil.decryptEbicsE002(
                     er,
-                    bundle.customerEncPriv
+                    bundle.customerAuthPriv
                 )
                 val data = EbicsOrderUtil.decodeOrderDataXml<HPBResponseOrderData>(dataCompr)
                 // put bank's keys into database.

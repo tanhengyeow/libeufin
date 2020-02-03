@@ -39,6 +39,7 @@ object EbicsOrderUtil {
     inline fun <reified T> decodeOrderDataXml(encodedOrderData: ByteArray): T {
         return InflaterInputStream(encodedOrderData.inputStream()).use {
             val bytes = it.readAllBytes()
+            println("decoded order data bytes ${bytes.toString(Charsets.UTF_8)}")
             XMLUtil.convertStringToJaxb<T>(bytes.toString(Charsets.UTF_8)).value
         }
     }
