@@ -140,7 +140,6 @@ fun main() {
                 call.respondText("Bad backup, or passphrase incorrect\n", ContentType.Text.Plain, HttpStatusCode.BadRequest)
             }
 
-
             exception<UnparsableResponse> { cause ->
                 logger.error("Exception while handling '${call.request.uri}'", cause)
                 call.respondText("Could not parse bank response (${cause.message})\n", ContentType.Text.Plain, HttpStatusCode
@@ -192,6 +191,77 @@ fun main() {
                 call.respondText("Hello by Nexus!\n")
                 return@get
             }
+
+            post("/ebics/subscribers/{id}/sendPTK") {
+                val id = expectId(call.parameters["id"])
+                val subscriberData = transaction {
+                    containerInit(
+                        EbicsSubscriberEntity.findById(
+                            id
+                        ) ?: throw SubscriberNotFoundError(
+                            HttpStatusCode.NotFound
+                        )
+                    )
+                }
+                val response = client.postToBankSigned<EbicsRequest, EbicsResponse>(
+                    subscriberData.ebicsUrl,
+                    createDownloadInitializationPhase(
+                        subscriberData,
+                        "PTK",
+                        getNonce(128),
+                        getGregorianDate()
+                    ),
+                    subscriberData.customerAuthPriv
+                )
+                val payload: ByteArray =
+                    decryptAndDecompressResponse(
+                        response.value,
+                        subscriberData.customerAuthPriv
+                    )
+                call.respondText(
+                    payload.toString(Charsets.UTF_8),
+                    ContentType.Text.Plain,
+                    HttpStatusCode.OK)
+
+                return@post
+            }
+
+            post("/ebics/subscribers/{id}/sendHAC") {
+                val id = expectId(call.parameters["id"])
+
+                val subscriberData = transaction {
+                    containerInit(
+                        EbicsSubscriberEntity.findById(
+                            id
+                        ) ?: throw SubscriberNotFoundError(
+                            HttpStatusCode.NotFound
+                        )
+                    )
+                }
+                val response = client.postToBankSigned<EbicsRequest, EbicsResponse>(
+                    subscriberData.ebicsUrl,
+                    createDownloadInitializationPhase(
+                        subscriberData,
+                        "HAC",
+                        getNonce(128),
+                        getGregorianDate()
+                    ),
+                    subscriberData.customerAuthPriv
+                )
+                val payload: ByteArray =
+                    decryptAndDecompressResponse(
+                        response.value,
+                        subscriberData.customerAuthPriv
+                    )
+                call.respondText(
+                    payload.toString(Charsets.UTF_8),
+                    ContentType.Text.Plain,
+                    HttpStatusCode.OK)
+
+                return@post
+            }
+
+
             post("/ebics/subscribers/{id}/sendC52") {
                 val id = expectId(call.parameters["id"])
                 val body = call.receive<EbicsDateRange>()
@@ -216,16 +286,36 @@ fun main() {
                         "C52",
                         getNonce(128),
                         getGregorianDate(),
-                        getGregorianDate(startDate.year, startDate.monthOfYear, startDate.dayOfMonth),
-                        getGregorianDate(endDate.year, endDate.monthOfYear, endDate.dayOfMonth)
+                        getGregorianDate(startDate.year, startDate.monthOfYear - 1, startDate.dayOfMonth),
+                        getGregorianDate(endDate.year, endDate.monthOfYear - 1, endDate.dayOfMonth)
                     ),
                     subscriberData.customerAuthPriv
                 )
                 val payload: ByteArray =
                     decryptAndDecompressResponse(
                         response.value,
-                        subscriberData.customerEncPriv
+                        subscriberData.customerAuthPriv
                     )
+                val ackRequest = EbicsRequest.createForDownloadReceiptPhase(
+                    response.value.header._static.transactionID ?: throw BankInvalidResponse(
+                        HttpStatusCode.ExpectationFailed
+                    ),
+                    subscriberData.hostId
+                )
+
+                val ackResponse = client.postToBankSignedAndVerify<EbicsRequest, EbicsResponse>(
+                    subscriberData.ebicsUrl,
+                    ackRequest,
+                    subscriberData.bankAuthPub ?: throw BankKeyMissing(
+                        HttpStatusCode.PreconditionFailed
+                    ),
+                    subscriberData.customerAuthPriv
+                )
+                logger.debug("C52 final response: " + XMLUtil.convertJaxbToString<EbicsResponse>(response.value))
+                if (ackResponse.value.body.returnCode.value != "000000") {
+                    throw EbicsError(response.value.body.returnCode.value)
+                }
+
                 call.respondText(
                     payload.toString(Charsets.UTF_8),
                     ContentType.Text.Plain,
@@ -282,6 +372,7 @@ fun main() {
                     ),
                     subscriberData.hostId
                 )
+
                 val ackResponse = client.postToBankSignedAndVerify<EbicsRequest, EbicsResponse>(
                     subscriberData.ebicsUrl,
                     ackRequest,

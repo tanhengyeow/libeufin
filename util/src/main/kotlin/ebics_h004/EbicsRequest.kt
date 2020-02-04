@@ -356,7 +356,6 @@ class EbicsRequest {
             bankEncPub: RSAPublicKey,
             bankAuthPub: RSAPublicKey,
             aOrderType: String
-
         ): EbicsRequest {
 
             return EbicsRequest().apply {

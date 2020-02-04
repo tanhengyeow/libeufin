@@ -255,7 +255,49 @@ def c52(obj, account_id, nexus_base_url):
     
     url = urljoin(nexus_base_url, "/ebics/subscribers/{}/sendC52".format(account_id))
     try:
-        resp = post(url, json=dict(start="1970-01-01", end="2020-12-31"))
+        resp = post(url, json=dict(start="2020-01-15", end="2020-02-03"))
+    except Exception:
+        print("Could not reach the bank")
+        return
+
+    print(resp.content.decode("utf-8"))
+
+
+@ebics.command(help="Send PTK message")
+@click.pass_obj
+@click.option(
+    "--account-id",
+    help="Numerical ID of the customer at the Nexus",
+    required=True
+)
+@click.argument(
+  "nexus-base-url"
+)
+def ptk(obj, account_id, nexus_base_url):
+    url = urljoin(nexus_base_url, "/ebics/subscribers/{}/sendPTK".format(account_id))
+    try:
+        resp = post(url)
+    except Exception:
+        print("Could not reach the bank")
+        return
+
+    print(resp.content.decode("utf-8"))
+
+
+@ebics.command(help="Send HAC message")
+@click.pass_obj
+@click.option(
+    "--account-id",
+    help="Numerical ID of the customer at the Nexus",
+    required=True
+)
+@click.argument(
+  "nexus-base-url"
+)
+def hac(obj, account_id, nexus_base_url):
+    url = urljoin(nexus_base_url, "/ebics/subscribers/{}/sendHAC".format(account_id))
+    try:
+        resp = post(url)
     except Exception:
         print("Could not reach the bank")
         return
