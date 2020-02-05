@@ -17,126 +17,6 @@ import java.util.*
 import javax.xml.bind.JAXBElement
 import javax.xml.datatype.XMLGregorianCalendar
 
-
-/**
- * Wrapper around the lower decryption routine, that takes a EBICS response
- * object containing a encrypted payload, and return the plain version of it
- * (including decompression).
- */
-fun decryptAndDecompressResponse(response: EbicsResponse, privateKey: RSAPrivateCrtKey): ByteArray {
-    val er = CryptoUtil.EncryptionResult(
-        response.body.dataTransfer!!.dataEncryptionInfo!!.transactionKey,
-        (response.body.dataTransfer!!.dataEncryptionInfo as EbicsTypes.DataEncryptionInfo)
-            .encryptionPubKeyDigest.value,
-        Base64.getDecoder().decode(response.body.dataTransfer!!.orderData.value)
-    )
-    val dataCompr = CryptoUtil.decryptEbicsE002(
-        er,
-        privateKey
-    )
-    return EbicsOrderUtil.decodeOrderData(dataCompr)
-}
-
-fun createDownloadInitializationPhase(
-    subscriberData: EbicsContainer,
-    orderType: String,
-    nonce: ByteArray,
-    date: XMLGregorianCalendar
-): EbicsRequest {
-    return EbicsRequest.createForDownloadInitializationPhase(
-        subscriberData.userId,
-        subscriberData.partnerId,
-        subscriberData.hostId,
-        nonce,
-        date,
-        subscriberData.bankEncPub ?: throw BankKeyMissing(
-            HttpStatusCode.PreconditionFailed
-        ),
-        subscriberData.bankAuthPub ?: throw BankKeyMissing(
-            HttpStatusCode.PreconditionFailed
-        ),
-        orderType
-    )
-}
-
-fun createDownloadInitializationPhase(
-    subscriberData: EbicsContainer,
-    orderType: String,
-    nonce: ByteArray,
-    date: XMLGregorianCalendar,
-    dateStart: XMLGregorianCalendar,
-    dateEnd: XMLGregorianCalendar
-): EbicsRequest {
-    return EbicsRequest.createForDownloadInitializationPhase(
-        subscriberData.userId,
-        subscriberData.partnerId,
-        subscriberData.hostId,
-        nonce,
-        date,
-        subscriberData.bankEncPub ?: throw BankKeyMissing(
-            HttpStatusCode.PreconditionFailed
-        ),
-        subscriberData.bankAuthPub ?: throw BankKeyMissing(
-            HttpStatusCode.PreconditionFailed
-        ),
-        orderType,
-        dateStart,
-        dateEnd
-    )
-}
-
-fun createUploadInitializationPhase(
-    subscriberData: EbicsContainer,
-    orderType: String,
-    cryptoBundle: CryptoUtil.EncryptionResult
-): EbicsRequest {
-    return EbicsRequest.createForUploadInitializationPhase(
-        cryptoBundle,
-        subscriberData.hostId,
-        getNonce(128),
-        subscriberData.partnerId,
-        subscriberData.userId,
-        getGregorianDate(),
-        subscriberData.bankAuthPub!!,
-        subscriberData.bankEncPub!!,
-        BigInteger.ONE,
-        orderType
-    )
-}
-
-/**
- * Usually, queries must return lots of data from within a transaction
- * block.  For convenience, we wrap such data into a EbicsContainer, so
- * that only one object is always returned from the transaction block.
- */
-fun containerInit(subscriber: EbicsSubscriberEntity): EbicsContainer {
-    var bankAuthPubValue: RSAPublicKey? = null
-    if (subscriber.bankAuthenticationPublicKey != null) {
-        bankAuthPubValue = CryptoUtil.loadRsaPublicKey(
-            subscriber.bankAuthenticationPublicKey?.toByteArray()!!
-        )
-    }
-    var bankEncPubValue: RSAPublicKey? = null
-    if (subscriber.bankEncryptionPublicKey != null) {
-        bankEncPubValue = CryptoUtil.loadRsaPublicKey(
-            subscriber.bankEncryptionPublicKey?.toByteArray()!!
-        )
-    }
-    return EbicsContainer(
-        bankAuthPub = bankAuthPubValue,
-        bankEncPub = bankEncPubValue,
-
-        ebicsUrl = subscriber.ebicsURL,
-        hostId = subscriber.hostID,
-        userId = subscriber.userID,
-        partnerId = subscriber.partnerID,
-
-        customerSignPriv = CryptoUtil.loadRsaPrivateKey(subscriber.signaturePrivateKey.toByteArray()),
-        customerAuthPriv = CryptoUtil.loadRsaPrivateKey(subscriber.authenticationPrivateKey.toByteArray()),
-        customerEncPriv = CryptoUtil.loadRsaPrivateKey(subscriber.encryptionPrivateKey.toByteArray())
-    )
-}
-
 /**
  * Inserts spaces every 2 characters, and a newline after 8 pairs.
  */
@@ -191,7 +71,7 @@ fun signOrder(
  * response already converted in JAXB.
  */
 suspend inline fun HttpClient.postToBank(url: String, body: String): String {
-    LOGGER.debug("Posting: $body")
+    logger.debug("Posting: $body")
     val response = try {
         this.post<String>(
             urlString = url,
@@ -217,7 +97,7 @@ suspend inline fun <reified T, reified S> HttpClient.postToBankSignedAndVerify(
     val doc = XMLUtil.convertJaxbToDocument(body)
     XMLUtil.signEbicsDocument(doc, priv)
     val response: String = this.postToBank(url, XMLUtil.convertDomToString(doc))
-    LOGGER.debug("About to verify: ${response}")
+    logger.debug("About to verify: ${response}")
     val responseDocument = try {
         XMLUtil.parseStringIntoDom(response)
     } catch (e: Exception) {

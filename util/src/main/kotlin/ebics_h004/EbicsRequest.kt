@@ -6,6 +6,7 @@ import tech.libeufin.util.LOGGER
 import tech.libeufin.util.XMLUtil
 import java.math.BigInteger
 import java.security.interfaces.RSAPublicKey
+import java.util.*
 import javax.xml.bind.annotation.*
 import javax.xml.bind.annotation.adapters.CollapsedStringAdapter
 import javax.xml.bind.annotation.adapters.HexBinaryAdapter
@@ -180,6 +181,10 @@ class EbicsRequest {
             XmlElement(
                 name = "StandardOrderParams",
                 type = StandardOrderParams::class
+            ),
+            XmlElement(
+                name = "GenericOrderParams",
+                type = GenericOrderParams::class
             )
         )
         var orderParams: OrderParams? = null
@@ -252,6 +257,13 @@ class EbicsRequest {
     class StandardOrderParams : OrderParams() {
         @get:XmlElement(name = "DateRange")
         var dateRange: DateRange? = null
+    }
+
+    @XmlAccessorType(XmlAccessType.NONE)
+    @XmlType(name = "", propOrder = ["parameterList"])
+    class GenericOrderParams : OrderParams() {
+        @get:XmlElement(type = EbicsTypes.Parameter::class)
+        var parameterList: List<EbicsTypes.Parameter> = LinkedList()
     }
 
     @XmlAccessorType(XmlAccessType.NONE)

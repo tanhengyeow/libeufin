@@ -40,17 +40,18 @@ import tech.libeufin.util.EbicsOrderUtil
 import tech.libeufin.util.XMLUtil
 import tech.libeufin.util.*
 import tech.libeufin.util.XMLUtil.Companion.signEbicsResponse
-import java.awt.List
 import java.math.BigDecimal
 import java.security.interfaces.RSAPrivateCrtKey
+import java.security.interfaces.RSAPublicKey
 import java.util.*
 import java.util.zip.DeflaterInputStream
 import java.util.zip.InflaterInputStream
 import javax.sql.rowset.serial.SerialBlob
 
 
-open class EbicsRequestError(val errorText: String, val errorCode: String) :
-    Exception("EBICS request management error: $errorText ($errorCode)")
+open class EbicsRequestError(errorText: String, errorCode: String) :
+    Exception("EBICS request  error: $errorText ($errorCode)")
+
 
 class EbicsInvalidRequestError : EbicsRequestError(
     "[EBICS_INVALID_REQUEST] Invalid request",
@@ -146,13 +147,13 @@ private fun iterHistory(customerId: Int, header: EbicsRequest.Header, base: XmlE
             (header.static.orderDetails?.orderParams as EbicsRequest.StandardOrderParams).dateRange!!.start.toString()
         } catch (e: Exception) {
             LOGGER.debug("Asked to iterate over history with NO start date; default to now")
-            getGregorianDate().toString()
+            getGregorianCalendarNow().toString()
         },
         try {
             (header.static.orderDetails?.orderParams as EbicsRequest.StandardOrderParams).dateRange!!.end.toString()
         } catch (e: Exception) {
             LOGGER.debug("Asked to iterate over history with NO end date; default to now")
-            getGregorianDate().toString()
+            getGregorianCalendarNow().toString()
         }
     ) {
 
@@ -254,9 +255,7 @@ private fun balance(base: XmlElementBuilder) {
  * @param type 52 or 53.
  */
 private fun constructCamtResponse(type: Int, customerId: Int, header: EbicsRequest.Header): String {
-
     val camt = constructXml(indent = true) {
-
         namespace("foo", "bar") // FIXME: set right namespace!
         root("foo:BkToCstmrAcctRpt") {
             element("GrpHdr") {
@@ -273,21 +272,18 @@ private fun constructCamtResponse(type: Int, customerId: Int, header: EbicsReque
             }
         }
     }
-
   return camt
 }
 
-private fun ApplicationCall.handleEbicsC52(header: EbicsRequest.Header): ByteArray {
 
-    val userId = header.static.userID!!
+private fun handleEbicsTSD(requestContext: RequestContext): ByteArray {
+    return "Hello World".toByteArray()
+}
 
-    val subscriber = transaction {
-        EbicsSubscriberEntity.find {
-            stringParam(userId) eq EbicsSubscribersTable.userId // will have to match partner and system IDs
-        }
-    }.firstOrNull() ?: throw Exception("Unknown subscriber")
 
-    return constructCamtResponse(52, subscriber.bankCustomer.id.value, header).toByteArray()
+private fun handleEbicsC52(requestContext: RequestContext): ByteArray {
+    val subscriber = requestContext.subscriber
+    return constructCamtResponse(52, subscriber.bankCustomer.id.value, requestContext.requestObject.header).toByteArray()
 }
 
 private suspend fun ApplicationCall.handleEbicsHia(header: EbicsUnsecuredRequest.Header, orderData: ByteArray) {
@@ -629,6 +625,238 @@ fun handleEbicsHkd(): ByteArray {
 }
 
 
+private data class RequestContext(
+    val ebicsHost: EbicsHostEntity,
+    val subscriber: EbicsSubscriberEntity,
+    val clientEncPub: RSAPublicKey,
+    val clientAuthPub: RSAPublicKey,
+    val clientSigPub: RSAPublicKey,
+    val hostEncPriv: RSAPrivateCrtKey,
+    val hostAuthPriv: RSAPrivateCrtKey,
+    val requestObject: EbicsRequest,
+    val uploadTransaction: EbicsUploadTransactionEntity?,
+    val downloadTransaction: EbicsDownloadTransactionEntity?
+)
+
+
+private fun handleEbicsDownloadTransactionInitialization(requestContext: RequestContext): EbicsResponse {
+    val orderType =
+        requestContext.requestObject.header.static.orderDetails?.orderType ?: throw EbicsInvalidRequestError()
+    println("handling initialization for order type $orderType")
+    val response = when (orderType) {
+        "HTD" -> handleEbicsHtd()
+        "HKD" -> handleEbicsHkd()
+        /* Temporarily handling C52/C53 with same logic */
+        "C52" -> handleEbicsC52(requestContext)
+        "C53" -> handleEbicsC52(requestContext)
+        "TSD" -> handleEbicsTSD(requestContext)
+        else -> throw EbicsInvalidXmlError()
+    }
+
+    val transactionID = EbicsOrderUtil.generateTransactionId()
+
+    val compressedResponse = DeflaterInputStream(response.inputStream()).use {
+        it.readAllBytes()
+    }
+
+    val enc = CryptoUtil.encryptEbicsE002(compressedResponse, requestContext.clientEncPub)
+    val encodedResponse = Base64.getEncoder().encodeToString(enc.encryptedData)
+
+    val segmentSize = 4096
+    val totalSize = encodedResponse.length
+    val numSegments = ((totalSize + segmentSize - 1) / segmentSize)
+
+    EbicsDownloadTransactionEntity.new(transactionID) {
+        this.subscriber = requestContext.subscriber
+        this.host = requestContext.ebicsHost
+        this.orderType = orderType
+        this.segmentSize = segmentSize
+        this.transactionKeyEnc = SerialBlob(enc.encryptedTransactionKey)
+        this.encodedResponse = encodedResponse
+        this.numSegments = numSegments
+        this.receiptReceived = false
+    }
+    return EbicsResponse.createForDownloadInitializationPhase(
+        transactionID,
+        numSegments,
+        segmentSize,
+        enc,
+        encodedResponse
+    )
+}
+
+
+private fun handleEbicsUploadTransactionInitialization(requestContext: RequestContext): EbicsResponse {
+    val orderType =
+        requestContext.requestObject.header.static.orderDetails?.orderType ?: throw EbicsInvalidRequestError()
+    val transactionID = EbicsOrderUtil.generateTransactionId()
+    val oidn = requestContext.subscriber.nextOrderID++
+    if (EbicsOrderUtil.checkOrderIDOverflow(oidn)) throw NotImplementedError()
+    val orderID = EbicsOrderUtil.computeOrderIDFromNumber(oidn)
+    val numSegments =
+        requestContext.requestObject.header.static.numSegments ?: throw EbicsInvalidRequestError()
+    val transactionKeyEnc =
+        requestContext.requestObject.body.dataTransfer?.dataEncryptionInfo?.transactionKey
+            ?: throw EbicsInvalidRequestError()
+    val encPubKeyDigest =
+        requestContext.requestObject.body.dataTransfer?.dataEncryptionInfo?.encryptionPubKeyDigest?.value
+            ?: throw EbicsInvalidRequestError()
+    val encSigData = requestContext.requestObject.body.dataTransfer?.signatureData?.value
+        ?: throw EbicsInvalidRequestError()
+    val decryptedSignatureData = CryptoUtil.decryptEbicsE002(
+        CryptoUtil.EncryptionResult(
+            transactionKeyEnc,
+            encPubKeyDigest,
+            encSigData
+        ), requestContext.hostEncPriv
+    )
+    val plainSigData = InflaterInputStream(decryptedSignatureData.inputStream()).use {
+        it.readAllBytes()
+    }
+
+    println("creating upload transaction for transactionID $transactionID")
+    EbicsUploadTransactionEntity.new(transactionID) {
+        this.host = requestContext.ebicsHost
+        this.subscriber = requestContext.subscriber
+        this.lastSeenSegment = 0
+        this.orderType = orderType
+        this.orderID = orderID
+        this.numSegments = numSegments.toInt()
+        this.transactionKeyEnc = SerialBlob(transactionKeyEnc)
+    }
+    val sigObj = XMLUtil.convertStringToJaxb<UserSignatureData>(plainSigData.toString(Charsets.UTF_8))
+    println("got UserSignatureData: ${plainSigData.toString(Charsets.UTF_8)}")
+    for (sig in sigObj.value.orderSignatureList ?: listOf()) {
+        println("inserting order signature for orderID $orderID and orderType $orderType")
+        EbicsOrderSignatureEntity.new {
+            this.orderID = orderID
+            this.orderType = orderType
+            this.partnerID = sig.partnerID
+            this.userID = sig.userID
+            this.signatureAlgorithm = sig.signatureVersion
+            this.signatureValue = SerialBlob(sig.signatureValue)
+        }
+    }
+
+    return EbicsResponse.createForUploadInitializationPhase(transactionID, orderID)
+}
+
+
+private fun handleEbicsUploadTransactionTransmission(requestContext: RequestContext): EbicsResponse {
+    val uploadTransaction = requestContext.uploadTransaction ?: throw EbicsInvalidRequestError()
+    val requestObject = requestContext.requestObject
+    val requestSegmentNumber =
+        requestContext.requestObject.header.mutable.segmentNumber?.value?.toInt() ?: throw EbicsInvalidRequestError()
+    val requestTransactionID = requestObject.header.static.transactionID ?: throw EbicsInvalidRequestError()
+    if (requestSegmentNumber == 1 && uploadTransaction.numSegments == 1) {
+        val encOrderData =
+            requestObject.body.dataTransfer?.orderData ?: throw EbicsInvalidRequestError()
+        val zippedData = CryptoUtil.decryptEbicsE002(
+            uploadTransaction.transactionKeyEnc.toByteArray(),
+            encOrderData,
+            requestContext.hostEncPriv
+        )
+        val unzippedData =
+            InflaterInputStream(zippedData.inputStream()).use { it.readAllBytes() }
+        println("got upload data: ${unzippedData.toString(Charsets.UTF_8)}")
+
+        val sigs  = EbicsOrderSignatureEntity.find {
+            (EbicsOrderSignaturesTable.orderID eq uploadTransaction.orderID) and
+                    (EbicsOrderSignaturesTable.orderType eq uploadTransaction.orderType)
+        }
+
+        if (sigs.count() == 0) {
+            throw EbicsInvalidRequestError()
+        }
+
+        for (sig in sigs) {
+            if (sig.signatureAlgorithm == "A006") {
+
+                val signedData = CryptoUtil.digestEbicsOrderA006(unzippedData)
+                val res1 = CryptoUtil.verifyEbicsA006(sig.signatureValue.toByteArray(), signedData, requestContext.clientSigPub)
+
+                if (!res1) {
+                    throw EbicsInvalidRequestError()
+                }
+
+            } else {
+                throw NotImplementedError()
+            }
+        }
+
+        return EbicsResponse.createForUploadTransferPhase(
+            requestTransactionID,
+            requestSegmentNumber,
+            true,
+            uploadTransaction.orderID
+        )
+    } else {
+        throw NotImplementedError()
+    }
+}
+
+private fun makeReqestContext(requestObject: EbicsRequest): RequestContext {
+    val staticHeader = requestObject.header.static
+    val requestedHostId = staticHeader.hostID
+    val ebicsHost =
+        EbicsHostEntity.find { EbicsHostsTable.hostID.upperCase() eq requestedHostId.toUpperCase() }
+            .firstOrNull()
+    val requestTransactionID = requestObject.header.static.transactionID
+    var downloadTransaction: EbicsDownloadTransactionEntity? = null
+    var uploadTransaction: EbicsUploadTransactionEntity? = null
+    val subscriber = if (requestTransactionID != null) {
+        println("finding subscriber by transactionID $requestTransactionID")
+        downloadTransaction = EbicsDownloadTransactionEntity.findById(requestTransactionID.toUpperCase())
+        if (downloadTransaction != null) {
+            downloadTransaction.subscriber
+        } else {
+            uploadTransaction = EbicsUploadTransactionEntity.findById(requestTransactionID)
+            uploadTransaction?.subscriber
+        }
+    } else {
+        val partnerID = staticHeader.partnerID ?: throw EbicsInvalidRequestError()
+        val userID = staticHeader.userID ?: throw EbicsInvalidRequestError()
+        findEbicsSubscriber(partnerID, userID, staticHeader.systemID)
+    }
+
+    if (ebicsHost == null) throw EbicsInvalidRequestError()
+
+    /**
+     * NOTE: production logic must check against READY state (the
+     * one activated after the subscriber confirms their keys via post)
+     */
+    if (subscriber == null || subscriber.state != SubscriberState.INITIALIZED)
+        throw EbicsSubscriberStateError()
+
+    val hostAuthPriv = CryptoUtil.loadRsaPrivateKey(
+        ebicsHost.authenticationPrivateKey
+            .toByteArray()
+    )
+    val hostEncPriv = CryptoUtil.loadRsaPrivateKey(
+        ebicsHost.encryptionPrivateKey
+            .toByteArray()
+    )
+    val clientAuthPub =
+        CryptoUtil.loadRsaPublicKey(subscriber.authenticationKey!!.rsaPublicKey.toByteArray())
+    val clientEncPub =
+        CryptoUtil.loadRsaPublicKey(subscriber.encryptionKey!!.rsaPublicKey.toByteArray())
+    val clientSigPub =
+        CryptoUtil.loadRsaPublicKey(subscriber.signatureKey!!.rsaPublicKey.toByteArray())
+
+    return RequestContext(
+        hostAuthPriv = hostAuthPriv,
+        hostEncPriv = hostEncPriv,
+        clientAuthPub = clientAuthPub,
+        clientEncPub = clientEncPub,
+        clientSigPub = clientSigPub,
+        ebicsHost = ebicsHost,
+        requestObject = requestObject,
+        subscriber = subscriber,
+        downloadTransaction = downloadTransaction,
+        uploadTransaction = uploadTransaction
+    )
+}
+
 
 suspend fun ApplicationCall.ebicsweb() {
     val requestDocument = receiveEbicsXml()
@@ -673,229 +901,46 @@ suspend fun ApplicationCall.ebicsweb() {
         "ebicsRequest" -> {
             println("ebicsRequest ${XMLUtil.convertDomToString(requestDocument)}")
             val requestObject = requestDocument.toObject<EbicsRequest>()
-            val staticHeader = requestObject.header.static
-            val requestedHostId = staticHeader.hostID
 
             val responseXmlStr = transaction {
                 // Step 1 of 3:  Get information about the host and subscriber
 
-                val ebicsHost =
-                    EbicsHostEntity.find { EbicsHostsTable.hostID.upperCase() eq requestedHostId.toUpperCase() }
-                        .firstOrNull()
-                val requestTransactionID = requestObject.header.static.transactionID
-                var downloadTransaction: EbicsDownloadTransactionEntity? = null
-                var uploadTransaction: EbicsUploadTransactionEntity? =
-                    null
-                val subscriber = if (requestTransactionID != null) {
-                    println("finding subscriber by transactionID $requestTransactionID")
-                    downloadTransaction = EbicsDownloadTransactionEntity.findById(requestTransactionID.toUpperCase())
-                    if (downloadTransaction != null) {
-                        downloadTransaction.subscriber
-                    } else {
-                        uploadTransaction = EbicsUploadTransactionEntity.findById(requestTransactionID)
-                        uploadTransaction?.subscriber
-                    }
-                } else {
-                    val partnerID = staticHeader.partnerID ?: throw EbicsInvalidRequestError()
-                    val userID = staticHeader.userID ?: throw EbicsInvalidRequestError()
-                    findEbicsSubscriber(partnerID, userID, staticHeader.systemID)
-                }
-
-                if (ebicsHost == null) throw EbicsInvalidRequestError()
-
-                /**
-                 * NOTE: production logic must check against READY state (the
-                 * one activated after the subscriber confirms their keys via post)
-                 */
-                if (subscriber == null || subscriber.state != SubscriberState.INITIALIZED)
-                    throw EbicsSubscriberStateError()
-
-                val hostAuthPriv = CryptoUtil.loadRsaPrivateKey(
-                    ebicsHost.authenticationPrivateKey
-                        .toByteArray()
-                )
-                val hostEncPriv = CryptoUtil.loadRsaPrivateKey(
-                    ebicsHost.encryptionPrivateKey
-                        .toByteArray()
-                )
-                val clientAuthPub =
-                    CryptoUtil.loadRsaPublicKey(subscriber.authenticationKey!!.rsaPublicKey.toByteArray())
-                val clientEncPub =
-                    CryptoUtil.loadRsaPublicKey(subscriber.encryptionKey!!.rsaPublicKey.toByteArray())
-                val clientSigPub =
-                    CryptoUtil.loadRsaPublicKey(subscriber.signatureKey!!.rsaPublicKey.toByteArray())
+                val requestContext = makeReqestContext(requestObject)
 
                 // Step 2 of 3:  Validate the signature
-                val verifyResult = XMLUtil.verifyEbicsDocument(requestDocument, clientAuthPub)
+                val verifyResult = XMLUtil.verifyEbicsDocument(requestDocument, requestContext.clientAuthPub)
                 if (!verifyResult) {
                     throw EbicsInvalidRequestError()
                 }
 
+                // Step 3 of 3:  Generate response
                 val ebicsResponse: EbicsResponse = when (requestObject.header.mutable.transactionPhase) {
                     EbicsTypes.TransactionPhaseType.INITIALISATION -> {
-                        val transactionID = EbicsOrderUtil.generateTransactionId()
-                        val orderType =
-                            requestObject.header.static.orderDetails?.orderType ?: throw EbicsInvalidRequestError()
-                        if (staticHeader.numSegments == null) {
-                            println("handling initialization for order type $orderType")
-                            val response = when (orderType) {
-                                "HTD" -> handleEbicsHtd()
-                                "HKD" -> handleEbicsHkd()
-
-                                /* Temporarily handling C52/C53 with same logic */
-                                "C52" -> handleEbicsC52(requestObject.header)
-                                "C53" -> handleEbicsC52(requestObject.header)
-                                else -> throw EbicsInvalidXmlError()
-                            }
-
-                            val compressedResponse = DeflaterInputStream(response.inputStream()).use {
-                                it.readAllBytes()
-                            }
-
-                            val enc = CryptoUtil.encryptEbicsE002(compressedResponse, clientEncPub)
-                            val encodedResponse = Base64.getEncoder().encodeToString(enc.encryptedData)
-
-                            val segmentSize = 4096
-                            val totalSize = encodedResponse.length
-                            val numSegments = ((totalSize + segmentSize - 1) / segmentSize)
-
-                            EbicsDownloadTransactionEntity.new(transactionID) {
-                                this.subscriber = subscriber
-                                this.host = ebicsHost
-                                this.orderType = orderType
-                                this.segmentSize = segmentSize
-                                this.transactionKeyEnc = SerialBlob(enc.encryptedTransactionKey)
-                                this.encodedResponse = encodedResponse
-                                this.numSegments = numSegments
-                                this.receiptReceived = false
-                            }
-                            EbicsResponse.createForDownloadInitializationPhase(
-                                transactionID,
-                                numSegments,
-                                segmentSize,
-                                enc,
-                                encodedResponse
-                            )
+                        if (requestObject.header.static.numSegments == null) {
+                            handleEbicsDownloadTransactionInitialization(requestContext)
                         } else {
-                            val oidn = subscriber.nextOrderID++
-                            if (EbicsOrderUtil.checkOrderIDOverflow(oidn)) throw NotImplementedError()
-                            val orderID = EbicsOrderUtil.computeOrderIDFromNumber(oidn)
-                            val numSegments =
-                                requestObject.header.static.numSegments ?: throw EbicsInvalidRequestError()
-                            val transactionKeyEnc =
-                                requestObject.body.dataTransfer?.dataEncryptionInfo?.transactionKey
-                                    ?: throw EbicsInvalidRequestError()
-                            val encPubKeyDigest =
-                                requestObject.body.dataTransfer?.dataEncryptionInfo?.encryptionPubKeyDigest?.value
-                            if (encPubKeyDigest == null)
-                                throw EbicsInvalidRequestError()
-                            val encSigData = requestObject.body.dataTransfer?.signatureData?.value
-                            if (encSigData == null)
-                                throw EbicsInvalidRequestError()
-                            val decryptedSignatureData = CryptoUtil.decryptEbicsE002(
-                                CryptoUtil.EncryptionResult(
-                                    transactionKeyEnc,
-                                    encPubKeyDigest,
-                                    encSigData
-                                ), hostEncPriv
-                            )
-                            val plainSigData = InflaterInputStream(decryptedSignatureData.inputStream()).use {
-                                it.readAllBytes()
-                            }
-
-                            println("creating upload transaction for transactionID $transactionID")
-                            EbicsUploadTransactionEntity.new(transactionID) {
-                                this.host = ebicsHost
-                                this.subscriber = subscriber
-                                this.lastSeenSegment = 0
-                                this.orderType = orderType
-                                this.orderID = orderID
-                                this.numSegments = numSegments.toInt()
-                                this.transactionKeyEnc = SerialBlob(transactionKeyEnc)
-                            }
-                            val sigObj = XMLUtil.convertStringToJaxb<UserSignatureData>(plainSigData.toString(Charsets.UTF_8))
-                            println("got UserSignatureData: ${plainSigData.toString(Charsets.UTF_8)}")
-                            for (sig in sigObj.value.orderSignatureList ?: listOf()) {
-                                println("inserting order signature for orderID $orderID and orderType $orderType")
-                                EbicsOrderSignatureEntity.new {
-                                    this.orderID = orderID
-                                    this.orderType = orderType
-                                    this.partnerID = sig.partnerID
-                                    this.userID = sig.userID
-                                    this.signatureAlgorithm = sig.signatureVersion
-                                    this.signatureValue = SerialBlob(sig.signatureValue)
-                                }
-                            }
-
-                            EbicsResponse.createForUploadInitializationPhase(transactionID, orderID)
+                            handleEbicsUploadTransactionInitialization(requestContext)
                         }
                     }
                     EbicsTypes.TransactionPhaseType.TRANSFER -> {
-                        requestTransactionID ?: throw EbicsInvalidRequestError()
-                        val requestSegmentNumber =
-                            requestObject.header.mutable.segmentNumber?.value?.toInt() ?: throw EbicsInvalidRequestError()
-                        if (uploadTransaction != null) {
-                            if (requestSegmentNumber == 1 && uploadTransaction.numSegments == 1) {
-                                val encOrderData =
-                                    requestObject.body.dataTransfer?.orderData ?: throw EbicsInvalidRequestError()
-                                val zippedData = CryptoUtil.decryptEbicsE002(
-                                    uploadTransaction.transactionKeyEnc.toByteArray(),
-                                    encOrderData,
-                                    hostEncPriv
-                                )
-                                val unzippedData =
-                                    InflaterInputStream(zippedData.inputStream()).use { it.readAllBytes() }
-                                println("got upload data: ${unzippedData.toString(Charsets.UTF_8)}")
-
-                                val sigs  = EbicsOrderSignatureEntity.find {
-                                    (EbicsOrderSignaturesTable.orderID eq uploadTransaction.orderID) and
-                                            (EbicsOrderSignaturesTable.orderType eq uploadTransaction.orderType)
-                                }
-
-                                if (sigs.count() == 0) {
-                                    throw EbicsInvalidRequestError()
-                                }
-
-                                for (sig in sigs) {
-                                    if (sig.signatureAlgorithm == "A006") {
-
-                                        val signedData = CryptoUtil.digestEbicsOrderA006(unzippedData)
-                                        val res1 = CryptoUtil.verifyEbicsA006(sig.signatureValue.toByteArray(), signedData, clientSigPub)
-
-                                        if (!res1) {
-                                            throw EbicsInvalidRequestError()
-                                        }
-
-                                    } else {
-                                        throw NotImplementedError()
-                                    }
-                                }
-
-                                EbicsResponse.createForUploadTransferPhase(
-                                    requestTransactionID,
-                                    requestSegmentNumber,
-                                    true,
-                                    uploadTransaction.orderID
-                                )
-                            } else {
-                                throw NotImplementedError()
-                            }
-                        } else if (downloadTransaction != null) {
+                        if (requestContext.uploadTransaction != null) {
+                            handleEbicsUploadTransactionTransmission(requestContext)
+                        } else if (requestContext.downloadTransaction != null) {
                             throw NotImplementedError()
                         } else {
                             throw AssertionError()
                         }
                     }
                     EbicsTypes.TransactionPhaseType.RECEIPT -> {
-                        requestTransactionID ?: throw EbicsInvalidRequestError()
-                        if (downloadTransaction == null)
+                        val requestTransactionID = requestObject.header.static.transactionID ?: throw EbicsInvalidRequestError()
+                        if (requestContext.downloadTransaction == null)
                             throw EbicsInvalidRequestError()
                         val receiptCode =
                             requestObject.body.transferReceipt?.receiptCode ?: throw EbicsInvalidRequestError()
                         EbicsResponse.createForDownloadReceiptPhase(requestTransactionID, receiptCode == 0)
                     }
                 }
-                signEbicsResponse(ebicsResponse, hostAuthPriv)
+                signEbicsResponse(ebicsResponse, requestContext.hostAuthPriv)
             }
             respondText(responseXmlStr, ContentType.Application.Xml, HttpStatusCode.OK)
         }
