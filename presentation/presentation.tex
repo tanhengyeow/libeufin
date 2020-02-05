@@ -1,6 +1,7 @@
 \documentclass[pdf]{beamer}
 \mode<presentation>{}
 \title{LibEuFin}
+\subtitle{Libre European Finance}
 \author{Marcello Stanisci}
 
 \begin{document}
@@ -11,8 +12,56 @@
 \end{frame}
 
 % Normal frame
-\begin{frame}{Motivation}
+\begin{frame}{Scenario}
+
+  \begin{center}
+  PSD2 is \textbf{not} a technical document, \iffalse (EXPLAIN) \fi
+  it is a {\it directive}. \iffalse (EXPLAIN) \fi \newline
+  $\rightarrow$ \textbf{Any} financial institution is allowed to offer their
+  own API for their services. \newline
+  $\Rightarrow$ A gigantic amount of APIs and formats spread accross the
+  european digital banking ecosystem.
+  \end{center}
 \end{frame}
 
+\begin{frame}{A few examples}
+  \begin{itemize}
+    \item EBICS: hundreds of pages, just for {\it enclosing} payloads
+    \item ISO20022: hundreds of pages for payloads
+    \item FinTS / HBCI: hundreds of pages
+    \item NextGenPSD2 by Berlin Group 
+    \item Startup banks: N26 / Revoult
+    \item 100\% proprietary: PayPal
+    \item ..
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{Motivation}
+  \begin{center}
+  What a mess!
+  \end{center}
+\end{frame}
+
+\begin{frame}{What is LibEuFin}
+  \begin{itemize}
+  \item Unifies several banking protocols into one.
+  \item Shortens documentation.
+  \item Exempts cryptography operations from the final applications.
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{Evolvings}
+  \begin{itemize}
+    \item Integration with Taler and GnuCash.
+    \item Taler (a former Prototype fund project) found {\it further} funding for the next two years!
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{Final remark}
+  \begin{center}
+  We believe that \textbf{simplicity} is the key for any system to
+  properly function, and that is LibEuFin primary goal.
+  \end{center}
+\end{frame}
 
 \end{document}
