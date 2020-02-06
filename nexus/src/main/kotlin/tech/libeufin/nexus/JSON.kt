@@ -8,6 +8,10 @@ data class NexusError(
     val message: String
 )
 
+data class EbicsStandardOrderParams(
+    val dateRange: EbicsDateRange?
+)
+
 data class EbicsDateRange(
     /**
      * ISO 8601 calendar dates: YEAR-MONTH(01-12)-DAY(1-31)

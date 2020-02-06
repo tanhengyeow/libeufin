@@ -84,9 +84,11 @@ class XMLUtil private constructor() {
             if (myRef.uri != "#xpointer($ebicsXpathExpr)")
                 throw Exception("invalid EBICS XML signature URI: '${myRef.uri}'")
             val xp: XPath = XPathFactory.newInstance().newXPath()
-            val nodeSet = xp.compile("//*[@authenticate='true']/descendant-or-self::node()").evaluate(myRef.here
-                .ownerDocument, XPathConstants
-                .NODESET)
+            val nodeSet = xp.compile("//*[@authenticate='true']/descendant-or-self::node()").evaluate(
+                myRef.here
+                    .ownerDocument, XPathConstants
+                    .NODESET
+            )
             if (nodeSet !is NodeList)
                 throw Exception("invalid type")
             if (nodeSet.length <= 0) {
@@ -100,6 +102,7 @@ class XMLUtil private constructor() {
             return NodeSetData { nodeList.iterator() }
         }
     }
+
     /**
      * Validator for EBICS messages.
      */
@@ -108,6 +111,7 @@ class XMLUtil private constructor() {
         e.printStackTrace()
         throw e
     }
+
     companion object {
         private var cachedEbicsValidator: Validator? = null
         private fun getEbicsValidator(): Validator {
@@ -148,7 +152,8 @@ class XMLUtil private constructor() {
                 }
             }
             val schemaInputs: Array<Source> = listOf("xsd/ebics_H004.xsd", "xsd/ebics_hev.xsd").map {
-                val stream = classLoader.getResourceAsStream(it) ?: throw FileNotFoundException("Schema file $it not found.")
+                val stream =
+                    classLoader.getResourceAsStream(it) ?: throw FileNotFoundException("Schema file $it not found.")
                 StreamSource(stream)
             }.toTypedArray()
             val bundle = sf.newSchema(schemaInputs)
@@ -156,6 +161,7 @@ class XMLUtil private constructor() {
             cachedEbicsValidator = newValidator
             return newValidator
         }
+
         /**
          *
          * @param xmlDoc the XML document to validate
@@ -170,6 +176,7 @@ class XMLUtil private constructor() {
             }
             return true;
         }
+
         /**
          * Validates the DOM against the Schema(s) of this object.
          * @param domDocument DOM to validate
@@ -184,6 +191,7 @@ class XMLUtil private constructor() {
             }
             return true
         }
+
         /**
          * Craft object to be passed to the XML validator.
          * @param xmlString XML body, as read from the POST body.
@@ -194,6 +202,7 @@ class XMLUtil private constructor() {
             val xmlSource = StreamSource(xmlInputStream)
             return validate(xmlSource)
         }
+
         inline fun <reified T> convertJaxbToString(obj: T): String {
             val sw = StringWriter()
             val jc = JAXBContext.newInstance(T::class.java)
@@ -203,8 +212,9 @@ class XMLUtil private constructor() {
             m.marshal(obj, sw)
             return sw.toString()
         }
+
         inline fun <reified T> convertJaxbToDocument(obj: T): Document {
-            val dbf: DocumentBuilderFactory  = DocumentBuilderFactory.newInstance()
+            val dbf: DocumentBuilderFactory = DocumentBuilderFactory.newInstance()
             dbf.isNamespaceAware = true
             val doc = dbf.newDocumentBuilder().newDocument()
             val jc = JAXBContext.newInstance(T::class.java)
@@ -214,6 +224,7 @@ class XMLUtil private constructor() {
             m.marshal(obj, doc)
             return doc
         }
+
         /**
          * Convert a XML string to the JAXB representation.
          *
@@ -228,6 +239,7 @@ class XMLUtil private constructor() {
                 T::class.java
             )
         }
+
         /**
          * Extract String from DOM.
          *
@@ -248,6 +260,7 @@ class XMLUtil private constructor() {
             t.transform(DOMSource(document), StreamResult(sw))
             return sw.toString()
         }
+
         /**
          * Convert a node to a string without the XML declaration or
          * indentation.
@@ -263,6 +276,7 @@ class XMLUtil private constructor() {
             t.transform(DOMSource(node), StreamResult(sw))
             return sw.toString()
         }
+
         /**
          * Convert a DOM document to the JAXB representation.
          *
@@ -276,6 +290,7 @@ class XMLUtil private constructor() {
             val m = jc.createUnmarshaller()
             return m.unmarshal(document, finalType) // document "went" into Jaxb
         }
+
         /**
          * Parse string into XML DOM.
          * @param xmlString the string to parse.
@@ -289,6 +304,7 @@ class XMLUtil private constructor() {
             val builder = factory.newDocumentBuilder()
             return builder.parse(InputSource(xmlInputStream))
         }
+
         fun signEbicsResponse(ebicsResponse: EbicsResponse, privateKey: RSAPrivateCrtKey): String {
             val doc = convertJaxbToDocument(ebicsResponse)
             signEbicsDocument(doc, privateKey)
@@ -296,6 +312,7 @@ class XMLUtil private constructor() {
             println("response: $signedDoc")
             return signedDoc
         }
+
         /**
          * Sign an EBICS document with the authentication and identity signature.
          */
@@ -308,9 +325,11 @@ class XMLUtil private constructor() {
                         else -> throw IllegalArgumentException()
                     }
                 }
+
                 override fun getPrefix(p0: String?): String {
                     throw UnsupportedOperationException()
                 }
+
                 override fun getPrefixes(p0: String?): MutableIterator<String> {
                     throw UnsupportedOperationException()
                 }
@@ -345,6 +364,7 @@ class XMLUtil private constructor() {
             }
             authSigNode.removeChild(innerSig)
         }
+
         fun verifyEbicsDocument(doc: Document, signingPub: PublicKey): Boolean {
             val xpath = XPathFactory.newInstance().newXPath()
             xpath.namespaceContext = object : NamespaceContext {
@@ -354,9 +374,11 @@ class XMLUtil private constructor() {
                         else -> throw IllegalArgumentException()
                     }
                 }
+
                 override fun getPrefix(p0: String?): String {
                     throw UnsupportedOperationException()
                 }
+
                 override fun getPrefixes(p0: String?): MutableIterator<String> {
                     throw UnsupportedOperationException()
                 }

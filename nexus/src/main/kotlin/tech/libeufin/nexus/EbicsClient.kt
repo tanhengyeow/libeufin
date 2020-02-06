@@ -1,15 +1,11 @@
 package tech.libeufin.nexus
 
-import io.ktor.application.call
 import io.ktor.client.HttpClient
-import io.ktor.http.ContentType
 import io.ktor.http.HttpStatusCode
-import io.ktor.response.respondText
 import tech.libeufin.util.CryptoUtil
 import tech.libeufin.util.EbicsOrderUtil
 import tech.libeufin.util.ebics_h004.EbicsRequest
 import tech.libeufin.util.ebics_h004.EbicsResponse
-import tech.libeufin.util.ebics_h004.EbicsTypes
 import tech.libeufin.util.getGregorianCalendarNow
 import java.lang.StringBuilder
 import java.math.BigInteger
@@ -17,7 +13,6 @@ import java.security.interfaces.RSAPrivateCrtKey
 import java.security.interfaces.RSAPublicKey
 import java.util.*
 import java.util.zip.DeflaterInputStream
-import javax.xml.datatype.XMLGregorianCalendar
 
 /**
  * This class is a mere container that keeps data found
@@ -41,48 +36,6 @@ data class EbicsSubscriberDetails(
     val customerSignPriv: RSAPrivateCrtKey
 )
 
-
-fun createDownloadInitializationPhase(
-    subscriberData: EbicsSubscriberDetails,
-    orderType: String,
-    nonce: ByteArray,
-    date: XMLGregorianCalendar
-): EbicsRequest {
-    return EbicsRequest.createForDownloadInitializationPhase(
-        subscriberData.userId,
-        subscriberData.partnerId,
-        subscriberData.hostId,
-        nonce,
-        date,
-        subscriberData.bankEncPub ?: throw BankKeyMissing(
-            HttpStatusCode.PreconditionFailed
-        ),
-        subscriberData.bankAuthPub ?: throw BankKeyMissing(
-            HttpStatusCode.PreconditionFailed
-        ),
-        orderType
-    )
-}
-
-
-fun createUploadInitializationPhase(
-    subscriberData: EbicsSubscriberDetails,
-    orderType: String,
-    cryptoBundle: CryptoUtil.EncryptionResult
-): EbicsRequest {
-    return EbicsRequest.createForUploadInitializationPhase(
-        cryptoBundle,
-        subscriberData.hostId,
-        getNonce(128),
-        subscriberData.partnerId,
-        subscriberData.userId,
-        getGregorianCalendarNow(),
-        subscriberData.bankAuthPub!!,
-        subscriberData.bankEncPub!!,
-        BigInteger.ONE,
-        orderType
-    )
-}
 
 
 /**
@@ -134,11 +87,19 @@ suspend fun doEbicsDownloadTransaction(
     subscriberDetails: EbicsSubscriberDetails,
     orderType: String
 ): ByteArray {
-    val initDownloadRequest = createDownloadInitializationPhase(
-        subscriberDetails,
-        orderType,
+    val initDownloadRequest = EbicsRequest.createForDownloadInitializationPhase(
+        subscriberDetails.userId,
+        subscriberDetails.partnerId,
+        subscriberDetails.hostId,
         getNonce(128),
-        getGregorianCalendarNow()
+        getGregorianCalendarNow(),
+        subscriberDetails.bankEncPub ?: throw BankKeyMissing(
+            HttpStatusCode.PreconditionFailed
+        ),
+        subscriberDetails.bankAuthPub ?: throw BankKeyMissing(
+            HttpStatusCode.PreconditionFailed
+        ),
+        orderType
     )
     val payloadChunks = LinkedList<String>();
     val initResponse = client.postToBankSigned<EbicsRequest, EbicsResponse>(
@@ -193,7 +154,7 @@ suspend fun doEbicsUploadTransaction(
     if (subscriberDetails.bankEncPub == null) {
         throw InvalidSubscriberStateError("bank encryption key unknown, request HPB first")
     }
-    val usd_encrypted = CryptoUtil.encryptEbicsE002(
+    val userSignatureDateEncrypted = CryptoUtil.encryptEbicsE002(
         EbicsOrderUtil.encodeOrderDataXml(
             signOrder(
                 payload,
@@ -206,10 +167,17 @@ suspend fun doEbicsUploadTransaction(
     )
     val response = client.postToBankSignedAndVerify<EbicsRequest, EbicsResponse>(
         subscriberDetails.ebicsUrl,
-        createUploadInitializationPhase(
-            subscriberDetails,
-            orderType,
-            usd_encrypted
+        EbicsRequest.createForUploadInitializationPhase(
+            userSignatureDateEncrypted,
+            subscriberDetails.hostId,
+            getNonce(128),
+            subscriberDetails.partnerId,
+            subscriberDetails.userId,
+            getGregorianCalendarNow(),
+            subscriberDetails.bankAuthPub!!,
+            subscriberDetails.bankEncPub!!,
+            BigInteger.ONE,
+            orderType
         ),
         subscriberDetails.bankAuthPub!!,
         subscriberDetails.customerAuthPriv
@@ -228,7 +196,7 @@ suspend fun doEbicsUploadTransaction(
     val encryptedPayload = CryptoUtil.encryptEbicsE002withTransactionKey(
         compressedInnerPayload,
         subscriberDetails.bankEncPub!!,
-        usd_encrypted.plainTransactionKey!!
+        userSignatureDateEncrypted.plainTransactionKey!!
     )
     val tmp = EbicsRequest.createForUploadTransferPhase(
         subscriberDetails.hostId,

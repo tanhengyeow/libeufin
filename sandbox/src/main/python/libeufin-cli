@@ -405,7 +405,7 @@ def c52(obj, account_id, nexus_base_url):
 def ptk(obj, account_id, nexus_base_url):
     url = urljoin(nexus_base_url, "/ebics/subscribers/{}/sendPTK".format(account_id))
     try:
-        resp = post(url)
+        resp = post(url, json=dict())
     except Exception:
         print("Could not reach the bank")
         return

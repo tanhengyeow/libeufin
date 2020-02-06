@@ -19,13 +19,16 @@ class XmlElementBuilder(val w: XMLStreamWriter) {
         this.element(path, f)
         w.writeEndElement()
     }
+
     fun element(path: String, f: XmlElementBuilder.() -> Unit = {}) {
         val splitPath = path.trim('/').split("/").toMutableList()
         this.element(splitPath, f)
     }
+
     fun attribute(name: String, value: String) {
         w.writeAttribute(name, value)
     }
+
     fun text(content: String) {
         w.writeCharacters(content)
     }
@@ -42,12 +45,15 @@ class XmlDocumentBuilder {
         set(w: XMLStreamWriter) {
             maybeWriter = w
         }
+
     fun namespace(prefix: String, uri: String) {
         writer.setPrefix(prefix, uri)
     }
+
     fun defaultNamespace(uri: String) {
         writer.setDefaultNamespace(uri)
     }
+
     fun root(name: String, f: XmlElementBuilder.() -> Unit) {
         val elementBuilder = XmlElementBuilder(writer)
         writer.writeStartElement(name)
@@ -75,7 +81,7 @@ fun constructXml(indent: Boolean = false, f: XmlDocumentBuilder.() -> Unit): Str
 class XmlDocumentDestructor {
 }
 
-fun <T>destructXml(f: XmlDocumentDestructor.() -> T): T {
+fun <T> destructXml(f: XmlDocumentDestructor.() -> T): T {
     val d = XmlDocumentDestructor()
     return f(d)
 }

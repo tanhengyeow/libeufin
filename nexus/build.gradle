@@ -35,8 +35,6 @@ dependencies {
     implementation "javax.activation:activation:1.1"
     implementation "org.glassfish.jaxb:jaxb-runtime:2.3.1"
     implementation 'org.apache.santuario:xmlsec:2.1.4'
-    kapt 'com.squareup.moshi:moshi-kotlin-codegen:1.8.0'
-    compile 'com.ryanharter.ktor:ktor-moshi:1.0.1'
 
     testImplementation group: 'junit', name: 'junit', version: '4.12'
 }

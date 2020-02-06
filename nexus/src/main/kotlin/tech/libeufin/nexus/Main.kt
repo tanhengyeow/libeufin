@@ -19,8 +19,6 @@
 
 package tech.libeufin.nexus
 
-import com.ryanharter.ktor.moshi.moshi
-import com.squareup.moshi.JsonDataException
 import io.ktor.application.ApplicationCallPipeline
 import io.ktor.application.call
 import io.ktor.application.install
@@ -146,8 +144,6 @@ fun main() {
             this.logger = tech.libeufin.nexus.logger
         }
         install(ContentNegotiation) {
-            moshi {
-            }
             gson {
                 setDateFormat(DateFormat.LONG)
                 setPrettyPrinting()
@@ -157,11 +153,6 @@ fun main() {
             exception<Throwable> { cause ->
                 logger.error("Exception while handling '${call.request.uri}'", cause)
                 call.respondText("Internal server error.\n", ContentType.Text.Plain, HttpStatusCode.InternalServerError)
-            }
-
-            exception<JsonDataException> { cause ->
-                logger.error("Exception while handling '${call.request.uri}'", cause)
-                call.respondText("Bad request\n", ContentType.Text.Plain, HttpStatusCode.BadRequest)
             }
 
             exception<NotAnIdError> { cause ->
@@ -252,6 +243,8 @@ fun main() {
 
             post("/ebics/subscribers/{id}/sendPTK") {
                 val id = expectId(call.parameters["id"])
+                val params = call.receive<EbicsStandardOrderParams>()
+                println("PTK order params: $params")
                 val subscriberData = getSubscriberDetailsFromId(id)
                 val response = doEbicsDownloadTransaction(client, subscriberData, "PTK")
                 call.respondText(

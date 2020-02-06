@@ -280,6 +280,10 @@ private fun handleEbicsTSD(requestContext: RequestContext): ByteArray {
     return "Hello World".toByteArray()
 }
 
+private fun handleEbicsPTK(requestContext: RequestContext): ByteArray {
+    return "Hello I am a dummy PTK response.".toByteArray()
+}
+
 
 private fun handleEbicsC52(requestContext: RequestContext): ByteArray {
     val subscriber = requestContext.subscriber
@@ -650,6 +654,7 @@ private fun handleEbicsDownloadTransactionInitialization(requestContext: Request
         "C52" -> handleEbicsC52(requestContext)
         "C53" -> handleEbicsC52(requestContext)
         "TSD" -> handleEbicsTSD(requestContext)
+        "PTK" -> handleEbicsPTK(requestContext)
         else -> throw EbicsInvalidXmlError()
     }
 

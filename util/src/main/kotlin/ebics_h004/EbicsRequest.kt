@@ -2,8 +2,6 @@ package tech.libeufin.util.ebics_h004
 
 import org.apache.xml.security.binding.xmldsig.SignatureType
 import tech.libeufin.util.CryptoUtil
-import tech.libeufin.util.LOGGER
-import tech.libeufin.util.XMLUtil
 import java.math.BigInteger
 import java.security.interfaces.RSAPublicKey
 import java.util.*
@@ -11,7 +9,6 @@ import javax.xml.bind.annotation.*
 import javax.xml.bind.annotation.adapters.CollapsedStringAdapter
 import javax.xml.bind.annotation.adapters.HexBinaryAdapter
 import javax.xml.bind.annotation.adapters.XmlJavaTypeAdapter
-import javax.xml.datatype.DatatypeConstants
 import javax.xml.datatype.XMLGregorianCalendar
 
 @XmlAccessorType(XmlAccessType.NONE)
@@ -320,44 +317,6 @@ class EbicsRequest {
 
         }
 
-        /* Take a time range (useful for C52 and C53) */
-        fun createForDownloadInitializationPhase(
-            userId: String,
-            partnerId: String,
-            hostId: String,
-            nonceArg: ByteArray,
-            date: XMLGregorianCalendar,
-            bankEncPub: RSAPublicKey,
-            bankAuthPub: RSAPublicKey,
-            aOrderType: String,
-            dateStart: XMLGregorianCalendar,
-            dateEnd: XMLGregorianCalendar
-        ): EbicsRequest {
-
-            /**
-             * Make sure there is NO time portion.
-             */
-            dateStart.timezone = DatatypeConstants.FIELD_UNDEFINED
-            dateEnd.timezone = DatatypeConstants.FIELD_UNDEFINED
-
-            val tmp = createForDownloadInitializationPhase(
-                userId,
-                partnerId,
-                hostId,
-                nonceArg,
-                date,
-                bankEncPub,
-                bankAuthPub,
-                aOrderType
-            )
-
-            (tmp.header.static.orderDetails?.orderParams as StandardOrderParams).dateRange = DateRange().apply {
-                start = dateStart
-                end = dateEnd
-            }
-
-            return tmp
-        }
 
         fun createForDownloadInitializationPhase(
             userId: String,
@@ -369,7 +328,6 @@ class EbicsRequest {
             bankAuthPub: RSAPublicKey,
             aOrderType: String
         ): EbicsRequest {
-
             return EbicsRequest().apply {
                 version = "H004"
                 revision = 1
@@ -479,8 +437,6 @@ class EbicsRequest {
                     }
                 }
             }
-
-
         }
 
         fun createForUploadTransferPhase(
