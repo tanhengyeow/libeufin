@@ -1,6 +1,8 @@
 import org.apache.xml.security.binding.xmldsig.SignatureType
 import org.junit.Test
 import org.junit.Assert.*
+import org.slf4j.Logger
+import org.slf4j.LoggerFactory
 import tech.libeufin.util.ebics_h004.EbicsKeyManagementResponse
 import tech.libeufin.util.ebics_h004.EbicsResponse
 import tech.libeufin.util.ebics_h004.EbicsTypes
@@ -10,8 +12,10 @@ import tech.libeufin.util.XMLUtil
 import java.security.KeyPairGenerator
 import java.util.*
 import javax.xml.transform.stream.StreamSource
-import tech.libeufin.util.LOGGER
 import tech.libeufin.util.XMLUtil.Companion.signEbicsResponse
+
+val logger: Logger = LoggerFactory.getLogger("tech.libeufin.util")
+
 
 class XmlUtilTest {
 
@@ -64,7 +68,7 @@ class XmlUtilTest {
             </HTDResponseOrderData>""".trimIndent()
         )
 
-        LOGGER.debug(tmp.value.partnerInfo.orderInfoList[0].description)
+        logger.debug(tmp.value.partnerInfo.orderInfoList[0].description)
     }
 
     @Test
@@ -73,7 +77,7 @@ class XmlUtilTest {
             XMLUtil.convertStringToJaxb<EbicsKeyManagementResponse>("<malformed xml>")
         } catch (e: javax.xml.bind.UnmarshalException) {
             // just ensuring this is the exception
-            LOGGER.info("caught")
+            logger.info("caught")
             return
         }
         assertTrue(false)

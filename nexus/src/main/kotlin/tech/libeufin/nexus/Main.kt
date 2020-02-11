@@ -288,8 +288,41 @@ fun main() {
                 }
             }
 
+            post("/ebics/subscribers/fetch-accounts") {
+                // FIXME(marcello): fetch accounts via HTD and store it in the database
+            }
+
+            get("/ebics/subscribers/{id}/accounts") {
+                // FIXME(marcello): return bank accounts associated with the subscriber,
+                // this information is only avaiable *after* HTD or HKD has been called
+            }
+
+            post("/ebics/subscribers/{id}/accounts/{acctid}/prepare-payment") {
+                // FIXME(marcello):  Put transaction in the database, generate PAIN.001 document
+            }
+
+            get("/ebics/subscribers/{id}/payments") {
+                // FIXME(marcello):  List all outgoing transfers and their status
+            }
+
+            post("/ebics/subscribers/{id}/fetch-payment-status") {
+                // FIXME(marcello?):  Fetch pain.002 and mark transfers in it as "failed"
+            }
+
             post("/ebics/subscribers/{id}/collect-transactions-c52") {
-                // Download C52 and store the result in the right database table
+                // FIXME(florian): Download C52 and store the result in the right database table
+            }
+
+            post("/ebics/subscribers/{id}/collect-transactions-c53") {
+                // FIXME(florian): Download C52 and store the result in the right database table
+            }
+
+            post("/ebics/subscribers/{id}/collect-transactions-c54") {
+                // FIXME(florian): Download C52 and store the result in the right database table
+            }
+
+            get("/ebics/subscribers/{id}/transactions") {
+                // FIXME(florian): Display local transaction history stored by the nexus.
             }
 
             post("/ebics/subscribers/{id}/sendC52") {

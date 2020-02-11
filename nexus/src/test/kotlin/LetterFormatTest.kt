@@ -4,6 +4,17 @@ import org.junit.Test
 import tech.libeufin.nexus.chunkString
 import tech.libeufin.nexus.getNonce
 import tech.libeufin.util.toHexString
+import java.security.SecureRandom
+
+/**
+ * @param size in bits
+ */
+private fun getNonce(size: Int): ByteArray {
+    val sr = SecureRandom()
+    val ret = ByteArray(size / 8)
+    sr.nextBytes(ret)
+    return ret
+}
 
 class LetterFormatTest {
 
