@@ -230,7 +230,7 @@ class EbicsRequest {
         var signatureData: SignatureData? = null
 
         @get:XmlElement(name = "OrderData")
-        var orderData: ByteArray? = null
+        var orderData: String? = null
 
         @get:XmlElement(name = "HostID")
         var hostId: String? = null
@@ -317,7 +317,6 @@ class EbicsRequest {
 
         }
 
-
         fun createForDownloadInitializationPhase(
             userId: String,
             partnerId: String,
@@ -326,7 +325,8 @@ class EbicsRequest {
             date: XMLGregorianCalendar,
             bankEncPub: RSAPublicKey,
             bankAuthPub: RSAPublicKey,
-            aOrderType: String
+            myOrderType: String,
+            myOrderParams: OrderParams
         ): EbicsRequest {
             return EbicsRequest().apply {
                 version = "H004"
@@ -343,9 +343,9 @@ class EbicsRequest {
                         timestamp = date
                         partnerID = partnerId
                         orderDetails = OrderDetails().apply {
-                            orderType = aOrderType
+                            orderType = myOrderType
                             orderAttribute = "DZHNN"
-                            orderParams = StandardOrderParams()
+                            orderParams = myOrderParams
                         }
                         bankPubKeyDigests = BankPubKeyDigests().apply {
                             authentication = EbicsTypes.PubKeyDigest().apply {
@@ -370,7 +370,8 @@ class EbicsRequest {
         }
 
         fun createForUploadInitializationPhase(
-            cryptoBundle: CryptoUtil.EncryptionResult,
+            encryptedTransactionKey: ByteArray,
+            encryptedSignatureData: ByteArray,
             hostId: String,
             nonceArg: ByteArray,
             partnerId: String,
@@ -379,7 +380,8 @@ class EbicsRequest {
             bankAuthPub: RSAPublicKey,
             bankEncPub: RSAPublicKey,
             segmentsNumber: BigInteger,
-            aOrderType: String
+            aOrderType: String,
+            aOrderParams: OrderParams
         ): EbicsRequest {
 
             return EbicsRequest().apply {
@@ -396,7 +398,7 @@ class EbicsRequest {
                         orderDetails = OrderDetails().apply {
                             orderType = aOrderType
                             orderAttribute = "OZHNN"
-                            orderParams = StandardOrderParams()
+                            orderParams = aOrderParams
                         }
                         bankPubKeyDigests = BankPubKeyDigests().apply {
                             authentication = EbicsTypes.PubKeyDigest().apply {
@@ -423,10 +425,10 @@ class EbicsRequest {
                     dataTransfer = DataTransfer().apply {
                         signatureData = SignatureData().apply {
                             authenticate = true
-                            value = cryptoBundle.encryptedData
+                            value = encryptedSignatureData
                         }
                         dataEncryptionInfo = EbicsTypes.DataEncryptionInfo().apply {
-                            transactionKey = cryptoBundle.encryptedTransactionKey
+                            transactionKey = encryptedTransactionKey
                             authenticate = true
                             encryptionPubKeyDigest = EbicsTypes.PubKeyDigest().apply {
                                 algorithm = "http://www.w3.org/2001/04/xmlenc#sha256"
@@ -443,10 +445,8 @@ class EbicsRequest {
             hostId: String,
             transactionId: String,
             segNumber: BigInteger,
-            encryptedData: ByteArray
-
+            encryptedData: String
         ): EbicsRequest {
-
             return EbicsRequest().apply {
                 header = Header().apply {
                     version = "H004"

@@ -22,7 +22,7 @@ package tech.libeufin.nexus
 import io.ktor.application.ApplicationCallPipeline
 import io.ktor.application.call
 import io.ktor.application.install
-import io.ktor.client.*
+import io.ktor.client.HttpClient
 import io.ktor.features.CallLogging
 import io.ktor.features.ContentNegotiation
 import io.ktor.features.StatusPages
@@ -33,9 +33,14 @@ import io.ktor.request.receive
 import io.ktor.request.uri
 import io.ktor.response.respond
 import io.ktor.response.respondText
-import io.ktor.routing.*
+import io.ktor.routing.get
+import io.ktor.routing.post
+import io.ktor.routing.routing
 import io.ktor.server.engine.embeddedServer
 import io.ktor.server.netty.Netty
+import org.apache.commons.compress.archivers.zip.ZipArchiveOutputStream
+import org.apache.commons.compress.archivers.zip.ZipFile
+import org.apache.commons.compress.utils.SeekableInMemoryByteChannel
 import org.jetbrains.exposed.exceptions.ExposedSQLException
 import org.jetbrains.exposed.sql.StdOutSqlLogger
 import org.jetbrains.exposed.sql.addLogger
@@ -43,21 +48,15 @@ import org.jetbrains.exposed.sql.transactions.transaction
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 import org.slf4j.event.Level
-import tech.libeufin.util.ebics_h004.*
 import tech.libeufin.util.*
-import java.text.DateFormat
-import javax.sql.rowset.serial.SerialBlob
-import tech.libeufin.util.toHexString
-import tech.libeufin.util.CryptoUtil
-import tech.libeufin.util.EbicsOrderUtil
-import tech.libeufin.util.ebics_hev.HEVRequest
-import tech.libeufin.util.ebics_hev.HEVResponse
-import java.math.BigInteger
+import tech.libeufin.util.InvalidSubscriberStateError
+import java.lang.StringBuilder
 import java.security.interfaces.RSAPublicKey
+import java.text.DateFormat
 import java.text.SimpleDateFormat
 import java.util.*
-import java.util.zip.DeflaterInputStream
 import javax.crypto.EncryptedPrivateKeyInfo
+import javax.sql.rowset.serial.SerialBlob
 
 fun testData() {
     val pairA = CryptoUtil.generateRsaKeyPair(2048)
@@ -97,7 +96,7 @@ data class BankInvalidResponse(val statusCode: HttpStatusCode) : Exception("Miss
 
 val logger: Logger = LoggerFactory.getLogger("tech.libeufin.nexus")
 
-fun getSubscriberDetailsFromId(id: String): EbicsSubscriberDetails {
+fun getSubscriberDetailsFromId(id: String): EbicsClientSubscriberDetails {
     return transaction {
         val subscriber = EbicsSubscriberEntity.findById(
             id
@@ -116,7 +115,7 @@ fun getSubscriberDetailsFromId(id: String): EbicsSubscriberDetails {
                 subscriber.bankEncryptionPublicKey?.toByteArray()!!
             )
         }
-        EbicsSubscriberDetails(
+        EbicsClientSubscriberDetails(
             bankAuthPub = bankAuthPubValue,
             bankEncPub = bankEncPubValue,
 
@@ -243,123 +242,288 @@ fun main() {
 
             post("/ebics/subscribers/{id}/sendPTK") {
                 val id = expectId(call.parameters["id"])
-                val params = call.receive<EbicsStandardOrderParams>()
-                println("PTK order params: $params")
+                val paramsJson = call.receive<EbicsStandardOrderParamsJson>()
+                val orderParams = paramsJson.toOrderParams()
+                println("PTK order params: $orderParams")
                 val subscriberData = getSubscriberDetailsFromId(id)
-                val response = doEbicsDownloadTransaction(client, subscriberData, "PTK")
-                call.respondText(
-                    response.toString(Charsets.UTF_8),
-                    ContentType.Text.Plain,
-                    HttpStatusCode.OK
-                )
+                val response = doEbicsDownloadTransaction(client, subscriberData, "PTK", orderParams)
+                when (response) {
+                    is EbicsDownloadSuccessResult -> {
+                        call.respondText(
+                            response.orderData.toString(Charsets.UTF_8),
+                            ContentType.Text.Plain,
+                            HttpStatusCode.OK
+                        )
+                    }
+                    is EbicsDownloadBankErrorResult -> {
+                        call.respond(
+                            HttpStatusCode.BadGateway,
+                            EbicsErrorJson(EbicsErrorDetailJson("bankError", response.returnCode.errorCode))
+                        )
+                    }
+                }
                 return@post
             }
 
             post("/ebics/subscribers/{id}/sendHAC") {
                 val id = expectId(call.parameters["id"])
+                val paramsJson = call.receive<EbicsStandardOrderParamsJson>()
+                val orderParams = paramsJson.toOrderParams()
                 val subscriberData = getSubscriberDetailsFromId(id)
-                val response = doEbicsDownloadTransaction(client, subscriberData, "HAC")
-                call.respondText(
-                    response.toString(Charsets.UTF_8),
-                    ContentType.Text.Plain,
-                    HttpStatusCode.OK
-                )
-                return@post
+                val response = doEbicsDownloadTransaction(client, subscriberData, "HAC", orderParams)
+                when (response) {
+                    is EbicsDownloadSuccessResult -> {
+                        call.respondText(
+                            response.orderData.toString(Charsets.UTF_8),
+                            ContentType.Text.Plain,
+                            HttpStatusCode.OK
+                        )
+                    }
+                    is EbicsDownloadBankErrorResult -> {
+                        call.respond(
+                            HttpStatusCode.BadGateway,
+                            EbicsErrorJson(EbicsErrorDetailJson("bankError", response.returnCode.errorCode))
+                        )
+                    }
+                }
             }
 
             post("/ebics/subscribers/{id}/sendC52") {
                 val id = expectId(call.parameters["id"])
+                val paramsJson = call.receive<EbicsStandardOrderParamsJson>()
+                val orderParams = paramsJson.toOrderParams()
                 val subscriberData = getSubscriberDetailsFromId(id)
-                val response = doEbicsDownloadTransaction(client, subscriberData, "C52")
-                call.respondText(
-                    response.toString(Charsets.UTF_8),
-                    ContentType.Text.Plain,
-                    HttpStatusCode.OK
-                )
+                val response = doEbicsDownloadTransaction(client, subscriberData, "C52", orderParams)
+                when (response) {
+                    is EbicsDownloadSuccessResult -> {
+                        call.respondText(
+                            response.orderData.toString(Charsets.UTF_8),
+                            ContentType.Text.Plain,
+                            HttpStatusCode.OK
+                        )
+                    }
+                    is EbicsDownloadBankErrorResult -> {
+                        call.respond(
+                            HttpStatusCode.BadGateway,
+                            EbicsErrorJson(EbicsErrorDetailJson("bankError", response.returnCode.errorCode))
+                        )
+                    }
+                }
+            }
+
+            post("/ebics/subscribers/{id}/sendC53") {
+                val id = expectId(call.parameters["id"])
+                val paramsJson = call.receive<EbicsStandardOrderParamsJson>()
+                val orderParams = paramsJson.toOrderParams()
+                val subscriberData = getSubscriberDetailsFromId(id)
+                val response = doEbicsDownloadTransaction(client, subscriberData, "C53", orderParams)
+                when (response) {
+                    is EbicsDownloadSuccessResult -> {
+                        val mem = SeekableInMemoryByteChannel(response.orderData)
+                        val zipFile = ZipFile(mem)
+
+                        val s = StringBuilder()
+
+                        zipFile.getEntriesInPhysicalOrder().iterator().forEach { entry ->
+                            s.append("<=== File ${entry.name} ===>\n")
+                            s.append(zipFile.getInputStream(entry).readAllBytes().toString(Charsets.UTF_8))
+                            s.append("\n")
+                        }
+
+                        call.respondText(
+                            s.toString(),
+                            ContentType.Text.Plain,
+                            HttpStatusCode.OK
+                        )
+                    }
+                    is EbicsDownloadBankErrorResult -> {
+                        call.respond(
+                            HttpStatusCode.BadGateway,
+                            EbicsErrorJson(EbicsErrorDetailJson("bankError", response.returnCode.errorCode))
+                        )
+                    }
+                }
+            }
+
+            post("/ebics/subscribers/{id}/sendC54") {
+                val id = expectId(call.parameters["id"])
+                val paramsJson = call.receive<EbicsStandardOrderParamsJson>()
+                val orderParams = paramsJson.toOrderParams()
+                val subscriberData = getSubscriberDetailsFromId(id)
+                val response = doEbicsDownloadTransaction(client, subscriberData, "C54", orderParams)
+                when (response) {
+                    is EbicsDownloadSuccessResult -> {
+                        call.respondText(
+                            response.orderData.toString(Charsets.UTF_8),
+                            ContentType.Text.Plain,
+                            HttpStatusCode.OK
+                        )
+                    }
+                    is EbicsDownloadBankErrorResult -> {
+                        call.respond(
+                            HttpStatusCode.BadGateway,
+                            EbicsErrorJson(EbicsErrorDetailJson("bankError", response.returnCode.errorCode))
+                        )
+                    }
+                }
                 return@post
             }
 
             post("/ebics/subscribers/{id}/sendHtd") {
                 val id = expectId(call.parameters["id"])
+                val paramsJson = call.receive<EbicsStandardOrderParamsJson>()
+                val orderParams = paramsJson.toOrderParams()
                 val subscriberData = getSubscriberDetailsFromId(id)
-                val response = doEbicsDownloadTransaction(client, subscriberData, "HTD")
-                call.respondText(
-                    response.toString(Charsets.UTF_8),
-                    ContentType.Text.Plain,
-                    HttpStatusCode.OK
-                )
+                val response = doEbicsDownloadTransaction(client, subscriberData, "HTD", orderParams)
+                when (response) {
+                    is EbicsDownloadSuccessResult -> {
+                        call.respondText(
+                            response.orderData.toString(Charsets.UTF_8),
+                            ContentType.Text.Plain,
+                            HttpStatusCode.OK
+                        )
+                    }
+                    is EbicsDownloadBankErrorResult -> {
+                        call.respond(
+                            HttpStatusCode.BadGateway,
+                            EbicsErrorJson(EbicsErrorDetailJson("bankError", response.returnCode.errorCode))
+                        )
+                    }
+                }
                 return@post
             }
 
             post("/ebics/subscribers/{id}/sendHAA") {
                 val id = expectId(call.parameters["id"])
                 val subscriberData = getSubscriberDetailsFromId(id)
-                val response = doEbicsDownloadTransaction(client, subscriberData, "HAA")
-                call.respondText(
-                    response.toString(Charsets.UTF_8),
-                    ContentType.Text.Plain,
-                    HttpStatusCode.OK
-                )
+                val response = doEbicsDownloadTransaction(client, subscriberData, "HAA", EbicsStandardOrderParams())
+                when (response) {
+                    is EbicsDownloadSuccessResult -> {
+                        call.respondText(
+                            response.orderData.toString(Charsets.UTF_8),
+                            ContentType.Text.Plain,
+                            HttpStatusCode.OK
+                        )
+                    }
+                    is EbicsDownloadBankErrorResult -> {
+                        call.respond(
+                            HttpStatusCode.BadGateway,
+                            EbicsErrorJson(EbicsErrorDetailJson("bankError", response.returnCode.errorCode))
+                        )
+                    }
+                }
                 return@post
             }
 
             post("/ebics/subscribers/{id}/sendHVZ") {
                 val id = expectId(call.parameters["id"])
                 val subscriberData = getSubscriberDetailsFromId(id)
-                val response = doEbicsDownloadTransaction(client, subscriberData, "HVZ")
-                call.respondText(
-                    response.toString(Charsets.UTF_8),
-                    ContentType.Text.Plain,
-                    HttpStatusCode.OK
-                )
+                // FIXME: order params are wrong
+                val response = doEbicsDownloadTransaction(client, subscriberData, "HVZ", EbicsStandardOrderParams())
+                when (response) {
+                    is EbicsDownloadSuccessResult -> {
+                        call.respondText(
+                            response.orderData.toString(Charsets.UTF_8),
+                            ContentType.Text.Plain,
+                            HttpStatusCode.OK
+                        )
+                    }
+                    is EbicsDownloadBankErrorResult -> {
+                        call.respond(
+                            HttpStatusCode.BadGateway,
+                            EbicsErrorJson(EbicsErrorDetailJson("bankError", response.returnCode.errorCode))
+                        )
+                    }
+                }
                 return@post
             }
 
             post("/ebics/subscribers/{id}/sendHVU") {
                 val id = expectId(call.parameters["id"])
                 val subscriberData = getSubscriberDetailsFromId(id)
-                val response = doEbicsDownloadTransaction(client, subscriberData, "HVU")
-                call.respondText(
-                    response.toString(Charsets.UTF_8),
-                    ContentType.Text.Plain,
-                    HttpStatusCode.OK
-                )
+                // FIXME: order params are wrong
+                val response = doEbicsDownloadTransaction(client, subscriberData, "HVU", EbicsStandardOrderParams())
+                when (response) {
+                    is EbicsDownloadSuccessResult -> {
+                        call.respondText(
+                            response.orderData.toString(Charsets.UTF_8),
+                            ContentType.Text.Plain,
+                            HttpStatusCode.OK
+                        )
+                    }
+                    is EbicsDownloadBankErrorResult -> {
+                        call.respond(
+                            HttpStatusCode.BadGateway,
+                            EbicsErrorJson(EbicsErrorDetailJson("bankError", response.returnCode.errorCode))
+                        )
+                    }
+                }
                 return@post
             }
 
             post("/ebics/subscribers/{id}/sendHPD") {
                 val id = expectId(call.parameters["id"])
                 val subscriberData = getSubscriberDetailsFromId(id)
-                val response = doEbicsDownloadTransaction(client, subscriberData, "HPD")
-                call.respondText(
-                    response.toString(Charsets.UTF_8),
-                    ContentType.Text.Plain,
-                    HttpStatusCode.OK
-                )
+                val response = doEbicsDownloadTransaction(client, subscriberData, "HPD", EbicsStandardOrderParams())
+                when (response) {
+                    is EbicsDownloadSuccessResult -> {
+                        call.respondText(
+                            response.orderData.toString(Charsets.UTF_8),
+                            ContentType.Text.Plain,
+                            HttpStatusCode.OK
+                        )
+                    }
+                    is EbicsDownloadBankErrorResult -> {
+                        call.respond(
+                            HttpStatusCode.BadGateway,
+                            EbicsErrorJson(EbicsErrorDetailJson("bankError", response.returnCode.errorCode))
+                        )
+                    }
+                }
                 return@post
             }
 
             post("/ebics/subscribers/{id}/sendHKD") {
                 val id = expectId(call.parameters["id"])
                 val subscriberData = getSubscriberDetailsFromId(id)
-                val response = doEbicsDownloadTransaction(client, subscriberData, "HKD")
-                call.respondText(
-                    response.toString(Charsets.UTF_8),
-                    ContentType.Text.Plain,
-                    HttpStatusCode.OK
-                )
+                val response = doEbicsDownloadTransaction(client, subscriberData, "HKD", EbicsStandardOrderParams())
+                when (response) {
+                    is EbicsDownloadSuccessResult -> {
+                        call.respondText(
+                            response.orderData.toString(Charsets.UTF_8),
+                            ContentType.Text.Plain,
+                            HttpStatusCode.OK
+                        )
+                    }
+                    is EbicsDownloadBankErrorResult -> {
+                        call.respond(
+                            HttpStatusCode.BadGateway,
+                            EbicsErrorJson(EbicsErrorDetailJson("bankError", response.returnCode.errorCode))
+                        )
+                    }
+                }
                 return@post
             }
 
             post("/ebics/subscribers/{id}/sendTSD") {
                 val id = expectId(call.parameters["id"])
                 val subscriberData = getSubscriberDetailsFromId(id)
-                val response = doEbicsDownloadTransaction(client, subscriberData, "TSD")
-                call.respondText(
-                    response.toString(Charsets.UTF_8),
-                    ContentType.Text.Plain,
-                    HttpStatusCode.OK
-                )
+                val response = doEbicsDownloadTransaction(client, subscriberData, "TSD", EbicsGenericOrderParams())
+                when (response) {
+                    is EbicsDownloadSuccessResult -> {
+                        call.respondText(
+                            response.orderData.toString(Charsets.UTF_8),
+                            ContentType.Text.Plain,
+                            HttpStatusCode.OK
+                        )
+                    }
+                    is EbicsDownloadBankErrorResult -> {
+                        call.respond(
+                            HttpStatusCode.BadGateway,
+                            EbicsErrorJson(EbicsErrorDetailJson("bankError", response.returnCode.errorCode))
+                        )
+                    }
+                }
                 return@post
             }
 
@@ -494,11 +658,11 @@ fun main() {
             }
 
             get("/ebics/subscribers") {
-                val ret = EbicsSubscribersResponse()
+                val ret = EbicsSubscribersResponseJson()
                 transaction {
                     EbicsSubscriberEntity.all().forEach {
                         ret.ebicsSubscribers.add(
-                            EbicsSubscriberInfoResponse(
+                            EbicsSubscriberInfoResponseJson(
                                 accountID = it.id.value,
                                 hostID = it.hostID,
                                 partnerID = it.partnerID,
@@ -519,7 +683,7 @@ fun main() {
                     val tmp = EbicsSubscriberEntity.findById(id) ?: throw SubscriberNotFoundError(
                         HttpStatusCode.NotFound
                     )
-                    EbicsSubscriberInfoResponse(
+                    EbicsSubscriberInfoResponseJson(
                         accountID = tmp.id.value,
                         hostID = tmp.hostID,
                         partnerID = tmp.partnerID,
@@ -534,27 +698,24 @@ fun main() {
 
             get("/ebics/{id}/sendHev") {
                 val id = expectId(call.parameters["id"])
-                val (ebicsUrl, hostID) = transaction {
-                    val customer = EbicsSubscriberEntity.findById(id)
-                        ?: throw SubscriberNotFoundError(HttpStatusCode.NotFound)
-                    Pair(customer.ebicsURL, customer.hostID)
-                }
-                val request = HEVRequest().apply {
-                    hostId = hostID
-                }
-                val response = client.postToBankUnsigned<HEVRequest, HEVResponse>(ebicsUrl, request)
-                // here, response is gueranteed to be successful, no need to check the status code.
+                val subscriberData = getSubscriberDetailsFromId(id)
+                val request = makeEbicsHEVRequest(subscriberData)
+                val response = client.postToBank(subscriberData.ebicsUrl, request)
+                val versionDetails = parseEbicsHEVResponse(subscriberData, response)
                 call.respond(
                     HttpStatusCode.OK,
-                    EbicsHevResponse(response.value.versionNumber!!.map {
-                        ProtocolAndVersion(it.value, it.protocolVersion, hostID)
+                    EbicsHevResponseJson(versionDetails.versions.map { ebicsVersionSpec ->
+                        ProtocolAndVersionJson(
+                            ebicsVersionSpec.protocol,
+                            ebicsVersionSpec.version
+                        )
                     })
                 )
                 return@get
             }
 
             post("/ebics/{id}/subscribers") {
-                val body = call.receive<EbicsSubscriberInfoRequest>()
+                val body = call.receive<EbicsSubscriberInfoRequestJson>()
                 val pairA = CryptoUtil.generateRsaKeyPair(2048)
                 val pairB = CryptoUtil.generateRsaKeyPair(2048)
                 val pairC = CryptoUtil.generateRsaKeyPair(2048)
@@ -573,7 +734,7 @@ fun main() {
                     }
                 } catch (e: Exception) {
                     print(e)
-                    call.respond(NexusError("Could not store the new account into database"))
+                    call.respond(NexusErrorJson("Could not store the new account into database"))
                     return@post
                 }
                 call.respondText(
@@ -587,25 +748,41 @@ fun main() {
             post("/ebics/subscribers/{id}/sendIni") {
                 val id = expectId(call.parameters["id"])
                 val subscriberData = getSubscriberDetailsFromId(id)
-                val iniRequest = EbicsUnsecuredRequest.createIni(
-                    subscriberData.hostId,
-                    subscriberData.userId,
-                    subscriberData.partnerId,
-                    subscriberData.customerSignPriv
-                )
-                val responseJaxb = client.postToBankUnsigned<EbicsUnsecuredRequest, EbicsKeyManagementResponse>(
+                val iniRequest = makeEbicsIniRequest(subscriberData)
+                val responseStr = client.postToBank(
                     subscriberData.ebicsUrl,
                     iniRequest
                 )
-                if (responseJaxb.value.body.returnCode.value != "000000") {
-                    throw EbicsError(responseJaxb.value.body.returnCode.value)
+                val resp = parseAndDecryptEbicsKeyManagementResponse(subscriberData, responseStr)
+                if (resp.technicalReturnCode != EbicsReturnCode.EBICS_OK) {
+                    throw EbicsError("Unexpected INI response code: ${resp.technicalReturnCode}")
                 }
                 call.respondText("Bank accepted signature key\n", ContentType.Text.Plain, HttpStatusCode.OK)
                 return@post
             }
 
+            post("/ebics/subscribers/{id}/sendHia") {
+                val id = expectId(call.parameters["id"])
+                val subscriberData = getSubscriberDetailsFromId(id)
+                val hiaRequest = makeEbicsHiaRequest(subscriberData)
+                val responseStr = client.postToBank(
+                    subscriberData.ebicsUrl,
+                    hiaRequest
+                )
+                val resp = parseAndDecryptEbicsKeyManagementResponse(subscriberData, responseStr)
+                if (resp.technicalReturnCode != EbicsReturnCode.EBICS_OK) {
+                    throw EbicsError("Unexpected HIA response code: ${resp.technicalReturnCode}")
+                }
+                call.respondText(
+                    "Bank accepted authentication and encryption keys\n",
+                    ContentType.Text.Plain,
+                    HttpStatusCode.OK
+                )
+                return@post
+            }
+
             post("/ebics/subscribers/{id}/restoreBackup") {
-                val body = call.receive<EbicsKeysBackup>()
+                val body = call.receive<EbicsKeysBackupJson>()
                 val id = expectId(call.parameters["id"])
                 val subscriber = transaction {
                     EbicsSubscriberEntity.findById(id)
@@ -613,7 +790,7 @@ fun main() {
                 if (subscriber != null) {
                     call.respond(
                         HttpStatusCode.Conflict,
-                        NexusError("ID exists, please choose a new one")
+                        NexusErrorJson("ID exists, please choose a new one")
                     )
                     return@post
                 }
@@ -649,7 +826,7 @@ fun main() {
                     }
                 } catch (e: Exception) {
                     print(e)
-                    call.respond(NexusError("Could not store the new account $id into database"))
+                    call.respond(NexusErrorJson("Could not store the new account $id into database"))
                     return@post
                 }
                 call.respondText(
@@ -687,12 +864,12 @@ fun main() {
             /* performs a keys backup */
             post("/ebics/subscribers/{id}/backup") {
                 val id = expectId(call.parameters["id"])
-                val body = call.receive<EbicsBackupRequest>()
+                val body = call.receive<EbicsBackupRequestJson>()
                 val response = transaction {
                     val subscriber = EbicsSubscriberEntity.findById(id) ?: throw SubscriberNotFoundError(
                         HttpStatusCode.NotFound
                     )
-                    EbicsKeysBackup(
+                    EbicsKeysBackupJson(
                         userID = subscriber.userID,
                         hostID = subscriber.hostID,
                         partnerID = subscriber.partnerID,
@@ -729,7 +906,13 @@ fun main() {
                 val subscriberData = getSubscriberDetailsFromId(id)
                 val payload = "PAYLOAD"
 
-                doEbicsUploadTransaction(client, subscriberData, "TSU", payload.toByteArray(Charsets.UTF_8))
+                doEbicsUploadTransaction(
+                    client,
+                    subscriberData,
+                    "TSU",
+                    payload.toByteArray(Charsets.UTF_8),
+                    EbicsGenericOrderParams()
+                )
 
                 call.respondText(
                     "TST INITIALIZATION & TRANSACTION phases succeeded\n",
@@ -741,81 +924,21 @@ fun main() {
             post("/ebics/subscribers/{id}/sync") {
                 val id = expectId(call.parameters["id"])
                 val subscriberDetails = getSubscriberDetailsFromId(id)
-                val response = client.postToBankSigned<EbicsNpkdRequest, EbicsKeyManagementResponse>(
-                    subscriberDetails.ebicsUrl,
-                    EbicsNpkdRequest.createRequest(
-                        subscriberDetails.hostId,
-                        subscriberDetails.partnerId,
-                        subscriberDetails.userId,
-                        getNonce(128),
-                        getGregorianCalendarNow()
-                    ),
-                    subscriberDetails.customerAuthPriv
-                )
-                if (response.value.body.returnCode.value != "000000") {
-                    throw EbicsError(response.value.body.returnCode.value)
-                }
-                val encPubKeyDigestViaBank =
-                    (response.value.body.dataTransfer!!.dataEncryptionInfo as EbicsTypes.DataEncryptionInfo)
-                        .encryptionPubKeyDigest.value;
-                val customerEncPub = CryptoUtil.getRsaPublicFromPrivate(subscriberDetails.customerEncPriv);
-                val encPubKeyDigestViaNexus = CryptoUtil.getEbicsPublicKeyHash(customerEncPub)
-                println("encPubKeyDigestViaBank: ${encPubKeyDigestViaBank.toHexString()}")
-                println("encPubKeyDigestViaNexus: ${encPubKeyDigestViaNexus.toHexString()}")
-                val decryptionKey = getDecryptionKey(subscriberDetails, encPubKeyDigestViaBank)
-                val er = CryptoUtil.EncryptionResult(
-                    response.value.body.dataTransfer!!.dataEncryptionInfo!!.transactionKey,
-                    encPubKeyDigestViaBank,
-                    response.value.body.dataTransfer!!.orderData.value
-                )
-                val dataCompr = CryptoUtil.decryptEbicsE002(
-                    er,
-                    decryptionKey
-                )
-                val data = EbicsOrderUtil.decodeOrderDataXml<HPBResponseOrderData>(dataCompr)
+                val hpbRequest = makeEbicsHpbRequest(subscriberDetails)
+                val responseStr = client.postToBank(subscriberDetails.ebicsUrl, hpbRequest)
+
+                val response = parseAndDecryptEbicsKeyManagementResponse(subscriberDetails, responseStr)
+                val orderData =
+                    response.orderData ?: throw ProtocolViolationError("expected order data in HPB response")
+                val hpbData = parseEbicsHpbOrder(orderData)
+
                 // put bank's keys into database.
                 transaction {
-                    val subscriber = EbicsSubscriberEntity.findById(id)
-
-                    subscriber!!.bankAuthenticationPublicKey = SerialBlob(
-
-                        CryptoUtil.loadRsaPublicKeyFromComponents(
-                            data.authenticationPubKeyInfo.pubKeyValue.rsaKeyValue.modulus,
-                            data.authenticationPubKeyInfo.pubKeyValue.rsaKeyValue.exponent
-                        ).encoded
-                    )
-                    subscriber.bankEncryptionPublicKey = SerialBlob(
-                        CryptoUtil.loadRsaPublicKeyFromComponents(
-                            data.encryptionPubKeyInfo.pubKeyValue.rsaKeyValue.modulus,
-                            data.encryptionPubKeyInfo.pubKeyValue.rsaKeyValue.exponent
-                        ).encoded
-                    )
+                    val subscriber = EbicsSubscriberEntity.findById(id) ?: throw InvalidSubscriberStateError()
+                    subscriber.bankAuthenticationPublicKey = SerialBlob(hpbData.authenticationPubKey.encoded)
+                    subscriber.bankEncryptionPublicKey = SerialBlob(hpbData.encryptionPubKey.encoded)
                 }
                 call.respondText("Bank keys stored in database\n", ContentType.Text.Plain, HttpStatusCode.OK)
-                return@post
-            }
-
-            post("/ebics/subscribers/{id}/sendHia") {
-                val id = expectId(call.parameters["id"])
-                val subscriberData = getSubscriberDetailsFromId(id)
-                val responseJaxb = client.postToBankUnsigned<EbicsUnsecuredRequest, EbicsKeyManagementResponse>(
-                    subscriberData.ebicsUrl,
-                    EbicsUnsecuredRequest.createHia(
-                        subscriberData.hostId,
-                        subscriberData.userId,
-                        subscriberData.partnerId,
-                        subscriberData.customerAuthPriv,
-                        subscriberData.customerEncPriv
-                    )
-                )
-                if (responseJaxb.value.body.returnCode.value != "000000") {
-                    throw EbicsError(responseJaxb.value.body.returnCode.value)
-                }
-                call.respondText(
-                    "Bank accepted authentication and encryption keys\n",
-                    ContentType.Text.Plain,
-                    HttpStatusCode.OK
-                )
                 return@post
             }
         }

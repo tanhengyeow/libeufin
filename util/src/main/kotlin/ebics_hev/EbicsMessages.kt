@@ -19,6 +19,7 @@
 
 package tech.libeufin.util.ebics_hev
 
+import java.util.*
 import javax.xml.bind.annotation.*
 import javax.xml.bind.annotation.adapters.CollapsedStringAdapter
 import javax.xml.bind.annotation.adapters.NormalizedStringAdapter
@@ -45,7 +46,7 @@ class HEVResponse {
     lateinit var systemReturnCode: SystemReturnCodeType
 
     @get:XmlElement(name = "VersionNumber", namespace = "http://www.ebics.org/H000")
-    var versionNumber: List<VersionNumber>? = null
+    var versionNumber: List<VersionNumber> = LinkedList()
 
     @get:XmlAnyElement(lax = true)
     var any: List<Any>? = null

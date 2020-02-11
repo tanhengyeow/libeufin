@@ -203,7 +203,6 @@ object CryptoUtil {
         )
         val ivParameterSpec = IvParameterSpec(ByteArray(16))
         symmetricCipher.init(Cipher.DECRYPT_MODE, secretKeySpec, ivParameterSpec)
-        LOGGER.debug("decrypting: ${encryptedData.toHexString()}")
         val data = symmetricCipher.doFinal(encryptedData)
         return data
     }

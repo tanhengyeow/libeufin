@@ -1,82 +1,38 @@
 package tech.libeufin.nexus
 
 import io.ktor.client.HttpClient
+import io.ktor.client.request.post
 import io.ktor.http.HttpStatusCode
-import tech.libeufin.util.CryptoUtil
-import tech.libeufin.util.EbicsOrderUtil
-import tech.libeufin.util.ebics_h004.EbicsRequest
-import tech.libeufin.util.ebics_h004.EbicsResponse
-import tech.libeufin.util.getGregorianCalendarNow
-import java.lang.StringBuilder
-import java.math.BigInteger
-import java.security.interfaces.RSAPrivateCrtKey
-import java.security.interfaces.RSAPublicKey
+import tech.libeufin.util.*
 import java.util.*
-import java.util.zip.DeflaterInputStream
 
-/**
- * This class is a mere container that keeps data found
- * in the database and that is further needed to sign / verify
- * / make messages.  And not all the values are needed all
- * the time.
- */
-data class EbicsSubscriberDetails(
-    val partnerId: String,
-    val userId: String,
-    var bankAuthPub: RSAPublicKey?,
-    var bankEncPub: RSAPublicKey?,
-    // needed to send the message
-    val ebicsUrl: String,
-    // needed to craft further messages
-    val hostId: String,
-    // needed to decrypt data coming from the bank
-    val customerEncPriv: RSAPrivateCrtKey,
-    // needed to sign documents
-    val customerAuthPriv: RSAPrivateCrtKey,
-    val customerSignPriv: RSAPrivateCrtKey
-)
-
-
-
-/**
- * Wrapper around the lower decryption routine, that takes a EBICS response
- * object containing a encrypted payload, and return the plain version of it
- * (including decompression).
- */
-fun decryptAndDecompressResponse(chunks: List<String>, transactionKey: ByteArray, privateKey: RSAPrivateCrtKey, pubDigest: ByteArray): ByteArray {
-    val buf = StringBuilder()
-    chunks.forEach { buf.append(it) }
-    val decoded = Base64.getDecoder().decode(buf.toString())
-    val er = CryptoUtil.EncryptionResult(
-        transactionKey,
-        pubDigest,
-        decoded
-    )
-    val dataCompr = CryptoUtil.decryptEbicsE002(
-        er,
-        privateKey
-    )
-    return EbicsOrderUtil.decodeOrderData(dataCompr)
+suspend inline fun HttpClient.postToBank(url: String, body: String): String {
+    logger.debug("Posting: $body")
+    val response = try {
+        this.post<String>(
+            urlString = url,
+            block = {
+                this.body = body
+            }
+        )
+    } catch (e: Exception) {
+        throw UnreachableBankError(HttpStatusCode.InternalServerError)
+    }
+    return response
 }
 
+sealed class EbicsDownloadResult
+
+class EbicsDownloadSuccessResult(
+    val orderData: ByteArray
+) : EbicsDownloadResult()
 
 /**
- * Get the private key that matches the given public key digest.
+ * Some bank-technical error occured.
  */
-fun getDecryptionKey(subscriberDetails: EbicsSubscriberDetails, pubDigest: ByteArray): RSAPrivateCrtKey {
-    val authPub = CryptoUtil.getRsaPublicFromPrivate(subscriberDetails.customerAuthPriv)
-    val encPub = CryptoUtil.getRsaPublicFromPrivate(subscriberDetails.customerEncPriv)
-    val authPubDigest = CryptoUtil.getEbicsPublicKeyHash(authPub)
-    val encPubDigest = CryptoUtil.getEbicsPublicKeyHash(encPub)
-    if (pubDigest.contentEquals(authPubDigest)) {
-        return subscriberDetails.customerAuthPriv
-    }
-    if (pubDigest.contentEquals(encPubDigest)) {
-        return subscriberDetails.customerEncPriv
-    }
-    throw Exception("no matching private key to decrypt response")
-}
-
+class EbicsDownloadBankErrorResult(
+    val returnCode: EbicsReturnCode
+) : EbicsDownloadResult()
 
 /**
  * Do an EBICS download transaction.  This includes the initialization phase, transaction phase
@@ -84,133 +40,112 @@ fun getDecryptionKey(subscriberDetails: EbicsSubscriberDetails, pubDigest: ByteA
  */
 suspend fun doEbicsDownloadTransaction(
     client: HttpClient,
-    subscriberDetails: EbicsSubscriberDetails,
-    orderType: String
-): ByteArray {
-    val initDownloadRequest = EbicsRequest.createForDownloadInitializationPhase(
-        subscriberDetails.userId,
-        subscriberDetails.partnerId,
-        subscriberDetails.hostId,
-        getNonce(128),
-        getGregorianCalendarNow(),
-        subscriberDetails.bankEncPub ?: throw BankKeyMissing(
-            HttpStatusCode.PreconditionFailed
-        ),
-        subscriberDetails.bankAuthPub ?: throw BankKeyMissing(
-            HttpStatusCode.PreconditionFailed
-        ),
-        orderType
-    )
+    subscriberDetails: EbicsClientSubscriberDetails,
+    orderType: String,
+    orderParams: EbicsOrderParams
+): EbicsDownloadResult {
+
+    // Initialization phase
+    val initDownloadRequestStr = createEbicsRequestForDownloadInitialization(subscriberDetails, orderType, orderParams)
     val payloadChunks = LinkedList<String>();
-    val initResponse = client.postToBankSigned<EbicsRequest, EbicsResponse>(
-        subscriberDetails.ebicsUrl,
-        initDownloadRequest,
-        subscriberDetails.customerAuthPriv
-    )
-    if (initResponse.value.body.returnCode.value != "000000") {
-        throw EbicsError(initResponse.value.body.returnCode.value)
+    val initResponseStr = client.postToBank(subscriberDetails.ebicsUrl, initDownloadRequestStr)
+
+    val initResponse = parseAndValidateEbicsResponse(subscriberDetails, initResponseStr)
+
+    when (initResponse.technicalReturnCode) {
+        EbicsReturnCode.EBICS_OK -> {
+            // Success, nothing to do!
+        }
+        else -> {
+            throw ProtocolViolationError("unexpected return code ${initResponse.technicalReturnCode}")
+        }
     }
-    val initDataTransfer = initResponse.value.body.dataTransfer
+
+    when (initResponse.bankReturnCode) {
+        EbicsReturnCode.EBICS_OK -> {
+            // Success, nothing to do!
+        }
+        else -> {
+            return EbicsDownloadBankErrorResult(initResponse.bankReturnCode)
+        }
+    }
+
+    val transactionID =
+        initResponse.transactionID ?: throw ProtocolViolationError("initial response must contain transaction ID")
+
+    val encryptionInfo = initResponse.dataEncryptionInfo
+        ?: throw ProtocolViolationError("initial response did not contain encryption info")
+
+    val initOrderDataEncChunk = initResponse.orderDataEncChunk
         ?: throw ProtocolViolationError("initial response for download transaction does not contain data transfer")
-    val dataEncryptionInfo = initDataTransfer.dataEncryptionInfo
-        ?: throw ProtocolViolationError("initial response for download transaction does not contain date encryption info")
-    val initOrderData = initDataTransfer.orderData.value
-    // FIXME: Also verify that algorithm matches!
-    val decryptionKey = getDecryptionKey(subscriberDetails, dataEncryptionInfo.encryptionPubKeyDigest.value)
-    payloadChunks.add(initOrderData)
-    val respPayload = decryptAndDecompressResponse(
-        payloadChunks,
-        dataEncryptionInfo.transactionKey,
-        decryptionKey,
-        dataEncryptionInfo.encryptionPubKeyDigest.value
-    )
-    val ackRequest = EbicsRequest.createForDownloadReceiptPhase(
-        initResponse.value.header._static.transactionID ?: throw BankInvalidResponse(
-            HttpStatusCode.ExpectationFailed
-        ),
-        subscriberDetails.hostId
-    )
-    val ackResponse = client.postToBankSignedAndVerify<EbicsRequest, EbicsResponse>(
+
+    payloadChunks.add(initOrderDataEncChunk)
+
+    val respPayload = decryptAndDecompressResponse(subscriberDetails, encryptionInfo, payloadChunks)
+
+    // Acknowledgement phase
+
+    val ackRequest = createEbicsRequestForDownloadReceipt(subscriberDetails, transactionID)
+    val ackResponseStr = client.postToBank(
         subscriberDetails.ebicsUrl,
-        ackRequest,
-        subscriberDetails.bankAuthPub ?: throw BankKeyMissing(
-            HttpStatusCode.PreconditionFailed
-        ),
-        subscriberDetails.customerAuthPriv
+        ackRequest
     )
-    if (ackResponse.value.body.returnCode.value != "000000") {
-        throw EbicsError(ackResponse.value.body.returnCode.value)
+    val ackResponse = parseAndValidateEbicsResponse(subscriberDetails, ackResponseStr)
+    when (ackResponse.technicalReturnCode) {
+        EbicsReturnCode.EBICS_DOWNLOAD_POSTPROCESS_DONE -> {
+        }
+        else -> {
+            throw ProtocolViolationError("unexpected return code")
+        }
     }
-    return respPayload
+    return EbicsDownloadSuccessResult(respPayload)
 }
 
 
 suspend fun doEbicsUploadTransaction(
     client: HttpClient,
-    subscriberDetails: EbicsSubscriberDetails,
+    subscriberDetails: EbicsClientSubscriberDetails,
     orderType: String,
-    payload: ByteArray
+    payload: ByteArray,
+    orderParams: EbicsOrderParams
 ) {
     if (subscriberDetails.bankEncPub == null) {
         throw InvalidSubscriberStateError("bank encryption key unknown, request HPB first")
     }
-    val userSignatureDateEncrypted = CryptoUtil.encryptEbicsE002(
-        EbicsOrderUtil.encodeOrderDataXml(
-            signOrder(
-                payload,
-                subscriberDetails.customerSignPriv,
-                subscriberDetails.partnerId,
-                subscriberDetails.userId
-            )
-        ),
-        subscriberDetails.bankEncPub!!
-    )
-    val response = client.postToBankSignedAndVerify<EbicsRequest, EbicsResponse>(
-        subscriberDetails.ebicsUrl,
-        EbicsRequest.createForUploadInitializationPhase(
-            userSignatureDateEncrypted,
-            subscriberDetails.hostId,
-            getNonce(128),
-            subscriberDetails.partnerId,
-            subscriberDetails.userId,
-            getGregorianCalendarNow(),
-            subscriberDetails.bankAuthPub!!,
-            subscriberDetails.bankEncPub!!,
-            BigInteger.ONE,
-            orderType
-        ),
-        subscriberDetails.bankAuthPub!!,
-        subscriberDetails.customerAuthPriv
-    )
-    if (response.value.header.mutable.returnCode != "000000") {
-        throw EbicsError(response.value.header.mutable.returnCode)
+    val preparedUploadData = prepareUploadPayload(subscriberDetails, payload)
+    val req = createEbicsRequestForUploadInitialization(subscriberDetails, orderType, orderParams, preparedUploadData)
+    val responseStr = client.postToBank(subscriberDetails.ebicsUrl, req)
+
+    val initResponse = parseAndValidateEbicsResponse(subscriberDetails, responseStr)
+    if (initResponse.technicalReturnCode != EbicsReturnCode.EBICS_OK) {
+        throw ProtocolViolationError("unexpected return code")
     }
-    if (response.value.body.returnCode.value != "000000") {
-        throw EbicsError(response.value.body.returnCode.value)
-    }
+
+    val transactionID =
+        initResponse.transactionID ?: throw ProtocolViolationError("init response must have transaction ID")
+
     logger.debug("INIT phase passed!")
     /* now send actual payload */
-    val compressedInnerPayload = DeflaterInputStream(
-        payload.inputStream()
-    ).use { it.readAllBytes() }
-    val encryptedPayload = CryptoUtil.encryptEbicsE002withTransactionKey(
-        compressedInnerPayload,
-        subscriberDetails.bankEncPub!!,
-        userSignatureDateEncrypted.plainTransactionKey!!
+
+    val tmp = createEbicsRequestForUploadTransferPhase(
+        subscriberDetails,
+        transactionID,
+        preparedUploadData,
+        0
     )
-    val tmp = EbicsRequest.createForUploadTransferPhase(
-        subscriberDetails.hostId,
-        response.value.header._static.transactionID!!,
-        BigInteger.ONE,
-        encryptedPayload.encryptedData
-    )
-    val responseTransaction = client.postToBankSignedAndVerify<EbicsRequest, EbicsResponse>(
+
+    val txRespStr = client.postToBank(
         subscriberDetails.ebicsUrl,
-        tmp,
-        subscriberDetails.bankAuthPub!!,
-        subscriberDetails.customerAuthPriv
+        tmp
     )
-    if (responseTransaction.value.body.returnCode.value != "000000") {
-        throw EbicsError(response.value.body.returnCode.value)
+
+    val txResp = parseAndValidateEbicsResponse(subscriberDetails, txRespStr)
+
+    when (txResp.technicalReturnCode) {
+        EbicsReturnCode.EBICS_OK -> {
+        }
+        else -> {
+            throw ProtocolViolationError("unexpected return code")
+        }
     }
 }

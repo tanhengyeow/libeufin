@@ -4,8 +4,9 @@ import tech.libeufin.util.CryptoUtil
 import tech.libeufin.util.XMLUtil
 import tech.libeufin.util.ebics_h004.EbicsRequest
 import tech.libeufin.util.ebics_h004.EbicsTypes
-import tech.libeufin.util.getGregorianCalendarNow
 import java.math.BigInteger
+import java.util.*
+import javax.xml.datatype.DatatypeFactory
 
 class SignatureDataTest {
 
@@ -22,7 +23,7 @@ class SignatureDataTest {
                 static = EbicsRequest.StaticHeaderType().apply {
                     hostID = "some host ID"
                     nonce = "nonce".toByteArray()
-                    timestamp = getGregorianCalendarNow()
+                    timestamp = DatatypeFactory.newInstance().newXMLGregorianCalendar(GregorianCalendar())
                     partnerID = "some partner ID"
                     userID = "some user ID"
                     orderDetails = EbicsRequest.OrderDetails().apply {

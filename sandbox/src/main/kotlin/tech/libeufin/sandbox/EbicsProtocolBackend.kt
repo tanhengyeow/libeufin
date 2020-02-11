@@ -47,6 +47,7 @@ import java.util.*
 import java.util.zip.DeflaterInputStream
 import java.util.zip.InflaterInputStream
 import javax.sql.rowset.serial.SerialBlob
+import javax.xml.datatype.DatatypeFactory
 
 
 open class EbicsRequestError(errorText: String, errorCode: String) :
@@ -118,7 +119,7 @@ private suspend fun ApplicationCall.respondEbicsKeyManagement(
                         }
                     }
                     this.orderData = EbicsKeyManagementResponse.OrderData().apply {
-                        this.value = dataTransfer.encryptedData
+                        this.value = Base64.getEncoder().encodeToString(dataTransfer.encryptedData)
                     }
                 }
             }
@@ -147,13 +148,13 @@ private fun iterHistory(customerId: Int, header: EbicsRequest.Header, base: XmlE
             (header.static.orderDetails?.orderParams as EbicsRequest.StandardOrderParams).dateRange!!.start.toString()
         } catch (e: Exception) {
             LOGGER.debug("Asked to iterate over history with NO start date; default to now")
-            getGregorianCalendarNow().toString()
+            DatatypeFactory.newInstance().newXMLGregorianCalendar(GregorianCalendar()).toString()
         },
         try {
             (header.static.orderDetails?.orderParams as EbicsRequest.StandardOrderParams).dateRange!!.end.toString()
         } catch (e: Exception) {
             LOGGER.debug("Asked to iterate over history with NO end date; default to now")
-            getGregorianCalendarNow().toString()
+            DatatypeFactory.newInstance().newXMLGregorianCalendar(GregorianCalendar()).toString()
         }
     ) {
 
@@ -758,7 +759,7 @@ private fun handleEbicsUploadTransactionTransmission(requestContext: RequestCont
             requestObject.body.dataTransfer?.orderData ?: throw EbicsInvalidRequestError()
         val zippedData = CryptoUtil.decryptEbicsE002(
             uploadTransaction.transactionKeyEnc.toByteArray(),
-            encOrderData,
+            Base64.getDecoder().decode(encOrderData),
             requestContext.hostEncPriv
         )
         val unzippedData =

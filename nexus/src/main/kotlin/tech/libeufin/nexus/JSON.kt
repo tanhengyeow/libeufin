@@ -1,23 +1,40 @@
 package tech.libeufin.nexus
 
-data class EbicsBackupRequest(
+import tech.libeufin.util.EbicsDateRange
+import tech.libeufin.util.EbicsOrderParams
+import tech.libeufin.util.EbicsStandardOrderParams
+import java.time.LocalDate
+
+data class EbicsBackupRequestJson(
     val passphrase: String
 )
 
-data class NexusError(
+data class NexusErrorJson(
     val message: String
 )
 
-data class EbicsStandardOrderParams(
-    val dateRange: EbicsDateRange?
-)
+data class EbicsStandardOrderParamsJson(
+    val dateRange: EbicsDateRangeJson?
+) {
+    fun toOrderParams(): EbicsOrderParams {
+        var dateRange: EbicsDateRange? = if (this.dateRange != null) {
+            EbicsDateRange(
+                LocalDate.parse(this.dateRange.start),
+                LocalDate.parse(this.dateRange.end)
+            )
+        } else {
+            null
+        }
+        return EbicsStandardOrderParams(dateRange)
+    }
+}
 
-data class EbicsDateRange(
+data class EbicsDateRangeJson(
     /**
      * ISO 8601 calendar dates: YEAR-MONTH(01-12)-DAY(1-31)
      */
-    val start: String,
-    val end: String
+    val start: String?,
+    val end: String?
 )
 
 /**
@@ -25,7 +42,7 @@ data class EbicsDateRange(
  * and as a request to the backup restore.  Note: in the second case
  * the client must provide the passphrase.
  */
-data class EbicsKeysBackup(
+data class EbicsKeysBackupJson(
     val userID: String,
     val partnerID: String,
     val hostID: String,
@@ -47,7 +64,7 @@ data class EbicsPubKeyInfo(
  * This object is POSTed by clients _after_ having created
  * a EBICS subscriber at the sandbox.
  */
-data class EbicsSubscriberInfoRequest(
+data class EbicsSubscriberInfoRequestJson(
     val ebicsURL: String,
     val hostID: String,
     val partnerID: String,
@@ -58,7 +75,7 @@ data class EbicsSubscriberInfoRequest(
 /**
  * Contain the ID that identifies the new user in the Nexus system.
  */
-data class EbicsSubscriberInfoResponse(
+data class EbicsSubscriberInfoResponseJson(
     val accountID: String,
     val ebicsURL: String,
     val hostID: String,
@@ -70,16 +87,24 @@ data class EbicsSubscriberInfoResponse(
 /**
  * Admin call that tells all the subscribers managed by Nexus.
  */
-data class EbicsSubscribersResponse(
-    val ebicsSubscribers: MutableList<EbicsSubscriberInfoResponse> = mutableListOf()
+data class EbicsSubscribersResponseJson(
+    val ebicsSubscribers: MutableList<EbicsSubscriberInfoResponseJson> = mutableListOf()
 )
 
-data class ProtocolAndVersion(
+data class ProtocolAndVersionJson(
     val protocol: String,
-    val version: String,
-    val host: String
+    val version: String
 )
 
-data class EbicsHevResponse(
-    val versions: List<ProtocolAndVersion>
+data class EbicsHevResponseJson(
+    val versions: List<ProtocolAndVersionJson>
+)
+
+data class EbicsErrorDetailJson(
+    val type: String,
+    val ebicsReturnCode: String
+)
+
+data class EbicsErrorJson(
+    val error: EbicsErrorDetailJson
 )

@@ -97,6 +97,6 @@ class EbicsKeyManagementResponse {
     @XmlAccessorType(XmlAccessType.NONE)
     class OrderData {
         @get:XmlValue
-        lateinit var value: ByteArray
+        lateinit var value: String
     }
 }

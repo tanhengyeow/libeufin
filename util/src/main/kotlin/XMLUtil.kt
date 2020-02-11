@@ -21,6 +21,8 @@ package tech.libeufin.util
 
 import com.sun.org.apache.xerces.internal.dom.DOMInputImpl
 import com.sun.xml.bind.marshaller.NamespacePrefixMapper
+import org.slf4j.Logger
+import org.slf4j.LoggerFactory
 import org.w3c.dom.Document
 import org.w3c.dom.Node
 import org.w3c.dom.NodeList
@@ -59,6 +61,8 @@ import javax.xml.validation.Validator
 import javax.xml.xpath.XPath
 import javax.xml.xpath.XPathConstants
 import javax.xml.xpath.XPathFactory
+
+val logger: Logger = LoggerFactory.getLogger("tech.libeufin.sandbox")
 
 class DefaultNamespaces : NamespacePrefixMapper() {
     override fun getPreferredPrefix(namespaceUri: String?, suggestion: String?, requirePrefix: Boolean): String? {
@@ -171,7 +175,7 @@ class XMLUtil private constructor() {
             try {
                 getEbicsValidator().validate(xmlDoc)
             } catch (e: Exception) {
-                LOGGER.warn("Validation failed: ${e}")
+                logger.warn("Validation failed: ${e}")
                 return false
             }
             return true;
