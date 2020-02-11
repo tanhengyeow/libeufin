@@ -288,6 +288,10 @@ fun main() {
                 }
             }
 
+            post("/ebics/subscribers/{id}/collect-transactions-c52") {
+                // Download C52 and store the result in the right database table
+            }
+
             post("/ebics/subscribers/{id}/sendC52") {
                 val id = expectId(call.parameters["id"])
                 val paramsJson = call.receive<EbicsStandardOrderParamsJson>()

@@ -570,7 +570,7 @@ def htd(ctx, account_id, prepare, nexus_base_url):
         ctx.invoke(sync)
     url = urljoin(nexus_base_url, "/ebics/subscribers/{}/sendHtd".format(account_id))
     try:
-        resp = post(url)
+        resp = post(url, json=dict())
     except Exception:
         print("Could not reach the bank")
         return
