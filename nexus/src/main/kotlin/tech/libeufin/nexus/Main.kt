@@ -50,6 +50,8 @@ import org.slf4j.LoggerFactory
 import org.slf4j.event.Level
 import tech.libeufin.util.*
 import tech.libeufin.util.InvalidSubscriberStateError
+import tech.libeufin.util.ebics_h004.EbicsTypes
+import tech.libeufin.util.ebics_h004.HTDResponseOrderData
 import java.lang.StringBuilder
 import java.security.interfaces.RSAPublicKey
 import java.text.DateFormat
@@ -295,6 +297,27 @@ fun main() {
             get("/ebics/subscribers/{id}/accounts") {
                 // FIXME(marcello): return bank accounts associated with the subscriber,
                 // this information is only avaiable *after* HTD or HKD has been called
+                val id = expectId(call.parameters["id"])
+                val ret = EbicsAccountsInfoResponse()
+                transaction {
+                    EbicsAccountInfoEntity.find {
+                        EbicsAccountsInfoTable.subscriber eq id
+                    }.forEach {
+                        ret.accounts.add(
+                            EbicsAccountInfoElement(
+                                accountHolderName = it.accountHolder,
+                                iban = it.iban,
+                                bankCode = it.bankCode,
+                                accountId = it.accountId
+                            )
+                        )
+                    }
+                }
+                call.respond(
+                    HttpStatusCode.OK,
+                    ret
+                )
+                return@get
             }
 
             post("/ebics/subscribers/{id}/accounts/{acctid}/prepare-payment") {
@@ -366,7 +389,6 @@ fun main() {
                             s.append(zipFile.getInputStream(entry).readAllBytes().toString(Charsets.UTF_8))
                             s.append("\n")
                         }
-
                         call.respondText(
                             s.toString(),
                             ContentType.Text.Plain,
@@ -407,13 +429,32 @@ fun main() {
             }
 
             post("/ebics/subscribers/{id}/sendHtd") {
-                val id = expectId(call.parameters["id"])
+                val customerIdAtNexus = expectId(call.parameters["id"])
                 val paramsJson = call.receive<EbicsStandardOrderParamsJson>()
                 val orderParams = paramsJson.toOrderParams()
-                val subscriberData = getSubscriberDetailsFromId(id)
+                val subscriberData = getSubscriberDetailsFromId(customerIdAtNexus)
                 val response = doEbicsDownloadTransaction(client, subscriberData, "HTD", orderParams)
                 when (response) {
                     is EbicsDownloadSuccessResult -> {
+                        val payload = XMLUtil.convertStringToJaxb<HTDResponseOrderData>(response.orderData.toString(Charsets.UTF_8))
+                        if (null == payload.value.partnerInfo.accountInfoList) {
+                            throw Exception(
+                                "Inconsistent state: customers MUST have at least one bank account"
+                            )
+                        }
+                        transaction {
+                            val subscriber = EbicsSubscriberEntity.findById(customerIdAtNexus)
+                            payload.value.partnerInfo.accountInfoList!!.forEach {
+                                EbicsAccountInfoEntity.new {
+                                    this.subscriber = subscriber!! /* Checked at the beginning of this function */
+                                    accountId = it.id
+                                    accountHolder = it.accountHolder
+                                    /* FIXME: how to figure out whether that's a general or national account number? */
+                                    iban = (it.accountNumberList?.get(0) as EbicsTypes.GeneralAccountNumber).value // FIXME: eventually get *all* of them
+                                    bankCode = (it.bankCodeList?.get(0) as EbicsTypes.GeneralBankCode).value  // FIXME: eventually get *all* of them
+                                }
+                            }
+                        }
                         call.respondText(
                             response.orderData.toString(Charsets.UTF_8),
                             ContentType.Text.Plain,

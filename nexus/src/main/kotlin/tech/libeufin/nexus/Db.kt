@@ -56,6 +56,22 @@ const val ID_MAX_LENGTH = 50
 //
 //}
 
+object EbicsAccountsInfoTable : IntIdTable() {
+    val accountId = text("accountId")
+    val subscriber = reference("subscriber", EbicsSubscribersTable)
+    val accountHolder = text("accountHolder").nullable()
+    val iban = text("iban")
+    val bankCode = text("bankCode")
+}
+
+class EbicsAccountInfoEntity(id: EntityID<Int>) : IntEntity(id) {
+    companion object : IntEntityClass<EbicsAccountInfoEntity>(EbicsAccountsInfoTable)
+    var accountId by EbicsAccountsInfoTable.accountId
+    var subscriber by EbicsSubscriberEntity referencedOn EbicsAccountsInfoTable.subscriber
+    var accountHolder by EbicsAccountsInfoTable.accountHolder
+    var iban by EbicsAccountsInfoTable.iban
+    var bankCode by EbicsAccountsInfoTable.bankCode
+}
 
 object EbicsSubscribersTable : IdTable<String>() {
     override val id = varchar("id", ID_MAX_LENGTH).entityId().primaryKey()
@@ -91,7 +107,8 @@ fun dbCreateTables() {
     transaction {
         addLogger(StdOutSqlLogger)
          SchemaUtils.create(
-            EbicsSubscribersTable
+            EbicsSubscribersTable,
+            EbicsAccountsInfoTable
          )
     }
 }

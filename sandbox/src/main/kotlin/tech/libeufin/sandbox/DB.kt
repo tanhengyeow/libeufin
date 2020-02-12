@@ -245,13 +245,10 @@ object EbicsSubscribersTable : IntIdTable() {
     val partnerId = text("partnerID")
     val systemId = text("systemID").nullable()
     val hostId = text("hostID")
-
     val signatureKey = reference("signatureKey", EbicsSubscriberPublicKeysTable).nullable()
     val encryptionKey = reference("encryptionKey", EbicsSubscriberPublicKeysTable).nullable()
     val authenticationKey = reference("authorizationKey", EbicsSubscriberPublicKeysTable).nullable()
-
     val nextOrderID = integer("nextOrderID")
-
     val state = enumeration("state", SubscriberState::class)
     val bankCustomer = reference("bankCustomer", BankCustomersTable)
 }

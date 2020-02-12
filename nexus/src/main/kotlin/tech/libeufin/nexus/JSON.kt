@@ -108,3 +108,14 @@ data class EbicsErrorDetailJson(
 data class EbicsErrorJson(
     val error: EbicsErrorDetailJson
 )
+
+data class EbicsAccountInfoElement(
+    var accountHolderName: String? = null,
+    var iban: String,
+    var bankCode: String,
+    var accountId: String
+)
+
+data class EbicsAccountsInfoResponse(
+    var accounts: MutableList<EbicsAccountInfoElement> = mutableListOf()
+)
