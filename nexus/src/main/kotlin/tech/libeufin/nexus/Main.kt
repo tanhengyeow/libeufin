@@ -290,10 +290,6 @@ fun main() {
                 }
             }
 
-            post("/ebics/subscribers/fetch-accounts") {
-                // FIXME(marcello): fetch accounts via HTD and store it in the database
-            }
-
             get("/ebics/subscribers/{id}/accounts") {
                 // FIXME(marcello): return bank accounts associated with the subscriber,
                 // this information is only avaiable *after* HTD or HKD has been called
@@ -444,9 +440,10 @@ fun main() {
                         }
                         transaction {
                             val subscriber = EbicsSubscriberEntity.findById(customerIdAtNexus)
+                            // FIXME: see if "!!" can be avoided
                             payload.value.partnerInfo.accountInfoList!!.forEach {
                                 EbicsAccountInfoEntity.new {
-                                    this.subscriber = subscriber!! /* Checked at the beginning of this function */
+                                    this.subscriber = subscriber!! /* FIXME: Always true here, but to be avoided */
                                     accountId = it.id
                                     accountHolder = it.accountHolder
                                     /* FIXME: how to figure out whether that's a general or national account number? */
