@@ -112,7 +112,7 @@ fun getSubscriberEntityFromId(id: String): EbicsSubscriberEntity {
 fun getBankAccountDetailsFromAcctid(id: String): EbicsAccountInfoElement {
     return transaction {
         val bankAccount = EbicsAccountInfoEntity.find {
-            EbicsAccountsInfoTable.accountId eq id
+            EbicsAccountsInfoTable.id eq id
         }.firstOrNull() ?: throw BankAccountNotFoundError(HttpStatusCode.NotFound)
         EbicsAccountInfoElement(
             accountId = id,
@@ -329,7 +329,7 @@ fun main() {
                                 accountHolderName = it.accountHolder,
                                 iban = it.iban,
                                 bankCode = it.bankCode,
-                                accountId = it.accountId
+                                accountId = it.id.value
                             )
                         )
                     }
@@ -964,9 +964,8 @@ fun main() {
                         val payload = XMLUtil.convertStringToJaxb<HTDResponseOrderData>(response.orderData.toString(Charsets.UTF_8))
                         transaction {
                             payload.value.partnerInfo.accountInfoList?.forEach {
-                                EbicsAccountInfoEntity.new {
+                                EbicsAccountInfoEntity.new(id = it.id) {
                                     this.subscriber = getSubscriberEntityFromId(customerIdAtNexus)
-                                    accountId = it.id
                                     accountHolder = it.accountHolder
                                     iban = when (it.accountNumberList?.get(0)) {
                                         is EbicsTypes.GeneralAccountNumber -> {
