@@ -41,6 +41,7 @@ import io.ktor.server.netty.Netty
 import org.apache.commons.compress.archivers.zip.ZipArchiveOutputStream
 import org.apache.commons.compress.archivers.zip.ZipFile
 import org.apache.commons.compress.utils.SeekableInMemoryByteChannel
+import org.jetbrains.exposed.dao.EntityID
 import org.jetbrains.exposed.exceptions.ExposedSQLException
 import org.jetbrains.exposed.sql.StdOutSqlLogger
 import org.jetbrains.exposed.sql.addLogger
@@ -97,6 +98,14 @@ data class BadBackup(val statusCode: HttpStatusCode) : Exception("Could not rest
 data class BankInvalidResponse(val statusCode: HttpStatusCode) : Exception("Missing data from bank response")
 
 val logger: Logger = LoggerFactory.getLogger("tech.libeufin.nexus")
+
+fun getSubscriberEntityFromId(id: String): EbicsSubscriberEntity {
+    return transaction {
+        EbicsSubscriberEntity.findById(id) ?: throw SubscriberNotFoundError(
+            HttpStatusCode.NotFound
+        )
+    }
+}
 
 fun getSubscriberDetailsFromId(id: String): EbicsClientSubscriberDetails {
     return transaction {
@@ -297,7 +306,7 @@ fun main() {
                 val ret = EbicsAccountsInfoResponse()
                 transaction {
                     EbicsAccountInfoEntity.find {
-                        EbicsAccountsInfoTable.subscriber eq id
+                        EbicsAccountsInfoTable.subscriberId eq id
                     }.forEach {
                         ret.accounts.add(
                             EbicsAccountInfoElement(
@@ -433,20 +442,14 @@ fun main() {
                 when (response) {
                     is EbicsDownloadSuccessResult -> {
                         val payload = XMLUtil.convertStringToJaxb<HTDResponseOrderData>(response.orderData.toString(Charsets.UTF_8))
-                        if (null == payload.value.partnerInfo.accountInfoList) {
-                            throw Exception(
-                                "Inconsistent state: customers MUST have at least one bank account"
-                            )
-                        }
                         transaction {
-                            val subscriber = EbicsSubscriberEntity.findById(customerIdAtNexus)
-                            // FIXME: see if "!!" can be avoided
-                            payload.value.partnerInfo.accountInfoList!!.forEach {
+                            payload.value.partnerInfo.accountInfoList?.forEach {
                                 EbicsAccountInfoEntity.new {
-                                    this.subscriber = subscriber!! /* FIXME: Always true here, but to be avoided */
+                                    this.subscriber = getSubscriberEntityFromId(customerIdAtNexus)
                                     accountId = it.id
                                     accountHolder = it.accountHolder
-                                    /* FIXME: how to figure out whether that's a general or national account number? */
+                                    /* FIXME: how to figure out whether that's a general or national account number?
+                                     * This should affect the cast below */
                                     iban = (it.accountNumberList?.get(0) as EbicsTypes.GeneralAccountNumber).value // FIXME: eventually get *all* of them
                                     bankCode = (it.bankCodeList?.get(0) as EbicsTypes.GeneralBankCode).value  // FIXME: eventually get *all* of them
                                 }
