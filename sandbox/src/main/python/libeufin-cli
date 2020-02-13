@@ -585,12 +585,12 @@ def prepare(ctx, account_id, nexus_base_url):
 @click.argument(
   "nexus-base-url"
 )
-def htd(ctx, account_id, prepare, nexus_base_url):
+def fetch_accounts(ctx, account_id, prepare, nexus_base_url):
     if prepare:
         ctx.invoke(ini)
         ctx.invoke(hia)
         ctx.invoke(sync)
-    url = urljoin(nexus_base_url, "/ebics/subscribers/{}/sendHtd".format(account_id))
+    url = urljoin(nexus_base_url, "/ebics/subscribers/{}/fetch-accounts".format(account_id))
     try:
         resp = post(url, json=dict())
     except Exception:

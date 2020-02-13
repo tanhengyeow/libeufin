@@ -468,20 +468,6 @@ fun main() {
                 val response = doEbicsDownloadTransaction(client, subscriberData, "HTD", orderParams)
                 when (response) {
                     is EbicsDownloadSuccessResult -> {
-                        val payload = XMLUtil.convertStringToJaxb<HTDResponseOrderData>(response.orderData.toString(Charsets.UTF_8))
-                        transaction {
-                            payload.value.partnerInfo.accountInfoList?.forEach {
-                                EbicsAccountInfoEntity.new {
-                                    this.subscriber = getSubscriberEntityFromId(customerIdAtNexus)
-                                    accountId = it.id
-                                    accountHolder = it.accountHolder
-                                    /* FIXME: how to figure out whether that's a general or national account number?
-                                     * This should affect the cast below */
-                                    iban = (it.accountNumberList?.get(0) as EbicsTypes.GeneralAccountNumber).value // FIXME: eventually get *all* of them
-                                    bankCode = (it.bankCodeList?.get(0) as EbicsTypes.GeneralBankCode).value  // FIXME: eventually get *all* of them
-                                }
-                            }
-                        }
                         call.respondText(
                             response.orderData.toString(Charsets.UTF_8),
                             ContentType.Text.Plain,
@@ -964,6 +950,44 @@ fun main() {
                     HttpStatusCode.OK,
                     response
                 )
+            }
+
+            post("/ebics/subscribers/{id}/fetch-accounts") {
+                val customerIdAtNexus = expectId(call.parameters["id"])
+                val paramsJson = call.receive<EbicsStandardOrderParamsJson>()
+                val orderParams = paramsJson.toOrderParams()
+                val subscriberData = getSubscriberDetailsFromId(customerIdAtNexus)
+                val response = doEbicsDownloadTransaction(client, subscriberData, "HTD", orderParams)
+                when (response) {
+                    is EbicsDownloadSuccessResult -> {
+                        val payload = XMLUtil.convertStringToJaxb<HTDResponseOrderData>(response.orderData.toString(Charsets.UTF_8))
+                        transaction {
+                            payload.value.partnerInfo.accountInfoList?.forEach {
+                                EbicsAccountInfoEntity.new {
+                                    this.subscriber = getSubscriberEntityFromId(customerIdAtNexus)
+                                    accountId = it.id
+                                    accountHolder = it.accountHolder
+                                    /* FIXME: how to figure out whether that's a general or national account number?
+                                     * This should affect the cast below */
+                                    iban = (it.accountNumberList?.get(0) as EbicsTypes.GeneralAccountNumber).value // FIXME: eventually get *all* of them
+                                    bankCode = (it.bankCodeList?.get(0) as EbicsTypes.GeneralBankCode).value  // FIXME: eventually get *all* of them
+                                }
+                            }
+                        }
+                        call.respondText(
+                            response.orderData.toString(Charsets.UTF_8),
+                            ContentType.Text.Plain,
+                            HttpStatusCode.OK
+                        )
+                    }
+                    is EbicsDownloadBankErrorResult -> {
+                        call.respond(
+                            HttpStatusCode.BadGateway,
+                            EbicsErrorJson(EbicsErrorDetailJson("bankError", response.returnCode.errorCode))
+                        )
+                    }
+                }
+                return@post
             }
 
             /* performs a keys backup */
