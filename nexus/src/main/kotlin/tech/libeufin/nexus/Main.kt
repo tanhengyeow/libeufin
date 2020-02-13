@@ -86,6 +86,7 @@ fun testData() {
 data class NotAnIdError(val statusCode: HttpStatusCode) : Exception("String ID not convertible in number")
 data class BankKeyMissing(val statusCode: HttpStatusCode) : Exception("Impossible operation: bank keys are missing")
 data class SubscriberNotFoundError(val statusCode: HttpStatusCode) : Exception("Subscriber not found in database")
+data class UnknownBankAccountType(val statusCode: HttpStatusCode) : Exception("Bank account is neither general nor national")
 data class BankAccountNotFoundError(val statusCode: HttpStatusCode) : Exception("Subscriber doesn't have bank account claimed by given 'acctid'")
 data class UnreachableBankError(val statusCode: HttpStatusCode) : Exception("Could not reach the bank")
 data class UnparsableResponse(val statusCode: HttpStatusCode, val rawResponse: String) :
@@ -967,10 +968,15 @@ fun main() {
                                     this.subscriber = getSubscriberEntityFromId(customerIdAtNexus)
                                     accountId = it.id
                                     accountHolder = it.accountHolder
-                                    /* FIXME: how to figure out whether that's a general or national account number?
-                                     * This should affect the cast below */
-                                    iban = (it.accountNumberList?.get(0) as EbicsTypes.GeneralAccountNumber).value // FIXME: eventually get *all* of them
-                                    bankCode = (it.bankCodeList?.get(0) as EbicsTypes.GeneralBankCode).value  // FIXME: eventually get *all* of them
+                                    iban = when (it.accountNumberList?.get(0)) {
+                                        is EbicsTypes.GeneralAccountNumber -> {
+                                            (it.accountNumberList?.get(0) as EbicsTypes.GeneralAccountNumber).value
+                                        }
+                                        is EbicsTypes.NationalAccountNumber -> {
+                                            (it.accountNumberList?.get(0) as EbicsTypes.NationalAccountNumber).value
+                                        }
+                                        else -> throw UnknownBankAccountType(HttpStatusCode.NotFound)
+                                    }
                                 }
                             }
                         }
