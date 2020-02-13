@@ -86,6 +86,7 @@ fun testData() {
 data class NotAnIdError(val statusCode: HttpStatusCode) : Exception("String ID not convertible in number")
 data class BankKeyMissing(val statusCode: HttpStatusCode) : Exception("Impossible operation: bank keys are missing")
 data class SubscriberNotFoundError(val statusCode: HttpStatusCode) : Exception("Subscriber not found in database")
+data class BankAccountNotFoundError(val statusCode: HttpStatusCode) : Exception("Subscriber doesn't have bank account claimed by given 'acctid'")
 data class UnreachableBankError(val statusCode: HttpStatusCode) : Exception("Could not reach the bank")
 data class UnparsableResponse(val statusCode: HttpStatusCode, val rawResponse: String) :
     Exception("bank responded: ${rawResponse}")
@@ -103,6 +104,20 @@ fun getSubscriberEntityFromId(id: String): EbicsSubscriberEntity {
     return transaction {
         EbicsSubscriberEntity.findById(id) ?: throw SubscriberNotFoundError(
             HttpStatusCode.NotFound
+        )
+    }
+}
+
+fun getBankAccountDetailsFromAcctid(id: String): EbicsAccountInfoElement {
+    return transaction {
+        val bankAccount = EbicsAccountInfoEntity.find {
+            EbicsAccountsInfoTable.accountId eq id
+        }.firstOrNull() ?: throw BankAccountNotFoundError(HttpStatusCode.NotFound)
+        EbicsAccountInfoElement(
+            accountId = id,
+            accountHolderName = bankAccount.accountHolder,
+            iban = bankAccount.iban,
+            bankCode = bankAccount.bankCode
         )
     }
 }
@@ -306,7 +321,7 @@ fun main() {
                 val ret = EbicsAccountsInfoResponse()
                 transaction {
                     EbicsAccountInfoEntity.find {
-                        EbicsAccountsInfoTable.subscriberId eq id
+                        EbicsAccountsInfoTable.subscriber eq id
                     }.forEach {
                         ret.accounts.add(
                             EbicsAccountInfoElement(
@@ -326,6 +341,18 @@ fun main() {
             }
 
             post("/ebics/subscribers/{id}/accounts/{acctid}/prepare-payment") {
+                val acctid = expectId(call.parameters["acctid"])
+                val subscriberId = expectId(call.parameters["id"])
+                val accountDetails: EbicsAccountInfoElement = getBankAccountDetailsFromAcctid(acctid)
+                val subscriberDetails = getSubscriberDetailsFromId(subscriberId)
+
+                /**
+                 * Payment preparation logic goes here!
+                 */
+
+                call.respond(NexusErrorJson("Work in progress"))
+                return@post
+
                 // FIXME(marcello):  Put transaction in the database, generate PAIN.001 document
             }
 

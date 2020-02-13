@@ -58,7 +58,7 @@ const val ID_MAX_LENGTH = 50
 
 object EbicsAccountsInfoTable : IntIdTable() {
     val accountId = text("accountId")
-    val subscriber = reference("subscriberId", EbicsSubscribersTable)
+    val subscriber = reference("subscriber", EbicsSubscribersTable)
     val accountHolder = text("accountHolder").nullable()
     val iban = text("iban")
     val bankCode = text("bankCode")
