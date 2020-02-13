@@ -977,6 +977,15 @@ fun main() {
                                         }
                                         else -> throw UnknownBankAccountType(HttpStatusCode.NotFound)
                                     }
+                                    bankCode = when (it.bankCodeList?.get(0)) {
+                                        is EbicsTypes.GeneralBankCode -> {
+                                            (it.bankCodeList?.get(0) as EbicsTypes.GeneralBankCode).value
+                                        }
+                                        is EbicsTypes.NationalBankCode -> {
+                                            (it.bankCodeList?.get(0) as EbicsTypes.GeneralBankCode).value
+                                        }
+                                        else -> throw UnknownBankAccountType(HttpStatusCode.NotFound)
+                                    }
                                 }
                             }
                         }
