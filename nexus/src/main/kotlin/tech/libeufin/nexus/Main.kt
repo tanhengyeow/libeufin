@@ -967,22 +967,14 @@ fun main() {
                                 EbicsAccountInfoEntity.new(id = it.id) {
                                     this.subscriber = getSubscriberEntityFromId(customerIdAtNexus)
                                     accountHolder = it.accountHolder
-                                    iban = when (it.accountNumberList?.get(0)) {
-                                        is EbicsTypes.GeneralAccountNumber -> {
-                                            (it.accountNumberList?.get(0) as EbicsTypes.GeneralAccountNumber).value
-                                        }
-                                        is EbicsTypes.NationalAccountNumber -> {
-                                            (it.accountNumberList?.get(0) as EbicsTypes.NationalAccountNumber).value
-                                        }
+                                    iban = when (val firstAccount = it.accountNumberList?.get(0)) {
+                                        is EbicsTypes.GeneralAccountNumber -> firstAccount.value
+                                        is EbicsTypes.NationalAccountNumber -> firstAccount.value
                                         else -> throw UnknownBankAccountType(HttpStatusCode.NotFound)
                                     }
-                                    bankCode = when (it.bankCodeList?.get(0)) {
-                                        is EbicsTypes.GeneralBankCode -> {
-                                            (it.bankCodeList?.get(0) as EbicsTypes.GeneralBankCode).value
-                                        }
-                                        is EbicsTypes.NationalBankCode -> {
-                                            (it.bankCodeList?.get(0) as EbicsTypes.GeneralBankCode).value
-                                        }
+                                    bankCode = when (val firstBankCode = it.bankCodeList?.get(0)) {
+                                        is EbicsTypes.GeneralBankCode -> firstBankCode.value
+                                        is EbicsTypes.NationalBankCode -> firstBankCode.value
                                         else -> throw UnknownBankAccountType(HttpStatusCode.NotFound)
                                     }
                                 }
