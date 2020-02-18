@@ -6,6 +6,7 @@ import org.jetbrains.exposed.sql.transactions.TransactionManager
 import org.jetbrains.exposed.sql.transactions.transaction
 import tech.libeufin.nexus.EbicsSubscribersTable.entityId
 import tech.libeufin.nexus.EbicsSubscribersTable.primaryKey
+import tech.libeufin.util.IntIdTableWithAmount
 import java.sql.Connection
 
 const val ID_MAX_LENGTH = 50
@@ -55,6 +56,20 @@ const val ID_MAX_LENGTH = 50
 //object EbicsBankAccountsTable {
 //
 //}
+
+object Pain001Table : IntIdTableWithAmount() {
+    val msgId = integer("msgId").uniqueIndex()
+    val paymentId = integer("paymentId").uniqueIndex() // id for this system
+    val date = date("fileDate")
+    val sum = amount("sum")
+    val debtorAccount = text("debtorAccount")
+    val endToEndId = integer("EndToEndId").uniqueIndex() // id for this and the creditor system
+    val subject = text("subject")
+    val creditorIban = text("creditorIban")
+    val creditorBic = text("creditorBic")
+    val creditorName = text("creditorName")
+    val submitted = bool("submitted") // indicates whether the PAIN message was sent to the bank.
+}
 
 object EbicsAccountsInfoTable : IdTable<String>() {
     override val id = varchar("id", ID_MAX_LENGTH).entityId().primaryKey()

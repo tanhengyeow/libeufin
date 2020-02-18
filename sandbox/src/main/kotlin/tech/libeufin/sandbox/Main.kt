@@ -48,6 +48,7 @@ import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 import org.slf4j.event.Level
 import org.w3c.dom.Document
+import tech.libeufin.util.Amount
 import tech.libeufin.util.CryptoUtil
 import java.lang.ArithmeticException
 import java.math.BigDecimal
@@ -58,7 +59,6 @@ import javax.xml.bind.JAXBContext
 
 class CustomerNotFound(id: String?) : Exception("Customer ${id} not found")
 class BadInputData(inputData: String?) : Exception("Customer provided invalid input data: ${inputData}")
-class BadAmount(badValue: Any?) : Exception("Value '${badValue}' is not a valid amount")
 class UnacceptableFractional(badNumber: BigDecimal) : Exception(
     "Unacceptable fractional part ${badNumber}"
 )
@@ -149,7 +149,7 @@ fun sampleData() {
             nextOrderID = 1
             bankCustomer = customerEntity
         }
-        for (i in listOf<Amount>(Amount("-0.44"), Amount("6.02"))) {
+        for (i in listOf(Amount("-0.44"), Amount("6.02"))) {
             BankTransactionEntity.new {
                 counterpart = "IBAN"
                 amount = i
