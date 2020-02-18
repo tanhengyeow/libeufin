@@ -60,7 +60,7 @@ const val ID_MAX_LENGTH = 50
 object Pain001Table : IntIdTableWithAmount() {
     val msgId = integer("msgId").uniqueIndex().autoIncrement()
     val paymentId = integer("paymentId").uniqueIndex().autoIncrement() // id for this system
-    val date = date("fileDate")
+    val date = date("fileDate").date()
     val sum = amount("sum")
     val debtorAccount = text("debtorAccount")
     val endToEndId = integer("EndToEndId").uniqueIndex().autoIncrement() // id for this and the creditor system
@@ -68,7 +68,7 @@ object Pain001Table : IntIdTableWithAmount() {
     val creditorIban = text("creditorIban")
     val creditorBic = text("creditorBic")
     val creditorName = text("creditorName")
-    val submitted = bool("submitted") // indicates whether the PAIN message was sent to the bank.
+    val submitted = bool("submitted").default(false) // indicates whether the PAIN message was sent to the bank.
 }
 
 class Pain001Entity(id: EntityID<Int>) : IntEntity(id) {
