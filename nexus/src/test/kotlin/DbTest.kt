@@ -7,6 +7,8 @@ import org.junit.Test
 import org.jetbrains.exposed.sql.Database
 import org.jetbrains.exposed.sql.transactions.transaction
 import org.jetbrains.exposed.sql.SchemaUtils
+import org.joda.time.DateTime
+import tech.libeufin.util.Amount
 import javax.sql.rowset.serial.SerialBlob
 
 
@@ -17,6 +19,7 @@ class DbTest {
         Database.connect("jdbc:h2:mem:test;DB_CLOSE_DELAY=-1", driver = "org.h2.Driver")
         transaction {
             SchemaUtils.create(EbicsSubscribersTable)
+            SchemaUtils.create(Pain001Table)
         }
     }
 
@@ -35,5 +38,19 @@ class DbTest {
             }
             assert(EbicsSubscriberEntity.findById("123asdf") != null)
         }
+    }
+
+    @Test
+    fun testPain001() {
+        createPain001entry(
+            Pain001Entry(
+                debtorAccountId = "da",
+                creditorBic = "cb",
+                creditorIban = "ci",
+                creditorName = "cn",
+                sum = Amount(2),
+                subject = "s"
+            )
+        )
     }
 }

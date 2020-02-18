@@ -158,6 +158,33 @@ fun getSubscriberDetailsFromId(id: String): EbicsClientSubscriberDetails {
     }
 }
 
+data class Pain001Entry(
+    val debtorAccountId: String,
+    val creditorIban: String,
+    val creditorBic: String,
+    val creditorName: String,
+    val sum: Amount,
+    val subject: String
+
+)
+
+/**
+ * Insert one row in the database, and leaves it marked as non-submitted.
+ */
+fun createPain001entry(entry: Pain001Entry) {
+    transaction {
+        Pain001Entity.new {
+            subject = entry.subject
+            sum = entry.sum
+            debtorAccount = entry.debtorAccountId
+            creditorName = entry.creditorName
+            creditorBic = entry.creditorBic
+            creditorIban = entry.creditorIban
+        }
+    }
+
+}
+
 fun main() {
     dbCreateTables()
     testData()

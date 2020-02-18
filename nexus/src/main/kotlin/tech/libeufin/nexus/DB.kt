@@ -4,6 +4,7 @@ import org.jetbrains.exposed.dao.*
 import org.jetbrains.exposed.sql.*
 import org.jetbrains.exposed.sql.transactions.TransactionManager
 import org.jetbrains.exposed.sql.transactions.transaction
+import org.joda.time.DateTime
 import tech.libeufin.nexus.EbicsSubscribersTable.entityId
 import tech.libeufin.nexus.EbicsSubscribersTable.primaryKey
 import tech.libeufin.util.IntIdTableWithAmount
@@ -60,7 +61,7 @@ const val ID_MAX_LENGTH = 50
 object Pain001Table : IntIdTableWithAmount() {
     val msgId = integer("msgId").uniqueIndex().autoIncrement()
     val paymentId = integer("paymentId").uniqueIndex().autoIncrement() // id for this system
-    val date = date("fileDate").date()
+    val fileDate = long("fileDate").default(DateTime.now().millis)
     val sum = amount("sum")
     val debtorAccount = text("debtorAccount")
     val endToEndId = integer("EndToEndId").uniqueIndex().autoIncrement() // id for this and the creditor system
@@ -77,7 +78,7 @@ class Pain001Entity(id: EntityID<Int>) : IntEntity(id) {
 
     var msgId by Pain001Table.msgId
     var paymentId by Pain001Table.paymentId
-    var date by Pain001Table.date
+    var date by Pain001Table.fileDate
     var sum by Pain001Table.sum
     var debtorAccount by Pain001Table.debtorAccount
     var endToEndId by Pain001Table.endToEndId
