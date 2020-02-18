@@ -158,31 +158,28 @@ fun getSubscriberDetailsFromId(id: String): EbicsClientSubscriberDetails {
     }
 }
 
-data class Pain001Entry(
-    val debtorAccountId: String,
+data class Pain001Data(
     val creditorIban: String,
     val creditorBic: String,
     val creditorName: String,
     val sum: Amount,
     val subject: String
-
 )
 
 /**
  * Insert one row in the database, and leaves it marked as non-submitted.
  */
-fun createPain001entry(entry: Pain001Entry) {
+fun createPain001entry(entry: Pain001Data, debtorAccountId: String) {
     transaction {
         Pain001Entity.new {
             subject = entry.subject
             sum = entry.sum
-            debtorAccount = entry.debtorAccountId
+            debtorAccount = debtorAccountId
             creditorName = entry.creditorName
             creditorBic = entry.creditorBic
             creditorIban = entry.creditorIban
         }
     }
-
 }
 
 fun main() {
@@ -371,8 +368,19 @@ fun main() {
             post("/ebics/subscribers/{id}/accounts/{acctid}/prepare-payment") {
                 val acctid = expectId(call.parameters["acctid"])
                 val subscriberId = expectId(call.parameters["id"])
+
                 val accountDetails: EbicsAccountInfoElement = getBankAccountDetailsFromAcctid(acctid)
                 val subscriberDetails = getSubscriberDetailsFromId(subscriberId)
+
+                transaction {
+                    val accountinfo = EbicsAccountInfoEntity.findById(acctid)
+                    val subscriber = EbicsSubscriberEntity.findById(subscriberId)
+                    if (accountinfo?.subscriber != subscriber) {
+                        throw Exception("Claimed account doesn't belong to POSTer!")
+                    }
+                }
+                val pain001data = call.receive<Pain001Data>()
+                createPain001entry(pain001data, acctid)
 
                 /**
                  * Payment preparation logic goes here!

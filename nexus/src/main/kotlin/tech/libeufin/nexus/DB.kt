@@ -73,9 +73,7 @@ object Pain001Table : IntIdTableWithAmount() {
 }
 
 class Pain001Entity(id: EntityID<Int>) : IntEntity(id) {
-
     companion object : IntEntityClass<Pain001Entity>(Pain001Table)
-
     var msgId by Pain001Table.msgId
     var paymentId by Pain001Table.paymentId
     var date by Pain001Table.fileDate
@@ -88,7 +86,6 @@ class Pain001Entity(id: EntityID<Int>) : IntEntity(id) {
     var creditorName by Pain001Table.creditorName
     var submitted by Pain001Table.submitted
 }
-
 
 object EbicsAccountsInfoTable : IdTable<String>() {
     override val id = varchar("id", ID_MAX_LENGTH).entityId().primaryKey()

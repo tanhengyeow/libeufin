@@ -31,9 +31,6 @@ import java.math.MathContext
 import java.math.RoundingMode
 import java.sql.Blob
 import java.sql.Connection
-import tech.libeufin.util.IntIdTableWithAmount
-
-
 
 const val CUSTOMER_NAME_MAX_LENGTH = 20
 const val EBICS_HOST_ID_MAX_LENGTH = 10
@@ -112,15 +109,12 @@ object BankTransactionsTable : IntIdTableWithAmount() {
 class BankTransactionEntity(id: EntityID<Int>) : IntEntity(id) {
 
     companion object : IntEntityClass<BankTransactionEntity>(BankTransactionsTable)
-
     /* the id of the local customer involved in this transaction,
     * either as the credit or the debit part; makes lookups easier */
     var localCustomer by BankCustomerEntity referencedOn BankTransactionsTable.localCustomer
-
     /* keeping as strings, as to allow hosting IBANs and/or other
     * unobvious formats.  */
     var counterpart by BankTransactionsTable.counterpart
-
     var subject by BankTransactionsTable.subject
     var operationDate by BankTransactionsTable.operationDate
     var valueDate by BankTransactionsTable.valueDate
