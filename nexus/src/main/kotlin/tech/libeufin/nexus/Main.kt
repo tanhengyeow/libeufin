@@ -382,11 +382,8 @@ fun main() {
                 val pain001data = call.receive<Pain001Data>()
                 createPain001entry(pain001data, acctid)
 
-                /**
-                 * Payment preparation logic goes here!
-                 */
 
-                call.respond(NexusErrorJson("Work in progress"))
+                call.respond(NexusErrorJson("Payment instructions persisted in DB"))
                 return@post
 
                 // FIXME(marcello):  Put transaction in the database, generate PAIN.001 document
