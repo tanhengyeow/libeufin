@@ -71,6 +71,24 @@ object Pain001Table : IntIdTableWithAmount() {
     val submitted = bool("submitted") // indicates whether the PAIN message was sent to the bank.
 }
 
+class Pain001Entity(id: EntityID<Int>) : IntEntity(id) {
+
+    companion object : IntEntityClass<Pain001Entity>(Pain001Table)
+
+    var msgId by Pain001Table.msgId
+    var paymentId by Pain001Table.paymentId
+    var date by Pain001Table.date
+    var sum by Pain001Table.sum
+    var debtorAccount by Pain001Table.debtorAccount
+    var endToEndId by Pain001Table.endToEndId
+    var subject by Pain001Table.subject
+    var creditorIban by Pain001Table.creditorIban
+    var creditorBic by Pain001Table.creditorBic
+    var creditorName by Pain001Table.creditorName
+    var submitted by Pain001Table.submitted
+}
+
+
 object EbicsAccountsInfoTable : IdTable<String>() {
     override val id = varchar("id", ID_MAX_LENGTH).entityId().primaryKey()
     val subscriber = reference("subscriber", EbicsSubscribersTable)
