@@ -58,12 +58,12 @@ const val ID_MAX_LENGTH = 50
 //}
 
 object Pain001Table : IntIdTableWithAmount() {
-    val msgId = integer("msgId").uniqueIndex()
-    val paymentId = integer("paymentId").uniqueIndex() // id for this system
+    val msgId = integer("msgId").uniqueIndex().autoIncrement()
+    val paymentId = integer("paymentId").uniqueIndex().autoIncrement() // id for this system
     val date = date("fileDate")
     val sum = amount("sum")
     val debtorAccount = text("debtorAccount")
-    val endToEndId = integer("EndToEndId").uniqueIndex() // id for this and the creditor system
+    val endToEndId = integer("EndToEndId").uniqueIndex().autoIncrement() // id for this and the creditor system
     val subject = text("subject")
     val creditorIban = text("creditorIban")
     val creditorBic = text("creditorBic")
