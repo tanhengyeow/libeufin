@@ -19,42 +19,16 @@
   \titlepage
 \end{frame}
 
-\begin{frame}{PSD2, I}
+\begin{frame}
   \begin{center}
-  PSD2 is a EU directive about what properties must be fulfilled by
-  IT services offered by any financial institution.
+  People and businesses need programmatic access to bank accounts, and
+  the EU recognized this by passing the 2nd Payment Service Directive.
+
+  But it's extremely complicated!
   \end{center}
 \end{frame}
 
-\begin{frame}{PSD2, II}
-  \begin{center}
-  it focuses on security and programmatic access to people's assets,
-  {\it but} it is concerned about {\it third parties}.
-  \end{center}
-\end{frame}
-
-\begin{frame}{What does that mean?}
-  \begin{center}
-  It is all about companies: PSD2 regulates how companies (banks) let
-  \underline{other} companies (Fintech provider / Finanzamt / \dots) access
-  \textbf{your} assets.
-  \end{center}
-\end{frame}
-
-\begin{frame}{What can people do?}
-  \begin{center}
-  Watch.
-  \end{center}
-\end{frame}
-
-\begin{frame}{Not really..}
-  \begin{center}
-  Protocols "for people" exist, but are \textbf{a lot}
-  and \textbf{difficult}.
-  \end{center}
-\end{frame}
-
-\begin{frame}{A few examples}
+\begin{frame}{Too many protocols..}
   \begin{itemize}
     \item EBICS: hundreds of pages, just for {\it enclosing} payloads
     \item ISO20022: hundreds of pages for payloads
@@ -66,14 +40,17 @@
   \end{itemize}
 \end{frame}
 
-\begin{frame}{What to do?}
+\begin{frame}{LibEuFin}
   \begin{center}
-  Simplification might lead {\it more people} to use banking APIs,
-  resulting in {\it more importance} in decision processes.
+  LibEuFin is an Open Source service and API that allows developers
+  communities and SMEs to programmatically access their bank accounts.
+
+  It abstracts over complex legacy APIs and provides a bank sandbox
+  to make testing cheap and easy.
   \end{center}
 \end{frame}
 
-\begin{frame}{What is LibEuFin}
+\begin{frame}{Improvements}
   \begin{itemize}
   \item {\it Unifies} several banking protocols into an abstraction layer.
   \item Enables development of FinTech apps {\it without clouds or third parties}
@@ -85,14 +62,33 @@
   \includegraphics[height=0.63\textheight]{libeufin.png}
 \end{frame}
 
-\begin{frame}{What's next?}
+\begin{frame}{Current status}
   \begin{itemize}
-    \item Integration with Taler and GnuCash.
-    \item Taler (a former Prototype fund project) found {\it further} funding for the next two years!
+    \item One major protocol (EBICS) implemented
+    \item Current code works with real GLS bank account!
+    \item Should work with all banks of the German Credit Union (DK)
+    \item Ongoing integration with Taler (former PF project).
   \end{itemize}
 \end{frame}
 
-\begin{frame}{Final remark}
+\begin{frame}{Challenges}
+  \begin{itemize}
+    \item Slow communication with banks.
+    \item Difficult protocols and documentations.
+    \item Subscriber initiation process.
+    \item No testing environment available.
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{Successes}
+  \begin{itemize}
+    \item Milestones estimation was (almost!) accurate.
+    \item Our approach to testing (develop sandbox first) was successful: Real bank access
+          worked on first try, after 4 months of development.
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{What did we learn?}
   \begin{center}
   We believe that \textbf{simplicity} is the key for any system to
   properly function, and that is LibEuFin primary goal.
