@@ -4,27 +4,19 @@
 \title{LibEuFin}
 \subtitle{Libre European Finance}
 \author{Marcello Stanisci}
-
+\newcommand{\boldred}[1]{\textcolor{red}{\textbf{#1}}}
 \begin{document}
 
-% Notes:
-% What's missing:
-% - make clear why this is *civic tech*
-%   (e.g.: moving away from 3rd party surveillance,
-%    moving away from cloud, taking control of your own (bank transaction) data)
-% - make more clear how other civic tech projects can benefit
-
-% Title frame
 \begin{frame}
   \titlepage
 \end{frame}
 
 \begin{frame}
   \begin{center}
-  People and businesses need programmatic access to bank accounts, and
-  the EU recognized this by passing the 2nd Payment Service Directive.
+  \boldred{People} and businesses need \boldred{programmatic access} to bank accounts, and
+  the \boldred{EU} recognized this by passing the 2nd Payment Service Directive.
 
-  But it's extremely complicated!
+  But it's extremely \boldred{complicated}!
   \end{center}
 \end{frame}
 
@@ -42,19 +34,19 @@
 
 \begin{frame}{LibEuFin}
   \begin{center}
-  LibEuFin is an Open Source service and API that allows developers
-  communities and SMEs to programmatically access their bank accounts.
+  LibEuFin is an Open Source \boldred{service} and \boldred{API} that allows
+  developers communities and SMEs to programmatically \boldred{access their bank accounts}.
 
-  It abstracts over complex legacy APIs and provides a bank sandbox
+  It \boldred{abstracts} over complex \boldred{legacy APIs} and provides a bank \boldred{sandbox}
   to make testing cheap and easy.
   \end{center}
 \end{frame}
 
 \begin{frame}{Improvements}
   \begin{itemize}
-  \item {\it Unifies} several banking protocols into an abstraction layer.
-  \item Enables development of FinTech apps {\it without clouds or third parties}
-  \item {\it Frees} application developers from implementing {\it difficult cryptography}
+  \item \boldred{Unifies} several banking protocols into an abstraction layer.
+  \item Enables development of FinTech apps \boldred{without "clouds" or third parties}
+  \item \boldred{Frees} application developers from implementing \boldred{difficult cryptography}
   \end{itemize}
 \end{frame}
 
@@ -64,34 +56,41 @@
 
 \begin{frame}{Current status}
   \begin{itemize}
-    \item One major protocol (EBICS) implemented
-    \item Current code works with real GLS bank account!
-    \item Should work with all banks of the German Credit Union (DK)
-    \item Ongoing integration with Taler (former PF project).
+    \item One major protocol (\boldred{EBICS}) implemented
+    \item Current code works with \boldred{real bank account} at GLS!
+    \item Should work with all banks of the \boldred{German Credit Union}
+    \item Ongoing \boldred{integration with Taler} (former PF project).
   \end{itemize}
 \end{frame}
 
 \begin{frame}{Challenges}
   \begin{itemize}
-    \item Slow communication with banks.
-    \item Difficult protocols and documentations.
-    \item Subscriber initiation process.
-    \item No testing environment available.
+    \item \boldred{Slow communication} with banks.
+    \item \boldred{Significant research} needed before starting coding.
+    \item \boldred{Subscriber initiation} process: mixes digital and analog!
+    \item No reliable \boldred{testing environment} available.
   \end{itemize}
 \end{frame}
 
 \begin{frame}{Successes}
   \begin{itemize}
-    \item Milestones estimation was (almost!) accurate.
-    \item Our approach to testing (develop sandbox first) was successful: Real bank access
+    \item \boldred{Milestones estimation} was (almost!) accurate.
+    \item Our approach to testing (develop \boldred{sandbox first}) was successful: Real bank access
           worked on first try, after 4 months of development.
   \end{itemize}
 \end{frame}
 
-\begin{frame}{What did we learn?}
+\begin{frame}{Future}
   \begin{center}
-  We believe that \textbf{simplicity} is the key for any system to
-  properly function, and that is LibEuFin primary goal.
+  LibEuFin will be \boldred{further developed} for the \boldred{next 2 years},
+  thanks to our employment at \boldred{Taler Sysyems}.
+  \end{center}
+\end{frame}
+
+\begin{frame}{Where to find us}
+  \begin{center}
+  Web: \\ \textcolor{red}{\tt{https://libeufin.tech}} \\
+  e-mail: \\ \textcolor{red}{\tt{contact@libeufin.tech}}
   \end{center}
 \end{frame}
 
