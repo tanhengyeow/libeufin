@@ -170,13 +170,28 @@ data class Pain001Data(
  * Create a PAIN.001 XML document according to the input data.
  * Needs to be called within a transaction block.
  */
-fun createPain001document(pain001Data: Pain001Entity): String {
+fun createPain001document(pain001Entity: Pain001Entity): String {
+
+    /**
+     * Every PAIN.001 document contains at least three IDs:
+     *
+     * 1) MsgId: a unique id for the message itself
+     * 2) PmtInfId: the unique id for the payment's set of information
+     * 3) EndToEndId: a unique id to be shared between the debtor and
+     *    creditor that uniquely identifies the transaction
+     *
+     * For now and for simplicity, since every PAIN entry in the database
+     * has a unique ID, and the three values aren't required to be mutually different,
+     * we'll assign the SAME id (= the row id) to all the three aforementioned
+     * PAIN id types.
+     */
+
     val s = constructXml(indent = true) {
         root("Document") {
             element("CstmrCdtTrfInitn") {
                 element("GrpHdr") {
                     element("MsgId") {
-                        text("UNIQUE-VALUE")
+                        text(pain001Entity.id.value.toString())
                     }
                     element("CreDtTm") {
                         text("DATE")
@@ -185,15 +200,15 @@ fun createPain001document(pain001Data: Pain001Entity): String {
                         text("1")
                     }
                     element("CtrlSum") {
-                        text("TOTAL SUM")
+                        text(pain001Entity.sum.toString())
                     }
                     element("InitgPty/Nm") {
-                        text("BANK ACCOUNT ID")
+                        text(pain001Entity.debtorAccount)
                     }
                 }
                 element("PmtInf") {
                     element("PmtInfId") {
-                        text("PAYMENT-ID")
+                        text(pain001Entity.id.value.toString())
                     }
                     element("PmtMtd") {
                         text("TRF")
@@ -205,54 +220,63 @@ fun createPain001document(pain001Data: Pain001Entity): String {
                         text("1")
                     }
                     element("CtrlSum") {
-                        text("SUM")
+                        text(pain001Entity.sum.toString())
                     }
                     element("PmtTpInf/SvcLvl/Cd") {
                         text("SEPA")
                     }
                     element("ReqdExctnDt") {
-                        text("date when the clearing agent should process the payment")
+                        text("date (YYYY-MM-DD) when the clearing agent should process the payment")
                     }
                     element("Dbtr/Nm") {
-                        text("BANK ACCOUNT ID")
+                        text(pain001Entity.debtorAccount)
                     }
                     element("DbtrAcct/Id/IBAN") {
-                        text("IBAN")
+                        text(transaction {
+                            EbicsAccountInfoEntity.findById(pain001Entity.debtorAccount)?.iban ?: throw Exception(
+                            "Debtor IBAN not found in database"
+                            )
+                        })
                     }
                     element("DbtrAgt/FinInstnId/BIC") {
-                        text("bank international code")
+
+                        text(transaction {
+                            EbicsAccountInfoEntity.findById(pain001Entity.debtorAccount)?.bankCode ?: throw Exception(
+                                "Debtor BIC not found in database"
+                            )
+                        })
                     }
+
                     element("ChrgBr") {
                         text("SLEV")
                     }
                     element("CdtTrfTxInf") {
                         element("PmtId") {
                             element("EndToEndId") {
-                                text("xy")
+                                text(pain001Entity.id.value.toString())
                             }
                         }
                         element("Amt/InstdAmt") {
                             attribute("Ccy", "EUR")
-                            text("AMOUNT")
+                            text(pain001Entity.sum.toString())
                         }
                         element("CdtrAgt/FinInstnId/BIC") {
-                            text("credit party bank's BIC")
+                            text(pain001Entity.creditorBic)
                         }
                         element("Cdtr/Nm") {
-                            text("Credit party real name")
+                            text(pain001Entity.creditorName)
                         }
                         element("CdtrAcct/Id/IBAN") {
-                            text("Credit party IBAN")
+                            text(pain001Entity.creditorIban)
                         }
                         element("RmtInf/Ustrd") {
-                            text("subject line")
+                            text(pain001Entity.subject)
                         }
                     }
                 }
             }
         }
     }
-    
     return s
 }
 
