@@ -12,21 +12,18 @@ import tech.libeufin.util.Amount
 import javax.sql.rowset.serial.SerialBlob
 
 
-class DbTest {
+
+class PainTest {
 
     @Before
-    fun connectAndMakeTables() {
+    fun prepare() {
         Database.connect("jdbc:h2:mem:test;DB_CLOSE_DELAY=-1", driver = "org.h2.Driver")
         transaction {
             SchemaUtils.create(EbicsSubscribersTable)
+            SchemaUtils.create(EbicsAccountsInfoTable)
             SchemaUtils.create(Pain001Table)
-        }
-    }
 
-    @Test
-    fun makeCustomer() {
-        transaction {
-            EbicsSubscriberEntity.new(id = "123asdf") {
+            val subscriberEntity = EbicsSubscriberEntity.new(id = "123asdf") {
                 ebicsURL = "ebics url"
                 hostID = "host"
                 partnerID = "partner"
@@ -36,21 +33,28 @@ class DbTest {
                 authenticationPrivateKey = SerialBlob("authenticationPrivateKey".toByteArray())
                 encryptionPrivateKey = SerialBlob("encryptionPrivateKey".toByteArray())
             }
-            assert(EbicsSubscriberEntity.findById("123asdf") != null)
+            EbicsAccountInfoEntity.new(id = "acctid") {
+                subscriber = subscriberEntity
+                accountHolder = "Account Holder"
+                iban = "IBAN"
+                bankCode = "BIC"
+            }
         }
     }
 
     @Test
-    fun testPain001() {
-        createPain001entry(
-            Pain001Data(
-                creditorBic = "cb",
-                creditorIban = "ci",
-                creditorName = "cn",
-                sum = Amount(2),
-                subject = "s"
-            ),
-            "debtor acctid"
-        )
+    fun testPain001document() {
+        transaction {
+            val pain001Entity = Pain001Entity.new {
+                sum = Amount(1)
+                debtorAccount = "acctid"
+                subject = "subject line"
+                creditorIban = "CREDIT IBAN"
+                creditorBic = "CREDIT BIC"
+                creditorName = "CREDIT NAME"
+            }
+            val s = createPain001document(pain001Entity)
+            println(s)
+        }
     }
 }

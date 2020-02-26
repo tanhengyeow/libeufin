@@ -46,6 +46,7 @@ import org.jetbrains.exposed.exceptions.ExposedSQLException
 import org.jetbrains.exposed.sql.StdOutSqlLogger
 import org.jetbrains.exposed.sql.addLogger
 import org.jetbrains.exposed.sql.transactions.transaction
+import org.joda.time.DateTime
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 import org.slf4j.event.Level
@@ -194,7 +195,10 @@ fun createPain001document(pain001Entity: Pain001Entity): String {
                         text(pain001Entity.id.value.toString())
                     }
                     element("CreDtTm") {
-                        text("DATE")
+                        val dateMillis = transaction {
+                            pain001Entity.date
+                        }
+                        text(DateTime(dateMillis).toString("Y-M-d"))
                     }
                     element("NbOfTxs") {
                         text("1")
@@ -226,7 +230,10 @@ fun createPain001document(pain001Entity: Pain001Entity): String {
                         text("SEPA")
                     }
                     element("ReqdExctnDt") {
-                        text("date (YYYY-MM-DD) when the clearing agent should process the payment")
+                        val dateMillis = transaction {
+                            pain001Entity.date
+                        }
+                        text(DateTime(dateMillis).toString("Y-M-d"))
                     }
                     element("Dbtr/Nm") {
                         text(pain001Entity.debtorAccount)
