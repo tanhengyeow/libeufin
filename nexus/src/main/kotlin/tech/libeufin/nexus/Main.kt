@@ -167,6 +167,96 @@ data class Pain001Data(
 )
 
 /**
+ * Create a PAIN.001 XML document according to the input data.
+ * Needs to be called within a transaction block.
+ */
+fun createPain001document(pain001Data: Pain001Entity): String {
+    val s = constructXml(indent = true) {
+        root("Document") {
+            element("CstmrCdtTrfInitn") {
+                element("GrpHdr") {
+                    element("MsgId") {
+                        text("UNIQUE-VALUE")
+                    }
+                    element("CreDtTm") {
+                        text("DATE")
+                    }
+                    element("NbOfTxs") {
+                        text("1")
+                    }
+                    element("CtrlSum") {
+                        text("TOTAL SUM")
+                    }
+                    element("InitgPty/Nm") {
+                        text("BANK ACCOUNT ID")
+                    }
+                }
+                element("PmtInf") {
+                    element("PmtInfId") {
+                        text("PAYMENT-ID")
+                    }
+                    element("PmtMtd") {
+                        text("TRF")
+                    }
+                    element("BtchBookg") {
+                        text("true")
+                    }
+                    element("NbOfTxs") {
+                        text("1")
+                    }
+                    element("CtrlSum") {
+                        text("SUM")
+                    }
+                    element("PmtTpInf/SvcLvl/Cd") {
+                        text("SEPA")
+                    }
+                    element("ReqdExctnDt") {
+                        text("date when the clearing agent should process the payment")
+                    }
+                    element("Dbtr/Nm") {
+                        text("BANK ACCOUNT ID")
+                    }
+                    element("DbtrAcct/Id/IBAN") {
+                        text("IBAN")
+                    }
+                    element("DbtrAgt/FinInstnId/BIC") {
+                        text("bank international code")
+                    }
+                    element("ChrgBr") {
+                        text("SLEV")
+                    }
+                    element("CdtTrfTxInf") {
+                        element("PmtId") {
+                            element("EndToEndId") {
+                                text("xy")
+                            }
+                        }
+                        element("Amt/InstdAmt") {
+                            attribute("Ccy", "EUR")
+                            text("AMOUNT")
+                        }
+                        element("CdtrAgt/FinInstnId/BIC") {
+                            text("credit party bank's BIC")
+                        }
+                        element("Cdtr/Nm") {
+                            text("Credit party real name")
+                        }
+                        element("CdtrAcct/Id/IBAN") {
+                            text("Credit party IBAN")
+                        }
+                        element("RmtInf/Ustrd") {
+                            text("subject line")
+                        }
+                    }
+                }
+            }
+        }
+    }
+    
+    return s
+}
+
+/**
  * Insert one row in the database, and leaves it marked as non-submitted.
  */
 fun createPain001entry(entry: Pain001Data, debtorAccountId: String) {
@@ -364,6 +454,9 @@ fun main() {
                 )
                 return@get
             }
+
+            /* need primitive that crawls the database of pending payments and generates PAIN.001
+            * after those.  */
 
             post("/ebics/subscribers/{id}/accounts/{acctid}/prepare-payment") {
                 val acctid = expectId(call.parameters["acctid"])
