@@ -570,6 +570,22 @@ def prepare(ctx, account_id, nexus_base_url):
     ctx.invoke(hia, account_id=account_id, nexus_base_url=nexus_base_url)
     ctx.invoke(sync, account_id=account_id, nexus_base_url=nexus_base_url)
 
+
+@ebics.command(help="Picks the first unsubmitted payment and send it to the bank")
+@click.pass_context
+@click.argument(
+  "nexus-base-url"
+)
+def execute_payments(ctx, nexus_base_url):
+    try:
+        url = urljoin(nexus_base_url, "/ebics/admin/execute-payments")
+        resp = post(url)
+    except Exception as e:
+        print("Could not reach the Nexus", e)
+        return
+
+    print(resp.content.decode("utf-8"))
+
 @ebics.command(help="Show status of payments")
 @click.pass_context
 @click.option(

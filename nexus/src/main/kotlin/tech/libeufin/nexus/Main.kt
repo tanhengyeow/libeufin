@@ -38,6 +38,7 @@ import io.ktor.routing.post
 import io.ktor.routing.routing
 import io.ktor.server.engine.embeddedServer
 import io.ktor.server.netty.Netty
+import javafx.util.Pair
 import org.apache.commons.compress.archivers.zip.ZipArchiveOutputStream
 import org.apache.commons.compress.archivers.zip.ZipFile
 import org.apache.commons.compress.utils.SeekableInMemoryByteChannel
@@ -121,6 +122,12 @@ fun getBankAccountDetailsFromAcctid(id: String): EbicsAccountInfoElement {
             iban = bankAccount.iban,
             bankCode = bankAccount.bankCode
         )
+    }
+}
+fun getSubscriberDetailsFromBankAccount(bankAccountId: String): EbicsClientSubscriberDetails {
+    return transaction {
+        val subscriber = EbicsAccountInfoEntity.findById(bankAccountId) ?: throw SubscriberNotFoundError(HttpStatusCode.NotFound)
+        getSubscriberDetailsFromId(subscriber.id.value)
     }
 }
 
@@ -537,16 +544,31 @@ fun main() {
             /**
              * This function triggers the Nexus to perform all those un-submitted payments.
              * Ideally, this logic will be moved into some more automatic mechanism.
+             * NOTE: payments are not yet marked as "done" after this function returns.  This
+             * should be done AFTER the PAIN.002 data corresponding to a payment witnesses it.
              */
             post("/ebics/admin/execute-payments") {
-                transaction {
-                    Pain001Entity.find {
+                val (painDoc, debtorAccount) = transaction {
+                    val entity = Pain001Entity.find {
                         Pain001Table.submitted eq false
-                    }.forEach {
-                        // FIXME TODO
-                    }
+                    }.firstOrNull() ?: throw Exception("No ready payments found")
+                    kotlin.Pair(createPain001document(entity), entity.debtorAccount)
                 }
-
+                logger.info("Processing payment for bank account: ${debtorAccount}")
+                val subscriberDetails = getSubscriberDetailsFromBankAccount(debtorAccount)
+                val response = doEbicsUploadTransaction(
+                    client,
+                    subscriberDetails,
+                    "CCC",
+                    painDoc.toByteArray(Charsets.UTF_8),
+                    EbicsStandardOrderParams()
+                )
+                call.respondText(
+                    response.toString(),
+                    ContentType.Text.Plain,
+                    HttpStatusCode.OK
+                )
+                return@post
             }
 
             post("/ebics/subscribers/{id}/fetch-payment-status") {
