@@ -59,12 +59,12 @@ const val ID_MAX_LENGTH = 50
 //}
 
 object Pain001Table : IntIdTableWithAmount() {
-    val msgId = integer("msgId").uniqueIndex().autoIncrement()
-    val paymentId = integer("paymentId").uniqueIndex().autoIncrement() // id for this system
-    val fileDate = long("fileDate").default(DateTime.now().millis)
+    val msgId = long("msgId").uniqueIndex().autoIncrement()
+    val paymentId = long("paymentId")
+    val fileDate = long("fileDate")
     val sum = amount("sum")
     val debtorAccount = text("debtorAccount")
-    val endToEndId = integer("EndToEndId").uniqueIndex().autoIncrement() // id for this and the creditor system
+    val endToEndId = long("EndToEndId")
     val subject = text("subject")
     val creditorIban = text("creditorIban")
     val creditorBic = text("creditorBic")
@@ -137,6 +137,7 @@ fun dbCreateTables() {
     transaction {
         addLogger(StdOutSqlLogger)
          SchemaUtils.create(
+             Pain001Table,
             EbicsSubscribersTable,
             EbicsAccountsInfoTable
          )

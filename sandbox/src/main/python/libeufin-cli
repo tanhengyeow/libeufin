@@ -613,15 +613,17 @@ def prepare(ctx, account_id, nexus_base_url):
 )
 def prepare_payment(
     ctx, account_id, bank_account_id, creditor_iban,
-    creditor_bic, creditor_name, subject, amount, nexus_base_url):
+    creditor_bic, creditor_name, subject, sum, nexus_base_url):
     nexus_url = urljoin(
         nexus_base_url, "/ebics/subscribers/{}/accounts/{}/prepare-payment".format(
             account_id, bank_account_id))
     body = dict(
-            ebicsURL=ebics_url,
-            userID=user_id,
-            partnerID=partner_id,
-            hostID=host_id
+        debtorAccount = bank_account_id,
+        creditorIban = creditor_iban,
+        creditorBic = creditor_bic,
+        creditorName = creditor_name,
+        subject = subject,
+        sum = sum
     )
     try:
         resp = post(nexus_url, json=body)

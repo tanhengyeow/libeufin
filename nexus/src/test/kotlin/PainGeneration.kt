@@ -43,6 +43,20 @@ class PainTest {
     }
 
     @Test
+    fun testPain001helper() {
+        val data = Pain001Data(
+            creditorIban = "xy",
+            creditorBic = "xy",
+            creditorName = "xy",
+            sum = Amount("1.01"),
+            subject = "xy"
+        )
+        transaction {
+            createPain001entry(data, "debtor-bankaccount-id")
+        }
+    }
+
+    @Test
     fun testPain001document() {
         transaction {
             val pain001Entity = Pain001Entity.new {
@@ -52,6 +66,11 @@ class PainTest {
                 creditorIban = "CREDIT IBAN"
                 creditorBic = "CREDIT BIC"
                 creditorName = "CREDIT NAME"
+                paymentId = 1
+                msgId = 1
+                endToEndId = 1
+                date = 1
+
             }
             val s = createPain001document(pain001Entity)
             println(s)

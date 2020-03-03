@@ -159,14 +159,6 @@ fun getSubscriberDetailsFromId(id: String): EbicsClientSubscriberDetails {
     }
 }
 
-data class Pain001Data(
-    val creditorIban: String,
-    val creditorBic: String,
-    val creditorName: String,
-    val sum: Amount,
-    val subject: String
-)
-
 /**
  * Create a PAIN.001 XML document according to the input data.
  * Needs to be called within a transaction block.
@@ -291,6 +283,7 @@ fun createPain001document(pain001Entity: Pain001Entity): String {
  * Insert one row in the database, and leaves it marked as non-submitted.
  */
 fun createPain001entry(entry: Pain001Data, debtorAccountId: String) {
+    val randomId = Random().nextLong()
     transaction {
         Pain001Entity.new {
             subject = entry.subject
@@ -299,6 +292,10 @@ fun createPain001entry(entry: Pain001Data, debtorAccountId: String) {
             creditorName = entry.creditorName
             creditorBic = entry.creditorBic
             creditorIban = entry.creditorIban
+            date = DateTime.now().millis
+            paymentId = randomId
+            msgId = randomId
+            endToEndId = randomId
         }
     }
 }

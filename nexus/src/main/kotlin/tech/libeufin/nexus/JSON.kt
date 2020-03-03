@@ -85,6 +85,14 @@ data class EbicsSubscriberInfoResponseJson(
     val systemID: String? = null
 )
 
+data class Pain001Data(
+    val creditorIban: String,
+    val creditorBic: String,
+    val creditorName: String,
+    val sum: Amount,
+    val subject: String
+)
+
 /**
  * Admin call that tells all the subscribers managed by Nexus.
  */
