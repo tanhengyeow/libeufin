@@ -486,15 +486,13 @@ fun main() {
                 return@get
             }
 
-            /* need primitive that crawls the database of pending payments and generates PAIN.001
-            * after those.  */
-
+            /**
+             * This endpoint gathers all the data needed to create a payment and persists it
+             * into the database.  However, it does NOT perform the payment itself!
+             */
             post("/ebics/subscribers/{id}/accounts/{acctid}/prepare-payment") {
                 val acctid = expectId(call.parameters["acctid"])
                 val subscriberId = expectId(call.parameters["id"])
-
-                val accountDetails: EbicsAccountInfoElement = getBankAccountDetailsFromAcctid(acctid)
-                val subscriberDetails = getSubscriberDetailsFromId(subscriberId)
 
                 transaction {
                     val accountinfo = EbicsAccountInfoEntity.findById(acctid)
@@ -506,15 +504,37 @@ fun main() {
                 val pain001data = call.receive<Pain001Data>()
                 createPain001entry(pain001data, acctid)
 
-
                 call.respond(NexusErrorJson("Payment instructions persisted in DB"))
                 return@post
-
-                // FIXME(marcello):  Put transaction in the database, generate PAIN.001 document
             }
 
             get("/ebics/subscribers/{id}/payments") {
-                // FIXME(marcello):  List all outgoing transfers and their status
+
+                val id = expectId(call.parameters["id"])
+                val ret = PaymentsInfo()
+                transaction {
+                    EbicsAccountInfoEntity.find {
+                        EbicsAccountsInfoTable.subscriber eq id
+                    }.forEach {
+                        val element = Pain001Entity.find {
+                            Pain001Table.debtorAccount eq it.id.value
+                        }.forEach {
+                            ret.payments.add(
+                                PaymentInfoElement(
+                                    debtorAccount = it.debtorAccount,
+                                    creditorIban = it.creditorIban,
+                                    creditorBic = it.creditorBic,
+                                    creditorName = it.creditorName,
+                                    subject = it.subject,
+                                    sum = it.sum,
+                                    submitted = it.submitted // whether Nexus processed and sent to the bank
+                                )
+                            )
+                        }
+                    }
+                }
+                call.respond(ret)
+                return@get
             }
 
             post("/ebics/subscribers/{id}/fetch-payment-status") {

@@ -1,5 +1,6 @@
 package tech.libeufin.nexus
 
+import tech.libeufin.util.Amount
 import tech.libeufin.util.EbicsDateRange
 import tech.libeufin.util.EbicsOrderParams
 import tech.libeufin.util.EbicsStandardOrderParams
@@ -118,4 +119,18 @@ data class EbicsAccountInfoElement(
 
 data class EbicsAccountsInfoResponse(
     var accounts: MutableList<EbicsAccountInfoElement> = mutableListOf()
+)
+
+data class PaymentInfoElement(
+    val debtorAccount: String,
+    val creditorIban: String,
+    val creditorBic: String,
+    val creditorName: String,
+    val subject: String,
+    val sum: Amount,
+    val submitted: Boolean
+)
+
+data class PaymentsInfo(
+    var payments: MutableList<PaymentInfoElement> = mutableListOf()
 )
