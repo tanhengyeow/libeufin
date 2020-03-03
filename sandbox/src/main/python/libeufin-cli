@@ -570,6 +570,27 @@ def prepare(ctx, account_id, nexus_base_url):
     ctx.invoke(hia, account_id=account_id, nexus_base_url=nexus_base_url)
     ctx.invoke(sync, account_id=account_id, nexus_base_url=nexus_base_url)
 
+@ebics.command(help="Show status of payments")
+@click.pass_context
+@click.option(
+    "--account-id",
+    help="Numerical ID of the customer at the Nexus",
+    required=True
+)
+@click.argument(
+  "nexus-base-url"
+)
+def payment_status(
+    ctx, account_id, nexus_base_url):
+    nexus_url = urljoin(
+        nexus_base_url, "/ebics/subscribers/{}/payments".format(account_id))
+    try:
+        resp = get(nexus_url)
+    except Exception:
+        print("Could not reach the Nexus")
+        return
+
+    print(resp.content.decode("utf-8"))
 
 @ebics.command(help="Prepare a payment")
 @click.pass_context
