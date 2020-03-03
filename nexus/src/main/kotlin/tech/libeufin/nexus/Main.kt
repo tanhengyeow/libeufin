@@ -534,6 +534,21 @@ fun main() {
                 return@get
             }
 
+            /**
+             * This function triggers the Nexus to perform all those un-submitted payments.
+             * Ideally, this logic will be moved into some more automatic mechanism.
+             */
+            post("/ebics/admin/execute-payments") {
+                transaction {
+                    Pain001Entity.find {
+                        Pain001Table.submitted eq false
+                    }.forEach {
+                        // FIXME TODO
+                    }
+                }
+
+            }
+
             post("/ebics/subscribers/{id}/fetch-payment-status") {
                 // FIXME(marcello?):  Fetch pain.002 and mark transfers in it as "failed"
             }
