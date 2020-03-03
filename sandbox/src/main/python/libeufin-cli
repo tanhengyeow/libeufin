@@ -570,6 +570,67 @@ def prepare(ctx, account_id, nexus_base_url):
     ctx.invoke(hia, account_id=account_id, nexus_base_url=nexus_base_url)
     ctx.invoke(sync, account_id=account_id, nexus_base_url=nexus_base_url)
 
+
+@ebics.command(help="Prepare a payment")
+@click.pass_context
+@click.option(
+    "--account-id",
+    help="Numerical ID of the customer at the Nexus",
+    required=True
+)
+@click.option(
+    "--bank-account-id",
+    help="Token that identifies one bank account belonging to --account-id",
+    required=True
+)
+@click.option(
+    "--creditor-iban",
+    help="IBAN of the creditor",
+    required=True
+)
+@click.option(
+    "--creditor-bic",
+    help="BIC of the creditor",
+    required=True
+)
+@click.option(
+    "--creditor-name",
+    help="First and last name of the creditor",
+    required=True
+)
+@click.option(
+    "--subject",
+    help="subject line of the payment",
+    required=True
+)
+@click.option(
+    "--sum",
+    help="amount to pay, in the form XY[.UW], no currency needed (for now)",
+    required=True
+)
+@click.argument(
+  "nexus-base-url"
+)
+def prepare_payment(
+    ctx, account_id, bank_account_id, creditor_iban,
+    creditor_bic, creditor_name, subject, amount, nexus_base_url):
+    nexus_url = urljoin(
+        nexus_base_url, "/ebics/subscribers/{}/accounts/{}/prepare-payment".format(
+            account_id, bank_account_id))
+    body = dict(
+            ebicsURL=ebics_url,
+            userID=user_id,
+            partnerID=partner_id,
+            hostID=host_id
+    )
+    try:
+        resp = post(nexus_url, json=body)
+    except Exception:
+        print("Could not reach the Nexus")
+        return
+
+    print(resp.content.decode("utf-8"))
+
 @ebics.command(help="Send HTD message")
 @click.pass_context
 @click.option(
