@@ -1,0 +1,59 @@
+1.  How to launch the Nexus.
+============================
+From the top directory of this Git repository (on a GNU/Linux system):
+    
+    ./gradlew nexus:run
+
+
+2.  How to use the CLI to request your transactions history.
+============================================================
+
+1.  *Before* executing the CLI, you need EBICS credentials
+  from your bank.
+
+2.  Once you obtained your credentials, you need to "store"
+  them into the Nexus.  After launching the Nexus (see #1),
+  give the command:
+    
+    libeufin-cli ebics new-subscriber \
+      --account-id=<mnemonic-token-you-choose> \
+      --ebics-url=<URL serving EBICS requests, your bank should have notified you one> \
+      --user-id=<EBICS specific user id, see your credentials> \
+      --partner-id=<EBICS specific partner id, see your credentials> \
+      --host-id=<EBICS specific token identifying the EBICS server, see your credentials> \
+      $NEXUS_BASE_URL
+
+3.  To upload your keys to the bank, and download the bank's.
+    
+    libeufin-cli ebics prepare --account-id=<mnemonic-token-you-chose-at-step-1>
+
+
+4 (recommended).  To get a backup of your EBICS keys:
+    
+    libeufin ebics backup \
+        --account-id=<mnemonic-token-you-chose-at-step-2> \
+        --output-file=<path to where to store the backup>
+
+5.  You can now ask for the transactions history concerning your
+  EBICS subscriber.
+    
+    libeufin ebics c52 --account-id=<mnemonic-token-you-chose-at-step-2>
+
+
+3.  Further information
+=======================
+
+1.  To link your bank accounts to your EBICS subscriber.
+
+    libeufin-cli ebics fetch-accounts \
+      --account-id=<mnemonic-token-you-chose-at-step-2> \
+      --prepare \ # shortcut to upload your keys at the bank, and download the bank's
+      $NEXUS_BASE_URL
+
+2 To see all of your bank accounts that are known to the Nexus.
+
+    libeufin-cli ebics bank-accounts \
+      --account-id=<mnemonic-token-you-chose-at-step-2> \
+      $NEXUS_BASE_URL
+
+
