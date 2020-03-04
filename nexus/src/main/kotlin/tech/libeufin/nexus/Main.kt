@@ -513,6 +513,9 @@ fun main() {
                 return@post
             }
 
+            /**
+             * list all the payments related to customer {id}
+             */
             get("/ebics/subscribers/{id}/payments") {
 
                 val id = expectId(call.parameters["id"])
@@ -557,7 +560,7 @@ fun main() {
                 }
                 logger.info("Processing payment for bank account: ${debtorAccount}")
                 val subscriberDetails = getSubscriberDetailsFromBankAccount(debtorAccount)
-                val response = doEbicsUploadTransaction(
+                doEbicsUploadTransaction(
                     client,
                     subscriberDetails,
                     "CCC",
@@ -565,7 +568,7 @@ fun main() {
                     EbicsStandardOrderParams()
                 )
                 call.respondText(
-                    response.toString(),
+                    "CCC message submitted to the bank",
                     ContentType.Text.Plain,
                     HttpStatusCode.OK
                 )
@@ -574,6 +577,18 @@ fun main() {
 
             post("/ebics/subscribers/{id}/fetch-payment-status") {
                 // FIXME(marcello?):  Fetch pain.002 and mark transfers in it as "failed"
+                val id = expectId(call.parameters["id"])
+                val subscriberData = getSubscriberDetailsFromId(id)
+                val response = doEbicsDownloadTransaction(client, subscriberData, "CRZ", EbicsStandardOrderParams())
+                when (response) {
+                    is EbicsDownloadSuccessResult ->
+                        call.respondText(
+                            response.orderData.toString(Charsets.UTF_8),
+                            ContentType.Text.Plain,
+                            HttpStatusCode.OK)
+                    else -> call.respond(NexusErrorJson("Could not download any PAIN.002"))
+                }
+                return@post
             }
 
             post("/ebics/subscribers/{id}/collect-transactions-c52") {
