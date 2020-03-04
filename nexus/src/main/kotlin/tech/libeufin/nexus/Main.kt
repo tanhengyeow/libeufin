@@ -596,11 +596,11 @@ fun main() {
             }
 
             post("/ebics/subscribers/{id}/collect-transactions-c53") {
-                // FIXME(florian): Download C52 and store the result in the right database table
+                // FIXME(florian): Download C53 and store the result in the right database table
             }
 
             post("/ebics/subscribers/{id}/collect-transactions-c54") {
-                // FIXME(florian): Download C52 and store the result in the right database table
+                // FIXME(florian): Download C54 and store the result in the right database table
             }
 
             get("/ebics/subscribers/{id}/transactions") {
