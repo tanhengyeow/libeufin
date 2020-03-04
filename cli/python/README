@@ -1,3 +1,10 @@
+0.  Prerequisites.
+==================
+
+Before being able to reach your bank via EBICS, please
+make sure that you activated your 'subscriber', and obtained
+the credentials from your bank!
+
 1.  How to launch the Nexus.
 ============================
 From the top directory of this Git repository (on a GNU/Linux system):
@@ -8,10 +15,7 @@ From the top directory of this Git repository (on a GNU/Linux system):
 2.  How to use the CLI to request your transactions history.
 ============================================================
 
-1.  *Before* executing the CLI, you need EBICS credentials
-  from your bank.
-
-2.  Once you obtained your credentials, you need to "store"
+1.  Once you obtained your credentials, you need to "store"
   them into the Nexus.  After launching the Nexus (see #1),
   give the command:
     
@@ -23,37 +27,52 @@ From the top directory of this Git repository (on a GNU/Linux system):
       --host-id=<EBICS specific token identifying the EBICS server, see your credentials> \
       $NEXUS_BASE_URL
 
-3.  To upload your keys to the bank, and download the bank's.
+2.  To upload your keys to the bank, and download the bank's.
     
     libeufin-cli ebics prepare --account-id=<mnemonic-token-you-chose-at-step-1>
 
 
-4 (recommended).  To get a backup of your EBICS keys:
+3 (recommended).  To get a backup of your EBICS keys:
     
     libeufin ebics backup \
-        --account-id=<mnemonic-token-you-chose-at-step-2> \
+        --account-id=<mnemonic-token-you-chose-at-step-1> \
         --output-file=<path to where to store the backup>
 
 5.  You can now ask for the transactions history concerning your
   EBICS subscriber.
     
-    libeufin ebics c52 --account-id=<mnemonic-token-you-chose-at-step-2>
+    libeufin ebics c52 --account-id=<mnemonic-token-you-chose-at-step-1>
 
 
-3.  Further information
-=======================
+3.  Instructions to issue a payment instruction.
+================================================
 
-1.  To link your bank accounts to your EBICS subscriber.
+1.  Link your bank accounts to your EBICS subscriber.
 
     libeufin-cli ebics fetch-accounts \
-      --account-id=<mnemonic-token-you-chose-at-step-2> \
+      --account-id=<mnemonic-token-you-chose-at-step-1-of-2> \
       --prepare \ # shortcut to upload your keys at the bank, and download the bank's
       $NEXUS_BASE_URL
 
-2 To see all of your bank accounts that are known to the Nexus.
+2.  To see all of your bank accounts that are known to the Nexus.
 
     libeufin-cli ebics bank-accounts \
-      --account-id=<mnemonic-token-you-chose-at-step-2> \
+      --account-id=<mnemonic-token-you-chose-at-step-1-of-2> \
       $NEXUS_BASE_URL
 
+3.  Prepare the payment.
 
+    libeufin-cli ebics prepare-payment \
+      --account-id=<mnemonic-token-you-chose-at-step-1-of-2> \
+      --creditor-iban=<IBAN from the bank account that is receiving the payment> \
+      --creditor-bic=<BIC from the bank account that is receiving the payment> \
+      --creditor-name=<real name of the legal entity associated with the creditor IBAN> \
+      --subject=<subject line associated with the money transfer> \
+      --sum=<amount of money to transfer, in the form X[.YY] (no currency specified.  Always EUR)> \
+      $NEXUS_BASE_URL
+
+4.  If the previous step succeeded, then the Nexus can be triggered to process the
+    pending payment(s), *regardless* of which customer prepared them.  This step will
+    be automated in the future, and only needed now to help debugging.
+
+    libeufin-cli ebics execute-payments $NEXUS_BASE_URL
