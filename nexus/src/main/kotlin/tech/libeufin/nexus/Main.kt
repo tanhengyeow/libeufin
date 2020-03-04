@@ -126,8 +126,9 @@ fun getBankAccountDetailsFromAcctid(id: String): EbicsAccountInfoElement {
 }
 fun getSubscriberDetailsFromBankAccount(bankAccountId: String): EbicsClientSubscriberDetails {
     return transaction {
-        val subscriber = EbicsAccountInfoEntity.findById(bankAccountId) ?: throw SubscriberNotFoundError(HttpStatusCode.NotFound)
-        getSubscriberDetailsFromId(subscriber.id.value)
+        val accountInfo = EbicsAccountInfoEntity.findById(bankAccountId) ?: throw Exception("Bank account ($bankAccountId) not managed by Nexus")
+        logger.debug("Mapping bank account: ${bankAccountId}, to customer: ${accountInfo.subscriber.id.value}")
+        getSubscriberDetailsFromId(accountInfo.subscriber.id.value)
     }
 }
 

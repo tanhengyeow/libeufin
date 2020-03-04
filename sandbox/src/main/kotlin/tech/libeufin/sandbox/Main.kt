@@ -213,7 +213,6 @@ fun main() {
         install(CallLogging) {
             this.level = Level.DEBUG
             this.logger = LOGGER
-
         }
         install(ContentNegotiation) {
             gson {
