@@ -263,19 +263,20 @@ private fun balance(base: XmlElementBuilder) {
  */
 private fun constructCamtResponse(type: Int, customerId: Int, header: EbicsRequest.Header): String {
     val camt = constructXml(indent = true) {
-        namespace("foo", "bar") // FIXME: set right namespace!
-        root("foo:BkToCstmrAcctRpt") {
-            element("GrpHdr") {
-                element("MsgId") {
-                    // unique identifier for a message
-                    text("id under group header")
+        root("Document") {
+            attribute("xmlns", "urn:iso:std:iso:20022:tech:xsd:camt.053.001.08")
+            element("BkToCstmrAcctRpt") {
+                element("GrpHdr") {
+                    element("MsgId") {
+                        // unique identifier for a message
+                        text("id under group header")
+                    }
                 }
-            }
+                element(if (type == 52) "Rpt" else "Stmt") {
 
-            element(if (type == 52) "Rpt" else "Stmt") {
-
-                balance(this)
-                iterHistory(customerId, header, this)
+                    balance(this)
+                    iterHistory(customerId, header, this)
+                }
             }
         }
     }

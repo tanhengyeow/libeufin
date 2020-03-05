@@ -46,6 +46,9 @@ class XmlDocumentBuilder {
             maybeWriter = w
         }
 
+    fun namespace(uri: String) {
+        writer.setDefaultNamespace(uri)
+    }
     fun namespace(prefix: String, uri: String) {
         writer.setPrefix(prefix, uri)
     }
