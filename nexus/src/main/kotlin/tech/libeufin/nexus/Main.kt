@@ -38,11 +38,8 @@ import io.ktor.routing.post
 import io.ktor.routing.routing
 import io.ktor.server.engine.embeddedServer
 import io.ktor.server.netty.Netty
-import javafx.util.Pair
-import org.apache.commons.compress.archivers.zip.ZipArchiveOutputStream
 import org.apache.commons.compress.archivers.zip.ZipFile
 import org.apache.commons.compress.utils.SeekableInMemoryByteChannel
-import org.jetbrains.exposed.dao.EntityID
 import org.jetbrains.exposed.exceptions.ExposedSQLException
 import org.jetbrains.exposed.sql.StdOutSqlLogger
 import org.jetbrains.exposed.sql.addLogger
@@ -466,7 +463,6 @@ fun main() {
             }
 
             get("/ebics/subscribers/{id}/accounts") {
-                // FIXME(marcello): return bank accounts associated with the subscriber,
                 // this information is only avaiable *after* HTD or HKD has been called
                 val id = expectId(call.parameters["id"])
                 val ret = EbicsAccountsInfoResponse()

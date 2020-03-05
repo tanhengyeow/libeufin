@@ -40,6 +40,7 @@ import tech.libeufin.util.EbicsOrderUtil
 import tech.libeufin.util.XMLUtil
 import tech.libeufin.util.*
 import tech.libeufin.util.XMLUtil.Companion.signEbicsResponse
+import java.io.ByteArrayOutputStream
 import java.math.BigDecimal
 import java.security.interfaces.RSAPrivateCrtKey
 import java.security.interfaces.RSAPublicKey
@@ -48,6 +49,11 @@ import java.util.zip.DeflaterInputStream
 import java.util.zip.InflaterInputStream
 import javax.sql.rowset.serial.SerialBlob
 import javax.xml.datatype.DatatypeFactory
+import org.apache.commons.compress.archivers.ArchiveStreamFactory
+import org.apache.commons.compress.archivers.zip.ZipArchiveEntry
+import org.apache.commons.compress.utils.IOUtils
+import java.io.BufferedInputStream
+import java.io.ByteArrayInputStream
 
 
 open class EbicsRequestError(errorText: String, errorCode: String) :
@@ -273,7 +279,7 @@ private fun constructCamtResponse(type: Int, customerId: Int, header: EbicsReque
             }
         }
     }
-  return camt
+    return camt
 }
 
 
@@ -288,7 +294,20 @@ private fun handleEbicsPTK(requestContext: RequestContext): ByteArray {
 
 private fun handleEbicsC52(requestContext: RequestContext): ByteArray {
     val subscriber = requestContext.subscriber
-    return constructCamtResponse(52, subscriber.bankCustomer.id.value, requestContext.requestObject.header).toByteArray()
+    val camt = constructCamtResponse(52, subscriber.bankCustomer.id.value, requestContext.requestObject.header)
+
+    val baos = ByteArrayOutputStream()
+    val asf = ArchiveStreamFactory().createArchiveOutputStream(ArchiveStreamFactory.ZIP, baos)
+    val zae = ZipArchiveEntry("Singleton C53 Entry")
+    asf.putArchiveEntry(zae)
+
+    val bais = ByteArrayInputStream(camt.toByteArray())
+    IOUtils.copy(bais, asf)
+    bais.close()
+    asf.closeArchiveEntry()
+    asf.finish()
+    baos.close()
+    return baos.toByteArray()
 }
 
 private suspend fun ApplicationCall.handleEbicsHia(header: EbicsUnsecuredRequest.Header, orderData: ByteArray) {
