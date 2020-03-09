@@ -23,7 +23,7 @@ class PainTest {
             SchemaUtils.create(EbicsAccountsInfoTable)
             SchemaUtils.create(Pain001Table)
 
-            val subscriberEntity = EbicsSubscriberEntity.new(id = "123asdf") {
+            val subscriberEntity = EbicsSubscriberEntity.new(id = "123asdf-0") {
                 ebicsURL = "ebics url"
                 hostID = "host"
                 partnerID = "partner"
@@ -39,20 +39,6 @@ class PainTest {
                 iban = "IBAN"
                 bankCode = "BIC"
             }
-        }
-    }
-
-    @Test
-    fun testPain001helper() {
-        val data = Pain001Data(
-            creditorIban = "xy",
-            creditorBic = "xy",
-            creditorName = "xy",
-            sum = Amount("1.01"),
-            subject = "xy"
-        )
-        transaction {
-            createPain001entry(data, "debtor-bankaccount-id")
         }
     }
 

@@ -26,7 +26,7 @@ class DbTest {
     @Test
     fun makeCustomer() {
         transaction {
-            EbicsSubscriberEntity.new(id = "123asdf") {
+            EbicsSubscriberEntity.new(id = "123asdf-1") {
                 ebicsURL = "ebics url"
                 hostID = "host"
                 partnerID = "partner"
@@ -36,7 +36,7 @@ class DbTest {
                 authenticationPrivateKey = SerialBlob("authenticationPrivateKey".toByteArray())
                 encryptionPrivateKey = SerialBlob("encryptionPrivateKey".toByteArray())
             }
-            assert(EbicsSubscriberEntity.findById("123asdf") != null)
+            assert(EbicsSubscriberEntity.findById("123asdf-1") != null)
         }
     }
 

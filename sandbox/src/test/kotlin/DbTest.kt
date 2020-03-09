@@ -17,6 +17,8 @@ import kotlin.math.abs
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertTrue
+import tech.libeufin.util.Amount
+import tech.libeufin.util.BadAmount
 
 
 class DbTest {
@@ -34,7 +36,6 @@ class DbTest {
             SchemaUtils.create(BankCustomersTable)
         }
     }
-
 
     @Test
     fun customers() {
