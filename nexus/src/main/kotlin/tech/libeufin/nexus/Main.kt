@@ -84,21 +84,6 @@ fun testData() {
 }
 
 data class NexusError(val statusCode: HttpStatusCode, val reason: String) : Exception(reason)
-data class NotAnIdError(val statusCode: HttpStatusCode) : Exception("String ID not convertible in number")
-data class BankKeyMissing(val statusCode: HttpStatusCode) : Exception("Impossible operation: bank keys are missing")
-data class SubscriberNotFoundError(val statusCode: HttpStatusCode) : Exception("Subscriber not found in database")
-data class UnknownBankAccountType(val statusCode: HttpStatusCode) : Exception("Bank account is neither general nor national")
-data class BankAccountNotFoundError(val statusCode: HttpStatusCode) : Exception("Subscriber doesn't have bank account claimed by given 'acctid'")
-data class UnreachableBankError(val statusCode: HttpStatusCode) : Exception("Could not reach the bank")
-data class UnparsableResponse(val statusCode: HttpStatusCode, val rawResponse: String) :
-    Exception("bank responded: ${rawResponse}")
-
-class ProtocolViolationError(message: String) : Exception("protocol violation: ${message}")
-class InvalidSubscriberStateError(message: String) : Exception("invalid subscriber state: ${message}")
-data class EbicsError(val codeError: String) : Exception("Bank did not accepted EBICS request, error is: ${codeError}")
-data class BadSignature(val statusCode: HttpStatusCode) : Exception("Signature verification unsuccessful")
-data class BadBackup(val statusCode: HttpStatusCode) : Exception("Could not restore backed up keys")
-data class BankInvalidResponse(val statusCode: HttpStatusCode) : Exception("Missing data from bank response")
 
 val logger: Logger = LoggerFactory.getLogger("tech.libeufin.nexus")
 
@@ -795,8 +780,8 @@ fun main() {
                 val timeLine = timeFormat.format(now)
                 var hostID = ""
                 transaction {
-                    val subscriber = EbicsSubscriberEntity.findById(id) ?: throw SubscriberNotFoundError(
-                        HttpStatusCode.NotFound
+                    val subscriber = EbicsSubscriberEntity.findById(id) ?: throw NexusError(
+                        HttpStatusCode.NotFound, "Subscriber '$id' not found"
                     )
                     val signPubTmp = CryptoUtil.getRsaPublicFromPrivate(
                         CryptoUtil.loadRsaPrivateKey(subscriber.signaturePrivateKey.toByteArray())
@@ -923,8 +908,8 @@ fun main() {
             get("/ebics/subscribers/{id}") {
                 val id = expectId(call.parameters["id"])
                 val response = transaction {
-                    val tmp = EbicsSubscriberEntity.findById(id) ?: throw SubscriberNotFoundError(
-                        HttpStatusCode.NotFound
+                    val tmp = EbicsSubscriberEntity.findById(id) ?: throw NexusError(
+                        HttpStatusCode.NotFound, "Subscriber '$id' not found"
                     )
                     EbicsSubscriberInfoResponseJson(
                         accountID = tmp.id.value,
@@ -1083,8 +1068,8 @@ fun main() {
             get("/ebics/subscribers/{id}/pubkeys") {
                 val id = expectId(call.parameters["id"])
                 val response = transaction {
-                    val subscriber = EbicsSubscriberEntity.findById(id) ?: throw SubscriberNotFoundError(
-                        HttpStatusCode.NotFound
+                    val subscriber = EbicsSubscriberEntity.findById(id) ?: throw NexusError(
+                        HttpStatusCode.NotFound, "Subscriber '$id' not found"
                     )
                     val authPriv = CryptoUtil.loadRsaPrivateKey(subscriber.authenticationPrivateKey.toByteArray())
                     val authPub = CryptoUtil.getRsaPublicFromPrivate(authPriv)
