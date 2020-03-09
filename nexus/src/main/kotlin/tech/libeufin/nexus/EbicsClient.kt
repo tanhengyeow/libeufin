@@ -16,7 +16,7 @@ suspend inline fun HttpClient.postToBank(url: String, body: String): String {
             }
         )
     } catch (e: Exception) {
-        throw UnreachableBankError(HttpStatusCode.InternalServerError)
+        throw NexusError(HttpStatusCode.InternalServerError, "Cannot reach the bank")
     }
     return response
 }
@@ -57,7 +57,7 @@ suspend fun doEbicsDownloadTransaction(
             // Success, nothing to do!
         }
         else -> {
-            throw ProtocolViolationError("unexpected return code ${initResponse.technicalReturnCode}")
+            throw NexusError(HttpStatusCode.InternalServerError, "unexpected return code ${initResponse.technicalReturnCode}")
         }
     }
 
@@ -71,13 +71,13 @@ suspend fun doEbicsDownloadTransaction(
     }
 
     val transactionID =
-        initResponse.transactionID ?: throw ProtocolViolationError("initial response must contain transaction ID")
+        initResponse.transactionID ?: throw NexusError(HttpStatusCode.InternalServerError, "initial response must contain transaction ID")
 
     val encryptionInfo = initResponse.dataEncryptionInfo
-        ?: throw ProtocolViolationError("initial response did not contain encryption info")
+        ?: throw NexusError(HttpStatusCode.InternalServerError, "initial response did not contain encryption info")
 
     val initOrderDataEncChunk = initResponse.orderDataEncChunk
-        ?: throw ProtocolViolationError("initial response for download transaction does not contain data transfer")
+        ?: throw NexusError(HttpStatusCode.InternalServerError,"initial response for download transaction does not contain data transfer")
 
     payloadChunks.add(initOrderDataEncChunk)
 
@@ -95,7 +95,7 @@ suspend fun doEbicsDownloadTransaction(
         EbicsReturnCode.EBICS_DOWNLOAD_POSTPROCESS_DONE -> {
         }
         else -> {
-            throw ProtocolViolationError("unexpected return code")
+            throw NexusError(HttpStatusCode.InternalServerError,"unexpected return code")
         }
     }
     return EbicsDownloadSuccessResult(respPayload)
@@ -110,7 +110,7 @@ suspend fun doEbicsUploadTransaction(
     orderParams: EbicsOrderParams
 ) {
     if (subscriberDetails.bankEncPub == null) {
-        throw InvalidSubscriberStateError("bank encryption key unknown, request HPB first")
+        throw NexusError(HttpStatusCode.BadRequest, "bank encryption key unknown, request HPB first")
     }
     val preparedUploadData = prepareUploadPayload(subscriberDetails, payload)
     val req = createEbicsRequestForUploadInitialization(subscriberDetails, orderType, orderParams, preparedUploadData)
@@ -118,11 +118,11 @@ suspend fun doEbicsUploadTransaction(
 
     val initResponse = parseAndValidateEbicsResponse(subscriberDetails, responseStr)
     if (initResponse.technicalReturnCode != EbicsReturnCode.EBICS_OK) {
-        throw ProtocolViolationError("unexpected return code")
+        throw NexusError(HttpStatusCode.InternalServerError, reason = "unexpected return code")
     }
 
     val transactionID =
-        initResponse.transactionID ?: throw ProtocolViolationError("init response must have transaction ID")
+        initResponse.transactionID ?: throw NexusError(HttpStatusCode.InternalServerError,"init response must have transaction ID")
 
     logger.debug("INIT phase passed!")
     /* now send actual payload */
@@ -145,7 +145,7 @@ suspend fun doEbicsUploadTransaction(
         EbicsReturnCode.EBICS_OK -> {
         }
         else -> {
-            throw ProtocolViolationError("unexpected return code")
+            throw NexusError(HttpStatusCode.InternalServerError,"unexpected return code")
         }
     }
 }

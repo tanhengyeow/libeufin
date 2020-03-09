@@ -58,6 +58,7 @@ import java.text.DateFormat
 import java.text.SimpleDateFormat
 import java.util.*
 import javax.crypto.EncryptedPrivateKeyInfo
+import javax.print.attribute.standard.JobStateReason
 import javax.sql.rowset.serial.SerialBlob
 
 fun testData() {
@@ -82,6 +83,7 @@ fun testData() {
     }
 }
 
+data class NexusError(val statusCode: HttpStatusCode, val reason: String) : Exception(reason)
 data class NotAnIdError(val statusCode: HttpStatusCode) : Exception("String ID not convertible in number")
 data class BankKeyMissing(val statusCode: HttpStatusCode) : Exception("Impossible operation: bank keys are missing")
 data class SubscriberNotFoundError(val statusCode: HttpStatusCode) : Exception("Subscriber not found in database")
@@ -102,9 +104,7 @@ val logger: Logger = LoggerFactory.getLogger("tech.libeufin.nexus")
 
 fun getSubscriberEntityFromId(id: String): EbicsSubscriberEntity {
     return transaction {
-        EbicsSubscriberEntity.findById(id) ?: throw SubscriberNotFoundError(
-            HttpStatusCode.NotFound
-        )
+        EbicsSubscriberEntity.findById(id) ?: throw NexusError(HttpStatusCode.NotFound, "Subscriber not found from id '$id'")
     }
 }
 
@@ -112,7 +112,7 @@ fun getBankAccountDetailsFromAcctid(id: String): EbicsAccountInfoElement {
     return transaction {
         val bankAccount = EbicsAccountInfoEntity.find {
             EbicsAccountsInfoTable.id eq id
-        }.firstOrNull() ?: throw BankAccountNotFoundError(HttpStatusCode.NotFound)
+        }.firstOrNull() ?: throw NexusError(HttpStatusCode.NotFound, "Bank account not found from account id '$id'")
         EbicsAccountInfoElement(
             accountId = id,
             accountHolderName = bankAccount.accountHolder,
@@ -123,7 +123,7 @@ fun getBankAccountDetailsFromAcctid(id: String): EbicsAccountInfoElement {
 }
 fun getSubscriberDetailsFromBankAccount(bankAccountId: String): EbicsClientSubscriberDetails {
     return transaction {
-        val accountInfo = EbicsAccountInfoEntity.findById(bankAccountId) ?: throw Exception("Bank account ($bankAccountId) not managed by Nexus")
+        val accountInfo = EbicsAccountInfoEntity.findById(bankAccountId) ?: throw NexusError(HttpStatusCode.NotFound, "Bank account ($bankAccountId) not managed by Nexus")
         logger.debug("Mapping bank account: ${bankAccountId}, to customer: ${accountInfo.subscriber.id.value}")
         getSubscriberDetailsFromId(accountInfo.subscriber.id.value)
     }
@@ -131,11 +131,7 @@ fun getSubscriberDetailsFromBankAccount(bankAccountId: String): EbicsClientSubsc
 
 fun getSubscriberDetailsFromId(id: String): EbicsClientSubscriberDetails {
     return transaction {
-        val subscriber = EbicsSubscriberEntity.findById(
-            id
-        ) ?: throw SubscriberNotFoundError(
-            HttpStatusCode.NotFound
-        )
+        val subscriber = EbicsSubscriberEntity.findById(id) ?: throw NexusError(HttpStatusCode.NotFound, "subscriber not found from id '$id'")
         var bankAuthPubValue: RSAPublicKey? = null
         if (subscriber.bankAuthenticationPublicKey != null) {
             bankAuthPubValue = CryptoUtil.loadRsaPublicKey(
@@ -237,17 +233,13 @@ fun createPain001document(pain001Entity: Pain001Entity): String {
                     }
                     element("DbtrAcct/Id/IBAN") {
                         text(transaction {
-                            EbicsAccountInfoEntity.findById(pain001Entity.debtorAccount)?.iban ?: throw Exception(
-                            "Debtor IBAN not found in database"
-                            )
+                            EbicsAccountInfoEntity.findById(pain001Entity.debtorAccount)?.iban ?: throw NexusError(HttpStatusCode.NotFound,"Debtor IBAN not found in database")
                         })
                     }
                     element("DbtrAgt/FinInstnId/BIC") {
 
                         text(transaction {
-                            EbicsAccountInfoEntity.findById(pain001Entity.debtorAccount)?.bankCode ?: throw Exception(
-                                "Debtor BIC not found in database"
-                            )
+                            EbicsAccountInfoEntity.findById(pain001Entity.debtorAccount)?.bankCode ?: throw NexusError(HttpStatusCode.NotFound,"Debtor BIC not found in database")
                         })
                     }
 
@@ -499,7 +491,7 @@ fun main() {
                     val accountinfo = EbicsAccountInfoEntity.findById(acctid)
                     val subscriber = EbicsSubscriberEntity.findById(subscriberId)
                     if (accountinfo?.subscriber != subscriber) {
-                        throw Exception("Claimed account doesn't belong to POSTer!")
+                        throw NexusError(HttpStatusCode.BadRequest, "Claimed bank account '$acctid' doesn't belong to subscriber '$subscriberId'!")
                     }
                 }
                 val pain001data = call.receive<Pain001Data>()
@@ -551,7 +543,7 @@ fun main() {
                 val (painDoc, debtorAccount) = transaction {
                     val entity = Pain001Entity.find {
                         Pain001Table.submitted eq false
-                    }.firstOrNull() ?: throw Exception("No ready payments found")
+                    }.firstOrNull() ?: throw NexusError(HttpStatusCode.Accepted, reason = "No ready payments found")
                     kotlin.Pair(createPain001document(entity), entity.debtorAccount)
                 }
                 logger.info("Processing payment for bank account: ${debtorAccount}")
@@ -1069,7 +1061,7 @@ fun main() {
                 )
                 val resp = parseAndDecryptEbicsKeyManagementResponse(subscriberData, responseStr)
                 if (resp.technicalReturnCode != EbicsReturnCode.EBICS_OK) {
-                    throw EbicsError("Unexpected INI response code: ${resp.technicalReturnCode}")
+                    throw NexusError(HttpStatusCode.InternalServerError,"Unexpected INI response code: ${resp.technicalReturnCode}")
                 }
                 call.respondText("Bank accepted signature key\n", ContentType.Text.Plain, HttpStatusCode.OK)
                 return@post
@@ -1085,7 +1077,7 @@ fun main() {
                 )
                 val resp = parseAndDecryptEbicsKeyManagementResponse(subscriberData, responseStr)
                 if (resp.technicalReturnCode != EbicsReturnCode.EBICS_OK) {
-                    throw EbicsError("Unexpected HIA response code: ${resp.technicalReturnCode}")
+                    throw NexusError(HttpStatusCode.InternalServerError,"Unexpected HIA response code: ${resp.technicalReturnCode}")
                 }
                 call.respondText(
                     "Bank accepted authentication and encryption keys\n",
@@ -1123,7 +1115,7 @@ fun main() {
                 } catch (e: Exception) {
                     e.printStackTrace()
                     logger.info("Restoring keys failed, probably due to wrong passphrase")
-                    throw BadBackup(HttpStatusCode.BadRequest)
+                    throw NexusError(HttpStatusCode.BadRequest, reason = "Bad backup given")
                 }
                 logger.info("Restoring keys, creating new user: $id")
                 try {
@@ -1192,12 +1184,12 @@ fun main() {
                                     iban = when (val firstAccount = it.accountNumberList?.get(0)) {
                                         is EbicsTypes.GeneralAccountNumber -> firstAccount.value
                                         is EbicsTypes.NationalAccountNumber -> firstAccount.value
-                                        else -> throw UnknownBankAccountType(HttpStatusCode.NotFound)
+                                        else -> throw NexusError(HttpStatusCode.NotFound, reason = "Unknown bank account type because of IBAN type")
                                     }
                                     bankCode = when (val firstBankCode = it.bankCodeList?.get(0)) {
                                         is EbicsTypes.GeneralBankCode -> firstBankCode.value
                                         is EbicsTypes.NationalBankCode -> firstBankCode.value
-                                        else -> throw UnknownBankAccountType(HttpStatusCode.NotFound)
+                                        else -> throw NexusError(HttpStatusCode.NotFound, reason = "Unknown bank account type because of BIC type")
                                     }
                                 }
                             }
@@ -1223,9 +1215,7 @@ fun main() {
                 val id = expectId(call.parameters["id"])
                 val body = call.receive<EbicsBackupRequestJson>()
                 val response = transaction {
-                    val subscriber = EbicsSubscriberEntity.findById(id) ?: throw SubscriberNotFoundError(
-                        HttpStatusCode.NotFound
-                    )
+                    val subscriber = EbicsSubscriberEntity.findById(id) ?: throw NexusError(HttpStatusCode.NotFound, "Subscriber '$id' not found")
                     EbicsKeysBackupJson(
                         userID = subscriber.userID,
                         hostID = subscriber.hostID,
@@ -1286,12 +1276,12 @@ fun main() {
 
                 val response = parseAndDecryptEbicsKeyManagementResponse(subscriberDetails, responseStr)
                 val orderData =
-                    response.orderData ?: throw ProtocolViolationError("expected order data in HPB response")
+                    response.orderData ?: throw NexusError(HttpStatusCode.InternalServerError, "HPB response has no order data")
                 val hpbData = parseEbicsHpbOrder(orderData)
 
                 // put bank's keys into database.
                 transaction {
-                    val subscriber = EbicsSubscriberEntity.findById(id) ?: throw InvalidSubscriberStateError()
+                    val subscriber = EbicsSubscriberEntity.findById(id) ?: throw NexusError(HttpStatusCode.BadRequest, "Invalid subscriber state")
                     subscriber.bankAuthenticationPublicKey = SerialBlob(hpbData.authenticationPubKey.encoded)
                     subscriber.bankEncryptionPublicKey = SerialBlob(hpbData.encryptionPubKey.encoded)
                 }

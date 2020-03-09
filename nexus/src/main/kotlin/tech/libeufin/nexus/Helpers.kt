@@ -25,5 +25,5 @@ fun chunkString(input: String): String {
 }
 
 fun expectId(param: String?): String {
-    return param ?: throw NotAnIdError(HttpStatusCode.BadRequest)
+    return param ?: throw NexusError(HttpStatusCode.BadRequest, "Bad ID given")
 }
