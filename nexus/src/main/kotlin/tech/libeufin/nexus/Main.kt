@@ -320,69 +320,6 @@ fun main() {
                 call.respondText("Internal server error.\n", ContentType.Text.Plain, HttpStatusCode.InternalServerError)
             }
 
-            exception<NotAnIdError> { cause ->
-                logger.error("Exception while handling '${call.request.uri}'", cause)
-                call.respondText("Bad request\n", ContentType.Text.Plain, HttpStatusCode.BadRequest)
-            }
-
-            exception<BadBackup> { cause ->
-                logger.error("Exception while handling '${call.request.uri}'", cause)
-                call.respondText(
-                    "Bad backup, or passphrase incorrect\n",
-                    ContentType.Text.Plain,
-                    HttpStatusCode.BadRequest
-                )
-            }
-
-            exception<UnparsableResponse> { cause ->
-                logger.error("Exception while handling '${call.request.uri}'", cause)
-                call.respondText(
-                    "Could not parse bank response (${cause.message})\n", ContentType.Text.Plain, HttpStatusCode
-                        .InternalServerError
-                )
-            }
-
-            exception<UnreachableBankError> { cause ->
-                logger.error("Exception while handling '${call.request.uri}'", cause)
-                call.respondText(
-                    "Could not reach the bank\n",
-                    ContentType.Text.Plain,
-                    HttpStatusCode.InternalServerError
-                )
-            }
-
-            exception<SubscriberNotFoundError> { cause ->
-                logger.error("Exception while handling '${call.request.uri}'", cause)
-                call.respondText("Subscriber not found\n", ContentType.Text.Plain, HttpStatusCode.NotFound)
-            }
-
-            exception<BadSignature> { cause ->
-                logger.error("Exception while handling '${call.request.uri}'", cause)
-                call.respondText(
-                    "Signature verification unsuccessful\n",
-                    ContentType.Text.Plain,
-                    HttpStatusCode.NotAcceptable
-                )
-            }
-
-            exception<EbicsError> { cause ->
-                logger.error("Exception while handling '${call.request.uri}'", cause)
-                call.respondText(
-                    "Bank gave EBICS-error response\n",
-                    ContentType.Text.Plain,
-                    HttpStatusCode.NotAcceptable
-                )
-            }
-
-            exception<BankKeyMissing> { cause ->
-                logger.error("Exception while handling '${call.request.uri}'", cause)
-                call.respondText(
-                    "Impossible operation: get bank keys first\n",
-                    ContentType.Text.Plain,
-                    HttpStatusCode.NotAcceptable
-                )
-            }
-
             exception<javax.xml.bind.UnmarshalException> { cause ->
                 logger.error("Exception while handling '${call.request.uri}'", cause)
                 call.respondText(
@@ -512,7 +449,7 @@ fun main() {
                     EbicsAccountInfoEntity.find {
                         EbicsAccountsInfoTable.subscriber eq id
                     }.forEach {
-                        val element = Pain001Entity.find {
+                        Pain001Entity.find {
                             Pain001Table.debtorAccount eq it.id.value
                         }.forEach {
                             ret.payments.add(
