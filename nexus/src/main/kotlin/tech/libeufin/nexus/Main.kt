@@ -497,7 +497,7 @@ fun main() {
                 val pain001data = call.receive<Pain001Data>()
                 createPain001entry(pain001data, acctid)
 
-                call.respond(NexusErrorJson("Payment instructions persisted in DB"))
+                call.respondText("Payment instructions persisted in DB", ContentType.Text.Plain, HttpStatusCode.OK)
                 return@post
             }
 
