@@ -83,7 +83,8 @@ fun testData() {
     }
 }
 
-data class NexusError(val statusCode: HttpStatusCode, val reason: String) : Exception(reason)
+data class NexusError(val statusCode: HttpStatusCode, val reason: String) : Exception()
+
 
 val logger: Logger = LoggerFactory.getLogger("tech.libeufin.nexus")
 
@@ -300,9 +301,13 @@ fun main() {
             }
         }
         install(StatusPages) {
-            exception<Throwable> { cause ->
+            exception<NexusError> { cause ->
                 logger.error("Exception while handling '${call.request.uri}'", cause)
-                call.respondText("Internal server error.\n", ContentType.Text.Plain, HttpStatusCode.InternalServerError)
+                call.respondText(
+                    cause.reason,
+                    ContentType.Text.Plain,
+                    cause.statusCode
+                )
             }
 
             exception<javax.xml.bind.UnmarshalException> { cause ->
