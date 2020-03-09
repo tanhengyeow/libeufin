@@ -106,9 +106,6 @@ private fun makeOrderParams(orderParams: EbicsOrderParams): EbicsRequest.OrderPa
                 }
             }
         }
-        else -> {
-            throw NotImplementedError()
-        }
     }
 }
 
@@ -492,7 +489,7 @@ fun makeEbicsHEVRequest(subscriberDetails: EbicsClientSubscriberDetails): String
     return XMLUtil.convertDomToString(doc)
 }
 
-fun parseEbicsHEVResponse(subscriberDetails: EbicsClientSubscriberDetails, respStr: String): EbicsHevDetails {
+fun parseEbicsHEVResponse(respStr: String): EbicsHevDetails {
     val resp = try {
         XMLUtil.convertStringToJaxb<HEVResponse>(respStr)
     } catch (e: Exception) {

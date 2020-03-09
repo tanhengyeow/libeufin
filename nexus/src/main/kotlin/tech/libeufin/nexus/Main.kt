@@ -944,7 +944,7 @@ fun main() {
                 val subscriberData = getSubscriberDetailsFromId(id)
                 val request = makeEbicsHEVRequest(subscriberData)
                 val response = client.postToBank(subscriberData.ebicsUrl, request)
-                val versionDetails = parseEbicsHEVResponse(subscriberData, response)
+                val versionDetails = parseEbicsHEVResponse(response)
                 call.respond(
                     HttpStatusCode.OK,
                     EbicsHevResponseJson(versionDetails.versions.map { ebicsVersionSpec ->
