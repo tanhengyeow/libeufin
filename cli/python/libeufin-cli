@@ -114,7 +114,7 @@ def hev(obj, account_id, nexus_base_url):
     try:
         resp = get(url)
     except Exception:
-        print("Unsuccessful request")
+        print("Could not reach the bank")
         return
 
     print(resp.content.decode("utf-8"))
@@ -714,7 +714,7 @@ def fetch_accounts(ctx, account_id, prepare, nexus_base_url):
     try:
         resp = post(url, json=dict())
     except Exception:
-        print("Could not reach the bank")
+        print("Could not reach the Nexus")
         return
 
     print(resp.content.decode("utf-8"))
@@ -735,7 +735,7 @@ def hia(obj, account_id, nexus_base_url):
     try:
         resp = post(url)
     except Exception:
-        print("Could not reach the bank")
+        print("Could not reach the Nexus")
         return
     print(resp.content.decode("utf-8"))
 
@@ -756,7 +756,7 @@ def sync(obj, account_id, nexus_base_url):
     try:
         resp = post(url)
     except Exception:
-        print("Could not reach the bank")
+        print("Could not reach the Nexus")
         return
 
     print(resp.content.decode("utf-8"))

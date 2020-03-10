@@ -8,7 +8,7 @@ import java.util.*
 
 suspend inline fun HttpClient.postToBank(url: String, body: String): String {
     logger.debug("Posting: $body")
-    val response = try {
+    val response: String = try {
         this.post<String>(
             urlString = url,
             block = {
@@ -18,6 +18,7 @@ suspend inline fun HttpClient.postToBank(url: String, body: String): String {
     } catch (e: Exception) {
         throw NexusError(HttpStatusCode.InternalServerError, "Cannot reach the bank")
     }
+    logger.debug("Receiving: $response")
     return response
 }
 
@@ -66,6 +67,7 @@ suspend fun doEbicsDownloadTransaction(
             // Success, nothing to do!
         }
         else -> {
+            logger.warn("Bank return code was: ${initResponse.bankReturnCode}")
             return EbicsDownloadBankErrorResult(initResponse.bankReturnCode)
         }
     }

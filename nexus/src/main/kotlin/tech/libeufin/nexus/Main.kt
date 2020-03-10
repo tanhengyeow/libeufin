@@ -49,7 +49,6 @@ import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 import org.slf4j.event.Level
 import tech.libeufin.util.*
-import tech.libeufin.util.InvalidSubscriberStateError
 import tech.libeufin.util.ebics_h004.EbicsTypes
 import tech.libeufin.util.ebics_h004.HTDResponseOrderData
 import java.lang.StringBuilder
@@ -58,7 +57,6 @@ import java.text.DateFormat
 import java.text.SimpleDateFormat
 import java.util.*
 import javax.crypto.EncryptedPrivateKeyInfo
-import javax.print.attribute.standard.JobStateReason
 import javax.sql.rowset.serial.SerialBlob
 
 fun testData() {
@@ -84,7 +82,6 @@ fun testData() {
 }
 
 data class NexusError(val statusCode: HttpStatusCode, val reason: String) : Exception()
-
 
 val logger: Logger = LoggerFactory.getLogger("tech.libeufin.nexus")
 
@@ -309,11 +306,18 @@ fun main() {
                     cause.statusCode
                 )
             }
-
+            exception<UtilError> { cause ->
+                logger.error("Exception while handling '${call.request.uri}'", cause)
+                call.respondText(
+                    cause.reason,
+                    ContentType.Text.Plain,
+                    cause.statusCode
+                )
+            }
             exception<javax.xml.bind.UnmarshalException> { cause ->
                 logger.error("Exception while handling '${call.request.uri}'", cause)
                 call.respondText(
-                    "Could not convert string into JAXB (either from client or from bank)\n",
+                    "Could not convert string into JAXB\n",
                     ContentType.Text.Plain,
                     HttpStatusCode.NotFound
                 )
@@ -500,7 +504,8 @@ fun main() {
                         call.respondText(
                             response.orderData.toString(Charsets.UTF_8),
                             ContentType.Text.Plain,
-                            HttpStatusCode.OK)
+                            HttpStatusCode.OK
+                        )
                     else -> call.respond(NexusErrorJson("Could not download any PAIN.002"))
                 }
                 return@post
