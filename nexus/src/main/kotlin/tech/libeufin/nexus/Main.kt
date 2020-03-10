@@ -511,6 +511,10 @@ fun main() {
                             ContentType.Text.Plain,
                             HttpStatusCode.OK
                         )
+                    /**
+                     * NOTE: flow gets here when the bank-technical return code is
+                     * different from 000000.  This happens also for 090005 (no data available)
+                     */
                     else -> call.respond(NexusErrorJson("Could not download any PAIN.002"))
                 }
                 return@post
