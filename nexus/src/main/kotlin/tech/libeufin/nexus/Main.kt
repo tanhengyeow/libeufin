@@ -498,7 +498,12 @@ fun main() {
                 // FIXME(marcello?):  Fetch pain.002 and mark transfers in it as "failed"
                 val id = expectId(call.parameters["id"])
                 val subscriberData = getSubscriberDetailsFromId(id)
-                val response = doEbicsDownloadTransaction(client, subscriberData, "CRZ", EbicsStandardOrderParams())
+                val response = doEbicsDownloadTransaction(
+                    client,
+                    subscriberData,
+                    "CRZ",
+                    EbicsStandardOrderParams()
+                )
                 when (response) {
                     is EbicsDownloadSuccessResult ->
                         call.respondText(
