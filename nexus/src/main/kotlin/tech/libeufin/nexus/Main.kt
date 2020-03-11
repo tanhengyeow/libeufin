@@ -55,6 +55,7 @@ import java.lang.StringBuilder
 import java.security.interfaces.RSAPublicKey
 import java.text.DateFormat
 import java.text.SimpleDateFormat
+import java.time.LocalDate
 import java.util.*
 import javax.crypto.EncryptedPrivateKeyInfo
 import javax.sql.rowset.serial.SerialBlob
@@ -165,6 +166,9 @@ fun createPain001document(pain001Entity: Pain001Entity): String {
 
     val s = constructXml(indent = true) {
         root("Document") {
+            attribute("xmlns", "urn:iso:std:iso:20022:tech:xsd:pain.001.001.03")
+            attribute("xmlns:xsi", "http://www.w3.org/2001/XMLSchema-instance")
+            attribute("xsi:schemaLocation", "urn:iso:std:iso:20022:tech:xsd:pain.001.001.03 pain.001.001.03.xsd")
             element("CstmrCdtTrfInitn") {
                 element("GrpHdr") {
                     element("MsgId") {
@@ -471,7 +475,7 @@ fun main() {
              * should be done AFTER the PAIN.002 data corresponding to a payment witnesses it.
              */
             post("/ebics/admin/execute-payments") {
-                val (painDoc, debtorAccount) = transaction {
+                val (painDoc: String, debtorAccount) = transaction {
                     val entity = Pain001Entity.find {
                         Pain001Table.submitted eq false
                     }.firstOrNull() ?: throw NexusError(HttpStatusCode.Accepted, reason = "No ready payments found")
@@ -502,7 +506,7 @@ fun main() {
                     client,
                     subscriberData,
                     "CRZ",
-                    EbicsStandardOrderParams()
+                    EbicsStandardOrderParams(EbicsDateRange(start = LocalDate.parse("2020-03-02"), end = LocalDate.now()))
                 )
                 when (response) {
                     is EbicsDownloadSuccessResult ->
