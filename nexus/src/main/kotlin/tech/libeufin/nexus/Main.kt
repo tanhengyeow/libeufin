@@ -55,7 +55,11 @@ import java.lang.StringBuilder
 import java.security.interfaces.RSAPublicKey
 import java.text.DateFormat
 import java.text.SimpleDateFormat
+import java.time.Instant
 import java.time.LocalDate
+import java.time.ZoneId
+import java.time.ZonedDateTime
+import java.time.format.DateTimeFormatter
 import java.util.*
 import javax.crypto.EncryptedPrivateKeyInfo
 import javax.sql.rowset.serial.SerialBlob
@@ -178,7 +182,10 @@ fun createPain001document(pain001Entity: Pain001Entity): String {
                         val dateMillis = transaction {
                             pain001Entity.date
                         }
-                        text(DateTime(dateMillis).toString("Y-M-d"))
+                        val dateFormatter = DateTimeFormatter.ISO_OFFSET_DATE_TIME
+                        val instant = Instant.ofEpochSecond(dateMillis / 1000)
+                        val zoned = ZonedDateTime.ofInstant(instant, ZoneId.systemDefault())
+                        text(dateFormatter.format(zoned))
                     }
                     element("NbOfTxs") {
                         text("1")
