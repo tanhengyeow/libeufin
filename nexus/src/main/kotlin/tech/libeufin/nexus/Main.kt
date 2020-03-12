@@ -220,7 +220,7 @@ fun createPain001document(pain001Entity: Pain001Entity): String {
                         val dateMillis = transaction {
                             pain001Entity.date
                         }
-                        text(DateTime(dateMillis).toString("Y-M-d"))
+                        text(DateTime(dateMillis).toString("Y-MM-dd"))
                     }
                     element("Dbtr/Nm") {
                         text(pain001Entity.debtorAccount)

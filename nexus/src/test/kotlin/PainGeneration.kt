@@ -55,7 +55,7 @@ class PainTest {
                 paymentId = 1
                 msgId = 1
                 endToEndId = 1
-                date = 1
+                date = DateTime.now().millis
 
             }
             val s = createPain001document(pain001Entity)
