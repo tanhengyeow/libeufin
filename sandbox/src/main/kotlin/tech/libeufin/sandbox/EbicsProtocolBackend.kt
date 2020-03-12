@@ -784,7 +784,7 @@ private fun handleEbicsUploadTransactionTransmission(requestContext: RequestCont
         )
         val unzippedData =
             InflaterInputStream(zippedData.inputStream()).use { it.readAllBytes() }
-        println("got upload data: ${unzippedData.toString(Charsets.UTF_8)}")
+        logger.debug("got upload data: ${unzippedData.toString(Charsets.UTF_8)}")
 
         val sigs  = EbicsOrderSignatureEntity.find {
             (EbicsOrderSignaturesTable.orderID eq uploadTransaction.orderID) and
