@@ -75,10 +75,14 @@ fun constructXml(indent: Boolean = false, f: XmlDocumentBuilder.() -> Unit): Str
         writer = IndentingXMLStreamWriter(writer)
     }
     b.writer = writer
-    writer.writeStartDocument()
+    /**
+     * NOTE: commenting out because it wasn't obvious how to output the
+     * "standalone = 'yes' directive".  Manual forge was therefore preferred.
+     */
+    // writer.writeStartDocument()
     f(b)
-    writer.writeEndDocument()
-    return stream.buffer.toString()
+    // writer.writeEndDocument()
+    return "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?>\n${stream.buffer}"
 }
 
 class XmlDocumentDestructor {
