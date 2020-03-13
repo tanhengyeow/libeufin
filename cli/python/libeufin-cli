@@ -372,26 +372,6 @@ def hpd(obj, account_id, nexus_base_url):
     print(resp.content.decode("utf-8"))
 
 
-@ebics.command(help="Send HKD message")
-@click.pass_obj
-@click.option(
-    "--account-id",
-    help="Numerical ID of the customer at the Nexus",
-    required=True
-)
-@click.argument(
-  "nexus-base-url"
-)
-def hkd(obj, account_id, nexus_base_url):
-    url = urljoin(nexus_base_url, "/ebics/subscribers/{}/sendHKD".format(account_id))
-    try:
-        resp = post(url)
-    except Exception:
-        print("Could not reach the bank")
-        return
-
-    print(resp.content.decode("utf-8"))
-
 @ebics.command(help="Send C52 message")
 @click.pass_obj
 @click.option(
@@ -690,7 +670,10 @@ def prepare_payment(
 
     print(resp.content.decode("utf-8"))
 
-@ebics.command(help="Send HTD message")
+@ebics.command(
+    help="Trigger the Nexus to download and store \
+          bank accounts information (via a HTD message)"
+)
 @click.pass_context
 @click.option(
     "--account-id",
@@ -719,6 +702,46 @@ def fetch_accounts(ctx, account_id, prepare, nexus_base_url):
 
     print(resp.content.decode("utf-8"))
 
+
+@ebics.command(help="Send HTD message")
+@click.pass_obj
+@click.option(
+    "--account-id",
+    help="Numerical ID of the customer at the Nexus",
+    required=True
+)
+@click.argument(
+  "nexus-base-url"
+)
+def htd(obj, account_id, nexus_base_url):
+    url = urljoin(nexus_base_url, "/ebics/subscribers/{}/sendHTD".format(account_id))
+    try:
+        resp = get(url)
+    except Exception:
+        print("Could not reach the Nexus")
+        return
+    print(resp.content.decode("utf-8"))
+
+
+
+@ebics.command(help="Send HKD message")
+@click.pass_obj
+@click.option(
+    "--account-id",
+    help="Numerical ID of the customer at the Nexus",
+    required=True
+)
+@click.argument(
+  "nexus-base-url"
+)
+def hkd(obj, account_id, nexus_base_url):
+    url = urljoin(nexus_base_url, "/ebics/subscribers/{}/sendHKD".format(account_id))
+    try:
+        resp = get(url)
+    except Exception:
+        print("Could not reach the Nexus")
+        return
+    print(resp.content.decode("utf-8"))
 
 @ebics.command(help="Send HIA message")
 @click.pass_obj

@@ -362,7 +362,7 @@ object EbicsTypes {
     @XmlAccessorType(XmlAccessType.NONE)
     class GeneralAccountNumber : AbstractAccountNumber {
         @get:XmlAttribute(name = "international")
-        var international: Boolean = false
+        var international: Boolean = true
 
         @get:XmlValue
         lateinit var value: String
@@ -385,7 +385,7 @@ object EbicsTypes {
         var prefix: String? = null
 
         @get:XmlAttribute(name = "international")
-        var international: Boolean = false
+        var international: Boolean = true
 
         @get:XmlValue
         lateinit var value: String

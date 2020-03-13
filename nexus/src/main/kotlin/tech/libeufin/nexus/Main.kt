@@ -29,6 +29,7 @@ import io.ktor.features.StatusPages
 import io.ktor.gson.gson
 import io.ktor.http.ContentType
 import io.ktor.http.HttpStatusCode
+import io.ktor.http.cio.websocket.CloseReason
 import io.ktor.request.receive
 import io.ktor.request.uri
 import io.ktor.response.respond
@@ -49,7 +50,9 @@ import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 import org.slf4j.event.Level
 import tech.libeufin.util.*
+import tech.libeufin.util.ebics_h004.EbicsRequest
 import tech.libeufin.util.ebics_h004.EbicsTypes
+import tech.libeufin.util.ebics_h004.HKDResponseOrderData
 import tech.libeufin.util.ebics_h004.HTDResponseOrderData
 import java.lang.StringBuilder
 import java.security.interfaces.RSAPublicKey
@@ -109,6 +112,40 @@ fun getBankAccountDetailsFromAcctid(id: String): EbicsAccountInfoElement {
         )
     }
 }
+
+/**
+ * Skip national only-numeric bank account ids, and return the first IBAN in list
+ */
+fun extractFirstIban(bankAccounts: List<EbicsTypes.AbstractAccountNumber>?): String? {
+    if (bankAccounts == null)
+        return null
+
+    for (item in bankAccounts) {
+        if (item is EbicsTypes.GeneralAccountNumber) {
+            if (item.international)
+                return item.value
+        }
+    }
+    return null
+}
+
+/**
+ * Skip national only-numeric codes, and returns the first BIC in list
+ */
+fun extractFirstBic(bankCodes: List<EbicsTypes.AbstractBankCode>?): String? {
+    if (bankCodes == null)
+        return null
+
+    for (item in bankCodes) {
+        if (item is EbicsTypes.GeneralBankCode) {
+            if (item.international)
+                return item.value
+        }
+    }
+
+    return null
+}
+
 fun getSubscriberDetailsFromBankAccount(bankAccountId: String): EbicsClientSubscriberDetails {
     return transaction {
         val accountInfo = EbicsAccountInfoEntity.findById(bankAccountId) ?: throw NexusError(HttpStatusCode.NotFound, "Bank account ($bankAccountId) not managed by Nexus")
@@ -243,7 +280,8 @@ fun createPain001document(pain001Entity: Pain001Entity): String {
                     element("CdtTrfTxInf") {
                         element("PmtId") {
                             element("EndToEndId") {
-                                text(pain001Entity.id.value.toString())
+                                // text(pain001Entity.id.value.toString())
+                                text("NOTPROVIDED")
                             }
                         }
                         element("Amt/InstdAmt") {
@@ -488,17 +526,18 @@ fun main() {
                     }.firstOrNull() ?: throw NexusError(HttpStatusCode.Accepted, reason = "No ready payments found")
                     kotlin.Pair(createPain001document(entity), entity.debtorAccount)
                 }
-                logger.info("Processing payment for bank account: ${debtorAccount}")
+                logger.debug("Processing payment for bank account: ${debtorAccount}")
+                logger.debug("Uploading PAIN.001: ${painDoc}")
                 val subscriberDetails = getSubscriberDetailsFromBankAccount(debtorAccount)
                 doEbicsUploadTransaction(
                     client,
                     subscriberDetails,
-                    "CCC",
+                    "CCT",
                     painDoc.toByteArray(Charsets.UTF_8),
                     EbicsStandardOrderParams()
                 )
                 call.respondText(
-                    "CCC message submitted to the bank",
+                    "CCT message submitted to the bank",
                     ContentType.Text.Plain,
                     HttpStatusCode.OK
                 )
@@ -627,12 +666,15 @@ fun main() {
                 return@post
             }
 
-            post("/ebics/subscribers/{id}/sendHtd") {
+            get("/ebics/subscribers/{id}/sendHTD") {
                 val customerIdAtNexus = expectId(call.parameters["id"])
-                val paramsJson = call.receive<EbicsStandardOrderParamsJson>()
-                val orderParams = paramsJson.toOrderParams()
                 val subscriberData = getSubscriberDetailsFromId(customerIdAtNexus)
-                val response = doEbicsDownloadTransaction(client, subscriberData, "HTD", orderParams)
+                val response = doEbicsDownloadTransaction(
+                    client,
+                    subscriberData,
+                    "HTD",
+                    EbicsStandardOrderParams()
+                )
                 when (response) {
                     is EbicsDownloadSuccessResult -> {
                         call.respondText(
@@ -648,7 +690,7 @@ fun main() {
                         )
                     }
                 }
-                return@post
+                return@get
             }
 
             post("/ebics/subscribers/{id}/sendHAA") {
@@ -741,10 +783,15 @@ fun main() {
                 return@post
             }
 
-            post("/ebics/subscribers/{id}/sendHKD") {
+            get("/ebics/subscribers/{id}/sendHKD") {
                 val id = expectId(call.parameters["id"])
                 val subscriberData = getSubscriberDetailsFromId(id)
-                val response = doEbicsDownloadTransaction(client, subscriberData, "HKD", EbicsStandardOrderParams())
+                val response = doEbicsDownloadTransaction(
+                    client,
+                    subscriberData,
+                    "HKD",
+                    EbicsStandardOrderParams()
+                )
                 when (response) {
                     is EbicsDownloadSuccessResult -> {
                         call.respondText(
@@ -760,7 +807,7 @@ fun main() {
                         )
                     }
                 }
-                return@post
+                return@get
             }
 
             post("/ebics/subscribers/{id}/sendTSD") {
@@ -1133,16 +1180,8 @@ fun main() {
                                 EbicsAccountInfoEntity.new(id = it.id) {
                                     this.subscriber = getSubscriberEntityFromId(customerIdAtNexus)
                                     accountHolder = it.accountHolder
-                                    iban = when (val firstAccount = it.accountNumberList?.get(0)) {
-                                        is EbicsTypes.GeneralAccountNumber -> firstAccount.value
-                                        is EbicsTypes.NationalAccountNumber -> firstAccount.value
-                                        else -> throw NexusError(HttpStatusCode.NotFound, reason = "Unknown bank account type because of IBAN type")
-                                    }
-                                    bankCode = when (val firstBankCode = it.bankCodeList?.get(0)) {
-                                        is EbicsTypes.GeneralBankCode -> firstBankCode.value
-                                        is EbicsTypes.NationalBankCode -> firstBankCode.value
-                                        else -> throw NexusError(HttpStatusCode.NotFound, reason = "Unknown bank account type because of BIC type")
-                                    }
+                                    iban = extractFirstIban(it.accountNumberList) ?: throw NexusError(HttpStatusCode.NotFound, reason = "bank gave no IBAN")
+                                    bankCode = extractFirstBic(it.bankCodeList) ?: throw NexusError(HttpStatusCode.NotFound, reason = "bank gave no BIC")
                                 }
                             }
                         }
