@@ -81,8 +81,8 @@ fun constructXml(indent: Boolean = false, f: XmlDocumentBuilder.() -> Unit): Str
      */
     // writer.writeStartDocument()
     f(b)
-    // writer.writeEndDocument()
-    return "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?>\n${stream.buffer}"
+    writer.writeEndDocument()
+    return "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?>\n${stream.buffer.toString()}"
 }
 
 class XmlDocumentDestructor {
