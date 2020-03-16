@@ -69,7 +69,15 @@ object Pain001Table : IntIdTableWithAmount() {
     val creditorIban = text("creditorIban")
     val creditorBic = text("creditorBic")
     val creditorName = text("creditorName")
-    val submitted = bool("submitted").default(false) // indicates whether the PAIN message was sent to the bank.
+
+    /* Indicates whether the PAIN message was sent to the bank. */
+    val submitted = bool("submitted").default(false)
+
+    /* Indicates whether the bank didn't perform the payment: note that
+    * this state can be reached when the payment gets listed in a CRZ
+    * response OR when the payment doesn's show up in a C52/C53 response
+    */
+    val invalid = bool("invalid").default(false)
 }
 
 class Pain001Entity(id: EntityID<Int>) : IntEntity(id) {
@@ -85,6 +93,7 @@ class Pain001Entity(id: EntityID<Int>) : IntEntity(id) {
     var creditorBic by Pain001Table.creditorBic
     var creditorName by Pain001Table.creditorName
     var submitted by Pain001Table.submitted
+    var invalid by Pain001Table.invalid
 }
 
 object EbicsAccountsInfoTable : IdTable<String>() {
