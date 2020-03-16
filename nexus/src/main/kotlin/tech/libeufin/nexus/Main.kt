@@ -44,6 +44,7 @@ import org.apache.commons.compress.utils.SeekableInMemoryByteChannel
 import org.jetbrains.exposed.exceptions.ExposedSQLException
 import org.jetbrains.exposed.sql.StdOutSqlLogger
 import org.jetbrains.exposed.sql.addLogger
+import org.jetbrains.exposed.sql.and
 import org.jetbrains.exposed.sql.transactions.transaction
 import org.joda.time.DateTime
 import org.slf4j.Logger
@@ -522,7 +523,7 @@ fun main() {
             post("/ebics/admin/execute-payments") {
                 val (paymentRowId, painDoc: String, debtorAccount) = transaction {
                     val entity = Pain001Entity.find {
-                        Pain001Table.submitted eq false
+                        (Pain001Table.submitted eq false) and (Pain001Table.invalid eq false)
                     }.firstOrNull() ?: throw NexusError(HttpStatusCode.Accepted, reason = "No ready payments found")
                     Triple(entity.id, createPain001document(entity), entity.debtorAccount)
                 }
