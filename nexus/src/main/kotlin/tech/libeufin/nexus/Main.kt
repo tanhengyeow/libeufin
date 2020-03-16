@@ -520,11 +520,11 @@ fun main() {
              * should be done AFTER the PAIN.002 data corresponding to a payment witnesses it.
              */
             post("/ebics/admin/execute-payments") {
-                val (painDoc: String, debtorAccount) = transaction {
+                val (paymentRowId, painDoc: String, debtorAccount) = transaction {
                     val entity = Pain001Entity.find {
                         Pain001Table.submitted eq false
                     }.firstOrNull() ?: throw NexusError(HttpStatusCode.Accepted, reason = "No ready payments found")
-                    kotlin.Pair(createPain001document(entity), entity.debtorAccount)
+                    Triple(entity.id, createPain001document(entity), entity.debtorAccount)
                 }
                 logger.debug("Processing payment for bank account: ${debtorAccount}")
                 logger.debug("Uploading PAIN.001: ${painDoc}")
@@ -536,6 +536,14 @@ fun main() {
                     painDoc.toByteArray(Charsets.UTF_8),
                     EbicsStandardOrderParams()
                 )
+                /* flow here == no errors occurred */
+                transaction {
+                    val payment = Pain001Entity.findById(paymentRowId) ?: throw NexusError(
+                        HttpStatusCode.InternalServerError,
+                        "Severe internal error: could not find payment in DB after having submitted it to the bank"
+                    )
+                    payment.submitted = true
+                }
                 call.respondText(
                     "CCT message submitted to the bank",
                     ContentType.Text.Plain,
