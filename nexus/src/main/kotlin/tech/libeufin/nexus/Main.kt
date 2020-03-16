@@ -552,7 +552,7 @@ fun main() {
                     client,
                     subscriberData,
                     "CRZ",
-                    EbicsStandardOrderParams(EbicsDateRange(start = LocalDate.parse("2020-03-02"), end = LocalDate.now()))
+                    EbicsStandardOrderParams()
                 )
                 when (response) {
                     is EbicsDownloadSuccessResult ->
