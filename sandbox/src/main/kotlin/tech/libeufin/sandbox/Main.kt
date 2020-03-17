@@ -231,22 +231,22 @@ fun main() {
         routing {
 
             post("/{id}/history") {
-
                 val req = call.receive<CustomerHistoryRequest>()
                 val customer = findCustomer(call.parameters["id"])
                 val ret = CustomerHistoryResponse()
                 val history = extractHistory(customer.id.value, req.start, req.end)
-                
-                history.forEach {
-                    ret.history.add(
-                        CustomerHistoryResponseElement(
-                            subject = it.subject,
-                            amount = "${it.amount.signToString()}${it.amount} EUR",
-                            counterpart = it.counterpart,
-                            operationDate = DateTime(it.operationDate).toString("Y-M-d"),
-                            valueDate = DateTime(it.valueDate).toString("Y-M-d")
+                transaction {
+                    history.forEach {
+                        ret.history.add(
+                            CustomerHistoryResponseElement(
+                                subject = it.subject,
+                                amount = "${it.amount.signToString()}${it.amount} EUR",
+                                counterpart = it.counterpart,
+                                operationDate = DateTime(it.operationDate).toString("Y-M-d"),
+                                valueDate = DateTime(it.valueDate).toString("Y-M-d")
+                            )
                         )
-                    )
+                    }
                 }
                 call.respond(ret)
                 return@post
