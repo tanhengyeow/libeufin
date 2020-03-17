@@ -136,19 +136,118 @@ private suspend fun ApplicationCall.respondEbicsKeyManagement(
     respondText(text, ContentType.Application.Xml, HttpStatusCode.OK)
 }
 
-/**
- * This function populates the "history" content of both a CAMT.052 and CAMT.053.
- * FIXME: There might be needed some filter to exclude non-booked entries from a
- * query-set (as CAMT.053 should do, see #6046)
- *
- * @param cusromerId unique identifier of a bank's customer: not EBICS-relevant.
- * @param request the EBICS request carrying a "history" message.
- * @param base the sub-node where to start attaching history elements.
- *
- */
-private fun iterHistory(customerId: Int, header: EbicsRequest.Header, base: XmlElementBuilder) {
+private fun buildCamtString(history: SizedIterable<BankTransactionEntity>, type: Int): String {
 
-    extractHistoryForEach(
+    return constructXml(indent = true) {
+        root("Document") {
+            attribute("xmlns", "urn:iso:std:iso:20022:tech:xsd:camt.053.001.08")
+            attribute("xmlns:xsi", "http://www.w3.org/2001/XMLSchema-instance")
+            attribute("xmlns:schemaLocation", "urn:iso:std:iso:20022:tech:xsd:camt.053.001.02 camt.053.001.02.xsd")
+            element("BkToCstmrStmt") {
+                element("GrpHdr") {
+                    element("MsgId") {
+                        // unique identifier for a message
+                        text("id under group header")
+                    }
+                    element("CreDtTm")
+                }
+                element(if (type == 52) "Rpt" else "Stmt") {
+                    element("Id") {
+                        // unique identificator for a report.
+                        text("id under report")
+                    }
+                    element("Acct") {
+                        // mandatory account identifier
+                        text("account identifier")
+                    }
+                    element("Bal") {
+                        element("Tp") {
+                            // FIXME: type
+                            element("CdOrPrTry") {
+                                /**
+                                 * FIXME: code-or-proprietary
+                                 * This section specifies the 'balance type', either in a
+                                 * 'coded' format or in a proprietary one.
+                                 */
+                            }
+                        }
+                        element("Amt") {
+                            /**
+                             * FIXME: Amount
+                             */
+                            attribute("Ccy", "EUR")
+                            text(Amount("0.99").toPlainString())
+                        }
+                        element("CdtDbtInd") {
+                            /**
+                             * FIXME: credit-debit-indicator
+                             * Indicates whether the balance is a 'credit' ("CRDT") or a 'debit' ("DBIT") balance.
+                             */
+                        }
+                        element("Dt") {
+                            /**
+                             * FIXME: date, in YYYY-MM-DD format
+                             */
+                        }
+                    }
+
+                    history.forEach {
+                        element("Ntry") {
+                            /* FIXME: one entry in an account history.
+                         * NOTE: this element can appear from 0 to unbounded number of times.
+                         * */
+                            element("Amt") {
+                                /* FIXME: amount of this entry */
+                            }
+                            element("CdtDbtInd") {
+                                /* FIXME: as above, whether the entry witnesses debit or credit */
+                            }
+                            element("Sts") {
+                                /* FIXME: status of the entry (see 2.4.2.15.5 from the ISO20022 reference document.)
+                             *
+                             * From the original text:
+                             * "Status of an entry on the books of the account servicer"
+                             */
+                            }
+                            element("BkTxCd") {
+                                /* FIXME: Bank-transaction-code, see section 2.4.2.15.10.
+                             *  From the original text:
+                             *
+                             *  "Set of elements used to fully identify the type of underlying
+                             *   transaction resulting in an entry"
+                             */
+                            }
+                            element("BookgDt") {
+                                /**
+                                 * FIXME, Booking-date: when the entry was posted on the books
+                                 * of the account servicer; do not necessarily implies that assets
+                                 * become available.  NOTE: this element is optional.
+                                 */
+                            }
+                            element("ValDt") {
+                                /**
+                                 * FIXME, Value-date: when the asset corresponding to one entry
+                                 * becomes available (or unavailable, in case of debit type entry)
+                                 * to the account owner.  NOTE: this element is optional.
+                                 */
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+/**
+ * Builds CAMT response.
+ *
+ * @param history the list of all the history elements
+ * @param type 52 or 53.
+ */
+private fun constructCamtResponse(type: Int, customerId: Int, header: EbicsRequest.Header): String {
+
+    val history = extractHistory(
         customerId,
         try {
             (header.static.orderDetails?.orderParams as EbicsRequest.StandardOrderParams).dateRange!!.start.toString()
@@ -162,125 +261,8 @@ private fun iterHistory(customerId: Int, header: EbicsRequest.Header, base: XmlE
             LOGGER.debug("Asked to iterate over history with NO end date; default to now")
             DatatypeFactory.newInstance().newXMLGregorianCalendar(GregorianCalendar()).toString()
         }
-    ) {
-
-        base.element("Ntry") {
-            /* FIXME: one entry in an account history.
-             * NOTE: this element can appear from 0 to unbounded number of times.
-             * */
-            element("Amt") {
-                /* FIXME: amount of this entry */
-            }
-            element("CdtDbtInd") {
-                /* FIXME: as above, whether the entry witnesses debit or credit */
-            }
-            element("Sts") {
-                /* FIXME: status of the entry (see 2.4.2.15.5 from the ISO20022 reference document.)
-                 *
-                 * From the original text:
-                 * "Status of an entry on the books of the account servicer"
-                 */
-            }
-            element("BkTxCd") {
-                /* FIXME: Bank-transaction-code, see section 2.4.2.15.10.
-                 *  From the original text:
-                 *
-                 *  "Set of elements used to fully identify the type of underlying
-                 *   transaction resulting in an entry"
-                 */
-            }
-            element("BookgDt") {
-                /**
-                 * FIXME, Booking-date: when the entry was posted on the books
-                 * of the account servicer; do not necessarily implies that assets
-                 * become available.  NOTE: this element is optional.
-                 */
-            }
-            element("ValDt") {
-                /**
-                 * FIXME, Value-date: when the asset corresponding to one entry
-                 * becomes available (or unavailable, in case of debit type entry)
-                 * to the account owner.  NOTE: this element is optional.
-                 */
-            }
-        }
-    }
-}
-
-/**
- * This function populates the content under "Rpt" or "Stmt" nodes,
- * therefore is valid for generating both C52 and C53 responses.
- *
- * @param base the sub-node where starting to append content.
- */
-private fun balance(base: XmlElementBuilder) {
-
-    base.element("Id") {
-        // unique identificator for a report.
-        text("id under report")
-    }
-    base.element("Acct") {
-        // mandatory account identifier
-        text("account identifier")
-    }
-    base.element("Bal") {
-        element("Tp") {
-            // FIXME: type
-            element("CdOrPrTry") {
-                /**
-                 * FIXME: code-or-proprietary
-                 * This section specifies the 'balance type', either in a
-                 * 'coded' format or in a proprietary one.
-                 */
-            }
-        }
-        element("Amt") {
-            /**
-             * FIXME: Amount
-             */
-            attribute("Ccy", "EUR")
-            BigDecimal("1.00")
-        }
-        element("CdtDbtInd") {
-            /**
-             * FIXME: credit-debit-indicator
-             * Indicates whether the balance is a 'credit' ("CRDT") or a 'debit' ("DBIT") balance.
-             */
-        }
-        element("Dt") {
-            /**
-             * FIXME: date, in YYYY-MM-DD format
-             */
-        }
-    }
-}
-
-/**
- * Builds CAMT response.
- *
- * @param history the list of all the history elements
- * @param type 52 or 53.
- */
-private fun constructCamtResponse(type: Int, customerId: Int, header: EbicsRequest.Header): String {
-    val camt = constructXml(indent = true) {
-        root("Document") {
-            attribute("xmlns", "urn:iso:std:iso:20022:tech:xsd:camt.053.001.08")
-            element("BkToCstmrAcctRpt") {
-                element("GrpHdr") {
-                    element("MsgId") {
-                        // unique identifier for a message
-                        text("id under group header")
-                    }
-                }
-                element(if (type == 52) "Rpt" else "Stmt") {
-
-                    balance(this)
-                    iterHistory(customerId, header, this)
-                }
-            }
-        }
-    }
-    return camt
+    )
+    return buildCamtString(history, type)
 }
 
 
@@ -299,7 +281,7 @@ private fun handleEbicsC52(requestContext: RequestContext): ByteArray {
 
     val baos = ByteArrayOutputStream()
     val asf = ArchiveStreamFactory().createArchiveOutputStream(ArchiveStreamFactory.ZIP, baos)
-    val zae = ZipArchiveEntry("Singleton C53 Entry")
+    val zae = ZipArchiveEntry("Singleton C5{2,3} Entry")
     asf.putArchiveEntry(zae)
 
     val bais = ByteArrayInputStream(camt.toByteArray())

@@ -38,10 +38,7 @@ import io.ktor.routing.post
 import io.ktor.routing.routing
 import io.ktor.server.engine.embeddedServer
 import io.ktor.server.netty.Netty
-import org.jetbrains.exposed.sql.Date
-import org.jetbrains.exposed.sql.StdOutSqlLogger
-import org.jetbrains.exposed.sql.addLogger
-import org.jetbrains.exposed.sql.and
+import org.jetbrains.exposed.sql.*
 import org.jetbrains.exposed.sql.transactions.transaction
 import org.joda.time.DateTime
 import org.slf4j.Logger
@@ -163,29 +160,23 @@ fun sampleData() {
 }
 
 /**
- * Finds the history for a customer, given dates of 'value'.  This date
- * specifies the point in time where a operation settled.  The other type
- * of date is 'operation', that indicates the point in time where the
- * transaction was created in the bank's system.
- *
  * @param id the customer whose history must be returned.  This
  * id is local to the bank and is not reused/encoded into other
  * EBICS id values.
- * @param builder lambda function that will loop over all the results.
+ *
+ * @return result set of all the operations related to the customer
+ * identified by @p id.
  */
-fun extractHistoryForEach(id: Int, start: String?, end: String?, builder: (BankTransactionEntity) -> Any) {
+fun extractHistory(id: Int, start: String?, end: String?): SizedIterable<BankTransactionEntity> {
     val s = if (start != null) DateTime.parse(start) else DateTime(0)
     val e = if (end != null) DateTime.parse(end) else DateTime.now()
 
     LOGGER.debug("Fetching history from $s to $e")
 
-    transaction {
+    return transaction {
         addLogger(StdOutSqlLogger)
         BankTransactionEntity.find {
             BankTransactionsTable.localCustomer eq id and BankTransactionsTable.valueDate.between(s.millis, e.millis)
-        }.forEach {
-            LOGGER.debug("Found history element: $it")
-            builder(it)
         }
     }
 }
@@ -244,8 +235,9 @@ fun main() {
                 val req = call.receive<CustomerHistoryRequest>()
                 val customer = findCustomer(call.parameters["id"])
                 val ret = CustomerHistoryResponse()
-
-                extractHistoryForEach(customer.id.value, req.start, req.end) {
+                val history = extractHistory(customer.id.value, req.start, req.end)
+                
+                history.forEach {
                     ret.history.add(
                         CustomerHistoryResponseElement(
                             subject = it.subject,
