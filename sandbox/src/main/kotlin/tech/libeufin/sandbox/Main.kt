@@ -232,9 +232,10 @@ fun main() {
                 val ret = CustomerHistoryResponse()
                 val history = extractHistory(
                     customer.id.value,
-                    DateTime.parse(req.start),
-                    DateTime(req.end)
+                    DateTime.parse(req.start ?: "1970-01-01"),
+                    DateTime.parse(req.end ?: "3000-01-01")
                 )
+
                 transaction {
                     history.forEach {
                         ret.history.add(
