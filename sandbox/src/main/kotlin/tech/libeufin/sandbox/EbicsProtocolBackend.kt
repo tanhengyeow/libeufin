@@ -52,8 +52,11 @@ import javax.xml.datatype.DatatypeFactory
 import org.apache.commons.compress.archivers.ArchiveStreamFactory
 import org.apache.commons.compress.archivers.zip.ZipArchiveEntry
 import org.apache.commons.compress.utils.IOUtils
+import org.joda.time.DateTime
+import org.joda.time.Instant
 import java.io.BufferedInputStream
 import java.io.ByteArrayInputStream
+import javax.xml.datatype.XMLGregorianCalendar
 
 
 open class EbicsRequestError(errorText: String, errorCode: String) :
@@ -190,7 +193,6 @@ private fun buildCamtString(history: SizedIterable<BankTransactionEntity>, type:
                              */
                         }
                     }
-
                     history.forEach {
                         element("Ntry") {
                             /* FIXME: one entry in an account history.
@@ -247,21 +249,16 @@ private fun buildCamtString(history: SizedIterable<BankTransactionEntity>, type:
  */
 private fun constructCamtResponse(type: Int, customerId: Int, header: EbicsRequest.Header): String {
 
+    val dateRange = (header.static.orderDetails?.orderParams as EbicsRequest.StandardOrderParams).dateRange
+    val (start, end) = if (dateRange != null) {
+        Pair(DateTime(Instant(dateRange.start)), DateTime(Instant(dateRange.end)))
+    } else Pair(DateTime(0), DateTime.now())
     val history = extractHistory(
         customerId,
-        try {
-            (header.static.orderDetails?.orderParams as EbicsRequest.StandardOrderParams).dateRange!!.start.toString()
-        } catch (e: Exception) {
-            LOGGER.debug("Asked to iterate over history with NO start date; default to now")
-            DatatypeFactory.newInstance().newXMLGregorianCalendar(GregorianCalendar()).toString()
-        },
-        try {
-            (header.static.orderDetails?.orderParams as EbicsRequest.StandardOrderParams).dateRange!!.end.toString()
-        } catch (e: Exception) {
-            LOGGER.debug("Asked to iterate over history with NO end date; default to now")
-            DatatypeFactory.newInstance().newXMLGregorianCalendar(GregorianCalendar()).toString()
-        }
+        start,
+        end
     )
+    logger.debug("${history.count()} history elements found for account $customerId")
     return buildCamtString(history, type)
 }
 

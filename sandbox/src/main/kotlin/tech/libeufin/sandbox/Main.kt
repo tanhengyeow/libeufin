@@ -167,16 +167,12 @@ fun sampleData() {
  * @return result set of all the operations related to the customer
  * identified by @p id.
  */
-fun extractHistory(id: Int, start: String?, end: String?): SizedIterable<BankTransactionEntity> {
-    val s = if (start != null) DateTime.parse(start) else DateTime(0)
-    val e = if (end != null) DateTime.parse(end) else DateTime.now()
-
-    LOGGER.debug("Fetching history from $s to $e")
-
+fun extractHistory(id: Int, start: DateTime, end: DateTime): SizedIterable<BankTransactionEntity> {
+    LOGGER.debug("Fetching history from ${start.toLocalDateTime()} to ${end.toLocalDateTime()}")
     return transaction {
         addLogger(StdOutSqlLogger)
         BankTransactionEntity.find {
-            BankTransactionsTable.localCustomer eq id and BankTransactionsTable.valueDate.between(s.millis, e.millis)
+            BankTransactionsTable.localCustomer eq id and BankTransactionsTable.valueDate.between(start.millis, end.millis)
         }
     }
 }
@@ -234,7 +230,11 @@ fun main() {
                 val req = call.receive<CustomerHistoryRequest>()
                 val customer = findCustomer(call.parameters["id"])
                 val ret = CustomerHistoryResponse()
-                val history = extractHistory(customer.id.value, req.start, req.end)
+                val history = extractHistory(
+                    customer.id.value,
+                    DateTime.parse(req.start),
+                    DateTime(req.end)
+                )
                 transaction {
                     history.forEach {
                         ret.history.add(
