@@ -139,7 +139,7 @@ private suspend fun ApplicationCall.respondEbicsKeyManagement(
     respondText(text, ContentType.Application.Xml, HttpStatusCode.OK)
 }
 
-private fun buildCamtString(history: SizedIterable<BankTransactionEntity>, type: Int): String {
+fun buildCamtString(history: SizedIterable<BankTransactionEntity>, type: Int): String {
 
     return constructXml(indent = true) {
         root("Document") {
