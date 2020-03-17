@@ -604,7 +604,7 @@ fun main() {
                 when (response) {
                     is EbicsDownloadSuccessResult -> {
                         call.respondText(
-                            response.orderData.toString(Charsets.UTF_8),
+                            unzipOrderData(response.orderData),
                             ContentType.Text.Plain,
                             HttpStatusCode.OK
                         )
@@ -626,18 +626,8 @@ fun main() {
                 val response = doEbicsDownloadTransaction(client, subscriberData, "C53", orderParams)
                 when (response) {
                     is EbicsDownloadSuccessResult -> {
-                        val mem = SeekableInMemoryByteChannel(response.orderData)
-                        val zipFile = ZipFile(mem)
-
-                        val s = StringBuilder()
-
-                        zipFile.getEntriesInPhysicalOrder().iterator().forEach { entry ->
-                            s.append("<=== File ${entry.name} ===>\n")
-                            s.append(zipFile.getInputStream(entry).readAllBytes().toString(Charsets.UTF_8))
-                            s.append("\n")
-                        }
                         call.respondText(
-                            s.toString(),
+                            unzipOrderData(response.orderData),
                             ContentType.Text.Plain,
                             HttpStatusCode.OK
                         )
