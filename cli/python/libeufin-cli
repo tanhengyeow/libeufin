@@ -558,14 +558,24 @@ def prepare(ctx, account_id, nexus_base_url):
     help="Numerical ID of the customer at the Nexus",
     required=True
 )
+@click.option(
+    "--date-range",
+    help="Date range for the query",
+    nargs=2,
+    required=False,
+)
 @click.argument(
   "nexus-base-url"
 )
-def download_payment_status(ctx, account_id, nexus_base_url):
+def fetch_payment_status(ctx, account_id, date_range, nexus_base_url):
+    if date_range is not None and len(date_range) == 2:
+        req = dict(dateRange=dict(start=date_range[0], end=date_range[1]))
+    else:
+        req = dict()
     try:
         url = urljoin(
             nexus_base_url, "/ebics/subscribers/{}/fetch-payment-status".format(account_id))
-        resp = post(url)
+        resp = post(url, json=req)
     except Exception as e:
         print("Could not reach the Nexus", e)
         return
