@@ -531,7 +531,6 @@ fun main() {
                     }.firstOrNull() ?: throw NexusError(HttpStatusCode.Accepted, reason = "No ready payments found")
                     Triple(entity.id, createPain001document(entity), entity.debtorAccount)
                 }
-                logger.debug("Processing payment for bank account: ${debtorAccount}")
                 logger.debug("Uploading PAIN.001: ${painDoc}")
                 val subscriberDetails = getSubscriberDetailsFromBankAccount(debtorAccount)
                 doEbicsUploadTransaction(
@@ -560,12 +559,14 @@ fun main() {
             post("/ebics/subscribers/{id}/fetch-payment-status") {
                 // FIXME(marcello?):  Fetch pain.002 and mark transfers in it as "failed"
                 val id = expectId(call.parameters["id"])
+                val paramsJson = call.receive<EbicsStandardOrderParamsJson>()
+                val orderParams = paramsJson.toOrderParams()
                 val subscriberData = getSubscriberDetailsFromId(id)
                 val response = doEbicsDownloadTransaction(
                     client,
                     subscriberData,
                     "CRZ",
-                    EbicsStandardOrderParams()
+                    orderParams
                 )
                 when (response) {
                     is EbicsDownloadSuccessResult ->
