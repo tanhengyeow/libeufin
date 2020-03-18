@@ -469,8 +469,12 @@ fun main() {
                 val subscriberId = expectId(call.parameters["id"])
 
                 transaction {
-                    val accountinfo = EbicsAccountInfoEntity.findById(acctid)
-                    val subscriber = EbicsSubscriberEntity.findById(subscriberId)
+                    val accountinfo = EbicsAccountInfoEntity.findById(acctid)  ?: throw NexusError(
+                        HttpStatusCode.NotFound, "Bank account with id '$acctid' not found (trigger HTD first?)"
+                    )
+                    val subscriber = EbicsSubscriberEntity.findById(subscriberId) ?: throw NexusError(
+                        HttpStatusCode.NotFound, "Subscriber '$subscriberId' not found"
+                    )
                     if (accountinfo?.subscriber != subscriber) {
                         throw NexusError(HttpStatusCode.BadRequest, "Claimed bank account '$acctid' doesn't belong to subscriber '$subscriberId'!")
                     }
