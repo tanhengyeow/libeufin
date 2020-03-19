@@ -587,7 +587,7 @@ fun main() {
                     payment.submitted = true
                 }
                 call.respondText(
-                    "CCT message submitted to the bank",
+                    "CCC message submitted to the bank",
                     ContentType.Text.Plain,
                     HttpStatusCode.OK
                 )
