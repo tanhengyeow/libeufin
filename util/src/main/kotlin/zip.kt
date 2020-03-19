@@ -25,7 +25,7 @@ fun ByteArray.zip(): ByteArray {
     return baos.toByteArray()
 }
 
-fun ByteArray.unzip(): String {
+fun ByteArray.unzipWithLoop(): String {
     val mem = SeekableInMemoryByteChannel(this)
     val zipFile = ZipFile(mem)
     val s = java.lang.StringBuilder()

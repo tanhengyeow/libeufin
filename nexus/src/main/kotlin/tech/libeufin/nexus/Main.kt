@@ -475,7 +475,7 @@ fun main() {
                     val subscriber = EbicsSubscriberEntity.findById(subscriberId) ?: throw NexusError(
                         HttpStatusCode.NotFound, "Subscriber '$subscriberId' not found"
                     )
-                    if (accountinfo?.subscriber != subscriber) {
+                    if (accountinfo.subscriber != subscriber) {
                         throw NexusError(HttpStatusCode.BadRequest, "Claimed bank account '$acctid' doesn't belong to subscriber '$subscriberId'!")
                     }
                 }
@@ -647,7 +647,7 @@ fun main() {
                 when (response) {
                     is EbicsDownloadSuccessResult -> {
                         call.respondText(
-                            response.orderData.unzip(),
+                            response.orderData.unzipWithLoop(),
                             ContentType.Text.Plain,
                             HttpStatusCode.OK
                         )
@@ -670,7 +670,7 @@ fun main() {
                 when (response) {
                     is EbicsDownloadSuccessResult -> {
                         call.respondText(
-                            unzipOrderData(response.orderData),
+                            response.orderData.unzipWithLoop(),
                             ContentType.Text.Plain,
                             HttpStatusCode.OK
                         )
