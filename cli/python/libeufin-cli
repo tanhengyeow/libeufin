@@ -581,6 +581,21 @@ def fetch_payment_status(ctx, account_id, date_range, nexus_base_url):
         return
     print(resp.content.decode("utf-8"))
 
+@ebics.command(help="Picks the first unsubmitted payment and send it to the bank via CCC")
+@click.pass_context
+@click.argument(
+  "nexus-base-url"
+)
+def execute_payments_ccc(ctx, nexus_base_url):
+    try:
+        url = urljoin(nexus_base_url, "/ebics/admin/execute-payments-ccc")
+        resp = post(url)
+    except Exception as e:
+        print("Could not reach the Nexus", e)
+        return
+
+    print(resp.content.decode("utf-8"))
+
 @ebics.command(help="Picks the first unsubmitted payment and send it to the bank")
 @click.pass_context
 @click.argument(
