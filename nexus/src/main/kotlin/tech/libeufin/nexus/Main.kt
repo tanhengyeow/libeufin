@@ -569,13 +569,13 @@ fun main() {
                     }.firstOrNull() ?: throw NexusError(HttpStatusCode.Accepted, reason = "No ready payments found")
                     Triple(entity.id, createPain001document(entity), entity.debtorAccount)
                 }
-                logger.debug("Uploading PAIN.001: ${painDoc}")
+                logger.debug("Uploading PAIN.001 via CCC: ${painDoc}")
                 val subscriberDetails = getSubscriberDetailsFromBankAccount(debtorAccount)
                 doEbicsUploadTransaction(
                     client,
                     subscriberDetails,
-                    "CCT",
-                    painDoc.toByteArray(Charsets.UTF_8),
+                    "CCC",
+                    painDoc.toByteArray(Charsets.UTF_8).zip(),
                     EbicsStandardOrderParams()
                 )
                 /* flow here == no errors occurred */
