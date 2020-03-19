@@ -556,6 +556,44 @@ fun main() {
                 return@post
             }
 
+            /**
+             * This function triggers the Nexus to perform all those un-submitted payments.
+             * Ideally, this logic will be moved into some more automatic mechanism.
+             * NOTE: payments are not yet marked as "done" after this function returns.  This
+             * should be done AFTER the PAIN.002 data corresponding to a payment witnesses it.
+             */
+            post("/ebics/admin/execute-payments-ccc") {
+                val (paymentRowId, painDoc: String, debtorAccount) = transaction {
+                    val entity = Pain001Entity.find {
+                        (Pain001Table.submitted eq false) and (Pain001Table.invalid eq false)
+                    }.firstOrNull() ?: throw NexusError(HttpStatusCode.Accepted, reason = "No ready payments found")
+                    Triple(entity.id, createPain001document(entity), entity.debtorAccount)
+                }
+                logger.debug("Uploading PAIN.001: ${painDoc}")
+                val subscriberDetails = getSubscriberDetailsFromBankAccount(debtorAccount)
+                doEbicsUploadTransaction(
+                    client,
+                    subscriberDetails,
+                    "CCT",
+                    painDoc.toByteArray(Charsets.UTF_8),
+                    EbicsStandardOrderParams()
+                )
+                /* flow here == no errors occurred */
+                transaction {
+                    val payment = Pain001Entity.findById(paymentRowId) ?: throw NexusError(
+                        HttpStatusCode.InternalServerError,
+                        "Severe internal error: could not find payment in DB after having submitted it to the bank"
+                    )
+                    payment.submitted = true
+                }
+                call.respondText(
+                    "CCT message submitted to the bank",
+                    ContentType.Text.Plain,
+                    HttpStatusCode.OK
+                )
+                return@post
+            }
+
             post("/ebics/subscribers/{id}/fetch-payment-status") {
                 // FIXME(marcello?):  Fetch pain.002 and mark transfers in it as "failed"
                 val id = expectId(call.parameters["id"])
@@ -609,7 +647,7 @@ fun main() {
                 when (response) {
                     is EbicsDownloadSuccessResult -> {
                         call.respondText(
-                            unzipOrderData(response.orderData),
+                            response.orderData.unzip(),
                             ContentType.Text.Plain,
                             HttpStatusCode.OK
                         )

@@ -49,8 +49,6 @@ import java.util.zip.DeflaterInputStream
 import java.util.zip.InflaterInputStream
 import javax.sql.rowset.serial.SerialBlob
 import javax.xml.datatype.DatatypeFactory
-import org.apache.commons.compress.archivers.ArchiveStreamFactory
-import org.apache.commons.compress.archivers.zip.ZipArchiveEntry
 import org.apache.commons.compress.utils.IOUtils
 import org.joda.time.DateTime
 import org.joda.time.Instant
@@ -271,23 +269,14 @@ private fun handleEbicsPTK(requestContext: RequestContext): ByteArray {
     return "Hello I am a dummy PTK response.".toByteArray()
 }
 
-
 private fun handleEbicsC52(requestContext: RequestContext): ByteArray {
     val subscriber = requestContext.subscriber
-    val camt = constructCamtResponse(52, subscriber.bankCustomer.id.value, requestContext.requestObject.header)
-
-    val baos = ByteArrayOutputStream()
-    val asf = ArchiveStreamFactory().createArchiveOutputStream(ArchiveStreamFactory.ZIP, baos)
-    val zae = ZipArchiveEntry("Singleton C5{2,3} Entry")
-    asf.putArchiveEntry(zae)
-
-    val bais = ByteArrayInputStream(camt.toByteArray())
-    IOUtils.copy(bais, asf)
-    bais.close()
-    asf.closeArchiveEntry()
-    asf.finish()
-    baos.close()
-    return baos.toByteArray()
+    val camt = constructCamtResponse(
+        52,
+        subscriber.bankCustomer.id.value,
+        requestContext.requestObject.header
+    )
+    return camt.toByteArray().zip()
 }
 
 private suspend fun ApplicationCall.handleEbicsHia(header: EbicsUnsecuredRequest.Header, orderData: ByteArray) {
