@@ -139,6 +139,38 @@ private suspend fun ApplicationCall.respondEbicsKeyManagement(
 
 fun buildCamtString(history: SizedIterable<BankTransactionEntity>, type: Int): String {
 
+    /**
+     * Booking period: we keep two "lines" of booking periods; one for c52 and one for c53.
+     * Each line's period ends when the user requests the c52/c53, and a new period is started.
+     */
+
+    /**
+     * Checklist of data to be retrieved from the database.
+     *
+     * - IBAN(s): debitor and creditor's
+     * - last IDs (of all kinds) ?
+     */
+
+    /**
+     * What needs to be calculated before filling the document:
+     *
+     * - The balance _after_ all the transactions from the fresh
+     *   booking period.
+     */
+
+    /**
+     * ID types required:
+     *
+     * - Message Id
+     * - Statement / Report Id
+     * - Electronic sequence number
+     * - Legal sequence number
+     * - Entry Id by the Servicer
+     * - Payment information Id
+     * - Proprietary code of the bank transaction
+     * - Id of the servicer (Issuer and Code)
+     */
+
     return constructXml(indent = true) {
         root("Document") {
             attribute("xmlns", "urn:iso:std:iso:20022:tech:xsd:camt.053.001.08")
@@ -149,8 +181,12 @@ fun buildCamtString(history: SizedIterable<BankTransactionEntity>, type: Int): S
                     element("MsgId")
                     element("CreDtTm")
                     element("MsgPgntn") {
-                        element("PgNb")
-                        element("LastPgInd")
+                        element("PgNb") {
+                            text("001")
+                        }
+                        element("LastPgInd") {
+                            text("true")
+                        }
                     }
                 }
                 element(if (type == 52) "Rpt" else "Stmt") {
