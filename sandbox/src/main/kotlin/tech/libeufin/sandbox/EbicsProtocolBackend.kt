@@ -151,93 +151,146 @@ fun buildCamtString(history: SizedIterable<BankTransactionEntity>, type: Int): S
                         text("id under group header")
                     }
                     element("CreDtTm")
+                    element("MsgPgntn") {
+                        element("PgNb")
+                        element("LastPgInd")
+                    }
                 }
                 element(if (type == 52) "Rpt" else "Stmt") {
                     element("Id") {
                         // unique identificator for a report.
                         text("id under report")
                     }
+                    element("ElctrncSeqNb")
+                    element("LglSeqNb")
+                    element("CreDtTm")
+
                     element("Acct") {
                         // mandatory account identifier
-                        text("account identifier")
-                    }
-                    element("Bal") {
-                        element("Tp") {
-                            // FIXME: type
-                            element("CdOrPrTry") {
-                                /**
-                                 * FIXME: code-or-proprietary
-                                 * This section specifies the 'balance type', either in a
-                                 * 'coded' format or in a proprietary one.
-                                 */
+                        element("Id/IBAN")
+                        element("Ccy")
+                        element("Ownr/Nm")
+                        element("Svcr/FinInstn") {
+                            element("BIC")
+                            element("Nm")
+                            element("Othr") {
+                                element("Id")
+                                element("Issr")
                             }
                         }
+
+                    }
+                    element("Bal") {
+                        element("Tp/CdOrPrtry/Cd") {
+                            /* Balance type, in a coded format.  PRCD stands
+                               for "Previously closed booked" and shows the
+                               balance at the time _before_ all the entries
+                               reported in this document were posted to the
+                               involved bank account.  */
+                            text("PRCD")
+                        }
                         element("Amt") {
-                            /**
-                             * FIXME: Amount
-                             */
                             attribute("Ccy", "EUR")
-                            text(Amount("0.99").toPlainString())
+                            text(Amount(1).toPlainString())
                         }
                         element("CdtDbtInd") {
-                            /**
-                             * FIXME: credit-debit-indicator
-                             * Indicates whether the balance is a 'credit' ("CRDT") or a 'debit' ("DBIT") balance.
-                             */
+                            // CRDT or DBIT here
                         }
                         element("Dt") {
-                            /**
-                             * FIXME: date, in YYYY-MM-DD format
-                             */
+                            // date of this balance
+                        }
+                    }
+
+                    element("Bal") {
+                        element("Tp/CdOrPrtry/Cd") {
+                            /* CLBD stands for "Closing booked balance", and it
+                               is calculated by summing the PRCD with all the
+                               entries reported in this document */
+                            text("CLBD")
+                        }
+                        element("Amt") {
+                            attribute("Ccy", "EUR")
+                            text(Amount(1).toPlainString())
+                        }
+                        element("CdtDbtInd") {
+                            // CRDT or DBIT here
+                        }
+                        element("Dt") {
+                            // date of this balance
                         }
                     }
                     history.forEach {
                         element("Ntry") {
-                            /* FIXME: one entry in an account history.
-                         * NOTE: this element can appear from 0 to unbounded number of times.
-                         * */
-                            element("Amt") {
-                                /* FIXME: amount of this entry */
-                            }
-                            element("CdtDbtInd") {
-                                /* FIXME: as above, whether the entry witnesses debit or credit */
-                            }
+                            element("Amt")
+                            element("CdtDbtInd")
                             element("Sts") {
-                                /* FIXME: status of the entry (see 2.4.2.15.5 from the ISO20022 reference document.)
-                             *
-                             * From the original text:
-                             * "Status of an entry on the books of the account servicer"
-                             */
+                                /* Status of the entry (see 2.4.2.15.5 from the ISO20022 reference document.)
+                                 * From the original text:
+                                 * "Status of an entry on the books of the account servicer" */
+                                text("BOOK")
+
                             }
+                            element("BookDt/Dt") // date of the booking
+                            element("ValDt/Dt") // date of assets' actual (un)availability
                             element("BkTxCd") {
-                                /* FIXME: Bank-transaction-code, see section 2.4.2.15.10.
-                             *  From the original text:
-                             *
-                             *  "Set of elements used to fully identify the type of underlying
-                             *   transaction resulting in an entry"
-                             */
+                                /*  "Set of elements used to fully identify the type of underlying
+                                 *   transaction resulting in an entry".  */
+                                element("Domn") {
+                                    element("Cd")
+                                    element("Fmly") {
+                                        element("Cd")
+                                        element("SubFmlyCd")
+                                    }
+                                    element("Prtry") {
+                                        element("Cd")
+                                        element("Issr")
+                                    }
+                                }
                             }
-                            element("BookgDt") {
-                                /**
-                                 * FIXME, Booking-date: when the entry was posted on the books
-                                 * of the account servicer; do not necessarily implies that assets
-                                 * become available.  NOTE: this element is optional.
-                                 */
+                            element("NtryDtls/TxDtls") {
+                                element("Refs") {
+                                    element("MsgId")
+                                    element("PmtInfId")
+                                    element("EndToEndId") {
+                                        text("NOTPROVIDED")
+                                    }
+                                }
+                                element("AmtDtls/TxAmt/Amt") {
+                                    attribute("Ccy", "EUR")
+                                    text(Amount(1).toPlainString())
+                                }
+                                element("BkTxCd") {
+                                    element("Domn") {
+                                        element("Cd")
+                                        element("Fmly") {
+                                            element("Cd")
+                                            element("SubFmlyCd")
+                                        }
+                                    }
+                                    element("Prtry") {
+                                        element("Cd")
+                                        element("Issr")
+                                    }
+                                }
+                                element("RltdPties") {
+                                    element("Dbtr/Nm")
+                                    element("DbtrAcct/Id/IBAN")
+                                    element("Cdtr/Nm")
+                                    element("CdtrAcct/Id/IBAN")
+                                }
+                                element("RltdAgts") {
+                                    element("CdtrAgt/FinInstnId/BIC")
+                                }
+                                element("RmtInf/Ustrd")
                             }
-                            element("ValDt") {
-                                /**
-                                 * FIXME, Value-date: when the asset corresponding to one entry
-                                 * becomes available (or unavailable, in case of debit type entry)
-                                 * to the account owner.  NOTE: this element is optional.
-                                 */
-                            }
+                            element("AddtlNtryInf")
                         }
                     }
                 }
             }
         }
     }
-}
+}   
 
 /**
  * Builds CAMT response.
