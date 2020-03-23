@@ -154,10 +154,7 @@ fun buildCamtString(history: SizedIterable<BankTransactionEntity>, type: Int): S
                     }
                 }
                 element(if (type == 52) "Rpt" else "Stmt") {
-                    element("Id") {
-                        // unique identificator for a report.
-                        text("id under report")
-                    }
+                    element("Id")
                     element("ElctrncSeqNb")
                     element("LglSeqNb")
                     element("CreDtTm")
