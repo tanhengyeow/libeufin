@@ -37,7 +37,7 @@ class CamtGeneration {
             }
             val string = buildCamtString(
                 BankTransactionEntity.all(),
-                52
+                53
             )
             println(string)
         }
