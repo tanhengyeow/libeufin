@@ -146,10 +146,7 @@ fun buildCamtString(history: SizedIterable<BankTransactionEntity>, type: Int): S
             attribute("xmlns:schemaLocation", "urn:iso:std:iso:20022:tech:xsd:camt.053.001.02 camt.053.001.02.xsd")
             element("BkToCstmrStmt") {
                 element("GrpHdr") {
-                    element("MsgId") {
-                        // unique identifier for a message
-                        text("id under group header")
-                    }
+                    element("MsgId")
                     element("CreDtTm")
                     element("MsgPgntn") {
                         element("PgNb")
@@ -196,7 +193,7 @@ fun buildCamtString(history: SizedIterable<BankTransactionEntity>, type: Int): S
                         element("CdtDbtInd") {
                             // CRDT or DBIT here
                         }
-                        element("Dt") {
+                        element("Dt/Dt") {
                             // date of this balance
                         }
                     }
@@ -215,9 +212,7 @@ fun buildCamtString(history: SizedIterable<BankTransactionEntity>, type: Int): S
                         element("CdtDbtInd") {
                             // CRDT or DBIT here
                         }
-                        element("Dt") {
-                            // date of this balance
-                        }
+                        element("Dt/Dt")
                     }
                     history.forEach {
                         element("Ntry") {
@@ -232,6 +227,7 @@ fun buildCamtString(history: SizedIterable<BankTransactionEntity>, type: Int): S
                             }
                             element("BookDt/Dt") // date of the booking
                             element("ValDt/Dt") // date of assets' actual (un)availability
+                            element("AcctSvcrRef")
                             element("BkTxCd") {
                                 /*  "Set of elements used to fully identify the type of underlying
                                  *   transaction resulting in an entry".  */
@@ -290,7 +286,7 @@ fun buildCamtString(history: SizedIterable<BankTransactionEntity>, type: Int): S
             }
         }
     }
-}   
+}
 
 /**
  * Builds CAMT response.
