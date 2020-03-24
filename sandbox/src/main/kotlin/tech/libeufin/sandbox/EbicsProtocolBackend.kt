@@ -275,7 +275,7 @@ fun buildCamtString(history: SizedIterable<BankTransactionEntity>, type: Int): S
                             text(now.toDashedDate())
                         }
                     }
-                    history.forEach {
+                    // history.forEach {
                         element("Ntry") {
                             element("Amt")
                             element("CdtDbtInd") {
@@ -387,7 +387,7 @@ fun buildCamtString(history: SizedIterable<BankTransactionEntity>, type: Int): S
                                 text("additional information not given")
                             }
                         }
-                    }
+                    // }
                 }
             }
         }
