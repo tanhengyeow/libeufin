@@ -8,7 +8,7 @@ import java.time.format.DateTimeFormatter
 
 fun DateTime.toZonedString(): String {
     val dateFormatter = DateTimeFormatter.ISO_OFFSET_DATE_TIME
-    val instant = java.time.Instant.ofEpochSecond(this.millis)
+    val instant = java.time.Instant.ofEpochMilli(this.millis)
     val zoned = ZonedDateTime.ofInstant(instant, ZoneId.systemDefault())
     return dateFormatter.format(zoned)
 }
