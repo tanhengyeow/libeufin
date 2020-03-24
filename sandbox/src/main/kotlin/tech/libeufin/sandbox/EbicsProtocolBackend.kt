@@ -208,18 +208,31 @@ fun buildCamtString(history: SizedIterable<BankTransactionEntity>, type: Int): S
 
                     element("Acct") {
                         // mandatory account identifier
-                        element("Id/IBAN")
-                        element("Ccy")
-                        element("Ownr/Nm")
+                        element("Id/IBAN") {
+                            text("OWNER IBAN")
+                        }
+                        element("Ccy") {
+                            text("EUR")
+                        }
+                        element("Ownr/Nm") {
+                            text("Max Mustermann")
+                        }
                         element("Svcr/FinInstn") {
-                            element("BIC")
-                            element("Nm")
+                            element("BIC") {
+                                text("XY")
+                            }
+                            element("Nm") {
+                                text("Libeufin Bank")
+                            }
                             element("Othr") {
-                                element("Id")
-                                element("Issr")
+                                element("Id") {
+                                    text("0")
+                                }
+                                element("Issr") {
+                                    text("XY")
+                                }
                             }
                         }
-
                     }
                     element("Bal") {
                         element("Tp/CdOrPrtry/Cd") {
@@ -243,7 +256,6 @@ fun buildCamtString(history: SizedIterable<BankTransactionEntity>, type: Int): S
                             now.toDashedDate()
                         }
                     }
-
                     element("Bal") {
                         element("Tp/CdOrPrtry/Cd") {
                             /* CLBD stands for "Closing booked balance", and it
