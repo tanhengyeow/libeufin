@@ -209,7 +209,7 @@ fun buildCamtString(history: SizedIterable<BankTransactionEntity>, type: Int): S
                     element("Acct") {
                         // mandatory account identifier
                         element("Id/IBAN") {
-                            text("OWNER IBAN")
+                            text("GB33BUKB20201555555555")
                         }
                         element("Ccy") {
                             text("EUR")
@@ -365,18 +365,18 @@ fun buildCamtString(history: SizedIterable<BankTransactionEntity>, type: Int): S
                                         text("Max Mustermann")
                                     }
                                     element("DbtrAcct/Id/IBAN") {
-                                        text("DEBITOR'S IBAN")
+                                        text("GB33BUKB20201555555555")
                                     }
                                     element("Cdtr/Nm") {
                                         text("Lina Musterfrau")
                                     }
                                     element("CdtrAcct/Id/IBAN") {
-                                        text("CREDITOR'S IBAN")
+                                        text("DE75512108001245126199")
                                     }
                                 }
                                 element("RltdAgts") {
                                     element("CdtrAgt/FinInstnId/BIC") {
-                                        text("CREDITOR'S BIC")
+                                        text("SOGEDEFF")
                                     }
                                 }
                                 element("RmtInf/Ustrd") {
