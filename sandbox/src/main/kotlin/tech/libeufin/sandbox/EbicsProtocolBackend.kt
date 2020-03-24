@@ -403,8 +403,8 @@ fun buildCamtString(history: SizedIterable<BankTransactionEntity>, type: Int): S
 private fun constructCamtResponse(type: Int, customerId: Int, header: EbicsRequest.Header): String {
 
     val dateRange = (header.static.orderDetails?.orderParams as EbicsRequest.StandardOrderParams).dateRange
-    val (start, end) = if (dateRange != null) {
-        Pair(DateTime(Instant(dateRange.start)), DateTime(Instant(dateRange.end)))
+    val (start: DateTime, end: DateTime) = if (dateRange != null) {
+        Pair(Instant(dateRange.start).toDateTime(), Instant(dateRange.end).toDateTime())
     } else Pair(DateTime(0), DateTime.now())
     val history = extractHistory(
         customerId,
