@@ -54,6 +54,9 @@ import org.joda.time.DateTime
 import org.joda.time.Instant
 import java.io.BufferedInputStream
 import java.io.ByteArrayInputStream
+import java.time.ZoneId
+import java.time.ZonedDateTime
+import java.time.format.DateTimeFormatter
 import javax.xml.datatype.XMLGregorianCalendar
 
 
@@ -171,6 +174,8 @@ fun buildCamtString(history: SizedIterable<BankTransactionEntity>, type: Int): S
      * - Id of the servicer (Issuer and Code)
      */
 
+    val now = DateTime.now()
+
     return constructXml(indent = true) {
         root("Document") {
             attribute("xmlns", "urn:iso:std:iso:20022:tech:xsd:camt.053.001.08")
@@ -178,8 +183,12 @@ fun buildCamtString(history: SizedIterable<BankTransactionEntity>, type: Int): S
             attribute("xmlns:schemaLocation", "urn:iso:std:iso:20022:tech:xsd:camt.053.001.02 camt.053.001.02.xsd")
             element("BkToCstmrStmt") {
                 element("GrpHdr") {
-                    element("MsgId")
-                    element("CreDtTm")
+                    element("MsgId") {
+                        text("0")
+                    }
+                    element("CreDtTm") {
+                        text(now.toZonedString())
+                    }
                     element("MsgPgntn") {
                         element("PgNb") {
                             text("001")
@@ -193,7 +202,9 @@ fun buildCamtString(history: SizedIterable<BankTransactionEntity>, type: Int): S
                     element("Id")
                     element("ElctrncSeqNb")
                     element("LglSeqNb")
-                    element("CreDtTm")
+                    element("CreDtTm") {
+                        text(now.toZonedString())
+                    }
 
                     element("Acct") {
                         // mandatory account identifier
@@ -224,10 +235,12 @@ fun buildCamtString(history: SizedIterable<BankTransactionEntity>, type: Int): S
                             text(Amount(1).toPlainString())
                         }
                         element("CdtDbtInd") {
+                            text("DBIT")
                             // CRDT or DBIT here
                         }
                         element("Dt/Dt") {
                             // date of this balance
+                            now.toDashedDate()
                         }
                     }
 
@@ -244,42 +257,66 @@ fun buildCamtString(history: SizedIterable<BankTransactionEntity>, type: Int): S
                         }
                         element("CdtDbtInd") {
                             // CRDT or DBIT here
+                            text("DBIT")
                         }
-                        element("Dt/Dt")
+                        element("Dt/Dt") {
+                            text(now.toDashedDate())
+                        }
                     }
                     history.forEach {
                         element("Ntry") {
                             element("Amt")
-                            element("CdtDbtInd")
+                            element("CdtDbtInd") {
+                                text("DBIT")
+                            }
                             element("Sts") {
                                 /* Status of the entry (see 2.4.2.15.5 from the ISO20022 reference document.)
                                  * From the original text:
                                  * "Status of an entry on the books of the account servicer" */
                                 text("BOOK")
-
                             }
-                            element("BookDt/Dt") // date of the booking
-                            element("ValDt/Dt") // date of assets' actual (un)availability
-                            element("AcctSvcrRef")
+                            element("BookDt/Dt") {
+                                text(now.toDashedDate())
+                            } // date of the booking
+                            element("ValDt/Dt") {
+                                text(now.toDashedDate())
+                            } // date of assets' actual (un)availability
+                            element("AcctSvcrRef") {
+                                text("0")
+                            }
                             element("BkTxCd") {
                                 /*  "Set of elements used to fully identify the type of underlying
                                  *   transaction resulting in an entry".  */
                                 element("Domn") {
-                                    element("Cd")
+                                    element("Cd") {
+                                        text("PMNT")
+                                    }
                                     element("Fmly") {
-                                        element("Cd")
-                                        element("SubFmlyCd")
+                                        element("Cd") {
+                                            text("ICDT")
+                                        }
+                                        element("SubFmlyCd") {
+                                            text("ESCT")
+                                        }
                                     }
                                     element("Prtry") {
-                                        element("Cd")
-                                        element("Issr")
+                                        element("Cd") {
+                                            text("0")
+                                        }
+                                        element("Issr") {
+                                            text("XY")
+                                        }
                                     }
                                 }
                             }
                             element("NtryDtls/TxDtls") {
                                 element("Refs") {
-                                    element("MsgId")
-                                    element("PmtInfId")
+                                    element("MsgId") {
+                                        text("0")
+                                    }
+                                    element("PmtInfId") {
+                                        text("0")
+                                    }
                                     element("EndToEndId") {
                                         text("NOTPROVIDED")
                                     }
@@ -290,29 +327,53 @@ fun buildCamtString(history: SizedIterable<BankTransactionEntity>, type: Int): S
                                 }
                                 element("BkTxCd") {
                                     element("Domn") {
-                                        element("Cd")
+                                        element("Cd") {
+                                            text("PMNT")
+                                        }
                                         element("Fmly") {
-                                            element("Cd")
-                                            element("SubFmlyCd")
+                                            element("Cd") {
+                                                text("ICDT")
+                                            }
+                                            element("SubFmlyCd") {
+                                                text("ESCT")
+                                            }
                                         }
                                     }
                                     element("Prtry") {
-                                        element("Cd")
-                                        element("Issr")
+                                        element("Cd") {
+                                            text("0")
+                                        }
+                                        element("Issr") {
+                                            text("XY")
+                                        }
                                     }
                                 }
                                 element("RltdPties") {
-                                    element("Dbtr/Nm")
-                                    element("DbtrAcct/Id/IBAN")
-                                    element("Cdtr/Nm")
-                                    element("CdtrAcct/Id/IBAN")
+                                    element("Dbtr/Nm") {
+                                        text("Max Mustermann")
+                                    }
+                                    element("DbtrAcct/Id/IBAN") {
+                                        text("DEBITOR'S IBAN")
+                                    }
+                                    element("Cdtr/Nm") {
+                                        text("Lina Musterfrau")
+                                    }
+                                    element("CdtrAcct/Id/IBAN") {
+                                        text("CREDITOR'S IBAN")
+                                    }
                                 }
                                 element("RltdAgts") {
-                                    element("CdtrAgt/FinInstnId/BIC")
+                                    element("CdtrAgt/FinInstnId/BIC") {
+                                        text("CREDITOR'S BIC")
+                                    }
                                 }
-                                element("RmtInf/Ustrd")
+                                element("RmtInf/Ustrd") {
+                                    text("made up subject")
+                                }
                             }
-                            element("AddtlNtryInf")
+                            element("AddtlNtryInf") {
+                                text("additional information not given")
+                            }
                         }
                     }
                 }
