@@ -16,18 +16,12 @@ const val ID_MAX_LENGTH = 50
 object EbicsRawBankTransactionsTable : IdTable<Long>() {
     override val id = EbicsSubscribersTable.long("id").entityId().primaryKey()
     val nexusSubscriber = reference("subscriber", EbicsSubscribersTable)
-    /**
-     * How did we learn about this transaction?  C52 / C53 / C54
-     */
+    // How did we learn about this transaction?  C52 / C53 / C54
     val sourceType = text("sourceType")
     val sourceFileName = text("sourceFileName")
-    /**
-     * "Subject" of the SEPA transaction
-     */
+    // "Subject" of the SEPA transaction
     val unstructuredRemittanceInformation = text("unstructuredRemittanceInformation")
-    /**
-     * Is it a credit or debit transaction?
-     */
+    // Debit or credit
     val transactionType = text("transactionType")
     val currency = text("currency")
     val amount = text("amount")

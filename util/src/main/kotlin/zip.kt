@@ -25,7 +25,7 @@ fun ByteArray.zip(): ByteArray {
     return baos.toByteArray()
 }
 
-fun ByteArray.unzipWithLoop(): String {
+fun ByteArray.prettyPrintUnzip(): String {
     val mem = SeekableInMemoryByteChannel(this)
     val zipFile = ZipFile(mem)
     val s = java.lang.StringBuilder()
@@ -35,4 +35,12 @@ fun ByteArray.unzipWithLoop(): String {
         s.append("\n")
     }
     return s.toString()
+}
+
+fun ByteArray.unzipWithLoop(process: (String) -> Unit) {
+    val mem = SeekableInMemoryByteChannel(this)
+    val zipFile = ZipFile(mem)
+    zipFile.getEntriesInPhysicalOrder().iterator().forEach {
+        process(zipFile.getInputStream(it).readAllBytes().toString(Charsets.UTF_8))
+    }
 }

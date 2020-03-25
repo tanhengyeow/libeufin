@@ -624,6 +624,7 @@ fun main() {
 
             post("/ebics/subscribers/{id}/collect-transactions-c52") {
                 // FIXME(florian): Download C52 and store the result in the right database table
+
             }
 
             post("/ebics/subscribers/{id}/collect-transactions-c53") {
@@ -647,7 +648,7 @@ fun main() {
                 when (response) {
                     is EbicsDownloadSuccessResult -> {
                         call.respondText(
-                            response.orderData.unzipWithLoop(),
+                            response.orderData.prettyPrintUnzip(),
                             ContentType.Text.Plain,
                             HttpStatusCode.OK
                         )
@@ -670,7 +671,7 @@ fun main() {
                 when (response) {
                     is EbicsDownloadSuccessResult -> {
                         call.respondText(
-                            unzipOrderData(response.orderData),
+                            response.orderData.prettyPrintUnzip(),
                             ContentType.Text.Plain,
                             HttpStatusCode.OK
                         )
