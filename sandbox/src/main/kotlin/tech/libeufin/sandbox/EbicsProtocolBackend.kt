@@ -178,7 +178,7 @@ fun buildCamtString(history: SizedIterable<BankTransactionEntity>, type: Int): S
 
     return constructXml(indent = true) {
         root("Document") {
-            attribute("xmlns", "urn:iso:std:iso:20022:tech:xsd:camt.053.001.08")
+            attribute("xmlns", "urn:iso:std:iso:20022:tech:xsd:camt.053.001.02")
             attribute("xmlns:xsi", "http://www.w3.org/2001/XMLSchema-instance")
             attribute("xmlns:schemaLocation", "urn:iso:std:iso:20022:tech:xsd:camt.053.001.02 camt.053.001.02.xsd")
             element("BkToCstmrStmt") {
