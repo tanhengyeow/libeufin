@@ -13,50 +13,27 @@ import java.sql.Connection
 const val ID_MAX_LENGTH = 50
 
 
-//object EbicsRawBankTransactionsTable : IdTable<Long>() {
-//    override val id = EbicsSubscribersTable.long("id").entityId().primaryKey()
-//
-//    val nexusSubscriber = reference("subscriber", EbicsSubscribersTable)
-//
-//    /**
-//     * How did we learn about this transaction?  C52 / C53 / C54
-//     */
-//    val sourceType = text("sourceType")
-//
-//    val sourceFileName = text("sourceFileName")
-//
-//
-//
-//    /**
-//     * "Subject" of the SEPA transaction
-//     */
-//    val unstructuredRemittanceInformation = text("unstructuredRemittanceInformation")
-//
-//    /**
-//     * Is it a credit or debit transaction?
-//     */
-//    val transactionType = text("transactionType")
-//
-//    val currency = text("currency")
-//
-//    val amount = text("amount")
-//
-//    val creditorIban = text("creditorIban")
-//
-//    val debitorIban = text("creditorIban")
-//}
-//
-//
-///**
-// * This table gets populated by the HTD request.
-// *
-// * It stores which subscriber has access to which bank accounts via EBICS.
-// *
-// * When making a payment, we need to refer to one of these accounts
-// */
-//object EbicsBankAccountsTable {
-//
-//}
+object EbicsRawBankTransactionsTable : IdTable<Long>() {
+    override val id = EbicsSubscribersTable.long("id").entityId().primaryKey()
+    val nexusSubscriber = reference("subscriber", EbicsSubscribersTable)
+    /**
+     * How did we learn about this transaction?  C52 / C53 / C54
+     */
+    val sourceType = text("sourceType")
+    val sourceFileName = text("sourceFileName")
+    /**
+     * "Subject" of the SEPA transaction
+     */
+    val unstructuredRemittanceInformation = text("unstructuredRemittanceInformation")
+    /**
+     * Is it a credit or debit transaction?
+     */
+    val transactionType = text("transactionType")
+    val currency = text("currency")
+    val amount = text("amount")
+    val creditorIban = text("creditorIban")
+    val debitorIban = text("creditorIban")
+}
 
 object Pain001Table : IntIdTableWithAmount() {
     val msgId = long("msgId").uniqueIndex().autoIncrement()
