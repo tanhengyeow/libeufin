@@ -397,6 +397,30 @@ def c52(obj, account_id, date_range, nexus_base_url):
     resp = post(url, json=req)
     print(resp.content.decode("utf-8"))
 
+@ebics.command(help="Send CRZ message")
+@click.pass_obj
+@click.option(
+    "--account-id",
+    help="Numerical ID of the customer at the Nexus",
+    required=True
+)
+@click.option(
+    "--date-range",
+    help="Date range for the query",
+    nargs=2,
+    required=False,
+)
+@click.argument(
+  "nexus-base-url"
+)
+def crz(obj, account_id, date_range, nexus_base_url):
+    if date_range is not None and len(date_range) == 2:
+        req = dict(dateRange=dict(start=date_range[0], end=date_range[1]))
+    else:
+        req = dict()
+    url = urljoin(nexus_base_url, "/ebics/subscribers/{}/sendCRZ".format(account_id))
+    resp = post(url, json=req)
+    print(resp.content.decode("utf-8"))
 
 @ebics.command(help="Send C53 message")
 @click.pass_obj

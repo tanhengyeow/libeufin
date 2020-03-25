@@ -661,6 +661,29 @@ fun main() {
                 }
             }
 
+            post("/ebics/subscribers/{id}/sendCRZ") {
+                val id = expectId(call.parameters["id"])
+                val paramsJson = call.receive<EbicsStandardOrderParamsJson>()
+                val orderParams = paramsJson.toOrderParams()
+                val subscriberData = getSubscriberDetailsFromId(id)
+                val response = doEbicsDownloadTransaction(client, subscriberData, "CRZ", orderParams)
+                when (response) {
+                    is EbicsDownloadSuccessResult -> {
+                        call.respondText(
+                            unzipOrderData(response.orderData),
+                            ContentType.Text.Plain,
+                            HttpStatusCode.OK
+                        )
+                    }
+                    is EbicsDownloadBankErrorResult -> {
+                        call.respond(
+                            HttpStatusCode.BadGateway,
+                            EbicsErrorJson(EbicsErrorDetailJson("bankError", response.returnCode.errorCode))
+                        )
+                    }
+                }
+            }
+
             post("/ebics/subscribers/{id}/sendC53") {
                 val id = expectId(call.parameters["id"])
                 val paramsJson = call.receive<EbicsStandardOrderParamsJson>()
