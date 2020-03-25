@@ -37,6 +37,7 @@ import java.io.*
 import java.security.PrivateKey
 import java.security.PublicKey
 import java.security.interfaces.RSAPrivateCrtKey
+import javax.print.DocFlavor
 import javax.xml.XMLConstants
 import javax.xml.bind.JAXBContext
 import javax.xml.bind.JAXBElement
@@ -406,6 +407,11 @@ class XMLUtil private constructor() {
             val valResult = sig.validate(dvc)
             sig.signedInfo.references[0].validate(dvc)
             return valResult
+        }
+
+        fun getStringViaXpath(doc: Document, query: String): String {
+            val xpath = XPathFactory.newInstance().newXPath()
+            return xpath.compile(query).evaluate(doc, XPathConstants.STRING).toString()
         }
     }
 }

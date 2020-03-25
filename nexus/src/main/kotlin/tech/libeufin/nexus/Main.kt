@@ -517,7 +517,6 @@ fun main() {
                 call.respond(ret)
                 return@get
             }
-
             /**
              * This function triggers the Nexus to perform all those un-submitted payments.
              * Ideally, this logic will be moved into some more automatic mechanism.
@@ -629,6 +628,41 @@ fun main() {
 
             post("/ebics/subscribers/{id}/collect-transactions-c53") {
                 // FIXME(florian): Download C53 and store the result in the right database table
+                val id = expectId(call.parameters["id"])
+                val paramsJson = call.receive<EbicsStandardOrderParamsJson>()
+                val orderParams = paramsJson.toOrderParams()
+                val subscriberData = getSubscriberDetailsFromId(id)
+                val response = doEbicsDownloadTransaction(client, subscriberData, "C53", orderParams)
+                when (response) {
+                    is EbicsDownloadSuccessResult -> {
+                        /**
+                         * The current code is _heavily_ dependent on the way GLS returns
+                         * data.  For example, GLS makes one ZIP entry for each "Ntry" element
+                         * (a bank transfer), but per the specifications one bank can choose to
+                         * return all the "Ntry" elements into one single ZIP entry, or even unzipped
+                         * at all.
+                         */
+                        response.orderData.unzipWithLoop {
+                            // parse the camt.053 here, and persist into database.
+                            val camt53doc = XMLUtil.parseStringIntoDom(it)
+                            val creditorIban = XMLUtil.getStringViaXpath(camt53doc, "//CdtrAcct/Id/IBAN")
+                            val creditOrDebit = XMLUtil.getStringViaXpath(camt53doc, "//Ntry/CdtDbtInd")
+                            logger.debug("Creditor IBAN: $creditorIban, credit-or-debit: $creditOrDebit")
+                        }
+                        call.respondText(
+                            "C53 data persisted into the database (WIP).",
+                            ContentType.Text.Plain,
+                            HttpStatusCode.OK
+                        )
+                    }
+                    is EbicsDownloadBankErrorResult -> {
+                        call.respond(
+                            HttpStatusCode.BadGateway,
+                            EbicsErrorJson(EbicsErrorDetailJson("bankError", response.returnCode.errorCode))
+                        )
+                    }
+                }
+
             }
 
             post("/ebics/subscribers/{id}/collect-transactions-c54") {
@@ -694,7 +728,7 @@ fun main() {
                 when (response) {
                     is EbicsDownloadSuccessResult -> {
                         call.respondText(
-                            response.orderData.unzipWithLoop(),
+                            response.orderData.prettyPrintUnzip(),
                             ContentType.Text.Plain,
                             HttpStatusCode.OK
                         )
