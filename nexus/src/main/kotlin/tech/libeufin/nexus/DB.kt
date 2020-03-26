@@ -13,8 +13,7 @@ import java.sql.Connection
 const val ID_MAX_LENGTH = 50
 
 
-object EbicsRawBankTransactionsTable : IdTable<Long>() {
-    override val id = EbicsSubscribersTable.long("id").entityId().primaryKey()
+object EbicsRawBankTransactionsTable : LongIdTable() {
     val nexusSubscriber = reference("subscriber", EbicsSubscribersTable)
     // How did we learn about this transaction?  C52 / C53 / C54
     val sourceType = text("sourceType")
@@ -27,7 +26,7 @@ object EbicsRawBankTransactionsTable : IdTable<Long>() {
     val currency = text("currency")
     val amount = text("amount")
     val creditorIban = text("creditorIban")
-    val debitorIban = text("creditorIban")
+    val debitorIban = text("debitorIban")
     val bookingDate = text("bookingDate")
 }
 
@@ -134,8 +133,9 @@ fun dbCreateTables() {
         addLogger(StdOutSqlLogger)
          SchemaUtils.create(
              Pain001Table,
-            EbicsSubscribersTable,
-            EbicsAccountsInfoTable
+             EbicsSubscribersTable,
+             EbicsAccountsInfoTable,
+             EbicsRawBankTransactionsTable
          )
     }
 }

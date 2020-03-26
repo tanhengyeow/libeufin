@@ -433,17 +433,10 @@ def crz(obj, account_id, date_range, nexus_base_url):
 @click.argument(
   "nexus-base-url"
 )
-def show_collected_c53(obj, account_id, date_range, nexus_base_url):
-    if date_range is not None and len(date_range) == 2:
-        req = dict(dateRange=dict(start=date_range[0], end=date_range[1]))
-    else:
-        req = dict()
-    url = urljoin(nexus_base_url, "/ebics/subscribers/{}/collect-transactions-c53".format(account_id))
-    resp = post(url, json=req)
+def show_collected_c53(obj, account_id, nexus_base_url):
+    url = urljoin(nexus_base_url, "/ebics/subscribers/{}/show-collected-transactions-c53".format(account_id))
+    resp = get(url)
     print(resp.content.decode("utf-8"))
-
-
-
 
 @ebics.command(help="Send C53 message AND instruct the Nexus to persist the result")
 @click.pass_obj

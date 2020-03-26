@@ -143,7 +143,6 @@ fun extractFirstBic(bankCodes: List<EbicsTypes.AbstractBankCode>?): String? {
                 return item.value
         }
     }
-
     return null
 }
 
@@ -274,7 +273,6 @@ fun createPain001document(pain001Entity: Pain001Entity): String {
                             EbicsAccountInfoEntity.findById(pain001Entity.debtorAccount)?.bankCode ?: throw NexusError(HttpStatusCode.NotFound,"Debtor BIC not found in database")
                         })
                     }
-
                     element("ChrgBr") {
                         text("SLEV")
                     }
@@ -434,7 +432,6 @@ fun main() {
                     }
                 }
             }
-
             get("/ebics/subscribers/{id}/accounts") {
                 // this information is only avaiable *after* HTD or HKD has been called
                 val id = expectId(call.parameters["id"])
@@ -625,20 +622,19 @@ fun main() {
                 // FIXME(florian): Download C52 and store the result in the right database table
 
             }
-
             get("/ebics/subscribers/{id}/show-collected-transactions-c53") {
                 val id = expectId(call.parameters["id"])
                 var ret = ""
                 transaction {
-                    val subscriber = getSubscriberEntityFromId(id)
+                    val subscriber: EbicsSubscriberEntity = getSubscriberEntityFromId(id)
                     EbicsRawBankTransactionEntry.find {
-                        (EbicsRawBankTransactionsTable.nexusSubscriber eq subscriber.id) and
+                        (EbicsRawBankTransactionsTable.nexusSubscriber eq subscriber.id.value) and
                                 (EbicsRawBankTransactionsTable.sourceType eq "C53")
                     }.forEach {
-                        ret += "\n###\nCreditor: ${it.creditorIban}\nDebitor: ${it.debitorIban}\nAmount: ${it.currency}:${it.amount}\nDate: ${it.bookingDate}"
+                        ret += "###\nDebitor: ${it.debitorIban}\nCreditor: ${it.creditorIban}\nAmount: ${it.currency}:${it.amount}\nDate: ${it.bookingDate}\n"
                     }
                 }
-                
+
                 call.respondText(
                     ret,
                     ContentType.Text.Plain,

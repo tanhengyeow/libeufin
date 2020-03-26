@@ -95,7 +95,6 @@ enum class KeyState {
 
 
 object BankTransactionsTable : IntIdTableWithAmount() {
-
     /* Using varchar to store the IBAN - or possibly other formats
      * - from the counterpart.  */
     val counterpart = varchar("counterpart", MAX_ID_LENGTH)
@@ -107,7 +106,6 @@ object BankTransactionsTable : IntIdTableWithAmount() {
 }
 
 class BankTransactionEntity(id: EntityID<Int>) : IntEntity(id) {
-
     companion object : IntEntityClass<BankTransactionEntity>(BankTransactionsTable)
     /* the id of the local customer involved in this transaction,
     * either as the credit or the debit part; makes lookups easier */
