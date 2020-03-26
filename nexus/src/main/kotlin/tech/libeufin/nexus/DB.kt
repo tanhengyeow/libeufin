@@ -30,6 +30,19 @@ object EbicsRawBankTransactionsTable : IdTable<Long>() {
     val debitorIban = text("creditorIban")
 }
 
+class EbicsRawBankTransactionEntry(id: EntityID<Long>) : LongEntity(id) {
+    companion object : IntEntityClass<Pain001Entity>(Pain001Table)
+    var sourceType by EbicsRawBankTransactionsTable.sourceType
+    var sourceFileName by EbicsRawBankTransactionsTable.sourceFileName
+    var unstructuredRemittanceInformation by EbicsRawBankTransactionsTable.unstructuredRemittanceInformation
+    var transactionType by EbicsRawBankTransactionsTable.transactionType
+    var currency by EbicsRawBankTransactionsTable.currency
+    var amount by EbicsRawBankTransactionsTable.amount
+    var creditorIban = EbicsRawBankTransactionsTable.creditorIban
+    var debitorIban = EbicsRawBankTransactionsTable.debitorIban
+    var nexusSubscriber by EbicsSubscriberEntity referencedOn EbicsRawBankTransactionsTable.nexusSubscriber
+}
+
 object Pain001Table : IntIdTableWithAmount() {
     val msgId = long("msgId").uniqueIndex().autoIncrement()
     val paymentId = long("paymentId")

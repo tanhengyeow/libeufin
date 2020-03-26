@@ -676,6 +676,9 @@ fun main() {
                                         "\n\tSubject: $subject," +
                                         "\n\tFile name: $fileName"
                             )
+
+                            transaction {
+                            }
                         }
                         call.respondText(
                             "C53 data persisted into the database (WIP).",
