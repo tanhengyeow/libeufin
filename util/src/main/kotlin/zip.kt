@@ -37,10 +37,12 @@ fun ByteArray.prettyPrintUnzip(): String {
     return s.toString()
 }
 
-fun ByteArray.unzipWithLoop(process: (String) -> Unit) {
+fun ByteArray.unzipWithLoop(process: (Pair<String, String>) -> Unit) {
     val mem = SeekableInMemoryByteChannel(this)
     val zipFile = ZipFile(mem)
     zipFile.getEntriesInPhysicalOrder().iterator().forEach {
-        process(zipFile.getInputStream(it).readAllBytes().toString(Charsets.UTF_8))
+        process(
+            Pair(it.name, zipFile.getInputStream(it).readAllBytes().toString(Charsets.UTF_8))
+        )
     }
 }

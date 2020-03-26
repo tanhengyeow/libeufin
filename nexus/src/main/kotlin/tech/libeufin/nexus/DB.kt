@@ -18,6 +18,7 @@ object EbicsRawBankTransactionsTable : IdTable<Long>() {
     val nexusSubscriber = reference("subscriber", EbicsSubscribersTable)
     // How did we learn about this transaction?  C52 / C53 / C54
     val sourceType = text("sourceType")
+    // Name of the ZIP entry
     val sourceFileName = text("sourceFileName")
     // "Subject" of the SEPA transaction
     val unstructuredRemittanceInformation = text("unstructuredRemittanceInformation")

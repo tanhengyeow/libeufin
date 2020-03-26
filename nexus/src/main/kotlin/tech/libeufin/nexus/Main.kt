@@ -643,11 +643,39 @@ fun main() {
                          * at all.
                          */
                         response.orderData.unzipWithLoop {
-                            // parse the camt.053 here, and persist into database.
-                            val camt53doc = XMLUtil.parseStringIntoDom(it)
-                            val creditorIban = XMLUtil.getStringViaXpath(camt53doc, "//CdtrAcct/Id/IBAN")
-                            val creditOrDebit = XMLUtil.getStringViaXpath(camt53doc, "//Ntry/CdtDbtInd")
-                            logger.debug("Creditor IBAN: $creditorIban, credit-or-debit: $creditOrDebit")
+                            val fileName = it.first
+                            val camt53doc = XMLUtil.parseStringIntoDom(it.second)
+                            val creditorIban = XMLUtil.getStringFromXpath(
+                                camt53doc,
+                                "//*[local-name()='CdtrAcct']//*[local-name()='IBAN']"
+                            )
+                            val debitorIban = XMLUtil.getStringFromXpath(
+                                camt53doc,
+                                "//*[local-name()='DbtrAcct']//*[local-name()='IBAN']"
+                            )
+                            val creditOrDebit = XMLUtil.getStringFromXpath(
+                                camt53doc,
+                                "//*[local-name()='Ntry']//*[local-name()='CdtDbtInd']"
+                            )
+                            val amount = XMLUtil.getNodeFromXpath(
+                                camt53doc,
+                                "//*[local-name()='Ntry']//*[local-name()='Amt']"
+                            )
+                            val subject = XMLUtil.getStringFromXpath(
+                                camt53doc,
+                                "//*[local-name()='RmtInf']//*[local-name()='Ustrd']"
+                            )
+                            val currency = amount?.attributes?.getNamedItem("Ccy")?.nodeValue
+
+                            println(
+                                "####" +
+                                        "\n\tCreditor IBAN: $creditorIban," +
+                                        "\n\tDebitor IBAN: $debitorIban," +
+                                        "\n\tCurrency: $currency," +
+                                        "\n\tAmount: ${amount?.firstChild?.nodeValue}" +
+                                        "\n\tSubject: $subject," +
+                                        "\n\tFile name: $fileName"
+                            )
                         }
                         call.respondText(
                             "C53 data persisted into the database (WIP).",
