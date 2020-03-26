@@ -484,7 +484,7 @@ fun main() {
             }
 
             /**
-             * list all the payments related to customer {id}
+             * list all the prepared payments related to customer {id}
              */
             get("/ebics/subscribers/{id}/payments") {
 
@@ -642,6 +642,17 @@ fun main() {
 
                 return@get
             }
+
+            /**
+             * VERY taler-related behaviour, where the Nexus differentiates good
+             * incoming transactions (those with a valid subject, i.e. a public key),
+             * and invalid ones (the rest).
+             */
+            post("/ebics/admin/digest-incoming-transactions") {
+
+            }
+
+
             post("/ebics/subscribers/{id}/collect-transactions-c53") {
                 val id = expectId(call.parameters["id"])
                 val paramsJson = call.receive<EbicsStandardOrderParamsJson>()

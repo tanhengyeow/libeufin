@@ -12,6 +12,23 @@ import java.sql.Connection
 
 const val ID_MAX_LENGTH = 50
 
+object ValidTalerIncomingPayments: LongIdTable() {
+    val payment = reference("payment", EbicsRawBankTransactionsTable)
+}
+
+class ValidTalerIncomingPaymentEntry(id: EntityID<Long>) : LongEntity(id) {
+    companion object : LongEntityClass<ValidTalerIncomingPaymentEntry>(ValidTalerIncomingPayments)
+    var payment by EbicsRawBankTransactionEntry referencedOn ValidTalerIncomingPayments.payment
+}
+
+object InvalidTalerIncomingPayments: LongIdTable() {
+    val payment = reference("payment", EbicsRawBankTransactionsTable)
+}
+
+class InvalidTalerIncomingPaymentEntry(id: EntityID<Long>) : LongEntity(id) {
+    companion object : LongEntityClass<InvalidTalerIncomingPaymentEntry>(InvalidTalerIncomingPayments)
+    var payment by EbicsRawBankTransactionEntry referencedOn InvalidTalerIncomingPayments.payment
+}
 
 object EbicsRawBankTransactionsTable : LongIdTable() {
     val nexusSubscriber = reference("subscriber", EbicsSubscribersTable)
@@ -135,7 +152,9 @@ fun dbCreateTables() {
              Pain001Table,
              EbicsSubscribersTable,
              EbicsAccountsInfoTable,
-             EbicsRawBankTransactionsTable
+             EbicsRawBankTransactionsTable,
+             ValidTalerIncomingPayments,
+             InvalidTalerIncomingPayments
          )
     }
 }
