@@ -409,9 +409,9 @@ class XMLUtil private constructor() {
             return valResult
         }
 
-        fun getStringViaXpath(doc: Document, query: String): String {
+        fun evalXpath(doc: Document, query: String): Node? {
             val xpath = XPathFactory.newInstance().newXPath()
-            return xpath.compile(query).evaluate(doc, XPathConstants.STRING).toString()
+            return xpath.evaluate(query, doc, XPathConstants.NODE) as Node
         }
     }
 }
