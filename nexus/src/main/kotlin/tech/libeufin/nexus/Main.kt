@@ -626,6 +626,27 @@ fun main() {
 
             }
 
+            get("/ebics/subscribers/{id}/show-collected-transactions-c53") {
+                val id = expectId(call.parameters["id"])
+                var ret = ""
+                transaction {
+                    val subscriber = getSubscriberEntityFromId(id)
+                    EbicsRawBankTransactionEntry.find {
+                        (EbicsRawBankTransactionsTable.nexusSubscriber eq subscriber.id) and
+                                (EbicsRawBankTransactionsTable.sourceType eq "C53")
+                    }.forEach {
+                        ret += "\n###\nCreditor: ${it.creditorIban}\nDebitor: ${it.debitorIban}\nAmount: ${it.currency}:${it.amount}\nDate: ${it.bookingDate}"
+                    }
+                }
+                
+                call.respondText(
+                    ret,
+                    ContentType.Text.Plain,
+                    HttpStatusCode.OK
+                )
+
+                return@get
+            }
             post("/ebics/subscribers/{id}/collect-transactions-c53") {
                 // FIXME(florian): Download C53 and store the result in the right database table
                 val id = expectId(call.parameters["id"])
@@ -662,6 +683,10 @@ fun main() {
                                 camt53doc,
                                 "//*[local-name()='Ntry']//*[local-name()='Amt']"
                             )
+                            val bookingDate = XMLUtil.getStringFromXpath(
+                                camt53doc,
+                                "//*[local-name()='BookgDt']//*[local-name()='Dt']"
+                            )
                             val subject = XMLUtil.getStringFromXpath(
                                 camt53doc,
                                 "//*[local-name()='RmtInf']//*[local-name()='Ustrd']"
@@ -669,15 +694,6 @@ fun main() {
                             val currency = XMLUtil.getStringFromXpath(
                                 camt53doc,
                                 "//*[local-name()='Ntry']//*[local-name()='Amt']/@Ccy"
-                            )
-                            println(
-                                "####" +
-                                        "\n\tCreditor IBAN: $creditorIban," +
-                                        "\n\tDebitor IBAN: $debitorIban," +
-                                        "\n\tCurrency: $currency," +
-                                        "\n\tAmount: ${amount}" +
-                                        "\n\tSubject: $subject," +
-                                        "\n\tFile name: $fileName"
                             )
                             transaction {
                                 EbicsRawBankTransactionEntry.new {
@@ -689,6 +705,7 @@ fun main() {
                                     this.amount = amount
                                     this.creditorIban = creditorIban
                                     this.debitorIban = debitorIban
+                                    this.bookingDate = bookingDate
                                     nexusSubscriber = getSubscriberEntityFromId(id)
                                 }
                             }

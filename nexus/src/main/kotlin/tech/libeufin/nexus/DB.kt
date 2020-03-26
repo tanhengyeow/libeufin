@@ -28,6 +28,7 @@ object EbicsRawBankTransactionsTable : IdTable<Long>() {
     val amount = text("amount")
     val creditorIban = text("creditorIban")
     val debitorIban = text("creditorIban")
+    val bookingDate = text("bookingDate")
 }
 
 class EbicsRawBankTransactionEntry(id: EntityID<Long>) : LongEntity(id) {
@@ -40,6 +41,7 @@ class EbicsRawBankTransactionEntry(id: EntityID<Long>) : LongEntity(id) {
     var amount by EbicsRawBankTransactionsTable.amount
     var creditorIban by EbicsRawBankTransactionsTable.creditorIban
     var debitorIban by EbicsRawBankTransactionsTable.debitorIban
+    var bookingDate by EbicsRawBankTransactionsTable.bookingDate
     var nexusSubscriber by EbicsSubscriberEntity referencedOn EbicsRawBankTransactionsTable.nexusSubscriber
 }
 
