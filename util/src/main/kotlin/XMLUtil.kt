@@ -21,6 +21,7 @@ package tech.libeufin.util
 
 import com.sun.org.apache.xerces.internal.dom.DOMInputImpl
 import com.sun.xml.bind.marshaller.NamespacePrefixMapper
+import io.ktor.http.HttpStatusCode
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 import org.w3c.dom.Document
@@ -407,14 +408,18 @@ class XMLUtil private constructor() {
             return valResult
         }
 
-        fun getNodeFromXpath(doc: Document, query: String): Node? {
+        fun getNodeFromXpath(doc: Document, query: String): Node {
             val xpath = XPathFactory.newInstance().newXPath()
-            return xpath.evaluate(query, doc, XPathConstants.NODE) as Node?
+            val ret = xpath.evaluate(query, doc, XPathConstants.NODE)
+                ?: throw UtilError(HttpStatusCode.NotFound, "Unsuccessful XPath query string: $query")
+            return ret as Node
         }
 
-        fun getStringFromXpath(doc: Document, query: String): String? {
+        fun getStringFromXpath(doc: Document, query: String): String {
             val xpath = XPathFactory.newInstance().newXPath()
-            return xpath.evaluate(query, doc, XPathConstants.STRING) as String?
+            val ret = xpath.evaluate(query, doc, XPathConstants.STRING)
+                ?: throw UtilError(HttpStatusCode.NotFound, "Unsuccessful XPath query string: $query")
+            return ret as String
         }
     }
 }

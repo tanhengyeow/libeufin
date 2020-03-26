@@ -645,6 +645,7 @@ fun main() {
                         response.orderData.unzipWithLoop {
                             val fileName = it.first
                             val camt53doc = XMLUtil.parseStringIntoDom(it.second)
+
                             val creditorIban = XMLUtil.getStringFromXpath(
                                 camt53doc,
                                 "//*[local-name()='CdtrAcct']//*[local-name()='IBAN']"
@@ -657,7 +658,7 @@ fun main() {
                                 camt53doc,
                                 "//*[local-name()='Ntry']//*[local-name()='CdtDbtInd']"
                             )
-                            val amount = XMLUtil.getNodeFromXpath(
+                            val amount = XMLUtil.getStringFromXpath(
                                 camt53doc,
                                 "//*[local-name()='Ntry']//*[local-name()='Amt']"
                             )
@@ -665,19 +666,31 @@ fun main() {
                                 camt53doc,
                                 "//*[local-name()='RmtInf']//*[local-name()='Ustrd']"
                             )
-                            val currency = amount?.attributes?.getNamedItem("Ccy")?.nodeValue
-
+                            val currency = XMLUtil.getStringFromXpath(
+                                camt53doc,
+                                "//*[local-name()='Ntry']//*[local-name()='Amt']/@Ccy"
+                            )
                             println(
                                 "####" +
                                         "\n\tCreditor IBAN: $creditorIban," +
                                         "\n\tDebitor IBAN: $debitorIban," +
                                         "\n\tCurrency: $currency," +
-                                        "\n\tAmount: ${amount?.firstChild?.nodeValue}" +
+                                        "\n\tAmount: ${amount}" +
                                         "\n\tSubject: $subject," +
                                         "\n\tFile name: $fileName"
                             )
-
                             transaction {
+                                EbicsRawBankTransactionEntry.new {
+                                    sourceType = "C53"
+                                    sourceFileName = fileName
+                                    unstructuredRemittanceInformation = subject
+                                    transactionType = creditOrDebit
+                                    this.currency = currency
+                                    this.amount = amount
+                                    this.creditorIban = creditorIban
+                                    this.debitorIban = debitorIban
+                                    nexusSubscriber = getSubscriberEntityFromId(id)
+                                }
                             }
                         }
                         call.respondText(
