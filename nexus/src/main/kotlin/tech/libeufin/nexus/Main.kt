@@ -591,7 +591,6 @@ fun main() {
             }
 
             post("/ebics/subscribers/{id}/fetch-payment-status") {
-                // FIXME(marcello?):  Fetch pain.002 and mark transfers in it as "failed"
                 val id = expectId(call.parameters["id"])
                 val paramsJson = call.receive<EbicsStandardOrderParamsJson>()
                 val orderParams = paramsJson.toOrderParams()
@@ -644,7 +643,6 @@ fun main() {
                 return@get
             }
             post("/ebics/subscribers/{id}/collect-transactions-c53") {
-                // FIXME(florian): Download C53 and store the result in the right database table
                 val id = expectId(call.parameters["id"])
                 val paramsJson = call.receive<EbicsStandardOrderParamsJson>()
                 val orderParams = paramsJson.toOrderParams()
