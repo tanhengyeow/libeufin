@@ -90,9 +90,7 @@ class XMLUtil private constructor() {
                 throw Exception("invalid EBICS XML signature URI: '${myRef.uri}'")
             val xp: XPath = XPathFactory.newInstance().newXPath()
             val nodeSet = xp.compile("//*[@authenticate='true']/descendant-or-self::node()").evaluate(
-                myRef.here
-                    .ownerDocument, XPathConstants
-                    .NODESET
+                myRef.here.ownerDocument, XPathConstants.NODESET
             )
             if (nodeSet !is NodeList)
                 throw Exception("invalid type")
@@ -409,9 +407,14 @@ class XMLUtil private constructor() {
             return valResult
         }
 
-        fun evalXpath(doc: Document, query: String): Node? {
+        fun getNodeFromXpath(doc: Document, query: String): Node? {
             val xpath = XPathFactory.newInstance().newXPath()
-            return xpath.evaluate(query, doc, XPathConstants.NODE) as Node
+            return xpath.evaluate(query, doc, XPathConstants.NODE) as Node?
+        }
+
+        fun getStringFromXpath(doc: Document, query: String): String? {
+            val xpath = XPathFactory.newInstance().newXPath()
+            return xpath.evaluate(query, doc, XPathConstants.STRING) as String?
         }
     }
 }
