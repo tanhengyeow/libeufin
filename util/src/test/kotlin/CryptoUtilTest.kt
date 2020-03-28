@@ -17,18 +17,21 @@
  * <http://www.gnu.org/licenses/>
  */
 
+import org.bouncycastle.asn1.edec.EdECObjectIdentifiers
+import org.bouncycastle.asn1.x509.AlgorithmIdentifier
+import org.bouncycastle.asn1.x509.SubjectPublicKeyInfo
 import org.junit.Test
-import tech.libeufin.util.CryptoUtil
-import tech.libeufin.util.decodeHexString
-import tech.libeufin.util.toHexString
-import tech.libeufin.util.toUnsignedHexString
+import tech.libeufin.util.*
 import java.math.BigInteger
+import java.security.KeyFactory
 import java.security.KeyPairGenerator
+import java.security.Security
 import java.security.interfaces.RSAPrivateCrtKey
+import java.security.spec.KeySpec
+import java.security.spec.X509EncodedKeySpec
 import javax.crypto.EncryptedPrivateKeyInfo
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
-
 class CryptoUtilTest {
 
     @Test
@@ -139,5 +142,21 @@ class CryptoUtilTest {
         println("expected pubHash: ${expectedHash.toString(Charsets.UTF_8)}")
 
         assertEquals(expectedHash.toString(Charsets.UTF_8), pubHash.toHexString())
+    }
+
+    @Test
+    fun importEdDSAPublicKeyTest() {
+        val givenEnc = "XZH3P6NF9DSG3BH0C082X38N2RVK1RV2H24KF76028QBKDM24BCG"
+        // import a public key
+        val spki = SubjectPublicKeyInfo(AlgorithmIdentifier(
+            EdECObjectIdentifiers.id_Ed25519),
+            base32ToBytes(givenEnc)
+        )
+        val ks: KeySpec = X509EncodedKeySpec(spki.encoded)
+        val kpg = KeyFactory.getInstance(
+            "EdDSA",
+            org.bouncycastle.jce.provider.BouncyCastleProvider()
+        )
+        kpg.generatePublic(ks)
     }
 }
