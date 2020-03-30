@@ -17,6 +17,7 @@
  * <http://www.gnu.org/licenses/>
  */
 
+import net.taler.wallet.crypto.Base32Crockford
 import org.bouncycastle.asn1.edec.EdECObjectIdentifiers
 import org.bouncycastle.asn1.x509.AlgorithmIdentifier
 import org.bouncycastle.asn1.x509.SubjectPublicKeyInfo
@@ -30,6 +31,7 @@ import java.security.spec.X509EncodedKeySpec
 import javax.crypto.EncryptedPrivateKeyInfo
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
+
 class CryptoUtilTest {
 
     @Test
@@ -144,14 +146,13 @@ class CryptoUtilTest {
 
     @Test
     fun importEdDSAPublicKeyTest() {
-        val decoder = CrockfordBase32()
         val givenEnc = "XZH3P6NF9DSG3BH0C082X38N2RVK1RV2H24KF76028QBKDM24BCG"
         // import a public key
         val spki = SubjectPublicKeyInfo(
             AlgorithmIdentifier(
                 EdECObjectIdentifiers.id_Ed25519
             ),
-            decoder.decode(givenEnc.toByteArray(Charsets.UTF_8))
+            Base32Crockford.decode(givenEnc)
         )
         val ks: KeySpec = X509EncodedKeySpec(spki.encoded)
         val kpg = KeyFactory.getInstance(
@@ -164,10 +165,8 @@ class CryptoUtilTest {
     @Test
     // from Crockford32 encoding to binary.
     fun base32ToBytesTest() {
-        val decoder = CrockfordBase32()
-        // blob
         val blob = "blob".toByteArray(Charsets.UTF_8)
-        assert(decoder.decode("C9P6YRG".toByteArray(Charsets.UTF_8)).toString(Charsets.UTF_8) == "blob")
+        assert(Base32Crockford.decode("C9P6YRG").toString(Charsets.UTF_8) == "blob")
     }
 }
 
