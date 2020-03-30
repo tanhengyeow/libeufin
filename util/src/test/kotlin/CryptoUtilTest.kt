@@ -145,21 +145,11 @@ class CryptoUtilTest {
     }
 
     @Test
-    fun importEdDSAPublicKeyTest() {
+    fun checkEddsaPublicKey() {
         val givenEnc = "XZH3P6NF9DSG3BH0C082X38N2RVK1RV2H24KF76028QBKDM24BCG"
-        // import a public key
-        val spki = SubjectPublicKeyInfo(
-            AlgorithmIdentifier(
-                EdECObjectIdentifiers.id_Ed25519
-            ),
+        assertTrue(CryptoUtil.checkValidEddsaPublicKey(
             Base32Crockford.decode(givenEnc)
-        )
-        val ks: KeySpec = X509EncodedKeySpec(spki.encoded)
-        val kpg = KeyFactory.getInstance(
-            "EdDSA",
-            org.bouncycastle.jce.provider.BouncyCastleProvider()
-        )
-        kpg.generatePublic(ks)
+        ))
     }
 
     @Test

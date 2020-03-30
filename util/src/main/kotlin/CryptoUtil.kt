@@ -284,4 +284,11 @@ object CryptoUtil {
         val bundle = EncryptedPrivateKeyInfo(bundleAlgorithmParams, cipherText)
         return bundle.encoded
     }
+
+    fun checkValidEddsaPublicKey(data: ByteArray): Boolean {
+        if (data.size != 32) {
+            return false
+        }
+        return true
+    }
 }
