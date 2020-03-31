@@ -641,7 +641,7 @@ fun main() {
                         )
                     }
                     TalerIncomingPaymentEntry.find {
-                        TalerIncomingPayments.processed eq false and TalerIncomingPayments.valid eq false
+                        TalerIncomingPayments.processed eq false and (TalerIncomingPayments.valid eq false)
                     }.forEach {
                         createPain001entry(
                             Pain001Data(
