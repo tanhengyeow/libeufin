@@ -12,22 +12,17 @@ import java.sql.Connection
 
 const val ID_MAX_LENGTH = 50
 
-object ValidTalerIncomingPayments: LongIdTable() {
+object TalerIncomingPayments: LongIdTable() {
     val payment = reference("payment", EbicsRawBankTransactionsTable)
+    val valid = bool("valid")
+    // avoid refunding twice!
+    val processed = bool("refunded").default(false)
 }
 
-class ValidTalerIncomingPaymentEntry(id: EntityID<Long>) : LongEntity(id) {
-    companion object : LongEntityClass<ValidTalerIncomingPaymentEntry>(ValidTalerIncomingPayments)
-    var payment by EbicsRawBankTransactionEntry referencedOn ValidTalerIncomingPayments.payment
-}
-
-object InvalidTalerIncomingPayments: LongIdTable() {
-    val payment = reference("payment", EbicsRawBankTransactionsTable)
-}
-
-class InvalidTalerIncomingPaymentEntry(id: EntityID<Long>) : LongEntity(id) {
-    companion object : LongEntityClass<InvalidTalerIncomingPaymentEntry>(InvalidTalerIncomingPayments)
-    var payment by EbicsRawBankTransactionEntry referencedOn InvalidTalerIncomingPayments.payment
+class TalerIncomingPaymentEntry(id: EntityID<Long>) : LongEntity(id) {
+    companion object : LongEntityClass<TalerIncomingPaymentEntry>(TalerIncomingPayments)
+    var payment by EbicsRawBankTransactionEntry referencedOn TalerIncomingPayments.payment
+    var valid by TalerIncomingPayments.valid
 }
 
 object EbicsRawBankTransactionsTable : LongIdTable() {
@@ -153,8 +148,7 @@ fun dbCreateTables() {
              EbicsSubscribersTable,
              EbicsAccountsInfoTable,
              EbicsRawBankTransactionsTable,
-             ValidTalerIncomingPayments,
-             InvalidTalerIncomingPayments
+             TalerIncomingPayments
          )
     }
 }

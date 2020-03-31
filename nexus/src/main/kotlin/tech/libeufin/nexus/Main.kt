@@ -39,6 +39,7 @@ import io.ktor.routing.post
 import io.ktor.routing.routing
 import io.ktor.server.engine.embeddedServer
 import io.ktor.server.netty.Netty
+import net.taler.wallet.crypto.Base32Crockford
 import org.apache.commons.compress.archivers.zip.ZipFile
 import org.apache.commons.compress.utils.SeekableInMemoryByteChannel
 import org.jetbrains.exposed.exceptions.ExposedSQLException
@@ -621,6 +622,7 @@ fun main() {
                 // FIXME(florian): Download C52 and store the result in the right database table
 
             }
+
             get("/ebics/subscribers/{id}/show-collected-transactions-c53") {
                 val id = expectId(call.parameters["id"])
                 var ret = ""
@@ -633,7 +635,6 @@ fun main() {
                         ret += "###\nDebitor: ${it.debitorIban}\nCreditor: ${it.creditorIban}\nAmount: ${it.currency}:${it.amount}\nDate: ${it.bookingDate}\n"
                     }
                 }
-
                 call.respondText(
                     ret,
                     ContentType.Text.Plain,
@@ -648,11 +649,42 @@ fun main() {
              * incoming transactions (those with a valid subject, i.e. a public key),
              * and invalid ones (the rest).
              */
-            post("/ebics/admin/digest-incoming-transactions") {
-
+            post("/ebics/subscribers/{id}/digest-incoming-transactions") {
+                val id = expectId(call.parameters["id"])
+                // first find highest ID value of already processed rows.
+                transaction {
+                    val latest = TalerIncomingPaymentEntry.all().sortedByDescending {
+                        it.payment.id
+                    }.firstOrNull() ?: throw NexusError(
+                        HttpStatusCode.NotFound, "No payments to process"
+                    )
+                    EbicsRawBankTransactionEntry.find {
+                        EbicsRawBankTransactionsTable.id.greater(latest.id) and
+                                (EbicsRawBankTransactionsTable.nexusSubscriber eq id)
+                    }.forEach {
+                        if (CryptoUtil.checkValidEddsaPublicKey(
+                                Base32Crockford.decode(it.unstructuredRemittanceInformation)
+                            )
+                        ) {
+                            TalerIncomingPaymentEntry.new {
+                                payment = it
+                                valid = true
+                            }
+                        } else {
+                            TalerIncomingPaymentEntry.new {
+                                payment = it
+                                valid = false
+                            }
+                        }
+                    }
+                }
+                call.respondText (
+                    "New raw payments Taler-processed",
+                    ContentType.Text.Plain,
+                    HttpStatusCode.OK
+                )
+                return@post
             }
-
-
             post("/ebics/subscribers/{id}/collect-transactions-c53") {
                 val id = expectId(call.parameters["id"])
                 val paramsJson = call.receive<EbicsStandardOrderParamsJson>()
@@ -784,7 +816,6 @@ fun main() {
                     }
                 }
             }
-
             post("/ebics/subscribers/{id}/sendC53") {
                 val id = expectId(call.parameters["id"])
                 val paramsJson = call.receive<EbicsStandardOrderParamsJson>()
