@@ -30,6 +30,7 @@ import java.security.spec.KeySpec
 import java.security.spec.X509EncodedKeySpec
 import javax.crypto.EncryptedPrivateKeyInfo
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
 class CryptoUtilTest {
@@ -147,16 +148,18 @@ class CryptoUtilTest {
     @Test
     fun checkEddsaPublicKey() {
         val givenEnc = "XZH3P6NF9DSG3BH0C082X38N2RVK1RV2H24KF76028QBKDM24BCG"
-        assertTrue(CryptoUtil.checkValidEddsaPublicKey(
-            Base32Crockford.decode(givenEnc)
-        ))
+        val non32bytes = "N2RVK1RV2H24KF76028QBKDM24BCG"
+
+        assertTrue(CryptoUtil.checkValidEddsaPublicKey(Base32Crockford.decode(givenEnc)))
+        assertFalse(CryptoUtil.checkValidEddsaPublicKey(Base32Crockford.decode(non32bytes)))
     }
 
     @Test
     // from Crockford32 encoding to binary.
     fun base32ToBytesTest() {
+        val expectedEncoding = "C9P6YRG"
         val blob = "blob".toByteArray(Charsets.UTF_8)
-        assert(Base32Crockford.decode("C9P6YRG").toString(Charsets.UTF_8) == "blob")
+        assert(Base32Crockford.decode(expectedEncoding).toString(Charsets.UTF_8) == "blob")
     }
 }
 
