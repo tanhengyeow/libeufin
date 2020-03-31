@@ -29,3 +29,19 @@ fun chunkString(input: String): String {
 fun expectId(param: String?): String {
     return param ?: throw NexusError(HttpStatusCode.BadRequest, "Bad ID given")
 }
+
+/* Needs a transaction{} block to be called */
+fun expectIdTransaction(param: String?): EbicsSubscriberEntity {
+    if (param == null) {
+        throw NexusError(HttpStatusCode.BadRequest, "Null Id given")
+    }
+    return EbicsSubscriberEntity.findById(param) ?: throw NexusError(HttpStatusCode.NotFound, "Subscriber: $param not found")
+}
+
+/* Needs a transaction{} block to be called */
+fun expectAcctidTransaction(param: String?): EbicsAccountInfoEntity {
+    if (param == null) {
+        throw NexusError(HttpStatusCode.BadRequest, "Null Acctid given")
+    }
+    return EbicsAccountInfoEntity.findById(param) ?: throw NexusError(HttpStatusCode.NotFound, "Account: $param not found")
+}

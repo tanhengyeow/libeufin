@@ -423,3 +423,7 @@ class XMLUtil private constructor() {
         }
     }
 }
+
+fun Document.pickString(xpath: String): String {
+    return XMLUtil.getStringFromXpath(this, xpath)
+}

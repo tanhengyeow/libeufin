@@ -101,18 +101,9 @@ fun getSubscriberEntityFromId(id: String): EbicsSubscriberEntity {
     }
 }
 
-fun getBankAccountDetailsFromAcctid(id: String): EbicsAccountInfoElement {
-    return transaction {
-        val bankAccount = EbicsAccountInfoEntity.find {
-            EbicsAccountsInfoTable.id eq id
-        }.firstOrNull() ?: throw NexusError(HttpStatusCode.NotFound, "Bank account not found from account id '$id'")
-        EbicsAccountInfoElement(
-            accountId = id,
-            accountHolderName = bankAccount.accountHolder,
-            iban = bankAccount.iban,
-            bankCode = bankAccount.bankCode
-        )
-    }
+fun calculateRefund(amount: String): Amount {
+    // fixme: must apply refund fees!
+    return Amount(amount)
 }
 
 /**
@@ -457,38 +448,34 @@ fun main() {
                 )
                 return@get
             }
-
             /**
              * This endpoint gathers all the data needed to create a payment and persists it
              * into the database.  However, it does NOT perform the payment itself!
              */
             post("/ebics/subscribers/{id}/accounts/{acctid}/prepare-payment") {
-                val acctid = expectId(call.parameters["acctid"])
-                val subscriberId = expectId(call.parameters["id"])
-
-                transaction {
-                    val accountinfo = EbicsAccountInfoEntity.findById(acctid)  ?: throw NexusError(
-                        HttpStatusCode.NotFound, "Bank account with id '$acctid' not found (trigger HTD first?)"
-                    )
-                    val subscriber = EbicsSubscriberEntity.findById(subscriberId) ?: throw NexusError(
-                        HttpStatusCode.NotFound, "Subscriber '$subscriberId' not found"
-                    )
-                    if (accountinfo.subscriber != subscriber) {
-                        throw NexusError(HttpStatusCode.BadRequest, "Claimed bank account '$acctid' doesn't belong to subscriber '$subscriberId'!")
+                val acctid = transaction {
+                    val accountInfo = expectAcctidTransaction(call.parameters["acctid"])
+                    val subscriber = expectIdTransaction(call.parameters["subscriber"])
+                    if (accountInfo.subscriber != subscriber) {
+                        throw NexusError(
+                            HttpStatusCode.BadRequest,
+                            "Claimed bank account '${accountInfo.id}' doesn't belong to subscriber '${subscriber.id}'!"
+                        )
                     }
+                    accountInfo.id.value
                 }
                 val pain001data = call.receive<Pain001Data>()
                 createPain001entry(pain001data, acctid)
-
-                call.respondText("Payment instructions persisted in DB", ContentType.Text.Plain, HttpStatusCode.OK)
+                call.respondText(
+                    "Payment instructions persisted in DB",
+                    ContentType.Text.Plain, HttpStatusCode.OK
+                )
                 return@post
             }
-
             /**
              * list all the prepared payments related to customer {id}
              */
             get("/ebics/subscribers/{id}/payments") {
-
                 val id = expectId(call.parameters["id"])
                 val ret = PaymentsInfo()
                 transaction {
@@ -552,7 +539,6 @@ fun main() {
                 )
                 return@post
             }
-
             /**
              * This function triggers the Nexus to perform all those un-submitted payments.
              * Ideally, this logic will be moved into some more automatic mechanism.
@@ -643,12 +629,40 @@ fun main() {
 
                 return@get
             }
+
+            post("/ebics/taler/{id}/{acctid}/refund-invalid-payments") {
+                transaction {
+                    val subscriber = expectIdTransaction(call.parameters["id"])
+                    val acctid = expectAcctidTransaction(call.parameters["acctid"])
+                    if (acctid.subscriber.id != subscriber.id) {
+                        throw NexusError(
+                            HttpStatusCode.Forbidden,
+                            "Such subscriber (${subscriber.id}) can't drive such account (${acctid.id})"
+                        )
+                    }
+                    TalerIncomingPaymentEntry.find {
+                        TalerIncomingPayments.processed eq false
+                    }.forEach {
+                        createPain001entry(
+                            Pain001Data(
+                                creditorName = it.payment.debitorName,
+                                creditorIban = it.payment.debitorIban,
+                                creditorBic = it.payment.counterpartBic,
+                                sum = calculateRefund(it.payment.amount),
+                                subject = "Taler refund"
+                            ),
+                            acctid.id.value
+                        )
+                    }
+                }
+                return@post
+            }
             /**
              * VERY taler-related behaviour, where the Nexus differentiates good
              * incoming transactions (those with a valid subject, i.e. a public key),
              * and invalid ones (the rest).
              */
-            post("/ebics/subscribers/{id}/digest-incoming-transactions") {
+            post("/ebics/taler/{id}/digest-incoming-transactions") {
                 val id = expectId(call.parameters["id"])
                 // first find highest ID value of already processed rows.
                 transaction {
@@ -706,47 +720,23 @@ fun main() {
                         response.orderData.unzipWithLoop {
                             val fileName = it.first
                             val camt53doc = XMLUtil.parseStringIntoDom(it.second)
-
-                            val creditorIban = XMLUtil.getStringFromXpath(
-                                camt53doc,
-                                "//*[local-name()='CdtrAcct']//*[local-name()='IBAN']"
-                            )
-                            val debitorIban = XMLUtil.getStringFromXpath(
-                                camt53doc,
-                                "//*[local-name()='DbtrAcct']//*[local-name()='IBAN']"
-                            )
-                            val creditOrDebit = XMLUtil.getStringFromXpath(
-                                camt53doc,
-                                "//*[local-name()='Ntry']//*[local-name()='CdtDbtInd']"
-                            )
-                            val amount = XMLUtil.getStringFromXpath(
-                                camt53doc,
-                                "//*[local-name()='Ntry']//*[local-name()='Amt']"
-                            )
-                            val bookingDate = XMLUtil.getStringFromXpath(
-                                camt53doc,
-                                "//*[local-name()='BookgDt']//*[local-name()='Dt']"
-                            )
-                            val subject = XMLUtil.getStringFromXpath(
-                                camt53doc,
-                                "//*[local-name()='RmtInf']//*[local-name()='Ustrd']"
-                            )
-                            val currency = XMLUtil.getStringFromXpath(
-                                camt53doc,
-                                "//*[local-name()='Ntry']//*[local-name()='Amt']/@Ccy"
-                            )
                             transaction {
                                 EbicsRawBankTransactionEntry.new {
                                     sourceType = "C53"
                                     sourceFileName = fileName
-                                    unstructuredRemittanceInformation = subject
-                                    transactionType = creditOrDebit
-                                    this.currency = currency
-                                    this.amount = amount
-                                    this.creditorIban = creditorIban
-                                    this.debitorIban = debitorIban
-                                    this.bookingDate = bookingDate
+                                    unstructuredRemittanceInformation = camt53doc.pickString("//*[local-name()='Ntry']//*[local-name()='Amt']/@Ccy")
+                                    transactionType = camt53doc.pickString("//*[local-name()='Ntry']//*[local-name()='CdtDbtInd']")
+                                    currency = camt53doc.pickString("//*[local-name()='Ntry']//*[local-name()='Amt']/@Ccy")
+                                    amount = camt53doc.pickString("//*[local-name()='Ntry']//*[local-name()='Amt']")
+                                    bookingDate = camt53doc.pickString("//*[local-name()='BookgDt']//*[local-name()='Dt']")
                                     nexusSubscriber = getSubscriberEntityFromId(id)
+                                    creditorName =
+                                        camt53doc.pickString("//*[local-name()='RltdPties']//*[local-name()='Dbtr']//*[local-name()='Nm']")
+                                    creditorIban =
+                                        camt53doc.pickString("//*[local-name()='CdtrAcct']//*[local-name()='IBAN']")
+                                    debitorName = camt53doc.pickString("//*[local-name()='RltdPties']//*[local-name()='Dbtr']//*[local-name()='Nm']")
+                                    debitorIban = camt53doc.pickString("//*[local-name()='DbtrAcct']//*[local-name()='IBAN']")
+                                    counterpartBic = camt53doc.pickString("//*[local-name()='RltdAgts']//*[local-name()='BIC']")
                                 }
                             }
                         }
@@ -763,9 +753,8 @@ fun main() {
                         )
                     }
                 }
-
+                return@post
             }
-
             post("/ebics/subscribers/{id}/collect-transactions-c54") {
                 // FIXME(florian): Download C54 and store the result in the right database table
             }
