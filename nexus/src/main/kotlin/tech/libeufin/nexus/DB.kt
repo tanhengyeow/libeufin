@@ -23,6 +23,7 @@ class TalerIncomingPaymentEntry(id: EntityID<Long>) : LongEntity(id) {
     companion object : LongEntityClass<TalerIncomingPaymentEntry>(TalerIncomingPayments)
     var payment by EbicsRawBankTransactionEntry referencedOn TalerIncomingPayments.payment
     var valid by TalerIncomingPayments.valid
+    var processed by TalerIncomingPayments.processed
 }
 
 object EbicsRawBankTransactionsTable : LongIdTable() {
