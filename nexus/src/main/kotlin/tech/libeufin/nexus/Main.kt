@@ -643,7 +643,6 @@ fun main() {
 
                 return@get
             }
-
             /**
              * VERY taler-related behaviour, where the Nexus differentiates good
              * incoming transactions (those with a valid subject, i.e. a public key),
@@ -653,19 +652,23 @@ fun main() {
                 val id = expectId(call.parameters["id"])
                 // first find highest ID value of already processed rows.
                 transaction {
+                    // avoid re-processing raw payments
                     val latest = TalerIncomingPaymentEntry.all().sortedByDescending {
                         it.payment.id
-                    }.firstOrNull() ?: throw NexusError(
-                        HttpStatusCode.NotFound, "No payments to process"
-                    )
-                    EbicsRawBankTransactionEntry.find {
-                        EbicsRawBankTransactionsTable.id.greater(latest.id) and
-                                (EbicsRawBankTransactionsTable.nexusSubscriber eq id)
-                    }.forEach {
-                        if (CryptoUtil.checkValidEddsaPublicKey(
-                                Base32Crockford.decode(it.unstructuredRemittanceInformation)
-                            )
-                        ) {
+                    }.firstOrNull()
+
+                    val payments = if (latest == null) {
+                        EbicsRawBankTransactionEntry.find {
+                            EbicsRawBankTransactionsTable.nexusSubscriber eq id
+                        }
+                    } else {
+                        EbicsRawBankTransactionEntry.find {
+                            EbicsRawBankTransactionsTable.id.greater(latest.id) and
+                                    (EbicsRawBankTransactionsTable.nexusSubscriber eq id)
+                        }
+                    }
+                    payments.forEach {
+                        if (CryptoUtil.checkValidEddsaPublicKey(it.unstructuredRemittanceInformation)) {
                             TalerIncomingPaymentEntry.new {
                                 payment = it
                                 valid = true

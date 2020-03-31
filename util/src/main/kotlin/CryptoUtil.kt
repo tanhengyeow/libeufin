@@ -19,6 +19,7 @@
 
 package tech.libeufin.util
 
+import net.taler.wallet.crypto.Base32Crockford
 import org.bouncycastle.jce.provider.BouncyCastleProvider
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
@@ -285,7 +286,12 @@ object CryptoUtil {
         return bundle.encoded
     }
 
-    fun checkValidEddsaPublicKey(data: ByteArray): Boolean {
+    fun checkValidEddsaPublicKey(enc: String): Boolean {
+        val data = try {
+            Base32Crockford.decode(enc)
+        } catch (e: Exception) {
+            return false
+        }
         if (data.size != 32) {
             return false
         }

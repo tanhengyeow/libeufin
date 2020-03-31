@@ -96,6 +96,11 @@ def ebics(ctx):
     pass
 
 @cli.group()
+@click.pass_context
+def taler(ctx):
+    pass
+
+@cli.group()
 def native():
     pass
 
@@ -422,6 +427,20 @@ def crz(obj, account_id, date_range, nexus_base_url):
     resp = post(url, json=req)
     print(resp.content.decode("utf-8"))
 
+@taler.command(help="Separate payments with Taler-subject from the rest")
+@click.pass_obj
+@click.option(
+    "--account-id",
+    help="Numerical ID of the customer at the Nexus",
+    required=True
+)
+@click.argument(
+  "nexus-base-url"
+)
+def digest_transactions(obj, account_id, nexus_base_url):
+    url = urljoin(nexus_base_url, "/ebics/subscribers/{}/digest-incoming-transactions".format(account_id))
+    resp = post(url, json=dict())
+    print(resp.content.decode("utf-8"))
 
 @ebics.command(help="Show raw transactions from the Nexus database")
 @click.pass_obj

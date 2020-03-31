@@ -150,8 +150,8 @@ class CryptoUtilTest {
         val givenEnc = "XZH3P6NF9DSG3BH0C082X38N2RVK1RV2H24KF76028QBKDM24BCG"
         val non32bytes = "N2RVK1RV2H24KF76028QBKDM24BCG"
 
-        assertTrue(CryptoUtil.checkValidEddsaPublicKey(Base32Crockford.decode(givenEnc)))
-        assertFalse(CryptoUtil.checkValidEddsaPublicKey(Base32Crockford.decode(non32bytes)))
+        assertTrue(CryptoUtil.checkValidEddsaPublicKey(givenEnc))
+        assertFalse(CryptoUtil.checkValidEddsaPublicKey(non32bytes))
     }
 
     @Test
