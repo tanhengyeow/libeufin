@@ -443,10 +443,19 @@ def crz(obj, account_id, date_range, nexus_base_url):
   "nexus-base-url"
 )
 def refund(ctx, account_id, bank_account_id, nexus_base_url):
+    nexus_url = urljoin(
+        nexus_base_url, "/ebics/taler/{}/accounts/{}/refund-invalid-payments".format(
+            account_id, bank_account_id
+        )
+    )
+    try:
+        resp = post(nexus_url, json=body)
+    except Exception:
+        print("Could not reach the Nexus")
+        return
+    print(resp.content.decode("utf-8"))
 
-
-
-@taler.command(help="Separate payments with Taler-subject from the rest")
+@taler.command(help="Flag Taler-invalid incoming payments.")
 @click.pass_obj
 @click.option(
     "--account-id",

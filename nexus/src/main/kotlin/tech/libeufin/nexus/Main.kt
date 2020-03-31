@@ -630,7 +630,7 @@ fun main() {
                 return@get
             }
 
-            post("/ebics/taler/{id}/{acctid}/refund-invalid-payments") {
+            post("/ebics/taler/{id}/accounts/{acctid}/refund-invalid-payments") {
                 transaction {
                     val subscriber = expectIdTransaction(call.parameters["id"])
                     val acctid = expectAcctidTransaction(call.parameters["acctid"])
