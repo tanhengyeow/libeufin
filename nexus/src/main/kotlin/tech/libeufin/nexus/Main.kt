@@ -73,21 +73,18 @@ fun testData() {
     val pairA = CryptoUtil.generateRsaKeyPair(2048)
     val pairB = CryptoUtil.generateRsaKeyPair(2048)
     val pairC = CryptoUtil.generateRsaKeyPair(2048)
-    try {
-        transaction {
-            addLogger(StdOutSqlLogger)
-            EbicsSubscriberEntity.new(id = "default-customer") {
-                ebicsURL = "http://localhost:5000/ebicsweb"
-                userID = "USER1"
-                partnerID = "PARTNER1"
-                hostID = "host01"
-                signaturePrivateKey = SerialBlob(pairA.private.encoded)
-                encryptionPrivateKey = SerialBlob(pairB.private.encoded)
-                authenticationPrivateKey = SerialBlob(pairC.private.encoded)
-            }
+    val salt = Random().nextLong()
+    transaction {
+        addLogger(StdOutSqlLogger)
+        EbicsSubscriberEntity.new(id = "default-customer-$salt") {
+            ebicsURL = "http://localhost:5000/ebicsweb"
+            userID = "USER1"
+            partnerID = "PARTNER1"
+            hostID = "host01"
+            signaturePrivateKey = SerialBlob(pairA.private.encoded)
+            encryptionPrivateKey = SerialBlob(pairB.private.encoded)
+            authenticationPrivateKey = SerialBlob(pairC.private.encoded)
         }
-    } catch (e: ExposedSQLException) {
-        logger.info("Likely primary key collision for sample data: accepted")
     }
 }
 
@@ -629,7 +626,6 @@ fun main() {
 
                 return@get
             }
-
             post("/ebics/taler/{id}/accounts/{acctid}/refund-invalid-payments") {
                 transaction {
                     val subscriber = expectIdTransaction(call.parameters["id"])
@@ -763,7 +759,6 @@ fun main() {
             get("/ebics/subscribers/{id}/transactions") {
                 // FIXME(florian): Display local transaction history stored by the nexus.
             }
-
             post("/ebics/subscribers/{id}/sendC52") {
                 val id = expectId(call.parameters["id"])
                 val paramsJson = call.receive<EbicsStandardOrderParamsJson>()
@@ -786,7 +781,6 @@ fun main() {
                     }
                 }
             }
-
             post("/ebics/subscribers/{id}/sendCRZ") {
                 val id = expectId(call.parameters["id"])
                 val paramsJson = call.receive<EbicsStandardOrderParamsJson>()
