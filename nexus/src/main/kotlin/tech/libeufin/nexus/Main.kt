@@ -819,7 +819,6 @@ fun main() {
                     }
                 }
             }
-
             post("/ebics/subscribers/{id}/sendC54") {
                 val id = expectId(call.parameters["id"])
                 val paramsJson = call.receive<EbicsStandardOrderParamsJson>()
@@ -843,7 +842,6 @@ fun main() {
                 }
                 return@post
             }
-
             get("/ebics/subscribers/{id}/sendHTD") {
                 val customerIdAtNexus = expectId(call.parameters["id"])
                 val subscriberData = getSubscriberDetailsFromId(customerIdAtNexus)
@@ -870,7 +868,6 @@ fun main() {
                 }
                 return@get
             }
-
             post("/ebics/subscribers/{id}/sendHAA") {
                 val id = expectId(call.parameters["id"])
                 val subscriberData = getSubscriberDetailsFromId(id)

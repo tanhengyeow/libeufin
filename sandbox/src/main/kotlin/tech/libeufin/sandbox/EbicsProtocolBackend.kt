@@ -180,7 +180,7 @@ fun buildCamtString(history: SizedIterable<BankTransactionEntity>, type: Int): S
         root("Document") {
             attribute("xmlns", "urn:iso:std:iso:20022:tech:xsd:camt.053.001.02")
             attribute("xmlns:xsi", "http://www.w3.org/2001/XMLSchema-instance")
-            attribute("xmlns:schemaLocation", "urn:iso:std:iso:20022:tech:xsd:camt.053.001.02 camt.053.001.02.xsd")
+            attribute("xsi:schemaLocation", "urn:iso:std:iso:20022:tech:xsd:camt.053.001.02 camt.053.001.02.xsd")
             element("BkToCstmrStmt") {
                 element("GrpHdr") {
                     element("MsgId") {
@@ -199,9 +199,15 @@ fun buildCamtString(history: SizedIterable<BankTransactionEntity>, type: Int): S
                     }
                 }
                 element(if (type == 52) "Rpt" else "Stmt") {
-                    element("Id")
-                    element("ElctrncSeqNb")
-                    element("LglSeqNb")
+                    element("Id") {
+                        text("0")
+                    }
+                    element("ElctrncSeqNb") {
+                        text("0")
+                    }
+                    element("LglSeqNb") {
+                        text("0")
+                    }
                     element("CreDtTm") {
                         text(now.toZonedString())
                     }
@@ -217,9 +223,9 @@ fun buildCamtString(history: SizedIterable<BankTransactionEntity>, type: Int): S
                         element("Ownr/Nm") {
                             text("Max Mustermann")
                         }
-                        element("Svcr/FinInstn") {
+                        element("Svcr/FinInstnId") {
                             element("BIC") {
-                                text("XY")
+                                text("GENODEM1GLS")
                             }
                             element("Nm") {
                                 text("Libeufin Bank")
@@ -253,7 +259,7 @@ fun buildCamtString(history: SizedIterable<BankTransactionEntity>, type: Int): S
                         }
                         element("Dt/Dt") {
                             // date of this balance
-                            now.toDashedDate()
+                            text(now.toDashedDate())
                         }
                     }
                     element("Bal") {
@@ -277,7 +283,10 @@ fun buildCamtString(history: SizedIterable<BankTransactionEntity>, type: Int): S
                     }
                     // history.forEach {
                         element("Ntry") {
-                            element("Amt")
+                            element("Amt") {
+                                attribute("Ccy", "EUR")
+                                text(Amount(1).toPlainString())
+                            }
                             element("CdtDbtInd") {
                                 text("DBIT")
                             }
@@ -287,7 +296,7 @@ fun buildCamtString(history: SizedIterable<BankTransactionEntity>, type: Int): S
                                  * "Status of an entry on the books of the account servicer" */
                                 text("BOOK")
                             }
-                            element("BookDt/Dt") {
+                            element("BookgDt/Dt") {
                                 text(now.toDashedDate())
                             } // date of the booking
                             element("ValDt/Dt") {
@@ -311,13 +320,13 @@ fun buildCamtString(history: SizedIterable<BankTransactionEntity>, type: Int): S
                                             text("ESCT")
                                         }
                                     }
-                                    element("Prtry") {
-                                        element("Cd") {
-                                            text("0")
-                                        }
-                                        element("Issr") {
-                                            text("XY")
-                                        }
+                                }
+                                element("Prtry") {
+                                    element("Cd") {
+                                        text("0")
+                                    }
+                                    element("Issr") {
+                                        text("XY")
                                     }
                                 }
                             }
@@ -376,7 +385,7 @@ fun buildCamtString(history: SizedIterable<BankTransactionEntity>, type: Int): S
                                 }
                                 element("RltdAgts") {
                                     element("CdtrAgt/FinInstnId/BIC") {
-                                        text("SOGEDEFF")
+                                        text("GENODEM1GLS")
                                     }
                                 }
                                 element("RmtInf/Ustrd") {
