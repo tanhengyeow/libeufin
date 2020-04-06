@@ -29,7 +29,6 @@ import io.ktor.features.StatusPages
 import io.ktor.gson.gson
 import io.ktor.http.ContentType
 import io.ktor.http.HttpStatusCode
-import io.ktor.http.cio.websocket.CloseReason
 import io.ktor.request.receive
 import io.ktor.request.uri
 import io.ktor.response.respond
@@ -39,10 +38,6 @@ import io.ktor.routing.post
 import io.ktor.routing.routing
 import io.ktor.server.engine.embeddedServer
 import io.ktor.server.netty.Netty
-import net.taler.wallet.crypto.Base32Crockford
-import org.apache.commons.compress.archivers.zip.ZipFile
-import org.apache.commons.compress.utils.SeekableInMemoryByteChannel
-import org.jetbrains.exposed.exceptions.ExposedSQLException
 import org.jetbrains.exposed.sql.StdOutSqlLogger
 import org.jetbrains.exposed.sql.addLogger
 import org.jetbrains.exposed.sql.and
@@ -52,16 +47,12 @@ import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 import org.slf4j.event.Level
 import tech.libeufin.util.*
-import tech.libeufin.util.ebics_h004.EbicsRequest
 import tech.libeufin.util.ebics_h004.EbicsTypes
-import tech.libeufin.util.ebics_h004.HKDResponseOrderData
 import tech.libeufin.util.ebics_h004.HTDResponseOrderData
-import java.lang.StringBuilder
 import java.security.interfaces.RSAPublicKey
 import java.text.DateFormat
 import java.text.SimpleDateFormat
 import java.time.Instant
-import java.time.LocalDate
 import java.time.ZoneId
 import java.time.ZonedDateTime
 import java.time.format.DateTimeFormatter
@@ -94,7 +85,9 @@ val logger: Logger = LoggerFactory.getLogger("tech.libeufin.nexus")
 
 fun getSubscriberEntityFromId(id: String): EbicsSubscriberEntity {
     return transaction {
-        EbicsSubscriberEntity.findById(id) ?: throw NexusError(HttpStatusCode.NotFound, "Subscriber not found from id '$id'")
+        EbicsSubscriberEntity.findById(id) ?: throw NexusError(
+            HttpStatusCode.NotFound, "Subscriber not found from id '$id'"
+        )
     }
 }
 
@@ -145,7 +138,9 @@ fun getSubscriberDetailsFromBankAccount(bankAccountId: String): EbicsClientSubsc
 
 fun getSubscriberDetailsFromId(id: String): EbicsClientSubscriberDetails {
     return transaction {
-        val subscriber = EbicsSubscriberEntity.findById(id) ?: throw NexusError(HttpStatusCode.NotFound, "subscriber not found from id '$id'")
+        val subscriber = EbicsSubscriberEntity.findById(id) ?: throw NexusError(
+            HttpStatusCode.NotFound, "subscriber not found from id '$id'"
+        )
         var bankAuthPubValue: RSAPublicKey? = null
         if (subscriber.bankAuthenticationPublicKey != null) {
             bankAuthPubValue = CryptoUtil.loadRsaPublicKey(
@@ -624,79 +619,10 @@ fun main() {
 
                 return@get
             }
-            post("/ebics/taler/{id}/accounts/{acctid}/refund-invalid-payments") {
-                transaction {
-                    val subscriber = expectIdTransaction(call.parameters["id"])
-                    val acctid = expectAcctidTransaction(call.parameters["acctid"])
-                    if (acctid.subscriber.id != subscriber.id) {
-                        throw NexusError(
-                            HttpStatusCode.Forbidden,
-                            "Such subscriber (${subscriber.id}) can't drive such account (${acctid.id})"
-                        )
-                    }
-                    TalerIncomingPaymentEntry.find {
-                        TalerIncomingPayments.processed eq false and (TalerIncomingPayments.valid eq false)
-                    }.forEach {
-                        createPain001entry(
-                            Pain001Data(
-                                creditorName = it.payment.debitorName,
-                                creditorIban = it.payment.debitorIban,
-                                creditorBic = it.payment.counterpartBic,
-                                sum = calculateRefund(it.payment.amount),
-                                subject = "Taler refund"
-                            ),
-                            acctid.id.value
-                        )
-                        it.processed = true
-                    }
-                }
-                return@post
-            }
-            /**
-             * VERY taler-related behaviour, where the Nexus differentiates good
-             * incoming transactions (those with a valid subject, i.e. a public key),
-             * and invalid ones (the rest).
-             */
-            post("/ebics/taler/{id}/digest-incoming-transactions") {
-                val id = expectId(call.parameters["id"])
-                // first find highest ID value of already processed rows.
-                transaction {
-                    // avoid re-processing raw payments
-                    val latest = TalerIncomingPaymentEntry.all().sortedByDescending {
-                        it.payment.id
-                    }.firstOrNull()
 
-                    val payments = if (latest == null) {
-                        EbicsRawBankTransactionEntry.find {
-                            EbicsRawBankTransactionsTable.nexusSubscriber eq id
-                        }
-                    } else {
-                        EbicsRawBankTransactionEntry.find {
-                            EbicsRawBankTransactionsTable.id.greater(latest.id) and
-                                    (EbicsRawBankTransactionsTable.nexusSubscriber eq id)
-                        }
-                    }
-                    payments.forEach {
-                        if (CryptoUtil.checkValidEddsaPublicKey(it.unstructuredRemittanceInformation)) {
-                            TalerIncomingPaymentEntry.new {
-                                payment = it
-                                valid = true
-                            }
-                        } else {
-                            TalerIncomingPaymentEntry.new {
-                                payment = it
-                                valid = false
-                            }
-                        }
-                    }
-                }
-                call.respondText (
-                    "New raw payments Taler-processed",
-                    ContentType.Text.Plain,
-                    HttpStatusCode.OK
-                )
-                return@post
-            }
+            /* Taler class will initialize all the relevant handlers.  */
+            Taler(this)
+            
             post("/ebics/subscribers/{id}/collect-transactions-c53") {
                 val id = expectId(call.parameters["id"])
                 val paramsJson = call.receive<EbicsStandardOrderParamsJson>()
