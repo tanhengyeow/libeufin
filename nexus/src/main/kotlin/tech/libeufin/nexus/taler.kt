@@ -9,6 +9,7 @@ import io.ktor.routing.Route
 import io.ktor.routing.post
 import org.jetbrains.exposed.sql.and
 import org.jetbrains.exposed.sql.transactions.transaction
+import tech.libeufin.util.Amount
 import tech.libeufin.util.CryptoUtil
 
 class Taler(app: Route) {
@@ -17,6 +18,20 @@ class Taler(app: Route) {
         digest(app)
         refund(app)
     }
+
+    private data class TalerTransferRequest(
+        val request_uid: String,
+        val amount: String,
+        val exchange_base_url: String,
+        val wtid: String,
+        val credit_account: String
+    )
+
+    private data class TalerTransferResponse(
+        // point in time when the nexus put the payment instruction into the database.
+        val timestamp: Long,
+        val row_id: Long
+    )
 
     fun digest(app: Route) {
         app.post("/ebics/taler/{id}/digest-incoming-transactions") {

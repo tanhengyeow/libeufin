@@ -622,7 +622,7 @@ fun main() {
 
             /* Taler class will initialize all the relevant handlers.  */
             Taler(this)
-            
+
             post("/ebics/subscribers/{id}/collect-transactions-c53") {
                 val id = expectId(call.parameters["id"])
                 val paramsJson = call.receive<EbicsStandardOrderParamsJson>()
