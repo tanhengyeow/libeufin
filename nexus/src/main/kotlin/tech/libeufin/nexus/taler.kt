@@ -15,12 +15,24 @@ import tech.libeufin.util.CryptoUtil
 class Taler(app: Route) {
 
     init {
+        /** transform raw CAMT.053 payment records to more Taler-friendly
+         * database rows. */
         digest(app)
+
+        /** process the incoming payments, and craft refund payments (although
+         * do not execute them) for those incoming payments that had a wrong
+         * (!= public key) subject. */
         refund(app)
+
+        /**
+         * NOTE: Taler exchanges do authenticate via the HTTP Basic auth mechanism,
+         * which is currently _missing_ in the nexus.  Therefore, a mapping from auth
+         * header lines to ebics_subscriber needs to be implemented!
+         */
     }
 
     /**
-     * Payment initiating data structures
+     * Payment initiating data structures: one endpoint "$BASE_URL/transfer".
      */
     private data class TalerTransferRequest(
         val request_uid: String,
@@ -81,7 +93,7 @@ class Taler(app: Route) {
         val reserve_pub: String,
         val debit_account: String
     )
-    
+
     private data class TalerAddIncomingResponse(
         val timestamp: Long,
         val row_id: Long
@@ -128,8 +140,6 @@ class Taler(app: Route) {
             )
             return@post
         }
-
-
     }
 
     fun refund(app: Route) {
