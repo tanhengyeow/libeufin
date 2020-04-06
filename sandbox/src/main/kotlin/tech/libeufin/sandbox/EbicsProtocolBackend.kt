@@ -443,6 +443,16 @@ private fun handleEbicsC52(requestContext: RequestContext): ByteArray {
     return camt.toByteArray().zip()
 }
 
+private fun handleEbicsC53(requestContext: RequestContext): ByteArray {
+    val subscriber = requestContext.subscriber
+    val camt = constructCamtResponse(
+        53,
+        subscriber.bankCustomer.id.value,
+        requestContext.requestObject.header
+    )
+    return camt.toByteArray().zip()
+}
+
 private suspend fun ApplicationCall.handleEbicsHia(header: EbicsUnsecuredRequest.Header, orderData: ByteArray) {
     val plainOrderData = InflaterInputStream(orderData.inputStream()).use {
         it.readAllBytes()
@@ -805,7 +815,7 @@ private fun handleEbicsDownloadTransactionInitialization(requestContext: Request
         "HKD" -> handleEbicsHkd()
         /* Temporarily handling C52/C53 with same logic */
         "C52" -> handleEbicsC52(requestContext)
-        "C53" -> handleEbicsC52(requestContext)
+        "C53" -> handleEbicsC53(requestContext) 
         "TSD" -> handleEbicsTSD(requestContext)
         "PTK" -> handleEbicsPTK(requestContext)
         else -> throw EbicsInvalidXmlError()
