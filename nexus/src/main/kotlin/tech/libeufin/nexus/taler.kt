@@ -19,6 +19,9 @@ class Taler(app: Route) {
         refund(app)
     }
 
+    /**
+     * Payment initiating data structures
+     */
     private data class TalerTransferRequest(
         val request_uid: String,
         val amount: String,
@@ -29,6 +32,57 @@ class Taler(app: Route) {
 
     private data class TalerTransferResponse(
         // point in time when the nexus put the payment instruction into the database.
+        val timestamp: Long,
+        val row_id: Long
+    )
+
+    /**
+     * History accounting data structures
+     */
+
+    /**
+     * Incoming payments.
+     */
+    private data class TalerIncomingBankTransaction(
+        val row_id: Long,
+        val date: Long, // timestamp
+        val amount: String,
+        val credit_account: String, // payto form,
+        val debit_account: String,
+        val reserve_pub: String
+    )
+
+    private data class TalerIncomingHistory(
+        var incoming_transactions: MutableList<TalerIncomingBankTransaction> = mutableListOf()
+    )
+
+    /**
+     * Outgoing payments.
+     */
+    private data class TalerOutgoingBankTransaction(
+        val row_id: Long,
+        val date: Long, // timestamp
+        val amount: String,
+        val credit_account: String, // payto form,
+        val debit_account: String,
+        val wtid: String,
+        val exchange_base_url: String
+    )
+
+    private data class TalerOutgoingHistory(
+        var outgoing_transactions: MutableList<TalerOutgoingBankTransaction> = mutableListOf()
+    )
+
+    /**
+     * Test APIs' data structures.
+     */
+    private data class TalerAdminAddIncoming(
+        val amount: String,
+        val reserve_pub: String,
+        val debit_account: String
+    )
+    
+    private data class TalerAddIncomingResponse(
         val timestamp: Long,
         val row_id: Long
     )
