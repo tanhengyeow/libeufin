@@ -147,7 +147,6 @@ object CryptoUtil {
             transactionKey
         )
     }
-
     /**
      * Encrypt data according to the EBICS E002 encryption process.
      */
@@ -296,5 +295,9 @@ object CryptoUtil {
             return false
         }
         return true
+    }
+
+    fun hashStringSHA256(input: String): ByteArray {
+        return MessageDigest.getInstance("SHA-256").digest(input.toByteArray(Charsets.UTF_8))
     }
 }

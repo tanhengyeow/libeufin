@@ -119,6 +119,7 @@ class EbicsAccountInfoEntity(id: EntityID<String>) : Entity<String>(id) {
 
 object EbicsSubscribersTable : IdTable<String>() {
     override val id = varchar("id", ID_MAX_LENGTH).entityId().primaryKey()
+    val password = blob("password").nullable()
     val ebicsURL = text("ebicsURL")
     val hostID = text("hostID")
     val partnerID = text("partnerID")
@@ -133,6 +134,7 @@ object EbicsSubscribersTable : IdTable<String>() {
 
 class EbicsSubscriberEntity(id: EntityID<String>) : Entity<String>(id) {
     companion object : EntityClass<String, EbicsSubscriberEntity>(EbicsSubscribersTable)
+    var password by EbicsSubscribersTable.password
     var ebicsURL by EbicsSubscribersTable.ebicsURL
     var hostID by EbicsSubscribersTable.hostID
     var partnerID by EbicsSubscribersTable.partnerID

@@ -1,6 +1,5 @@
 package tech.libeufin.nexus
 
-import io.ktor.application.Application
 import io.ktor.application.call
 import io.ktor.http.ContentType
 import io.ktor.http.HttpStatusCode
@@ -9,8 +8,27 @@ import io.ktor.routing.Route
 import io.ktor.routing.post
 import org.jetbrains.exposed.sql.and
 import org.jetbrains.exposed.sql.transactions.transaction
-import tech.libeufin.util.Amount
 import tech.libeufin.util.CryptoUtil
+import tech.libeufin.util.base64ToBytes
+import java.lang.Exception
+
+/**
+ * This helper function parses a Authorization:-header line, decode the credentials
+ * and returns a pair made of username and hashed (sha256) password.  The hashed value
+ * will then be compared with the one kept into the database.
+ */
+fun extractUserAndHashedPassword(authorizationHeader: String): Pair<String, ByteArray> {
+    val (username, password) = try {
+        val split = authorizationHeader.split(" ")
+        val valueUtf8 = String(base64ToBytes(split[1]), Charsets.UTF_8) // newline introduced here: BUG!
+        valueUtf8.split(":")
+    } catch (e: Exception) {
+        throw NexusError(
+            HttpStatusCode.BadRequest, "invalid Authorization:-header received"
+        )
+    }
+    return Pair(username, CryptoUtil.hashStringSHA256(password))
+}
 
 class Taler(app: Route) {
 

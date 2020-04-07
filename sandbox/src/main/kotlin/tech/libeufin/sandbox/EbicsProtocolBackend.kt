@@ -815,7 +815,7 @@ private fun handleEbicsDownloadTransactionInitialization(requestContext: Request
         "HKD" -> handleEbicsHkd()
         /* Temporarily handling C52/C53 with same logic */
         "C52" -> handleEbicsC52(requestContext)
-        "C53" -> handleEbicsC53(requestContext) 
+        "C53" -> handleEbicsC53(requestContext)
         "TSD" -> handleEbicsTSD(requestContext)
         "PTK" -> handleEbicsPTK(requestContext)
         else -> throw EbicsInvalidXmlError()

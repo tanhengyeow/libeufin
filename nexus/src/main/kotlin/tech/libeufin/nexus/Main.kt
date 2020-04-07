@@ -22,6 +22,8 @@ package tech.libeufin.nexus
 import io.ktor.application.ApplicationCallPipeline
 import io.ktor.application.call
 import io.ktor.application.install
+import io.ktor.auth.Authentication
+import io.ktor.auth.basic
 import io.ktor.client.HttpClient
 import io.ktor.features.CallLogging
 import io.ktor.features.ContentNegotiation
@@ -323,6 +325,16 @@ fun main() {
             this.level = Level.DEBUG
             this.logger = tech.libeufin.nexus.logger
         }
+        /*
+        install(Authentication) {
+            basic("taler") {
+                validate {credentials ->
+
+
+                }
+            }
+        }*/
+
         install(ContentNegotiation) {
             gson {
                 setDateFormat(DateFormat.LONG)
