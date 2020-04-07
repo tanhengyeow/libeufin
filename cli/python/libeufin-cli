@@ -970,16 +970,23 @@ def subscribers(obj, nexus_base_url):
     help="ID of the EBICS server" ,
     required=True
 )
+@click.option(
+    "--password",
+    help="password to associate to the subscriber being created" ,
+    required=False,
+    default=None
+)
 @click.argument(
   "nexus-base-url"
 )
-def new_subscriber(obj, account_id, user_id, partner_id, system_id, host_id, ebics_url, nexus_base_url):
+def new_subscriber(obj, account_id, user_id, partner_id, system_id, host_id, ebics_url, password, nexus_base_url):
     nexus_url = urljoin(nexus_base_url, "/ebics/{}/subscribers".format(account_id))
     body = dict(
             ebicsURL=ebics_url,
             userID=user_id,
             partnerID=partner_id,
-            hostID=host_id
+            hostID=host_id,
+            password=password
     )
     if system_id:
         body.update(system_id)
