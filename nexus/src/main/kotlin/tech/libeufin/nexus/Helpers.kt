@@ -1,8 +1,6 @@
 package tech.libeufin.nexus
 
 import io.ktor.http.HttpStatusCode
-import org.apache.commons.compress.archivers.zip.ZipFile
-import org.apache.commons.compress.utils.SeekableInMemoryByteChannel
 
 /**
  * Inserts spaces every 2 characters, and a newline after 8 pairs.

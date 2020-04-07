@@ -325,16 +325,6 @@ fun main() {
             this.level = Level.DEBUG
             this.logger = tech.libeufin.nexus.logger
         }
-        /*
-        install(Authentication) {
-            basic("taler") {
-                validate {credentials ->
-
-
-                }
-            }
-        }*/
-
         install(ContentNegotiation) {
             gson {
                 setDateFormat(DateFormat.LONG)

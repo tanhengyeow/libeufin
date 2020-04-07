@@ -5,12 +5,14 @@ import io.ktor.http.ContentType
 import io.ktor.http.HttpStatusCode
 import io.ktor.response.respondText
 import io.ktor.routing.Route
+import io.ktor.routing.get
 import io.ktor.routing.post
 import org.jetbrains.exposed.sql.and
 import org.jetbrains.exposed.sql.transactions.transaction
 import tech.libeufin.util.CryptoUtil
 import tech.libeufin.util.base64ToBytes
 import java.lang.Exception
+import javax.sql.rowset.serial.SerialBlob
 
 /**
  * This helper function parses a Authorization:-header line, decode the credentials
@@ -42,11 +44,8 @@ class Taler(app: Route) {
          * (!= public key) subject. */
         refund(app)
 
-        /**
-         * NOTE: Taler exchanges do authenticate via the HTTP Basic auth mechanism,
-         * which is currently _missing_ in the nexus.  Therefore, a mapping from auth
-         * header lines to ebics_subscriber needs to be implemented!
-         */
+        /** Tester for HTTP basic auth. */
+        testAuth(app)
     }
 
     /**
@@ -116,6 +115,28 @@ class Taler(app: Route) {
         val timestamp: Long,
         val row_id: Long
     )
+
+    // throws error if password is wrong
+    private fun authenticateRequest(authorization: String?) {
+        val headerLine = authorization ?: throw NexusError(
+            HttpStatusCode.BadRequest, "Authentication:-header line not found"
+        )
+        logger.debug("Checking for authorization: $headerLine")
+        transaction {
+            val (user, pass) = extractUserAndHashedPassword(headerLine)
+            EbicsSubscriberEntity.find {
+                EbicsSubscribersTable.id eq user and (EbicsSubscribersTable.password eq SerialBlob(pass))
+            }.firstOrNull()
+        } ?: throw NexusError(HttpStatusCode.Forbidden, "Wrong password")
+    }
+
+    fun testAuth(app: Route) {
+        app.get("/taler/test-auth") {
+            authenticateRequest(call.request.headers["Authorization"])
+            call.respondText("Authenticated!", ContentType.Text.Plain, HttpStatusCode.OK)
+            return@get
+        }
+    }
 
     fun digest(app: Route) {
         app.post("/ebics/taler/{id}/digest-incoming-transactions") {
