@@ -1133,13 +1133,14 @@ fun main() {
             }
 
             post("/ebics/{id}/subscribers") {
+                val newUserId = call.parameters["id"]
                 val body = call.receive<EbicsSubscriberInfoRequestJson>()
                 val pairA = CryptoUtil.generateRsaKeyPair(2048)
                 val pairB = CryptoUtil.generateRsaKeyPair(2048)
                 val pairC = CryptoUtil.generateRsaKeyPair(2048)
                 val row = try {
                     transaction {
-                        EbicsSubscriberEntity.new(id = expectId(call.parameters["id"])) {
+                        EbicsSubscriberEntity.new(id = expectId(newUserId)) {
                             ebicsURL = body.ebicsURL
                             hostID = body.hostID
                             partnerID = body.partnerID
@@ -1150,7 +1151,10 @@ fun main() {
                             authenticationPrivateKey = SerialBlob(pairC.private.encoded)
                             password = if (body.password != null) {
                                 SerialBlob(CryptoUtil.hashStringSHA256(body.password))
-                            } else null
+                            } else {
+                                logger.debug("No password set for $newUserId")
+                                null
+                            }
                         }
                     }
                 } catch (e: Exception) {
