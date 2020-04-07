@@ -1,5 +1,6 @@
 package tech.libeufin.nexus
 
+import io.ktor.application.ApplicationCall
 import io.ktor.http.HttpStatusCode
 
 /**
@@ -34,6 +35,11 @@ fun expectIdTransaction(param: String?): EbicsSubscriberEntity {
         throw NexusError(HttpStatusCode.BadRequest, "Null Id given")
     }
     return EbicsSubscriberEntity.findById(param) ?: throw NexusError(HttpStatusCode.NotFound, "Subscriber: $param not found")
+}
+
+fun ApplicationCall.expectUrlParameter(name: String): String {
+    return this.request.queryParameters[name]
+        ?: throw NexusError(HttpStatusCode.BadRequest, "Parameter '$name' not provided in URI")
 }
 
 /* Needs a transaction{} block to be called */

@@ -225,7 +225,6 @@ fun main() {
             }
         }
         routing {
-
             post("/{id}/history") {
                 val req = call.receive<CustomerHistoryRequest>()
                 val customer = findCustomer(call.parameters["id"])
@@ -252,7 +251,6 @@ fun main() {
                 call.respond(ret)
                 return@post
             }
-
             get("/{id}/balance") {
                 val customer = findCustomer(call.parameters["id"])
                 val balance = calculateBalance(customer.id.value, null, null)
@@ -264,7 +262,6 @@ fun main() {
                 )
                 return@get
             }
-
             get("/admin/subscribers") {
                 var ret = AdminGetSubscribers()
                 transaction {
@@ -277,7 +274,6 @@ fun main() {
                 call.respond(ret)
                 return@get
             }
-
             post("/admin/add/subscriber") {
                 val body = call.receive<AdminAddSubscriberRequest>()
 
@@ -332,7 +328,6 @@ fun main() {
                     HttpStatusCode.OK
                 )
                 return@post
-
             }
             get("/ebics/hosts/{id}") {
                 val resp = transaction {

@@ -101,7 +101,6 @@ class Taler(app: Route) {
     private data class TalerOutgoingHistory(
         var outgoing_transactions: MutableList<TalerOutgoingBankTransaction> = mutableListOf()
     )
-
     /**
      * Test APIs' data structures.
      */
@@ -116,7 +115,10 @@ class Taler(app: Route) {
         val row_id: Long
     )
 
-    // throws error if password is wrong
+    /**
+     * throws error if password is wrong
+     * @param authorization the Authorization:-header line.
+     */
     private fun authenticateRequest(authorization: String?) {
         val headerLine = authorization ?: throw NexusError(
             HttpStatusCode.BadRequest, "Authentication:-header line not found"
