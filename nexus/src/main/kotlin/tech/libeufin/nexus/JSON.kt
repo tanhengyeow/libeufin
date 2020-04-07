@@ -70,7 +70,8 @@ data class EbicsSubscriberInfoRequestJson(
     val hostID: String,
     val partnerID: String,
     val userID: String,
-    val systemID: String? = null
+    val systemID: String? = null,
+    val password: String? = null
 )
 
 /**

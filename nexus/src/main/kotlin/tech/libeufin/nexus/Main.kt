@@ -1148,6 +1148,9 @@ fun main() {
                             signaturePrivateKey = SerialBlob(pairA.private.encoded)
                             encryptionPrivateKey = SerialBlob(pairB.private.encoded)
                             authenticationPrivateKey = SerialBlob(pairC.private.encoded)
+                            password = if (body.password != null) {
+                                SerialBlob(CryptoUtil.hashStringSHA256(body.password))
+                            } else null
                         }
                     }
                 } catch (e: Exception) {
