@@ -76,7 +76,7 @@ class Taler(app: Route) {
     data class Payto(
         val name: String,
         val iban: String,
-        val bic: String?
+        val bic: String // empty string in case no BIC was given
     )
     data class AmountWithCurrency(
         val currency: String,
@@ -86,10 +86,11 @@ class Taler(app: Route) {
     /** Helper functions */
 
     fun parsePayto(paytoUri: String): Payto {
-        val match = Regex("payto://.*/([A-Z0-9]+)/([A-Z0-9]+)?\\?name=(\\w+)").find(paytoUri) ?: throw
+        // payto://iban/BIC?/IBAN?name=<name>
+        val match = Regex("payto://iban/([A-Z0-9]+/)?([A-Z0-9]+)\\?name=(\\w+)").find(paytoUri) ?: throw
                 NexusError(HttpStatusCode.BadRequest, "invalid payto URI ($paytoUri)")
-        val (iban, bic, name) = match.destructured
-        return Payto(name, iban, bic)
+        val (bic, iban, name) = match.destructured
+        return Payto(name, iban, bic.replace("/", ""))
     }
 
     fun parseAmount(amount: String): AmountWithCurrency {
