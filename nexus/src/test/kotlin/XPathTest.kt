@@ -2,9 +2,7 @@ package tech.libeufin.nexus
 
 import org.junit.Test
 import org.w3c.dom.Document
-import org.w3c.dom.Node
 import tech.libeufin.util.XMLUtil
-
 
 class XPathTest {
 
