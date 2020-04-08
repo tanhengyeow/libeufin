@@ -42,6 +42,14 @@ fun ApplicationCall.expectUrlParameter(name: String): String {
         ?: throw NexusError(HttpStatusCode.BadRequest, "Parameter '$name' not provided in URI")
 }
 
+fun expectInt(param: String): Int {
+    return try {
+        param.toInt()
+    } catch (e: Exception) {
+        throw NexusError(HttpStatusCode.BadRequest,"'$param' is not Int")
+    }
+}
+
 fun expectLong(param: String): Long {
     return try {
         param.toLong()

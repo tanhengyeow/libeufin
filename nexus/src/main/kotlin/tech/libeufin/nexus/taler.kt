@@ -8,7 +8,10 @@ import io.ktor.response.respondText
 import io.ktor.routing.Route
 import io.ktor.routing.get
 import io.ktor.routing.post
+import io.ktor.routing.route
+import org.jetbrains.exposed.dao.Entity
 import org.jetbrains.exposed.dao.EntityID
+import org.jetbrains.exposed.dao.LongEntity
 import org.jetbrains.exposed.sql.*
 import org.jetbrains.exposed.sql.SqlExpressionBuilder.lessEq
 import org.jetbrains.exposed.sql.transactions.transaction
@@ -19,6 +22,7 @@ import tech.libeufin.util.CryptoUtil
 import tech.libeufin.util.base64ToBytes
 import java.lang.Exception
 import javax.sql.rowset.serial.SerialBlob
+import kotlin.math.abs
 
 /**
  * This helper function parses a Authorization:-header line, decode the credentials
@@ -121,8 +125,8 @@ class Taler(app: Route) {
         val row_id: Long
     )
 
-    private fun SizedIterable<TalerIncomingPaymentEntry>.orderTaler(start: Long): List<TalerIncomingPaymentEntry> {
-        return if (start < 0) {
+    private fun <T : Entity<Long>> SizedIterable<T>.orderTaler(delta: Int): List<T> {
+        return if (delta < 0) {
             this.sortedByDescending { it.id }
         } else {
             this.sortedBy { it.id }
@@ -149,22 +153,19 @@ class Taler(app: Route) {
         return subscriber.id.value
     }
 
-    /**
-     * Implement the Taler wire API transfer method.
-     */
-    private fun transfer(app: Route) {
-
-    }
-
     private fun getPaytoUri(name: String, iban: String, bic: String): String {
         return "payto://$iban/$bic?receiver-name=$name"
+    }
+
+    private fun parseDate(date: String): DateTime {
+        return DateTime.parse(date, DateTimeFormat.forPattern("YYYY-MM-DD"))
     }
 
     /**
      * Builds the comparison operator for history entries based on the
      * sign of 'delta'
      */
-    private fun getComparisonOperator(delta: Long, start: Long): Op<Boolean> {
+    private fun getComparisonOperator(delta: Int, start: Long): Op<Boolean> {
         return if (delta < 0) {
             Expression.build {
                 TalerIncomingPayments.id less start
@@ -179,7 +180,7 @@ class Taler(app: Route) {
     /**
      * Helper handling 'start' being optional and its dependence on 'delta'.
      */
-    private fun handleStartArgument(start: String?, delta: Long): Long {
+    private fun handleStartArgument(start: String?, delta: Int): Long {
         return expectLong(start) ?: if (delta >= 0) {
             /**
              * Using -1 as the smallest value, as some DBMS might use 0 and some
@@ -198,6 +199,17 @@ class Taler(app: Route) {
     }
 
     /**
+     * Implement the Taler wire API transfer method.
+     */
+    private fun transfer(app: Route) {
+        app.post("/taler/transfer") {
+            call.respond(HttpStatusCode.OK, NexusErrorJson("Not implemented"))
+            return@post
+        }
+    }
+
+
+    /**
      * Respond with ONLY the good transfer made to the exchange.
      * A 'good' transfer is one whose subject line is a plausible
      * EdDSA public key encoded in Crockford base32.
@@ -205,18 +217,18 @@ class Taler(app: Route) {
     private fun historyIncoming(app: Route) {
         app.get("/taler/history/incoming") {
             val subscriberId = authenticateRequest(call.request.headers["Authorization"])
-            val delta: Long = expectLong(call.expectUrlParameter("delta"))
+            val delta: Int = expectInt(call.expectUrlParameter("delta"))
             val start: Long = handleStartArgument(call.request.queryParameters["start"], delta)
             val history = TalerIncomingHistory()
-            val cmpOp = getComparisonOperator(delta, start)
+            val startCmpOp = getComparisonOperator(delta, start)
             transaction {
                 val subscriberBankAccount = getBankAccountsInfoFromId(subscriberId)
                 TalerIncomingPaymentEntry.find {
-                    TalerIncomingPayments.valid eq true and cmpOp
-                }.orderTaler(start).forEach {
+                    TalerIncomingPayments.valid eq true and startCmpOp
+                }.orderTaler(delta).subList(0, abs(delta)).forEach {
                     history.incoming_transactions.add(
                         TalerIncomingBankTransaction(
-                            date = DateTime.parse(it.payment.bookingDate, DateTimeFormat.forPattern("YYYY-MM-DD")).millis,
+                            date = parseDate(it.payment.bookingDate).millis / 1000, // timestamp in seconds
                             row_id = it.id.value,
                             amount = "${it.payment.currency}:${it.payment.amount}",
                             reserve_pub = it.payment.unstructuredRemittanceInformation,
@@ -241,7 +253,41 @@ class Taler(app: Route) {
      * incoming payment.
      */
     private fun historyOutgoing(app: Route) {
+        app.get("/taler/history/outgoing") {
 
+            /* sanitize URL arguments */
+            val subscriberId = authenticateRequest(call.request.headers["Authorization"])
+            val delta: Int = expectInt(call.expectUrlParameter("delta"))
+            val start: Long = handleStartArgument(call.request.queryParameters["start"], delta)
+            val startCmpOp = getComparisonOperator(delta, start)
+
+            /* retrieve database elements */
+            val history = TalerOutgoingHistory()
+            transaction {
+                /** Retrieve all the outgoing payments from the _raw transactions table_ */
+                val subscriberBankAccount = getBankAccountsInfoFromId(subscriberId)
+                EbicsRawBankTransactionEntry.find {
+                    EbicsRawBankTransactionsTable.debitorIban eq subscriberBankAccount.first().iban and startCmpOp
+                }.orderTaler(delta).subList(0, abs(delta)).forEach {
+                    history.outgoing_transactions.add(
+                        TalerOutgoingBankTransaction(
+                            row_id = it.id.value,
+                            amount = "${it.currency}:${it.amount}",
+                            wtid = it.unstructuredRemittanceInformation,
+                            date = parseDate(it.bookingDate).millis / 1000,
+                            credit_account = it.creditorIban,
+                            debit_account = it.debitorIban,
+                            exchange_base_url = "FIXME-to-request-along-subscriber-registration"
+                        )
+                    )
+                }
+            }
+            call.respond(
+                HttpStatusCode.OK,
+                history
+            )
+            return@get
+        }
     }
 
     private fun testAuth(app: Route) {
