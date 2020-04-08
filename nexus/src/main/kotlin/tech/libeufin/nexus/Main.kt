@@ -40,6 +40,7 @@ import io.ktor.routing.post
 import io.ktor.routing.routing
 import io.ktor.server.engine.embeddedServer
 import io.ktor.server.netty.Netty
+import org.jetbrains.exposed.sql.SizedIterable
 import org.jetbrains.exposed.sql.StdOutSqlLogger
 import org.jetbrains.exposed.sql.addLogger
 import org.jetbrains.exposed.sql.and
@@ -138,6 +139,23 @@ fun getSubscriberDetailsFromBankAccount(bankAccountId: String): EbicsClientSubsc
     }
 }
 
+/**
+ * Given a subscriber id, returns the _list_ of bank accounts associated to it.
+ * @param id the subscriber id
+ * @return the query set containing the subscriber's bank accounts
+ */
+fun getBankAccountsInfoFromId(id: String): SizedIterable<EbicsAccountInfoEntity> {
+    val list = transaction {
+        EbicsAccountInfoEntity.find {
+            EbicsAccountsInfoTable.subscriber eq id
+        }
+    }
+    if (list.empty()) throw NexusError(
+        HttpStatusCode.NotFound, "This subscriber '$id' did never fetch its own bank accounts, request HTD first."
+    )
+    return list
+}
+
 fun getSubscriberDetailsFromId(id: String): EbicsClientSubscriberDetails {
     return transaction {
         val subscriber = EbicsSubscriberEntity.findById(id) ?: throw NexusError(
@@ -176,7 +194,6 @@ fun getSubscriberDetailsFromId(id: String): EbicsClientSubscriberDetails {
  * Needs to be called within a transaction block.
  */
 fun createPain001document(pain001Entity: Pain001Entity): String {
-
     /**
      * Every PAIN.001 document contains at least three IDs:
      *

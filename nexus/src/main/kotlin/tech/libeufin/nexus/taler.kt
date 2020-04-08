@@ -3,12 +3,18 @@ package tech.libeufin.nexus
 import io.ktor.application.call
 import io.ktor.http.ContentType
 import io.ktor.http.HttpStatusCode
+import io.ktor.response.respond
 import io.ktor.response.respondText
 import io.ktor.routing.Route
 import io.ktor.routing.get
 import io.ktor.routing.post
-import org.jetbrains.exposed.sql.and
+import org.jetbrains.exposed.dao.EntityID
+import org.jetbrains.exposed.sql.*
+import org.jetbrains.exposed.sql.SqlExpressionBuilder.lessEq
 import org.jetbrains.exposed.sql.transactions.transaction
+import org.joda.time.DateTime
+import org.joda.time.format.DateTimeFormat
+import org.joda.time.format.DateTimeFormatter
 import tech.libeufin.util.CryptoUtil
 import tech.libeufin.util.base64ToBytes
 import java.lang.Exception
@@ -115,24 +121,130 @@ class Taler(app: Route) {
         val row_id: Long
     )
 
+    private fun SizedIterable<TalerIncomingPaymentEntry>.orderTaler(start: Long): List<TalerIncomingPaymentEntry> {
+        return if (start < 0) {
+            this.sortedByDescending { it.id }
+        } else {
+            this.sortedBy { it.id }
+        }
+    }
+
     /**
-     * throws error if password is wrong
+     * Test HTTP basic auth.  Throws error if password is wrong
+     *
      * @param authorization the Authorization:-header line.
+     * @return subscriber id
      */
-    private fun authenticateRequest(authorization: String?) {
+    private fun authenticateRequest(authorization: String?): String {
         val headerLine = authorization ?: throw NexusError(
             HttpStatusCode.BadRequest, "Authentication:-header line not found"
         )
         logger.debug("Checking for authorization: $headerLine")
-        transaction {
+        val subscriber = transaction {
             val (user, pass) = extractUserAndHashedPassword(headerLine)
             EbicsSubscriberEntity.find {
                 EbicsSubscribersTable.id eq user and (EbicsSubscribersTable.password eq SerialBlob(pass))
             }.firstOrNull()
         } ?: throw NexusError(HttpStatusCode.Forbidden, "Wrong password")
+        return subscriber.id.value
     }
 
-    fun testAuth(app: Route) {
+    /**
+     * Implement the Taler wire API transfer method.
+     */
+    private fun transfer(app: Route) {
+
+    }
+
+    private fun getPaytoUri(name: String, iban: String, bic: String): String {
+        return "payto://$iban/$bic?receiver-name=$name"
+    }
+
+    /**
+     * Builds the comparison operator for history entries based on the
+     * sign of 'delta'
+     */
+    private fun getComparisonOperator(delta: Long, start: Long): Op<Boolean> {
+        return if (delta < 0) {
+            Expression.build {
+                TalerIncomingPayments.id less start
+            }
+        } else {
+            Expression.build {
+                TalerIncomingPayments.id greater start
+            }
+        }
+    }
+
+    /**
+     * Helper handling 'start' being optional and its dependence on 'delta'.
+     */
+    private fun handleStartArgument(start: String?, delta: Long): Long {
+        return expectLong(start) ?: if (delta >= 0) {
+            /**
+             * Using -1 as the smallest value, as some DBMS might use 0 and some
+             * others might use 1 as the smallest row id.
+             */
+            -1
+        } else {
+            /**
+             * NOTE: the database currently enforces there MAX_VALUE is always
+             * strictly greater than any row's id in the database.  In fact, the
+             * database throws exception whenever a new row is going to occupy
+             * the MAX_VALUE with its id.
+             */
+            Long.MAX_VALUE
+        }
+    }
+
+    /**
+     * Respond with ONLY the good transfer made to the exchange.
+     * A 'good' transfer is one whose subject line is a plausible
+     * EdDSA public key encoded in Crockford base32.
+     */
+    private fun historyIncoming(app: Route) {
+        app.get("/taler/history/incoming") {
+            val subscriberId = authenticateRequest(call.request.headers["Authorization"])
+            val delta: Long = expectLong(call.expectUrlParameter("delta"))
+            val start: Long = handleStartArgument(call.request.queryParameters["start"], delta)
+            val history = TalerIncomingHistory()
+            val cmpOp = getComparisonOperator(delta, start)
+            transaction {
+                val subscriberBankAccount = getBankAccountsInfoFromId(subscriberId)
+                TalerIncomingPaymentEntry.find {
+                    TalerIncomingPayments.valid eq true and cmpOp
+                }.orderTaler(start).forEach {
+                    history.incoming_transactions.add(
+                        TalerIncomingBankTransaction(
+                            date = DateTime.parse(it.payment.bookingDate, DateTimeFormat.forPattern("YYYY-MM-DD")).millis,
+                            row_id = it.id.value,
+                            amount = "${it.payment.currency}:${it.payment.amount}",
+                            reserve_pub = it.payment.unstructuredRemittanceInformation,
+                            debit_account = getPaytoUri(
+                                it.payment.debitorName, it.payment.debitorIban, it.payment.counterpartBic
+                            ),
+                            credit_account = getPaytoUri(
+                                it.payment.creditorName, it.payment.creditorIban, subscriberBankAccount.first().bankCode
+                            )
+                        )
+                    )
+                }
+            }
+            call.respond(history)
+            return@get
+        }
+    }
+
+    /**
+     * Respond with all the transfers that the exchange made to merchants.
+     * It can include also those transfers made to reimburse some invalid
+     * incoming payment.
+     */
+    private fun historyOutgoing(app: Route) {
+
+    }
+
+    private fun testAuth(app: Route) {
         app.get("/taler/test-auth") {
             authenticateRequest(call.request.headers["Authorization"])
             call.respondText("Authenticated!", ContentType.Text.Plain, HttpStatusCode.OK)
@@ -140,27 +252,29 @@ class Taler(app: Route) {
         }
     }
 
-    fun digest(app: Route) {
+    private fun digest(app: Route) {
         app.post("/ebics/taler/{id}/digest-incoming-transactions") {
             val id = expectId(call.parameters["id"])
             // first find highest ID value of already processed rows.
             transaction {
-                // avoid re-processing raw payments
-                val latest = TalerIncomingPaymentEntry.all().sortedByDescending {
+                /**
+                 * The following query avoids to put a "taler processed" flag-column into
+                 * the raw ebics transactions table.  Such table should not contain taler-related
+                 * information.
+                 *
+                 * This latestId value points at the latest id in the _raw transactions table_
+                 * that was last processed.  On the other hand, the "row_id" value that the exchange
+                 * will get along each history element will be the id in the _digested entries table_.
+                 */
+                val latestId: Long = TalerIncomingPaymentEntry.all().sortedByDescending {
                     it.payment.id
-                }.firstOrNull()
-
-                val payments = if (latest == null) {
-                    EbicsRawBankTransactionEntry.find {
-                        EbicsRawBankTransactionsTable.nexusSubscriber eq id
-                    }
-                } else {
-                    EbicsRawBankTransactionEntry.find {
-                        EbicsRawBankTransactionsTable.id.greater(latest.id) and
-                                (EbicsRawBankTransactionsTable.nexusSubscriber eq id)
-                    }
-                }
-                payments.forEach {
+                }.firstOrNull()?.payment?.id?.value ?: -1
+                val subscriberAccount = getBankAccountsInfoFromId(id).first()
+                /* search for fresh transactions having the exchange IBAN in the creditor field.  */
+                EbicsRawBankTransactionEntry.find {
+                    EbicsRawBankTransactionsTable.creditorIban eq subscriberAccount.iban and
+                            (EbicsRawBankTransactionsTable.id.greater(latestId))
+                }.forEach {
                     if (CryptoUtil.checkValidEddsaPublicKey(it.unstructuredRemittanceInformation)) {
                         TalerIncomingPaymentEntry.new {
                             payment = it
@@ -183,8 +297,7 @@ class Taler(app: Route) {
         }
     }
 
-    fun refund(app: Route) {
-
+    private fun refund(app: Route) {
         app.post("/ebics/taler/{id}/accounts/{acctid}/refund-invalid-payments") {
             transaction {
                 val subscriber = expectIdTransaction(call.parameters["id"])

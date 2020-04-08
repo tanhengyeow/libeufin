@@ -221,10 +221,8 @@ object EbicsDownloadTransactionsTable : IdTable<String>() {
     val receiptReceived = bool("receiptReceived")
 }
 
-
 class EbicsDownloadTransactionEntity(id: EntityID<String>) : Entity<String>(id) {
     companion object : EntityClass<String, EbicsDownloadTransactionEntity>(EbicsDownloadTransactionsTable)
-
     var orderType by EbicsDownloadTransactionsTable.orderType
     var host by EbicsHostEntity referencedOn EbicsDownloadTransactionsTable.host
     var subscriber by EbicsSubscriberEntity referencedOn EbicsDownloadTransactionsTable.subscriber
@@ -234,7 +232,6 @@ class EbicsDownloadTransactionEntity(id: EntityID<String>) : Entity<String>(id) 
     var segmentSize by EbicsDownloadTransactionsTable.segmentSize
     var receiptReceived by EbicsDownloadTransactionsTable.receiptReceived
 }
-
 
 object EbicsUploadTransactionsTable : IdTable<String>() {
     override val id = text("transactionID").entityId()
@@ -246,7 +243,6 @@ object EbicsUploadTransactionsTable : IdTable<String>() {
     val lastSeenSegment = integer("lastSeenSegment")
     val transactionKeyEnc = blob("transactionKeyEnc")
 }
-
 
 class EbicsUploadTransactionEntity(id: EntityID<String>) : Entity<String>(id) {
     companion object : EntityClass<String, EbicsUploadTransactionEntity>(EbicsUploadTransactionsTable)
@@ -260,7 +256,6 @@ class EbicsUploadTransactionEntity(id: EntityID<String>) : Entity<String>(id) {
     var transactionKeyEnc by EbicsUploadTransactionsTable.transactionKeyEnc
 }
 
-
 object EbicsOrderSignaturesTable : IntIdTable() {
     val orderID = text("orderID")
     val orderType = text("orderType")
@@ -270,10 +265,8 @@ object EbicsOrderSignaturesTable : IntIdTable() {
     val signatureValue = blob("signatureValue")
 }
 
-
 class EbicsOrderSignatureEntity(id: EntityID<Int>) : IntEntity(id) {
     companion object : IntEntityClass<EbicsOrderSignatureEntity>(EbicsOrderSignaturesTable)
-
     var orderID by EbicsOrderSignaturesTable.orderID
     var orderType by EbicsOrderSignaturesTable.orderType
     var partnerID by EbicsOrderSignaturesTable.partnerID
@@ -291,7 +284,6 @@ object EbicsUploadTransactionChunksTable : IdTable<String>() {
 
 class EbicsUploadTransactionChunkEntity(id : EntityID<String>): Entity<String>(id) {
     companion object : EntityClass<String, EbicsUploadTransactionChunkEntity>(EbicsUploadTransactionChunksTable)
-
     var chunkIndex by EbicsUploadTransactionChunksTable.chunkIndex
     var chunkContent by EbicsUploadTransactionChunksTable.chunkContent
 }

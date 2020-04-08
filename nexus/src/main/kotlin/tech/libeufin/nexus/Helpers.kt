@@ -42,6 +42,21 @@ fun ApplicationCall.expectUrlParameter(name: String): String {
         ?: throw NexusError(HttpStatusCode.BadRequest, "Parameter '$name' not provided in URI")
 }
 
+fun expectLong(param: String): Long {
+    return try {
+        param.toLong()
+    } catch (e: Exception) {
+        throw NexusError(HttpStatusCode.BadRequest,"'$param' is not Long")
+    }
+}
+
+fun expectLong(param: String?): Long? {
+    if (param != null) {
+        return expectLong(param)
+    }
+    return null
+}
+
 /* Needs a transaction{} block to be called */
 fun expectAcctidTransaction(param: String?): EbicsAccountInfoEntity {
     if (param == null) {

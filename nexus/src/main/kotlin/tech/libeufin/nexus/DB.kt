@@ -1,12 +1,10 @@
 package tech.libeufin.nexus
 
+import io.ktor.http.HttpStatusCode
 import org.jetbrains.exposed.dao.*
 import org.jetbrains.exposed.sql.*
 import org.jetbrains.exposed.sql.transactions.TransactionManager
 import org.jetbrains.exposed.sql.transactions.transaction
-import org.joda.time.DateTime
-import tech.libeufin.nexus.EbicsSubscribersTable.entityId
-import tech.libeufin.nexus.EbicsSubscribersTable.primaryKey
 import tech.libeufin.util.IntIdTableWithAmount
 import java.sql.Connection
 
@@ -20,7 +18,17 @@ object TalerIncomingPayments: LongIdTable() {
 }
 
 class TalerIncomingPaymentEntry(id: EntityID<Long>) : LongEntity(id) {
-    companion object : LongEntityClass<TalerIncomingPaymentEntry>(TalerIncomingPayments)
+    companion object : LongEntityClass<TalerIncomingPaymentEntry>(TalerIncomingPayments) {
+        override fun new(init: TalerIncomingPaymentEntry.() -> Unit): TalerIncomingPaymentEntry {
+            val newRow = super.new(init)
+            if (newRow.id.value == Long.MAX_VALUE) {
+                throw NexusError(
+                    HttpStatusCode.InsufficientStorage, "Cannot store rows anymore"
+                )
+            }
+            return newRow
+        }
+    }
     var payment by EbicsRawBankTransactionEntry referencedOn TalerIncomingPayments.payment
     var valid by TalerIncomingPayments.valid
     var processed by TalerIncomingPayments.processed
