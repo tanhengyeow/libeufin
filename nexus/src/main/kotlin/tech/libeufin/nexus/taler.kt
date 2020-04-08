@@ -3,6 +3,7 @@ package tech.libeufin.nexus
 import io.ktor.application.call
 import io.ktor.http.ContentType
 import io.ktor.http.HttpStatusCode
+import io.ktor.request.receive
 import io.ktor.response.respond
 import io.ktor.response.respondText
 import io.ktor.routing.Route
@@ -13,7 +14,9 @@ import org.jetbrains.exposed.sql.*
 import org.jetbrains.exposed.sql.transactions.transaction
 import org.joda.time.DateTime
 import org.joda.time.format.DateTimeFormat
+import tech.libeufin.util.Amount
 import tech.libeufin.util.CryptoUtil
+import java.util.*
 import kotlin.math.abs
 
 class Taler(app: Route) {
@@ -69,7 +72,32 @@ class Taler(app: Route) {
         val row_id: Long
     )
 
+    /** Helper data structures. */
+    data class Payto(
+        val name: String,
+        val iban: String,
+        val bic: String?
+    )
+    data class AmountWithCurrency(
+        val currency: String,
+        val amount: Amount
+    )
+
     /** Helper functions */
+
+    fun parsePayto(paytoUri: String): Payto {
+        val match = Regex("payto://.*/([A-Z0-9]+)/([A-Z0-9]+)?\\?name=(\\w+)").find(paytoUri) ?: throw
+                NexusError(HttpStatusCode.BadRequest, "invalid payto URI ($paytoUri)")
+        val (iban, bic, name) = match.destructured
+        return Payto(name, iban, bic)
+    }
+
+    fun parseAmount(amount: String): AmountWithCurrency {
+        val match = Regex("([A-Z][A-Z][A-Z]):([0-9]+(\\.[0-9]+)?)").find(amount) ?: throw
+                NexusError(HttpStatusCode.BadRequest, "invalid payto URI ($amount)")
+        val (currency, number) = match.destructured
+        return AmountWithCurrency(currency, Amount(number))
+    }
 
     private fun <T : Entity<Long>> SizedIterable<T>.orderTaler(delta: Int): List<T> {
         return if (delta < 0) {
@@ -122,7 +150,11 @@ class Taler(app: Route) {
 
     /** attaches Taler endpoints to the main Web server */
     init {
-        app.post("/taler/transfer") {
+        app.post("/taler/admin/add-incoming") {
+            val addIncomingData = call.receive<TalerAdminAddIncoming>()
+            /** Decompose amount and payto fields.  */
+
+
             call.respond(HttpStatusCode.OK, NexusErrorJson("Not implemented"))
             return@post
         }
