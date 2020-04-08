@@ -2,6 +2,11 @@ package tech.libeufin.nexus
 
 import io.ktor.application.ApplicationCall
 import io.ktor.http.HttpStatusCode
+import org.jetbrains.exposed.sql.and
+import org.jetbrains.exposed.sql.transactions.transaction
+import tech.libeufin.util.CryptoUtil
+import tech.libeufin.util.base64ToBytes
+import javax.sql.rowset.serial.SerialBlob
 
 /**
  * Inserts spaces every 2 characters, and a newline after 8 pairs.
@@ -71,4 +76,42 @@ fun expectAcctidTransaction(param: String?): EbicsAccountInfoEntity {
         throw NexusError(HttpStatusCode.BadRequest, "Null Acctid given")
     }
     return EbicsAccountInfoEntity.findById(param) ?: throw NexusError(HttpStatusCode.NotFound, "Account: $param not found")
+}
+
+/**
+ * This helper function parses a Authorization:-header line, decode the credentials
+ * and returns a pair made of username and hashed (sha256) password.  The hashed value
+ * will then be compared with the one kept into the database.
+ */
+fun extractUserAndHashedPassword(authorizationHeader: String): Pair<String, ByteArray> {
+    val (username, password) = try {
+        val split = authorizationHeader.split(" ")
+        val valueUtf8 = String(base64ToBytes(split[1]), Charsets.UTF_8) // newline introduced here: BUG!
+        valueUtf8.split(":")
+    } catch (e: java.lang.Exception) {
+        throw NexusError(
+            HttpStatusCode.BadRequest, "invalid Authorization:-header received"
+        )
+    }
+    return Pair(username, CryptoUtil.hashStringSHA256(password))
+}
+
+/**
+ * Test HTTP basic auth.  Throws error if password is wrong
+ *
+ * @param authorization the Authorization:-header line.
+ * @return subscriber id
+ */
+fun authenticateRequest(authorization: String?): String {
+    val headerLine = authorization ?: throw NexusError(
+        HttpStatusCode.BadRequest, "Authentication:-header line not found"
+    )
+    logger.debug("Checking for authorization: $headerLine")
+    val subscriber = transaction {
+        val (user, pass) = extractUserAndHashedPassword(headerLine)
+        EbicsSubscriberEntity.find {
+            EbicsSubscribersTable.id eq user and (EbicsSubscribersTable.password eq SerialBlob(pass))
+        }.firstOrNull()
+    } ?: throw NexusError(HttpStatusCode.Forbidden, "Wrong password")
+    return subscriber.id.value
 }

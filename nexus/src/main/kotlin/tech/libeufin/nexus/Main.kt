@@ -388,6 +388,12 @@ fun main() {
                 return@get
             }
 
+            get("/taler/test-auth") {
+                authenticateRequest(call.request.headers["Authorization"])
+                call.respondText("Authenticated!", ContentType.Text.Plain, HttpStatusCode.OK)
+                return@get
+            }
+
             post("/ebics/subscribers/{id}/sendPTK") {
                 val id = expectId(call.parameters["id"])
                 val paramsJson = call.receive<EbicsStandardOrderParamsJson>()

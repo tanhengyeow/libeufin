@@ -8,59 +8,17 @@ import io.ktor.response.respondText
 import io.ktor.routing.Route
 import io.ktor.routing.get
 import io.ktor.routing.post
-import io.ktor.routing.route
 import org.jetbrains.exposed.dao.Entity
-import org.jetbrains.exposed.dao.EntityID
-import org.jetbrains.exposed.dao.LongEntity
 import org.jetbrains.exposed.sql.*
-import org.jetbrains.exposed.sql.SqlExpressionBuilder.lessEq
 import org.jetbrains.exposed.sql.transactions.transaction
 import org.joda.time.DateTime
 import org.joda.time.format.DateTimeFormat
-import org.joda.time.format.DateTimeFormatter
 import tech.libeufin.util.CryptoUtil
-import tech.libeufin.util.base64ToBytes
-import java.lang.Exception
-import javax.sql.rowset.serial.SerialBlob
 import kotlin.math.abs
-
-/**
- * This helper function parses a Authorization:-header line, decode the credentials
- * and returns a pair made of username and hashed (sha256) password.  The hashed value
- * will then be compared with the one kept into the database.
- */
-fun extractUserAndHashedPassword(authorizationHeader: String): Pair<String, ByteArray> {
-    val (username, password) = try {
-        val split = authorizationHeader.split(" ")
-        val valueUtf8 = String(base64ToBytes(split[1]), Charsets.UTF_8) // newline introduced here: BUG!
-        valueUtf8.split(":")
-    } catch (e: Exception) {
-        throw NexusError(
-            HttpStatusCode.BadRequest, "invalid Authorization:-header received"
-        )
-    }
-    return Pair(username, CryptoUtil.hashStringSHA256(password))
-}
 
 class Taler(app: Route) {
 
-    init {
-        /** transform raw CAMT.053 payment records to more Taler-friendly
-         * database rows. */
-        digest(app)
-
-        /** process the incoming payments, and craft refund payments (although
-         * do not execute them) for those incoming payments that had a wrong
-         * (!= public key) subject. */
-        refund(app)
-
-        /** Tester for HTTP basic auth. */
-        testAuth(app)
-    }
-
-    /**
-     * Payment initiating data structures: one endpoint "$BASE_URL/transfer".
-     */
+    /** Payment initiating data structures: one endpoint "$BASE_URL/transfer". */
     private data class TalerTransferRequest(
         val request_uid: String,
         val amount: String,
@@ -68,20 +26,13 @@ class Taler(app: Route) {
         val wtid: String,
         val credit_account: String
     )
-
     private data class TalerTransferResponse(
         // point in time when the nexus put the payment instruction into the database.
         val timestamp: Long,
         val row_id: Long
     )
 
-    /**
-     * History accounting data structures
-     */
-
-    /**
-     * Incoming payments.
-     */
+    /** History accounting data structures */
     private data class TalerIncomingBankTransaction(
         val row_id: Long,
         val date: Long, // timestamp
@@ -90,14 +41,9 @@ class Taler(app: Route) {
         val debit_account: String,
         val reserve_pub: String
     )
-
     private data class TalerIncomingHistory(
         var incoming_transactions: MutableList<TalerIncomingBankTransaction> = mutableListOf()
     )
-
-    /**
-     * Outgoing payments.
-     */
     private data class TalerOutgoingBankTransaction(
         val row_id: Long,
         val date: Long, // timestamp
@@ -107,13 +53,11 @@ class Taler(app: Route) {
         val wtid: String,
         val exchange_base_url: String
     )
-
     private data class TalerOutgoingHistory(
         var outgoing_transactions: MutableList<TalerOutgoingBankTransaction> = mutableListOf()
     )
-    /**
-     * Test APIs' data structures.
-     */
+
+    /** Test APIs' data structures. */
     private data class TalerAdminAddIncoming(
         val amount: String,
         val reserve_pub: String,
@@ -125,6 +69,8 @@ class Taler(app: Route) {
         val row_id: Long
     )
 
+    /** Helper functions */
+
     private fun <T : Entity<Long>> SizedIterable<T>.orderTaler(delta: Int): List<T> {
         return if (delta < 0) {
             this.sortedByDescending { it.id }
@@ -132,35 +78,12 @@ class Taler(app: Route) {
             this.sortedBy { it.id }
         }
     }
-
-    /**
-     * Test HTTP basic auth.  Throws error if password is wrong
-     *
-     * @param authorization the Authorization:-header line.
-     * @return subscriber id
-     */
-    private fun authenticateRequest(authorization: String?): String {
-        val headerLine = authorization ?: throw NexusError(
-            HttpStatusCode.BadRequest, "Authentication:-header line not found"
-        )
-        logger.debug("Checking for authorization: $headerLine")
-        val subscriber = transaction {
-            val (user, pass) = extractUserAndHashedPassword(headerLine)
-            EbicsSubscriberEntity.find {
-                EbicsSubscribersTable.id eq user and (EbicsSubscribersTable.password eq SerialBlob(pass))
-            }.firstOrNull()
-        } ?: throw NexusError(HttpStatusCode.Forbidden, "Wrong password")
-        return subscriber.id.value
-    }
-
     private fun getPaytoUri(name: String, iban: String, bic: String): String {
         return "payto://$iban/$bic?receiver-name=$name"
     }
-
     private fun parseDate(date: String): DateTime {
         return DateTime.parse(date, DateTimeFormat.forPattern("YYYY-MM-DD"))
     }
-
     /**
      * Builds the comparison operator for history entries based on the
      * sign of 'delta'
@@ -176,7 +99,6 @@ class Taler(app: Route) {
             }
         }
     }
-
     /**
      * Helper handling 'start' being optional and its dependence on 'delta'.
      */
@@ -198,107 +120,40 @@ class Taler(app: Route) {
         }
     }
 
-    /**
-     * Implement the Taler wire API transfer method.
-     */
-    private fun transfer(app: Route) {
+    /** attaches Taler endpoints to the main Web server */
+    init {
         app.post("/taler/transfer") {
             call.respond(HttpStatusCode.OK, NexusErrorJson("Not implemented"))
             return@post
         }
-    }
-
-
-    /**
-     * Respond with ONLY the good transfer made to the exchange.
-     * A 'good' transfer is one whose subject line is a plausible
-     * EdDSA public key encoded in Crockford base32.
-     */
-    private fun historyIncoming(app: Route) {
-        app.get("/taler/history/incoming") {
-            val subscriberId = authenticateRequest(call.request.headers["Authorization"])
-            val delta: Int = expectInt(call.expectUrlParameter("delta"))
-            val start: Long = handleStartArgument(call.request.queryParameters["start"], delta)
-            val history = TalerIncomingHistory()
-            val startCmpOp = getComparisonOperator(delta, start)
+        app.post("/ebics/taler/{id}/accounts/{acctid}/refund-invalid-payments") {
             transaction {
-                val subscriberBankAccount = getBankAccountsInfoFromId(subscriberId)
+                val subscriber = expectIdTransaction(call.parameters["id"])
+                val acctid = expectAcctidTransaction(call.parameters["acctid"])
+                if (acctid.subscriber.id != subscriber.id) {
+                    throw NexusError(
+                        HttpStatusCode.Forbidden,
+                        "Such subscriber (${subscriber.id}) can't drive such account (${acctid.id})"
+                    )
+                }
                 TalerIncomingPaymentEntry.find {
-                    TalerIncomingPayments.valid eq true and startCmpOp
-                }.orderTaler(delta).subList(0, abs(delta)).forEach {
-                    history.incoming_transactions.add(
-                        TalerIncomingBankTransaction(
-                            date = parseDate(it.payment.bookingDate).millis / 1000, // timestamp in seconds
-                            row_id = it.id.value,
-                            amount = "${it.payment.currency}:${it.payment.amount}",
-                            reserve_pub = it.payment.unstructuredRemittanceInformation,
-                            debit_account = getPaytoUri(
-                                it.payment.debitorName, it.payment.debitorIban, it.payment.counterpartBic
-                            ),
-                            credit_account = getPaytoUri(
-                                it.payment.creditorName, it.payment.creditorIban, subscriberBankAccount.first().bankCode
-                            )
-                        )
+                    TalerIncomingPayments.processed eq false and (TalerIncomingPayments.valid eq false)
+                }.forEach {
+                    createPain001entry(
+                        Pain001Data(
+                            creditorName = it.payment.debitorName,
+                            creditorIban = it.payment.debitorIban,
+                            creditorBic = it.payment.counterpartBic,
+                            sum = calculateRefund(it.payment.amount),
+                            subject = "Taler refund"
+                        ),
+                        acctid.id.value
                     )
+                    it.processed = true
                 }
             }
-            call.respond(history)
-            return@get
+            return@post
         }
-    }
-
-    /**
-     * Respond with all the transfers that the exchange made to merchants.
-     * It can include also those transfers made to reimburse some invalid
-     * incoming payment.
-     */
-    private fun historyOutgoing(app: Route) {
-        app.get("/taler/history/outgoing") {
-
-            /* sanitize URL arguments */
-            val subscriberId = authenticateRequest(call.request.headers["Authorization"])
-            val delta: Int = expectInt(call.expectUrlParameter("delta"))
-            val start: Long = handleStartArgument(call.request.queryParameters["start"], delta)
-            val startCmpOp = getComparisonOperator(delta, start)
-
-            /* retrieve database elements */
-            val history = TalerOutgoingHistory()
-            transaction {
-                /** Retrieve all the outgoing payments from the _raw transactions table_ */
-                val subscriberBankAccount = getBankAccountsInfoFromId(subscriberId)
-                EbicsRawBankTransactionEntry.find {
-                    EbicsRawBankTransactionsTable.debitorIban eq subscriberBankAccount.first().iban and startCmpOp
-                }.orderTaler(delta).subList(0, abs(delta)).forEach {
-                    history.outgoing_transactions.add(
-                        TalerOutgoingBankTransaction(
-                            row_id = it.id.value,
-                            amount = "${it.currency}:${it.amount}",
-                            wtid = it.unstructuredRemittanceInformation,
-                            date = parseDate(it.bookingDate).millis / 1000,
-                            credit_account = it.creditorIban,
-                            debit_account = it.debitorIban,
-                            exchange_base_url = "FIXME-to-request-along-subscriber-registration"
-                        )
-                    )
-                }
-            }
-            call.respond(
-                HttpStatusCode.OK,
-                history
-            )
-            return@get
-        }
-    }
-
-    private fun testAuth(app: Route) {
-        app.get("/taler/test-auth") {
-            authenticateRequest(call.request.headers["Authorization"])
-            call.respondText("Authenticated!", ContentType.Text.Plain, HttpStatusCode.OK)
-            return@get
-        }
-    }
-
-    private fun digest(app: Route) {
         app.post("/ebics/taler/{id}/digest-incoming-transactions") {
             val id = expectId(call.parameters["id"])
             // first find highest ID value of already processed rows.
@@ -341,36 +196,68 @@ class Taler(app: Route) {
             )
             return@post
         }
-    }
-
-    private fun refund(app: Route) {
-        app.post("/ebics/taler/{id}/accounts/{acctid}/refund-invalid-payments") {
+        app.get("/taler/history/outgoing") {
+            /* sanitize URL arguments */
+            val subscriberId = authenticateRequest(call.request.headers["Authorization"])
+            val delta: Int = expectInt(call.expectUrlParameter("delta"))
+            val start: Long = handleStartArgument(call.request.queryParameters["start"], delta)
+            val startCmpOp = getComparisonOperator(delta, start)
+            /* retrieve database elements */
+            val history = TalerOutgoingHistory()
             transaction {
-                val subscriber = expectIdTransaction(call.parameters["id"])
-                val acctid = expectAcctidTransaction(call.parameters["acctid"])
-                if (acctid.subscriber.id != subscriber.id) {
-                    throw NexusError(
-                        HttpStatusCode.Forbidden,
-                        "Such subscriber (${subscriber.id}) can't drive such account (${acctid.id})"
+                /** Retrieve all the outgoing payments from the _raw transactions table_ */
+                val subscriberBankAccount = getBankAccountsInfoFromId(subscriberId)
+                EbicsRawBankTransactionEntry.find {
+                    EbicsRawBankTransactionsTable.debitorIban eq subscriberBankAccount.first().iban and startCmpOp
+                }.orderTaler(delta).subList(0, abs(delta)).forEach {
+                    history.outgoing_transactions.add(
+                        TalerOutgoingBankTransaction(
+                            row_id = it.id.value,
+                            amount = "${it.currency}:${it.amount}",
+                            wtid = it.unstructuredRemittanceInformation,
+                            date = parseDate(it.bookingDate).millis / 1000,
+                            credit_account = it.creditorIban,
+                            debit_account = it.debitorIban,
+                            exchange_base_url = "FIXME-to-request-along-subscriber-registration"
+                        )
                     )
-                }
-                TalerIncomingPaymentEntry.find {
-                    TalerIncomingPayments.processed eq false and (TalerIncomingPayments.valid eq false)
-                }.forEach {
-                    createPain001entry(
-                        Pain001Data(
-                            creditorName = it.payment.debitorName,
-                            creditorIban = it.payment.debitorIban,
-                            creditorBic = it.payment.counterpartBic,
-                            sum = calculateRefund(it.payment.amount),
-                            subject = "Taler refund"
-                        ),
-                        acctid.id.value
-                    )
-                    it.processed = true
                 }
             }
-            return@post
+            call.respond(
+                HttpStatusCode.OK,
+                history
+            )
+            return@get
+        }
+        app.get("/taler/history/incoming") {
+            val subscriberId = authenticateRequest(call.request.headers["Authorization"])
+            val delta: Int = expectInt(call.expectUrlParameter("delta"))
+            val start: Long = handleStartArgument(call.request.queryParameters["start"], delta)
+            val history = TalerIncomingHistory()
+            val startCmpOp = getComparisonOperator(delta, start)
+            transaction {
+                val subscriberBankAccount = getBankAccountsInfoFromId(subscriberId)
+                TalerIncomingPaymentEntry.find {
+                    TalerIncomingPayments.valid eq true and startCmpOp
+                }.orderTaler(delta).subList(0, abs(delta)).forEach {
+                    history.incoming_transactions.add(
+                        TalerIncomingBankTransaction(
+                            date = parseDate(it.payment.bookingDate).millis / 1000, // timestamp in seconds
+                            row_id = it.id.value,
+                            amount = "${it.payment.currency}:${it.payment.amount}",
+                            reserve_pub = it.payment.unstructuredRemittanceInformation,
+                            debit_account = getPaytoUri(
+                                it.payment.debitorName, it.payment.debitorIban, it.payment.counterpartBic
+                            ),
+                            credit_account = getPaytoUri(
+                                it.payment.creditorName, it.payment.creditorIban, subscriberBankAccount.first().bankCode
+                            )
+                        )
+                    )
+                }
+            }
+            call.respond(history)
+            return@get
         }
     }
 }
