@@ -91,6 +91,7 @@ data class Pain001Data(
     val creditorBic: String,
     val creditorName: String,
     val sum: Amount,
+    val currency: String = "EUR",
     val subject: String
 )
 

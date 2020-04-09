@@ -82,9 +82,9 @@ class Taler(app: Route) {
      * Helper data structures.
      */
     data class Payto(
-        val name: String,
+        val name: String = "NOTGIVEN",
         val iban: String,
-        val bic: String // empty string in case no BIC was given
+        val bic: String = "NOTGIVEN"
     )
     data class AmountWithCurrency(
         val currency: String,
@@ -157,6 +157,63 @@ class Taler(app: Route) {
 
     /** attaches Taler endpoints to the main Web server */
     init {
+        app.post("/taler/transfer") {
+            val exchangeId = authenticateRequest(call.request.headers["Authorization"])
+            val transferRequest = call.receive<TalerTransferRequest>()
+
+            /**
+             * FIXME: check the UID before putting new data into the database.
+             */
+            val opaque_row_id = transaction {
+                val creditorData = parsePayto(transferRequest.credit_account)
+                val exchangeBankAccount = getBankAccountsInfoFromId(exchangeId)
+                val pain001 = createPain001entity(
+                    Pain001Data(
+                        creditorIban = creditorData.iban,
+                        creditorBic = creditorData.bic,
+                        creditorName = creditorData.name,
+                        subject = transferRequest.wtid,
+                        sum = parseAmount(transferRequest.amount).amount
+                    ),
+                    exchangeBankAccount.first().id.value
+                )
+                TalerRequestedPaymentEntity.find {
+                    TalerRequestedPayments.requestUId eq transferRequest.request_uid
+                }.forEach {
+                    if (
+                        (it.amount != transferRequest.amount) or
+                        (it.creditAccount != transferRequest.exchange_base_url) or
+                        (it.wtid != transferRequest.wtid)
+                    ) {
+                        throw NexusError(
+                            HttpStatusCode.Conflict,
+                            "This uid (${transferRequest.request_uid}) belong to a different payment altrady"
+                        )
+                    }
+                }
+                val row = TalerRequestedPaymentEntity.new {
+                    preparedPayment = pain001
+                    exchangeBaseUrl = transferRequest.exchange_base_url
+                    requestUId = transferRequest.request_uid
+                    amount = transferRequest.amount
+                    wtid = transferRequest.wtid
+                    creditAccount = transferRequest.credit_account
+                }
+                row.id.value
+            }
+            call.respond(
+                HttpStatusCode.OK,
+                TalerTransferResponse(
+                    /**
+                     * Normally should point to the next round where the background
+                     * routing will sent new PAIN.001 data to the bank; work in progress..
+                     */
+                    timestamp = DateTime.now().millis / 1000,
+                    row_id = opaque_row_id
+                )
+            )
+            return@post
+        }
         /** Test-API that creates one new payment addressed to the exchange.  */
         app.post("/taler/admin/add-incoming") {
             val exchangeId = authenticateRequest(call.request.headers["Authorization"])

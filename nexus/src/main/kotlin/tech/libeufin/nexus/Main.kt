@@ -288,7 +288,7 @@ fun createPain001document(pain001Entity: Pain001Entity): String {
                             }
                         }
                         element("Amt/InstdAmt") {
-                            attribute("Ccy", "EUR")
+                            attribute("Ccy", pain001Entity.currency)
                             text(pain001Entity.sum.toString())
                         }
                         element("CdtrAgt/FinInstnId/BIC") {
@@ -313,10 +313,14 @@ fun createPain001document(pain001Entity: Pain001Entity): String {
 
 /**
  * Insert one row in the database, and leaves it marked as non-submitted.
+ * @param debtorAccountId the mnemonic id assigned by the bank to one bank
+ * account of the subscriber that is creating the pain entity.  In this case,
+ * it will be the account whose money will pay the wire transfer being defined
+ * by this pain document.
  */
-fun createPain001entity(entry: Pain001Data, debtorAccountId: String) {
+fun createPain001entity(entry: Pain001Data, debtorAccountId: String): Pain001Entity {
     val randomId = Random().nextLong()
-    transaction {
+    return transaction {
         Pain001Entity.new {
             subject = entry.subject
             sum = entry.sum

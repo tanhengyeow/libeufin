@@ -12,10 +12,12 @@ const val ID_MAX_LENGTH = 50
 
 /**
  * This table holds the values that exchange gave to issue a payment,
- * plus a reference to the prepared pain.001 version of.
+ * plus a reference to the prepared pain.001 version of.  Note that
+ * whether a pain.001 document was sent or not to the bank is indicated
+ * in the PAIN-table.
  */
 object TalerRequestedPayments: LongIdTable() {
-    val payment = TalerIncomingPayments.reference("payment", Pain001Table)
+    val preparedPayment = TalerIncomingPayments.reference("payment", Pain001Table)
     val requestUId = text("request_uid")
     val amount = text("amount")
     val exchangeBaseUrl = text("exchange_base_url")
@@ -24,7 +26,8 @@ object TalerRequestedPayments: LongIdTable() {
 }
 
 class TalerRequestedPaymentEntity(id: EntityID<Long>) : LongEntity(id) {
-    var payment by Pain001Entity referencedOn TalerRequestedPayments.payment
+    companion object : LongEntityClass<TalerRequestedPaymentEntity>(TalerIncomingPayments)
+    var preparedPayment by Pain001Entity referencedOn TalerRequestedPayments.preparedPayment
     var requestUId by TalerRequestedPayments.requestUId
     var amount by TalerRequestedPayments.amount
     var exchangeBaseUrl by TalerRequestedPayments.exchangeBaseUrl
@@ -119,6 +122,7 @@ object Pain001Table : IntIdTableWithAmount() {
     val paymentId = long("paymentId")
     val fileDate = long("fileDate")
     val sum = amount("sum")
+    val currency = varchar("currency", length = 3).default("EUR")
     val debtorAccount = text("debtorAccount")
     val endToEndId = long("EndToEndId")
     val subject = text("subject")
@@ -142,6 +146,7 @@ class Pain001Entity(id: EntityID<Int>) : IntEntity(id) {
     var paymentId by Pain001Table.paymentId
     var date by Pain001Table.fileDate
     var sum by Pain001Table.sum
+    var currency by Pain001Table.currency
     var debtorAccount by Pain001Table.debtorAccount
     var endToEndId by Pain001Table.endToEndId
     var subject by Pain001Table.subject
