@@ -287,7 +287,7 @@ class Taler(app: Route) {
          * at separating the good payments (those that will lead to a new reserve
          * being created), from the invalid payments (those with a invalid subject
          * that will soon be refunded.) */
-        app.post("/ebics/taler/{id}/digest-incoming-transactions") {
+        app.post("/ebics/taler/{id}/crunch-incoming-transactions") {
             val id = expectId(call.parameters["id"])
             // first find highest ID value of already processed rows.
             transaction {
@@ -297,8 +297,8 @@ class Taler(app: Route) {
                  * information.
                  *
                  * This latestId value points at the latest id in the _raw transactions table_
-                 * that was last processed.  On the other hand, the "row_id" value that the exchange
-                 * will get along each history element will be the id in the _digested entries table_.
+                 * that was last processed here.  Note, the "row_id" value that the exchange
+                 * will get along each history element will be the id in the _crunched entries table_.
                  */
                 val latestId: Long = TalerIncomingPaymentEntity.all().sortedByDescending {
                     it.payment.id

@@ -465,8 +465,8 @@ def refund(ctx, account_id, bank_account_id, nexus_base_url):
 @click.argument(
   "nexus-base-url"
 )
-def digest_transactions(obj, account_id, nexus_base_url):
-    url = urljoin(nexus_base_url, "/ebics/subscribers/{}/digest-incoming-transactions".format(account_id))
+def crunch_transactions(obj, account_id, nexus_base_url):
+    url = urljoin(nexus_base_url, "/ebics/subscribers/{}/crunch-incoming-transactions".format(account_id))
     resp = post(url, json=dict())
     print(resp.content.decode("utf-8"))
 

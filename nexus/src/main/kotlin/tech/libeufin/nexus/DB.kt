@@ -76,14 +76,9 @@ class TalerIncomingPaymentEntity(id: EntityID<Long>) : LongEntity(id) {
  */
 object EbicsRawBankTransactionsTable : LongIdTable() {
     val nexusSubscriber = reference("subscriber", EbicsSubscribersTable)
-    // How did we learn about this transaction?  C52 / C53 / C54
-    val sourceType = text("sourceType")
-    // Name of the ZIP entry
-    val sourceFileName = text("sourceFileName")
-    // "Subject" of the SEPA transaction
+    val sourceFileName = text("sourceFileName") /* ZIP entry's name */
     val unstructuredRemittanceInformation = text("unstructuredRemittanceInformation")
-    // Debit or credit
-    val transactionType = text("transactionType")
+    val transactionType = text("transactionType") /* DBIT or CRDT */
     val currency = text("currency")
     val amount = text("amount")
     val creditorIban = text("creditorIban")
@@ -92,11 +87,13 @@ object EbicsRawBankTransactionsTable : LongIdTable() {
     val debitorName = text("debitorName")
     val counterpartBic = text("counterpartBic")
     val bookingDate = text("bookingDate")
+    val status = text("status") // BOOK, ..
+    val servicerCode = text("servicerCode").nullable() /* "internal" code given by the bank */
+    val proprietaryCode = text("proprietaryCode") /* code given by the DK */
 }
 
 class EbicsRawBankTransactionEntity(id: EntityID<Long>) : LongEntity(id) {
     companion object : LongEntityClass<EbicsRawBankTransactionEntity>(EbicsRawBankTransactionsTable)
-    var sourceType by EbicsRawBankTransactionsTable.sourceType // C52 or C53 or C54?
     var sourceFileName by EbicsRawBankTransactionsTable.sourceFileName
     var unstructuredRemittanceInformation by EbicsRawBankTransactionsTable.unstructuredRemittanceInformation
     var transactionType by EbicsRawBankTransactionsTable.transactionType
@@ -109,6 +106,9 @@ class EbicsRawBankTransactionEntity(id: EntityID<Long>) : LongEntity(id) {
     var counterpartBic by EbicsRawBankTransactionsTable.counterpartBic
     var bookingDate by EbicsRawBankTransactionsTable.bookingDate
     var nexusSubscriber by EbicsSubscriberEntity referencedOn EbicsRawBankTransactionsTable.nexusSubscriber
+    var status by EbicsRawBankTransactionsTable.status
+    var servicerCode by EbicsRawBankTransactionsTable.servicerCode
+    var proprietaryCode by EbicsRawBankTransactionsTable.proprietaryCode
 }
 
 /**

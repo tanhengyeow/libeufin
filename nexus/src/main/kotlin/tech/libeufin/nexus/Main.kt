@@ -658,8 +658,7 @@ fun main() {
                 val paramsJson = call.receive<EbicsStandardOrderParamsJson>()
                 val orderParams = paramsJson.toOrderParams()
                 val subscriberData = getSubscriberDetailsFromId(id)
-                val response = doEbicsDownloadTransaction(client, subscriberData, "C53", orderParams)
-                when (response) {
+                when (val response = doEbicsDownloadTransaction(client, subscriberData, "C53", orderParams)) {
                     is EbicsDownloadSuccessResult -> {
                         /**
                          * The current code is _heavily_ dependent on the way GLS returns
@@ -673,12 +672,14 @@ fun main() {
                             val camt53doc = XMLUtil.parseStringIntoDom(it.second)
                             transaction {
                                 EbicsRawBankTransactionEntity.new {
-                                    sourceType = "C53"
                                     sourceFileName = fileName
                                     unstructuredRemittanceInformation = camt53doc.pickString("//*[local-name()='Ntry']//*[local-name()='Amt']/@Ccy")
                                     transactionType = camt53doc.pickString("//*[local-name()='Ntry']//*[local-name()='CdtDbtInd']")
                                     currency = camt53doc.pickString("//*[local-name()='Ntry']//*[local-name()='Amt']/@Ccy")
                                     amount = camt53doc.pickString("//*[local-name()='Ntry']//*[local-name()='Amt']")
+                                    status = camt53doc.pickString("//*[local-name()='Ntry']//*[local-name()='Sts']")
+                                    servicerCode = camt53doc.pickStringNullable("//*[local-name()='Ntry']//*[local-name()='AcctSvcrRef']")
+                                    proprietaryCode = camt53doc.pickString("//*[local-name()='Ntry']//*[local-name()='BkTxCd']/*[local-name()='Prtry']/*[local-name()='Cd']")
                                     bookingDate = camt53doc.pickString("//*[local-name()='BookgDt']//*[local-name()='Dt']")
                                     nexusSubscriber = getSubscriberEntityFromId(id)
                                     creditorName =
