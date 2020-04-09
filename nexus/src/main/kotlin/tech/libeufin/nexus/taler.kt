@@ -16,6 +16,7 @@ import org.joda.time.DateTime
 import org.joda.time.format.DateTimeFormat
 import tech.libeufin.util.Amount
 import tech.libeufin.util.CryptoUtil
+import tech.libeufin.util.toZonedString
 import java.util.*
 import kotlin.math.abs
 
@@ -64,6 +65,12 @@ class Taler(app: Route) {
     private data class TalerAdminAddIncoming(
         val amount: String,
         val reserve_pub: String,
+        /**
+         * This account is the one giving money to the exchange.  It doesn't
+         * have to be 'created' as it might (and normally is) simply be a payto://
+         * address pointing to a bank account hosted in a different financial
+         * institution.
+         */
         val debit_account: String
     )
 
@@ -152,11 +159,39 @@ class Taler(app: Route) {
     /** attaches Taler endpoints to the main Web server */
     init {
         app.post("/taler/admin/add-incoming") {
+            val exchangeId = authenticateRequest(call.request.headers["Authorization"])
             val addIncomingData = call.receive<TalerAdminAddIncoming>()
+            val debtor = parsePayto(addIncomingData.debit_account)
+            val amount = parseAmount(addIncomingData.amount)
+
             /** Decompose amount and payto fields.  */
-
-
-            call.respond(HttpStatusCode.OK, NexusErrorJson("Not implemented"))
+            val (bookingDate, opaque_row_id) = transaction {
+                val exchangeBankAccount = getBankAccountsInfoFromId(exchangeId).first()
+                val rawPayment = EbicsRawBankTransactionEntry.new {
+                    sourceFileName = "test"
+                    sourceType = "C53"
+                    unstructuredRemittanceInformation = addIncomingData.reserve_pub
+                    transactionType = "CRDT"
+                    currency = amount.currency
+                    this.amount = amount.amount.toPlainString()
+                    creditorIban = exchangeBankAccount.iban
+                    creditorName = "Exchange's company name"
+                    debitorIban = debtor.iban
+                    debitorName = if (debtor.name.isNotEmpty()) { debtor.name } else "DEBITORNAMENOTGIVEN"
+                    counterpartBic = if (debtor.bic.isNotEmpty()) { debtor.bic } else "DEBITORBICNOTGIVEN"
+                    bookingDate = DateTime.now().toZonedString()
+                }
+                /** This payment is "valid by default" and will be returned
+                 * as soon as the exchange will ask for new payments.  */
+                val row = TalerIncomingPaymentEntry.new {
+                    payment = rawPayment
+                }
+                Pair(rawPayment.bookingDate, row.id.value)
+            }
+            call.respond(HttpStatusCode.OK, TalerAddIncomingResponse(
+                timestamp = parseDate(bookingDate).millis / 1000,
+                row_id = opaque_row_id
+            ))
             return@post
         }
         app.post("/ebics/taler/{id}/accounts/{acctid}/refund-invalid-payments") {
@@ -170,7 +205,7 @@ class Taler(app: Route) {
                     )
                 }
                 TalerIncomingPaymentEntry.find {
-                    TalerIncomingPayments.processed eq false and (TalerIncomingPayments.valid eq false)
+                    TalerIncomingPayments.refunded eq false and (TalerIncomingPayments.valid eq false)
                 }.forEach {
                     createPain001entry(
                         Pain001Data(
@@ -182,7 +217,7 @@ class Taler(app: Route) {
                         ),
                         acctid.id.value
                     )
-                    it.processed = true
+                    it.refunded = true
                 }
             }
             return@post

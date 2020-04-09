@@ -14,7 +14,7 @@ object TalerIncomingPayments: LongIdTable() {
     val payment = reference("payment", EbicsRawBankTransactionsTable)
     val valid = bool("valid")
     // avoid refunding twice!
-    val processed = bool("refunded").default(false)
+    val refunded = bool("refunded").default(false)
 }
 
 class TalerIncomingPaymentEntry(id: EntityID<Long>) : LongEntity(id) {
@@ -31,9 +31,14 @@ class TalerIncomingPaymentEntry(id: EntityID<Long>) : LongEntity(id) {
     }
     var payment by EbicsRawBankTransactionEntry referencedOn TalerIncomingPayments.payment
     var valid by TalerIncomingPayments.valid
-    var processed by TalerIncomingPayments.processed
+    var refunded by TalerIncomingPayments.refunded
 }
 
+/**
+ * This table _assumes_ that all the entries have a BOOK status.  The
+ * current code however does only enforces this trusting the C53 response,
+ * but never actually checking the appropriate "Sts" field.
+ */
 object EbicsRawBankTransactionsTable : LongIdTable() {
     val nexusSubscriber = reference("subscriber", EbicsSubscribersTable)
     // How did we learn about this transaction?  C52 / C53 / C54

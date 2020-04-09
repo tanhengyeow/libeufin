@@ -142,7 +142,8 @@ fun getSubscriberDetailsFromBankAccount(bankAccountId: String): EbicsClientSubsc
 /**
  * Given a subscriber id, returns the _list_ of bank accounts associated to it.
  * @param id the subscriber id
- * @return the query set containing the subscriber's bank accounts
+ * @return the query set containing the subscriber's bank accounts.  The result
+ * is guaranteed to be non empty.
  */
 fun getBankAccountsInfoFromId(id: String): SizedIterable<EbicsAccountInfoEntity> {
     val list = transaction {
