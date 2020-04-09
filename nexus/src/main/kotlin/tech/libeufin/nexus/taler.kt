@@ -17,7 +17,6 @@ import org.joda.time.format.DateTimeFormat
 import tech.libeufin.util.Amount
 import tech.libeufin.util.CryptoUtil
 import tech.libeufin.util.toZonedString
-import java.util.*
 import kotlin.math.abs
 
 class Taler(app: Route) {
@@ -79,7 +78,9 @@ class Taler(app: Route) {
         val row_id: Long
     )
 
-    /** Helper data structures. */
+    /**
+     * Helper data structures.
+     */
     data class Payto(
         val name: String,
         val iban: String,
@@ -90,7 +91,9 @@ class Taler(app: Route) {
         val amount: Amount
     )
 
-    /** Helper functions */
+    /**
+     * Helper functions
+     */
 
     fun parsePayto(paytoUri: String): Payto {
         // payto://iban/BIC?/IBAN?name=<name>
@@ -106,7 +109,7 @@ class Taler(app: Route) {
         val (currency, number) = match.destructured
         return AmountWithCurrency(currency, Amount(number))
     }
-
+    /** Sort query results in descending order for negative deltas, and ascending otherwise.  */
     private fun <T : Entity<Long>> SizedIterable<T>.orderTaler(delta: Int): List<T> {
         return if (delta < 0) {
             this.sortedByDescending { it.id }
@@ -120,10 +123,8 @@ class Taler(app: Route) {
     private fun parseDate(date: String): DateTime {
         return DateTime.parse(date, DateTimeFormat.forPattern("YYYY-MM-DD"))
     }
-    /**
-     * Builds the comparison operator for history entries based on the
-     * sign of 'delta'
-     */
+
+    /** Builds the comparison operator for history entries based on the sign of 'delta'  */
     private fun getComparisonOperator(delta: Int, start: Long): Op<Boolean> {
         return if (delta < 0) {
             Expression.build {
@@ -135,9 +136,7 @@ class Taler(app: Route) {
             }
         }
     }
-    /**
-     * Helper handling 'start' being optional and its dependence on 'delta'.
-     */
+    /** Helper handling 'start' being optional and its dependence on 'delta'.  */
     private fun handleStartArgument(start: String?, delta: Int): Long {
         return expectLong(start) ?: if (delta >= 0) {
             /**
@@ -158,16 +157,15 @@ class Taler(app: Route) {
 
     /** attaches Taler endpoints to the main Web server */
     init {
+        /** Test-API that creates one new payment addressed to the exchange.  */
         app.post("/taler/admin/add-incoming") {
             val exchangeId = authenticateRequest(call.request.headers["Authorization"])
             val addIncomingData = call.receive<TalerAdminAddIncoming>()
             val debtor = parsePayto(addIncomingData.debit_account)
             val amount = parseAmount(addIncomingData.amount)
-
-            /** Decompose amount and payto fields.  */
             val (bookingDate, opaque_row_id) = transaction {
                 val exchangeBankAccount = getBankAccountsInfoFromId(exchangeId).first()
-                val rawPayment = EbicsRawBankTransactionEntry.new {
+                val rawPayment = EbicsRawBankTransactionEntity.new {
                     sourceFileName = "test"
                     sourceType = "C53"
                     unstructuredRemittanceInformation = addIncomingData.reserve_pub
@@ -183,7 +181,7 @@ class Taler(app: Route) {
                 }
                 /** This payment is "valid by default" and will be returned
                  * as soon as the exchange will ask for new payments.  */
-                val row = TalerIncomingPaymentEntry.new {
+                val row = TalerIncomingPaymentEntity.new {
                     payment = rawPayment
                 }
                 Pair(rawPayment.bookingDate, row.id.value)
@@ -194,6 +192,11 @@ class Taler(app: Route) {
             ))
             return@post
         }
+
+        /** This endpoint triggers the refunding of invalid payments.  'Refunding'
+         * in this context means that nexus _prepares_ the payment instruction and
+         * places it into a further table.  Eventually, another routine will perform
+         * all the prepared payments.  */
         app.post("/ebics/taler/{id}/accounts/{acctid}/refund-invalid-payments") {
             transaction {
                 val subscriber = expectIdTransaction(call.parameters["id"])
@@ -204,10 +207,10 @@ class Taler(app: Route) {
                         "Such subscriber (${subscriber.id}) can't drive such account (${acctid.id})"
                     )
                 }
-                TalerIncomingPaymentEntry.find {
+                TalerIncomingPaymentEntity.find {
                     TalerIncomingPayments.refunded eq false and (TalerIncomingPayments.valid eq false)
                 }.forEach {
-                    createPain001entry(
+                    createPain001entity(
                         Pain001Data(
                             creditorName = it.payment.debitorName,
                             creditorIban = it.payment.debitorIban,
@@ -222,6 +225,11 @@ class Taler(app: Route) {
             }
             return@post
         }
+
+        /** This endpoint triggers the examination of raw incoming payments aimed
+         * at separating the good payments (those that will lead to a new reserve
+         * being created), from the invalid payments (those with a invalid subject
+         * that will soon be refunded.) */
         app.post("/ebics/taler/{id}/digest-incoming-transactions") {
             val id = expectId(call.parameters["id"])
             // first find highest ID value of already processed rows.
@@ -235,22 +243,22 @@ class Taler(app: Route) {
                  * that was last processed.  On the other hand, the "row_id" value that the exchange
                  * will get along each history element will be the id in the _digested entries table_.
                  */
-                val latestId: Long = TalerIncomingPaymentEntry.all().sortedByDescending {
+                val latestId: Long = TalerIncomingPaymentEntity.all().sortedByDescending {
                     it.payment.id
                 }.firstOrNull()?.payment?.id?.value ?: -1
                 val subscriberAccount = getBankAccountsInfoFromId(id).first()
                 /* search for fresh transactions having the exchange IBAN in the creditor field.  */
-                EbicsRawBankTransactionEntry.find {
+                EbicsRawBankTransactionEntity.find {
                     EbicsRawBankTransactionsTable.creditorIban eq subscriberAccount.iban and
                             (EbicsRawBankTransactionsTable.id.greater(latestId))
                 }.forEach {
                     if (CryptoUtil.checkValidEddsaPublicKey(it.unstructuredRemittanceInformation)) {
-                        TalerIncomingPaymentEntry.new {
+                        TalerIncomingPaymentEntity.new {
                             payment = it
                             valid = true
                         }
                     } else {
-                        TalerIncomingPaymentEntry.new {
+                        TalerIncomingPaymentEntity.new {
                             payment = it
                             valid = false
                         }
@@ -264,6 +272,8 @@ class Taler(app: Route) {
             )
             return@post
         }
+        /** Responds only with the payments that the EXCHANGE made.  Typically to
+         * merchants but possibly to refund invalid incoming payments. */
         app.get("/taler/history/outgoing") {
             /* sanitize URL arguments */
             val subscriberId = authenticateRequest(call.request.headers["Authorization"])
@@ -275,7 +285,7 @@ class Taler(app: Route) {
             transaction {
                 /** Retrieve all the outgoing payments from the _raw transactions table_ */
                 val subscriberBankAccount = getBankAccountsInfoFromId(subscriberId)
-                EbicsRawBankTransactionEntry.find {
+                EbicsRawBankTransactionEntity.find {
                     EbicsRawBankTransactionsTable.debitorIban eq subscriberBankAccount.first().iban and startCmpOp
                 }.orderTaler(delta).subList(0, abs(delta)).forEach {
                     history.outgoing_transactions.add(
@@ -297,6 +307,7 @@ class Taler(app: Route) {
             )
             return@get
         }
+        /** Responds only with the valid incoming payments */
         app.get("/taler/history/incoming") {
             val subscriberId = authenticateRequest(call.request.headers["Authorization"])
             val delta: Int = expectInt(call.expectUrlParameter("delta"))
@@ -305,7 +316,7 @@ class Taler(app: Route) {
             val startCmpOp = getComparisonOperator(delta, start)
             transaction {
                 val subscriberBankAccount = getBankAccountsInfoFromId(subscriberId)
-                TalerIncomingPaymentEntry.find {
+                TalerIncomingPaymentEntity.find {
                     TalerIncomingPayments.valid eq true and startCmpOp
                 }.orderTaler(delta).subList(0, abs(delta)).forEach {
                     history.incoming_transactions.add(

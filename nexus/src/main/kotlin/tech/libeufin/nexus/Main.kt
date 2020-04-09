@@ -314,7 +314,7 @@ fun createPain001document(pain001Entity: Pain001Entity): String {
 /**
  * Insert one row in the database, and leaves it marked as non-submitted.
  */
-fun createPain001entry(entry: Pain001Data, debtorAccountId: String) {
+fun createPain001entity(entry: Pain001Data, debtorAccountId: String) {
     val randomId = Random().nextLong()
     transaction {
         Pain001Entity.new {
@@ -483,7 +483,7 @@ fun main() {
                     accountInfo.id.value
                 }
                 val pain001data = call.receive<Pain001Data>()
-                createPain001entry(pain001data, acctid)
+                createPain001entity(pain001data, acctid)
                 call.respondText(
                     "Payment instructions persisted in DB",
                     ContentType.Text.Plain, HttpStatusCode.OK
@@ -630,7 +630,7 @@ fun main() {
                 var ret = ""
                 transaction {
                     val subscriber: EbicsSubscriberEntity = getSubscriberEntityFromId(id)
-                    EbicsRawBankTransactionEntry.find {
+                    EbicsRawBankTransactionEntity.find {
                         (EbicsRawBankTransactionsTable.nexusSubscriber eq subscriber.id.value) and
                                 (EbicsRawBankTransactionsTable.sourceType eq "C53")
                     }.forEach {
@@ -668,7 +668,7 @@ fun main() {
                             val fileName = it.first
                             val camt53doc = XMLUtil.parseStringIntoDom(it.second)
                             transaction {
-                                EbicsRawBankTransactionEntry.new {
+                                EbicsRawBankTransactionEntity.new {
                                     sourceType = "C53"
                                     sourceFileName = fileName
                                     unstructuredRemittanceInformation = camt53doc.pickString("//*[local-name()='Ntry']//*[local-name()='Amt']/@Ccy")

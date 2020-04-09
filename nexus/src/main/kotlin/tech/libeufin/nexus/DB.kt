@@ -10,6 +10,33 @@ import java.sql.Connection
 
 const val ID_MAX_LENGTH = 50
 
+/**
+ * This table holds the values that exchange gave to issue a payment,
+ * plus a reference to the prepared pain.001 version of.
+ */
+object TalerRequestedPayments: LongIdTable() {
+    val payment = TalerIncomingPayments.reference("payment", Pain001Table)
+    val requestUId = text("request_uid")
+    val amount = text("amount")
+    val exchangeBaseUrl = text("exchange_base_url")
+    val wtid = text("wtid")
+    val creditAccount = text("credit_account")
+}
+
+class TalerRequestedPaymentEntity(id: EntityID<Long>) : LongEntity(id) {
+    var payment by Pain001Entity referencedOn TalerRequestedPayments.payment
+    var requestUId by TalerRequestedPayments.requestUId
+    var amount by TalerRequestedPayments.amount
+    var exchangeBaseUrl by TalerRequestedPayments.exchangeBaseUrl
+    var wtid by TalerRequestedPayments.wtid
+    var creditAccount by TalerRequestedPayments.creditAccount
+}
+
+/**
+ * This table "augments" the information given in the raw payments table, with Taler-related
+ * ones.  It tells if a payment is valid and/or it was refunded already.  And moreover, it is
+ * the table whose ("clean") IDs the exchange will base its history requests on.
+ */
 object TalerIncomingPayments: LongIdTable() {
     val payment = reference("payment", EbicsRawBankTransactionsTable)
     val valid = bool("valid")
@@ -17,10 +44,15 @@ object TalerIncomingPayments: LongIdTable() {
     val refunded = bool("refunded").default(false)
 }
 
-class TalerIncomingPaymentEntry(id: EntityID<Long>) : LongEntity(id) {
-    companion object : LongEntityClass<TalerIncomingPaymentEntry>(TalerIncomingPayments) {
-        override fun new(init: TalerIncomingPaymentEntry.() -> Unit): TalerIncomingPaymentEntry {
+class TalerIncomingPaymentEntity(id: EntityID<Long>) : LongEntity(id) {
+    companion object : LongEntityClass<TalerIncomingPaymentEntity>(TalerIncomingPayments) {
+        override fun new(init: TalerIncomingPaymentEntity.() -> Unit): TalerIncomingPaymentEntity {
             val newRow = super.new(init)
+            /**
+             * In case the exchange asks for all the values strictly lesser than MAX_VALUE,
+             * it would lose the row whose id == MAX_VALUE.  So the check below makes this
+             * situation impossible by disallowing MAX_VALUE as a id value.
+             */
             if (newRow.id.value == Long.MAX_VALUE) {
                 throw NexusError(
                     HttpStatusCode.InsufficientStorage, "Cannot store rows anymore"
@@ -29,7 +61,7 @@ class TalerIncomingPaymentEntry(id: EntityID<Long>) : LongEntity(id) {
             return newRow
         }
     }
-    var payment by EbicsRawBankTransactionEntry referencedOn TalerIncomingPayments.payment
+    var payment by EbicsRawBankTransactionEntity referencedOn TalerIncomingPayments.payment
     var valid by TalerIncomingPayments.valid
     var refunded by TalerIncomingPayments.refunded
 }
@@ -59,8 +91,8 @@ object EbicsRawBankTransactionsTable : LongIdTable() {
     val bookingDate = text("bookingDate")
 }
 
-class EbicsRawBankTransactionEntry(id: EntityID<Long>) : LongEntity(id) {
-    companion object : LongEntityClass<EbicsRawBankTransactionEntry>(EbicsRawBankTransactionsTable)
+class EbicsRawBankTransactionEntity(id: EntityID<Long>) : LongEntity(id) {
+    companion object : LongEntityClass<EbicsRawBankTransactionEntity>(EbicsRawBankTransactionsTable)
     var sourceType by EbicsRawBankTransactionsTable.sourceType // C52 or C53 or C54?
     var sourceFileName by EbicsRawBankTransactionsTable.sourceFileName
     var unstructuredRemittanceInformation by EbicsRawBankTransactionsTable.unstructuredRemittanceInformation
@@ -76,6 +108,12 @@ class EbicsRawBankTransactionEntry(id: EntityID<Long>) : LongEntity(id) {
     var nexusSubscriber by EbicsSubscriberEntity referencedOn EbicsRawBankTransactionsTable.nexusSubscriber
 }
 
+/**
+ * NOTE: every column in this table corresponds to a particular
+ * value described in the pain.001 official documentation; therefore
+ * this table is not really suitable to hold custom data (like Taler-related,
+ * for example)
+ */
 object Pain001Table : IntIdTableWithAmount() {
     val msgId = long("msgId").uniqueIndex().autoIncrement()
     val paymentId = long("paymentId")
@@ -93,7 +131,7 @@ object Pain001Table : IntIdTableWithAmount() {
 
     /* Indicates whether the bank didn't perform the payment: note that
     * this state can be reached when the payment gets listed in a CRZ
-    * response OR when the payment doesn's show up in a C52/C53 response
+    * response OR when the payment doesn't show up in a C52/C53 response
     */
     val invalid = bool("invalid").default(false)
 }
