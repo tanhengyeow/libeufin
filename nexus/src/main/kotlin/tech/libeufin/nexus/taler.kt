@@ -224,7 +224,6 @@ class Taler(app: Route) {
                 val exchangeBankAccount = getBankAccountsInfoFromId(exchangeId).first()
                 val rawPayment = EbicsRawBankTransactionEntity.new {
                     sourceFileName = "test"
-                    sourceType = "C53"
                     unstructuredRemittanceInformation = addIncomingData.reserve_pub
                     transactionType = "CRDT"
                     currency = amount.currency
@@ -232,9 +231,12 @@ class Taler(app: Route) {
                     creditorIban = exchangeBankAccount.iban
                     creditorName = "Exchange's company name"
                     debitorIban = debtor.iban
-                    debitorName = if (debtor.name.isNotEmpty()) { debtor.name } else "DEBITORNAMENOTGIVEN"
-                    counterpartBic = if (debtor.bic.isNotEmpty()) { debtor.bic } else "DEBITORBICNOTGIVEN"
+                    debitorName = debtor.name
+                    counterpartBic = debtor.bic
                     bookingDate = DateTime.now().toZonedString()
+                    status = "BOOK"
+                    servicerCode = "test-0"
+                    proprietaryCode = "test-0"
                 }
                 /** This payment is "valid by default" and will be returned
                  * as soon as the exchange will ask for new payments.  */

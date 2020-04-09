@@ -635,8 +635,7 @@ fun main() {
                 transaction {
                     val subscriber: EbicsSubscriberEntity = getSubscriberEntityFromId(id)
                     EbicsRawBankTransactionEntity.find {
-                        (EbicsRawBankTransactionsTable.nexusSubscriber eq subscriber.id.value) and
-                                (EbicsRawBankTransactionsTable.sourceType eq "C53")
+                        EbicsRawBankTransactionsTable.nexusSubscriber eq subscriber.id.value
                     }.forEach {
                         ret += "###\nDebitor: ${it.debitorIban}\nCreditor: ${it.creditorIban}\nAmount: ${it.currency}:${it.amount}\nDate: ${it.bookingDate}\n"
                     }
