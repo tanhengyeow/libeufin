@@ -677,8 +677,6 @@ fun main() {
                                     currency = camt53doc.pickString("//*[local-name()='Ntry']//*[local-name()='Amt']/@Ccy")
                                     amount = camt53doc.pickString("//*[local-name()='Ntry']//*[local-name()='Amt']")
                                     status = camt53doc.pickString("//*[local-name()='Ntry']//*[local-name()='Sts']")
-                                    servicerCode = camt53doc.pickStringNullable("//*[local-name()='Ntry']//*[local-name()='AcctSvcrRef']")
-                                    proprietaryCode = camt53doc.pickString("//*[local-name()='Ntry']//*[local-name()='BkTxCd']/*[local-name()='Prtry']/*[local-name()='Cd']")
                                     bookingDate = camt53doc.pickString("//*[local-name()='BookgDt']//*[local-name()='Dt']")
                                     nexusSubscriber = getSubscriberEntityFromId(id)
                                     creditorName =

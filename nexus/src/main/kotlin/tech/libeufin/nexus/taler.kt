@@ -118,7 +118,10 @@ class Taler(app: Route) {
         }
     }
     private fun getPaytoUri(name: String, iban: String, bic: String): String {
-        return "payto://$iban/$bic?receiver-name=$name"
+        return "payto://iban/$iban/$bic?receiver-name=$name"
+    }
+    private fun getPaytoUri(iban: String, bic: String): String {
+        return "payto://iban/$iban/$bic"
     }
     private fun parseDate(date: String): DateTime {
         return DateTime.parse(date, DateTimeFormat.forPattern("YYYY-MM-DD"))
@@ -235,8 +238,6 @@ class Taler(app: Route) {
                     counterpartBic = debtor.bic
                     bookingDate = DateTime.now().toZonedString()
                     status = "BOOK"
-                    servicerCode = "test-0"
-                    proprietaryCode = "test-0"
                 }
                 /** This payment is "valid by default" and will be returned
                  * as soon as the exchange will ask for new payments.  */
@@ -293,23 +294,18 @@ class Taler(app: Route) {
             val id = expectId(call.parameters["id"])
             // first find highest ID value of already processed rows.
             transaction {
-                /**
-                 * The following query avoids to put a "taler processed" flag-column into
-                 * the raw ebics transactions table.  Such table should not contain taler-related
-                 * information.
-                 *
-                 * This latestId value points at the latest id in the _raw transactions table_
-                 * that was last processed here.  Note, the "row_id" value that the exchange
-                 * will get along each history element will be the id in the _crunched entries table_.
-                 */
-                val latestId: Long = TalerIncomingPaymentEntity.all().sortedByDescending {
-                    it.payment.id
-                }.firstOrNull()?.payment?.id?.value ?: -1
                 val subscriberAccount = getBankAccountsInfoFromId(id).first()
-                /* search for fresh transactions having the exchange IBAN in the creditor field.  */
+
+                /**
+                 * Search for fresh INCOMING transactions having a BOOK status.  Cancellations and
+                 * other status changes will (1) be _appended_ to the payment history, and (2) be
+                 * handled _independently_ another dedicated routine.
+                 */
+                val latestIncomingPaymentId: Long = TalerIncomingPaymentEntity.getLast()
                 EbicsRawBankTransactionEntity.find {
                     EbicsRawBankTransactionsTable.creditorIban eq subscriberAccount.iban and
-                            (EbicsRawBankTransactionsTable.id.greater(latestId))
+                            (EbicsRawBankTransactionsTable.status eq "BOOK") and
+                            (EbicsRawBankTransactionsTable.id.greater(latestIncomingPaymentId))
                 }.forEach {
                     if (CryptoUtil.checkValidEddsaPublicKey(it.unstructuredRemittanceInformation)) {
                         TalerIncomingPaymentEntity.new {
@@ -323,6 +319,19 @@ class Taler(app: Route) {
                         }
                     }
                 }
+
+                /**
+                 * Search for fresh OUTGOING transactions acknowledged by the bank.  As well
+                 * searching only for BOOKed transactions, even though status changes should
+                 * be really unexpected here.
+                 */
+                val latestOutgoingPaymentId = TalerRequestedPaymentEntity.getLast()
+                EbicsRawBankTransactionEntity.find {
+                    EbicsRawBankTransactionsTable.id greater latestOutgoingPaymentId and
+                            (EbicsRawBankTransactionsTable.status eq "BOOK")
+                }.forEach {
+                    
+                }
             }
             call.respondText (
                 "New raw payments Taler-processed",
@@ -332,7 +341,9 @@ class Taler(app: Route) {
             return@post
         }
         /** Responds only with the payments that the EXCHANGE made.  Typically to
-         * merchants but possibly to refund invalid incoming payments. */
+         * merchants but possibly to refund invalid incoming payments.  A payment is
+         * counted only if was once confirmed by the bank.
+         */
         app.get("/taler/history/outgoing") {
             /* sanitize URL arguments */
             val subscriberId = authenticateRequest(call.request.headers["Authorization"])
@@ -342,19 +353,21 @@ class Taler(app: Route) {
             /* retrieve database elements */
             val history = TalerOutgoingHistory()
             transaction {
-                /** Retrieve all the outgoing payments from the _raw transactions table_ */
-                val subscriberBankAccount = getBankAccountsInfoFromId(subscriberId)
-                EbicsRawBankTransactionEntity.find {
-                    EbicsRawBankTransactionsTable.debitorIban eq subscriberBankAccount.first().iban and startCmpOp
+                /** Retrieve all the outgoing payments from the _clean Taler outgoing table_ */
+                val subscriberBankAccount = getBankAccountsInfoFromId(subscriberId).first()
+                TalerRequestedPaymentEntity.find {
+                    TalerRequestedPayments.rawConfirmed.isNotNull() and startCmpOp
                 }.orderTaler(delta).subList(0, abs(delta)).forEach {
                     history.outgoing_transactions.add(
                         TalerOutgoingBankTransaction(
                             row_id = it.id.value,
-                            amount = "${it.currency}:${it.amount}",
-                            wtid = it.unstructuredRemittanceInformation,
-                            date = parseDate(it.bookingDate).millis / 1000,
-                            credit_account = it.creditorIban,
-                            debit_account = it.debitorIban,
+                            amount = it.amount,
+                            wtid = it.wtid,
+                            date = parseDate(it.rawConfirmed?.bookingDate ?: throw NexusError(
+                                HttpStatusCode.InternalServerError, "Null value met after check, VERY strange.")
+                            ).millis / 1000,
+                            credit_account = it.creditAccount,
+                            debit_account = getPaytoUri(subscriberBankAccount.iban, subscriberBankAccount.bankCode),
                             exchange_base_url = "FIXME-to-request-along-subscriber-registration"
                         )
                     )

@@ -23,16 +23,22 @@ object TalerRequestedPayments: LongIdTable() {
     val exchangeBaseUrl = text("exchange_base_url")
     val wtid = text("wtid")
     val creditAccount = text("credit_account")
+    /**
+     * This column gets a value only after the bank acknowledges the payment via
+     * a camt.05x entry.  The "crunch" logic is responsible for assigning such value.
+     */
+    val rawConfirmed = reference("raw_confirmed", EbicsRawBankTransactionsTable).nullable()
 }
 
 class TalerRequestedPaymentEntity(id: EntityID<Long>) : LongEntity(id) {
-    companion object : LongEntityClass<TalerRequestedPaymentEntity>(TalerIncomingPayments)
+    companion object : LongEntityClass<TalerRequestedPaymentEntity>(TalerRequestedPayments)
     var preparedPayment by Pain001Entity referencedOn TalerRequestedPayments.preparedPayment
     var requestUId by TalerRequestedPayments.requestUId
     var amount by TalerRequestedPayments.amount
     var exchangeBaseUrl by TalerRequestedPayments.exchangeBaseUrl
     var wtid by TalerRequestedPayments.wtid
     var creditAccount by TalerRequestedPayments.creditAccount
+    var rawConfirmed by EbicsRawBankTransactionEntity optionalReferencedOn TalerRequestedPayments.rawConfirmed
 }
 
 /**
@@ -45,6 +51,10 @@ object TalerIncomingPayments: LongIdTable() {
     val valid = bool("valid")
     // avoid refunding twice!
     val refunded = bool("refunded").default(false)
+}
+
+fun LongEntityClass<*>.getLast(): Long {
+    return this.all().maxBy { it.id }?.id?.value ?: -1
 }
 
 class TalerIncomingPaymentEntity(id: EntityID<Long>) : LongEntity(id) {
@@ -88,8 +98,6 @@ object EbicsRawBankTransactionsTable : LongIdTable() {
     val counterpartBic = text("counterpartBic")
     val bookingDate = text("bookingDate")
     val status = text("status") // BOOK, ..
-    val servicerCode = text("servicerCode").nullable() /* "internal" code given by the bank */
-    val proprietaryCode = text("proprietaryCode") /* code given by the DK */
 }
 
 class EbicsRawBankTransactionEntity(id: EntityID<Long>) : LongEntity(id) {
@@ -107,8 +115,6 @@ class EbicsRawBankTransactionEntity(id: EntityID<Long>) : LongEntity(id) {
     var bookingDate by EbicsRawBankTransactionsTable.bookingDate
     var nexusSubscriber by EbicsSubscriberEntity referencedOn EbicsRawBankTransactionsTable.nexusSubscriber
     var status by EbicsRawBankTransactionsTable.status
-    var servicerCode by EbicsRawBankTransactionsTable.servicerCode
-    var proprietaryCode by EbicsRawBankTransactionsTable.proprietaryCode
 }
 
 /**
