@@ -289,17 +289,18 @@ class Taler(app: Route) {
         /** This endpoint triggers the examination of raw incoming payments aimed
          * at separating the good payments (those that will lead to a new reserve
          * being created), from the invalid payments (those with a invalid subject
-         * that will soon be refunded.) */
-        app.post("/ebics/taler/{id}/crunch-incoming-transactions") {
+         * that will soon be refunded.)  Recently, the examination of raw OUTGOING
+         * payment was added as well.
+         */
+        app.post("/ebics/taler/{id}/crunch-raw-transactions") {
             val id = expectId(call.parameters["id"])
             // first find highest ID value of already processed rows.
             transaction {
                 val subscriberAccount = getBankAccountsInfoFromId(id).first()
-
                 /**
                  * Search for fresh INCOMING transactions having a BOOK status.  Cancellations and
                  * other status changes will (1) be _appended_ to the payment history, and (2) be
-                 * handled _independently_ another dedicated routine.
+                 * handled _independently_ by another dedicated routine.
                  */
                 val latestIncomingPaymentId: Long = TalerIncomingPaymentEntity.getLast()
                 EbicsRawBankTransactionEntity.find {
@@ -330,9 +331,16 @@ class Taler(app: Route) {
                     EbicsRawBankTransactionsTable.id greater latestOutgoingPaymentId and
                             (EbicsRawBankTransactionsTable.status eq "BOOK")
                 }.forEach {
-                    
+                    var talerRequested = TalerRequestedPaymentEntity.find {
+                        TalerRequestedPayments.wtid eq it.unstructuredRemittanceInformation
+                    }.firstOrNull() ?: throw NexusError(
+                        HttpStatusCode.InternalServerError,
+                        "Unrecognized fresh outgoing payment met (subject: ${it.unstructuredRemittanceInformation})."
+                    )
+                    talerRequested.rawConfirmed = it
                 }
             }
+
             call.respondText (
                 "New raw payments Taler-processed",
                 ContentType.Text.Plain,
