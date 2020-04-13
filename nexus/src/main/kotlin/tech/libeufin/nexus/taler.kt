@@ -163,10 +163,6 @@ class Taler(app: Route) {
         app.post("/taler/transfer") {
             val exchangeId = authenticateRequest(call.request.headers["Authorization"])
             val transferRequest = call.receive<TalerTransferRequest>()
-
-            /**
-             * FIXME: check the UID before putting new data into the database.
-             */
             val opaque_row_id = transaction {
                 val creditorData = parsePayto(transferRequest.credit_account)
                 val exchangeBankAccount = getBankAccountsInfoFromId(exchangeId)
@@ -190,7 +186,7 @@ class Taler(app: Route) {
                     ) {
                         throw NexusError(
                             HttpStatusCode.Conflict,
-                            "This uid (${transferRequest.request_uid}) belong to a different payment altrady"
+                            "This uid (${transferRequest.request_uid}) belongs to a different payment already"
                         )
                     }
                 }
@@ -209,7 +205,7 @@ class Taler(app: Route) {
                 TalerTransferResponse(
                     /**
                      * Normally should point to the next round where the background
-                     * routing will sent new PAIN.001 data to the bank; work in progress..
+                     * routine will send new PAIN.001 data to the bank; work in progress..
                      */
                     timestamp = DateTime.now().millis / 1000,
                     row_id = opaque_row_id
@@ -217,6 +213,7 @@ class Taler(app: Route) {
             )
             return@post
         }
+        
         /** Test-API that creates one new payment addressed to the exchange.  */
         app.post("/taler/admin/add-incoming") {
             val exchangeId = authenticateRequest(call.request.headers["Authorization"])
