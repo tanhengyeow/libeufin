@@ -158,7 +158,8 @@ class Taler(app: Route) {
         }
     }
 
-    /** attaches Taler endpoints to the main Web server */
+    /** Attach Taler endpoints to the main Web server */
+
     init {
         app.post("/taler/transfer") {
             val exchangeId = authenticateRequest(call.request.headers["Authorization"])
@@ -213,7 +214,86 @@ class Taler(app: Route) {
             )
             return@post
         }
-        
+
+        app.post("/taler/test/transfer") {
+            val exchangeId = authenticateRequest(call.request.headers["Authorization"])
+            val transferRequest = call.receive<TalerTransferRequest>()
+            val amountObj = parseAmount(transferRequest.amount)
+            val creditorObj = parsePayto(transferRequest.credit_account)
+
+            val opaque_row_id = transaction {
+                val creditorData = parsePayto(transferRequest.credit_account)
+                val exchangeBankAccount = getBankAccountsInfoFromId(exchangeId).first()
+
+                /**
+                 * Checking the UID has the desired characteristics.
+                 */
+                TalerRequestedPaymentEntity.find {
+                    TalerRequestedPayments.requestUId eq transferRequest.request_uid
+                }.forEach {
+                    if (
+                        (it.amount != transferRequest.amount) or
+                        (it.creditAccount != transferRequest.exchange_base_url) or
+                        (it.wtid != transferRequest.wtid)
+                    ) {
+                        throw NexusError(
+                            HttpStatusCode.Conflict,
+                            "This uid (${transferRequest.request_uid}) belongs to a different payment already"
+                        )
+                    }
+                }
+                val pain001 = createPain001entity(
+                    Pain001Data(
+                        creditorIban = creditorData.iban,
+                        creditorBic = creditorData.bic,
+                        creditorName = creditorData.name,
+                        subject = transferRequest.wtid,
+                        sum = parseAmount(transferRequest.amount).amount
+                    ),
+                    exchangeBankAccount.id.value
+                )
+                val rawEbics = EbicsRawBankTransactionEntity.new {
+                    sourceFileName = "test"
+                    unstructuredRemittanceInformation = transferRequest.wtid
+                    transactionType = "DBIT"
+                    currency = amountObj.currency
+                    amount = amountObj.amount.toPlainString()
+                    debitorName = "Exchange Company"
+                    debitorIban = exchangeBankAccount.iban
+                    creditorName = creditorObj.name
+                    creditorIban = creditorObj.iban
+                    counterpartBic = creditorObj.bic
+                    bookingDate = DateTime.now().toString("Y-MM-dd")
+                    nexusSubscriber = exchangeBankAccount.subscriber
+                    status = "BOOK"
+                }
+
+                val row = TalerRequestedPaymentEntity.new {
+                    preparedPayment = pain001 // not really used/needed, just here to silence warnings
+                    exchangeBaseUrl = transferRequest.exchange_base_url
+                    requestUId = transferRequest.request_uid
+                    amount = transferRequest.amount
+                    wtid = transferRequest.wtid
+                    creditAccount = transferRequest.credit_account
+                    rawConfirmed = rawEbics
+                }
+
+                row.id.value
+            }
+            call.respond(
+                HttpStatusCode.OK,
+                TalerTransferResponse(
+                    /**
+                     * Normally should point to the next round where the background
+                     * routine will send new PAIN.001 data to the bank; work in progress..
+                     */
+                    timestamp = DateTime.now().millis / 1000,
+                    row_id = opaque_row_id
+                )
+            )
+            return@post
+        }
+
         /** Test-API that creates one new payment addressed to the exchange.  */
         app.post("/taler/admin/add-incoming") {
             val exchangeId = authenticateRequest(call.request.headers["Authorization"])
