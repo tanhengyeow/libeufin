@@ -45,6 +45,10 @@ application {
     mainClassName = "tech.libeufin.nexus.MainKt"
 }
 
+installDist {
+    destinationDir = file("${project.findProperty('prefix') ?: '/tmp'}")
+}
+
 dependencies {
     implementation project(":util")
     compile "io.ktor:ktor-client-apache:1.2.4"

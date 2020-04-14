@@ -11,8 +11,14 @@ Running the sandbox
 
 Run the Nexus with the following command
 
-$ cd <this repository>
+$ cd <top-level directory of this repository>
 $ ./gradlew run --console=plain -p nexus
+
+Installing the Nexus start script along the project files
+=========================================================
+
+$ cd <top-level directory of this repository>
+$ ./gradlew -q -Pprefix=<installation prefix> nexus:installDist
 
 Documentation
 =============
