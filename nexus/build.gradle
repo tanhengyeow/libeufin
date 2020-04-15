@@ -8,8 +8,7 @@ plugins {
      * a unique jar manually, then the usual gradle wrappers wouldn't be
      * able to run those.  Therefore, the dependency below ('shadow')
      * was added as it provides _both_: unique jar packaging _and_ a
-     * suitable launch script.  However, a method to copy the jar+script
-     * files to a external directory must still be (manually?) provided.
+     * suitable launch script.
      */
     id "com.github.johnrengelman.shadow" version "5.2.0"
 }
