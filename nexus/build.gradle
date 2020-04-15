@@ -2,7 +2,19 @@ plugins {
     id 'java'
     id 'org.jetbrains.kotlin.jvm' version '1.3.50'
     id 'application'
+    /**
+     * Design choice: native installation logic doesn't provide one
+     * single command to generate a unique jar, and even by generating
+     * a unique jar manually, then the usual gradle wrappers wouldn't be
+     * able to run those.  Therefore, the dependency below ('shadow')
+     * was added as it provides _both_: unique jar packaging _and_ a
+     * suitable launch script.  However, a method to copy the jar+script
+     * files to a external directory must still be (manually?) provided.
+     */
+    id "com.github.johnrengelman.shadow" version "5.2.0"
 }
+
+// project.findProperty('prefix') ?: '/tmp', reads from command line -Pkey=value options
 
 apply plugin: 'kotlin-kapt'
 
@@ -44,14 +56,6 @@ dependencies {
 application {
     mainClassName = "tech.libeufin.nexus.MainKt"
 }
-
-/*
- installDist {
-    destinationDir = file("${project.findProperty('prefix') ?: '/tmp'}")
-    preserve {
-        exclude '**'
-    }
-}*/
 
 dependencies {
     implementation project(":util")
