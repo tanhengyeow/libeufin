@@ -45,9 +45,13 @@ application {
     mainClassName = "tech.libeufin.nexus.MainKt"
 }
 
-installDist {
+/*
+ installDist {
     destinationDir = file("${project.findProperty('prefix') ?: '/tmp'}")
-}
+    preserve {
+        exclude '**'
+    }
+}*/
 
 dependencies {
     implementation project(":util")
