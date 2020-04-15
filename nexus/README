@@ -18,7 +18,7 @@ Installing the Nexus start script along the project files
 =========================================================
 
 $ cd <top-level directory of this repository>
-$ ./gradlew -q -Pprefix=<installation prefix> nexus:installDist
+$ ./gradlew -q -Pprefix=<installation prefix> nexus:installToPrefix
 
 Documentation
 =============

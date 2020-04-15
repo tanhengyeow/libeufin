@@ -15,6 +15,7 @@ plugins {
 }
 
 task installToPrefix(type: Copy) {
+    dependsOn(installShadowDist)
     from("build/install/nexus-shadow") {
         include("**/nexus")
         include("**/*.jar")
