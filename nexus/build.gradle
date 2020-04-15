@@ -1,7 +1,7 @@
 plugins {
     id 'java'
-    id 'org.jetbrains.kotlin.jvm' version '1.3.50'
     id 'application'
+    id 'org.jetbrains.kotlin.jvm' version '1.3.50'
     /**
      * Design choice: native installation logic doesn't provide one
      * single command to generate a unique jar, and even by generating
@@ -14,7 +14,19 @@ plugins {
     id "com.github.johnrengelman.shadow" version "5.2.0"
 }
 
-// project.findProperty('prefix') ?: '/tmp', reads from command line -Pkey=value options
+task installToPrefix(type: Copy) {
+    from("build/install/nexus-shadow") {
+        include("**/nexus")
+        include("**/*.jar")
+    }
+    /**
+     * Reads from command line -Pkey=value options,
+     * with a default (/tmp) if the key is not found.
+     *
+     * project.findProperty('prefix') ?: '/tmp'
+     */
+    into "${project.findProperty('prefix') ?: '/tmp'}"
+}
 
 apply plugin: 'kotlin-kapt'
 
