@@ -20,6 +20,9 @@ Installing the Nexus start script along the project files
 $ cd <top-level directory of this repository>
 $ ./gradlew -q -Pprefix=<installation prefix> nexus:installToPrefix
 
+If the previous step succeeded, the nexus can be launched by the
+following file: "<installation prefix>/bin/nexus".
+
 Documentation
 =============
 
