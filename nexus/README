@@ -6,8 +6,8 @@ bank accounts.  The Nexus will then convert those requests sent by customers
 into one of more technical protocols actually implemented by banks; notably,
 EBICS and FinTS.
 
-Running the sandbox
-===================
+Running Nexus
+=============
 
 Run the Nexus with the following command
 
