@@ -161,6 +161,10 @@ class Taler(app: Route) {
     /** Attach Taler endpoints to the main Web server */
 
     init {
+        app.get("/taler") {
+            call.respondText("Taler Gateway Hello\n", ContentType.Text.Plain, HttpStatusCode.OK)
+            return@get
+        }
         app.post("/taler/transfer") {
             val exchangeId = authenticateRequest(call.request.headers["Authorization"])
             val transferRequest = call.receive<TalerTransferRequest>()
