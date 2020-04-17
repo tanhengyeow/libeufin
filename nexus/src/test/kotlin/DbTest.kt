@@ -42,7 +42,7 @@ class DbTest {
 
     @Test
     fun testPain001() {
-        createPain001entry(
+        createPain001entity(
             Pain001Data(
                 creditorBic = "cb",
                 creditorIban = "ci",
