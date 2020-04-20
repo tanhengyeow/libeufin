@@ -22,15 +22,13 @@ package tech.libeufin.nexus
 import io.ktor.application.ApplicationCallPipeline
 import io.ktor.application.call
 import io.ktor.application.install
-import io.ktor.auth.Authentication
-import io.ktor.auth.basic
 import io.ktor.client.HttpClient
-import io.ktor.features.CallLogging
-import io.ktor.features.ContentNegotiation
-import io.ktor.features.StatusPages
+import io.ktor.features.*
 import io.ktor.gson.gson
 import io.ktor.http.ContentType
 import io.ktor.http.HttpStatusCode
+import io.ktor.request.ApplicationReceivePipeline
+import io.ktor.request.ApplicationReceiveRequest
 import io.ktor.request.receive
 import io.ktor.request.uri
 import io.ktor.response.respond
@@ -40,6 +38,11 @@ import io.ktor.routing.post
 import io.ktor.routing.routing
 import io.ktor.server.engine.embeddedServer
 import io.ktor.server.netty.Netty
+import io.ktor.util.KtorExperimentalAPI
+import kotlinx.coroutines.io.ByteReadChannel
+import kotlinx.coroutines.io.jvm.javaio.toByteReadChannel
+import kotlinx.coroutines.io.jvm.javaio.toInputStream
+import kotlinx.io.core.ExperimentalIoApi
 import org.jetbrains.exposed.sql.SizedIterable
 import org.jetbrains.exposed.sql.StdOutSqlLogger
 import org.jetbrains.exposed.sql.addLogger
@@ -60,6 +63,8 @@ import java.time.ZoneId
 import java.time.ZonedDateTime
 import java.time.format.DateTimeFormatter
 import java.util.*
+import java.util.zip.Inflater
+import java.util.zip.InflaterInputStream
 import javax.crypto.EncryptedPrivateKeyInfo
 import javax.sql.rowset.serial.SerialBlob
 
@@ -85,6 +90,10 @@ fun testData() {
 data class NexusError(val statusCode: HttpStatusCode, val reason: String) : Exception()
 
 val logger: Logger = LoggerFactory.getLogger("tech.libeufin.nexus")
+
+fun isProduction(): Boolean {
+    return System.getenv("NEXUS_PRODUCTION") != null
+}
 
 fun getSubscriberEntityFromId(id: String): EbicsSubscriberEntity {
     return transaction {
@@ -146,14 +155,33 @@ fun getSubscriberDetailsFromBankAccount(bankAccountId: String): EbicsClientSubsc
  * is guaranteed to be non empty.
  */
 fun getBankAccountsInfoFromId(id: String): SizedIterable<EbicsAccountInfoEntity> {
+    logger.debug("Looking up bank account of user '$id'")
     val list = transaction {
         EbicsAccountInfoEntity.find {
             EbicsAccountsInfoTable.subscriber eq id
         }
     }
-    if (list.empty()) throw NexusError(
-        HttpStatusCode.NotFound, "This subscriber '$id' did never fetch its own bank accounts, request HTD first."
-    )
+    if (list.empty()) {
+        if (!isProduction()) {
+            /* make up a bank account info object */
+            transaction {
+                EbicsAccountInfoEntity.new("mocked-bank-account") {
+                    subscriber = EbicsSubscriberEntity.findById(id) ?: throw NexusError(
+                        HttpStatusCode.NotFound, "Please create subscriber '${id}' first."
+                    )
+                    accountHolder = "Tests runner"
+                    iban = "IBAN-FOR-TESTS"
+                    bankCode = "BIC-FOR-TESTS"
+                }
+            }
+            logger.debug("Faked bank account info object for user '$id'")
+        } else throw NexusError(
+            HttpStatusCode.NotFound,
+            "This subscriber '$id' did never fetch its own bank accounts, request HTD first."
+        )
+        // call this function again now that the database is augmented with the mocked information.
+        return getBankAccountsInfoFromId(id)
+    }
     return list
 }
 
@@ -336,6 +364,8 @@ fun createPain001entity(entry: Pain001Data, debtorAccountId: String): Pain001Ent
     }
 }
 
+@ExperimentalIoApi
+@KtorExperimentalAPI
 fun main() {
     dbCreateTables()
     testData()
@@ -343,6 +373,7 @@ fun main() {
         expectSuccess = false // this way, it does not throw exceptions on != 200 responses.
     }
     val server = embeddedServer(Netty, port = 5001) {
+
         install(CallLogging) {
             this.level = Level.DEBUG
             this.logger = tech.libeufin.nexus.logger
@@ -370,12 +401,13 @@ fun main() {
                     cause.statusCode
                 )
             }
-            exception<javax.xml.bind.UnmarshalException> { cause ->
-                logger.error("Exception while handling '${call.request.uri}'", cause)
+            exception<Exception> { cause ->
+                logger.error("Uncaught exception while handling '${call.request.uri}'", cause)
+                logger.error(cause.toString())
                 call.respondText(
-                    "Could not convert string into JAXB\n",
+                    "Internal server error",
                     ContentType.Text.Plain,
-                    HttpStatusCode.NotFound
+                    HttpStatusCode.InternalServerError
                 )
             }
         }
@@ -385,6 +417,18 @@ fun main() {
                 call.respondText("Not found (no route matched).\n", ContentType.Text.Plain, HttpStatusCode.NotFound)
                 return@intercept finish()
             }
+        }
+
+        receivePipeline.intercept(ApplicationReceivePipeline.Before) {
+            if (this.context.request.headers["Content-Encoding"] == "deflate") {
+                logger.debug("About to inflate received data")
+                val deflated = this.subject.value as ByteReadChannel
+                val inflated = InflaterInputStream(deflated.toInputStream())
+                proceedWith(ApplicationReceiveRequest(this.subject.typeInfo, inflated.toByteReadChannel()))
+                return@intercept
+            }
+            proceed()
+            return@intercept
         }
 
         routing {
@@ -677,12 +721,10 @@ fun main() {
                                     currency = camt53doc.pickString("//*[local-name()='Ntry']//*[local-name()='Amt']/@Ccy")
                                     amount = camt53doc.pickString("//*[local-name()='Ntry']//*[local-name()='Amt']")
                                     status = camt53doc.pickString("//*[local-name()='Ntry']//*[local-name()='Sts']")
-                                    bookingDate = camt53doc.pickString("//*[local-name()='BookgDt']//*[local-name()='Dt']")
+                                    bookingDate = parseDate(camt53doc.pickString("//*[local-name()='BookgDt']//*[local-name()='Dt']")).millis
                                     nexusSubscriber = getSubscriberEntityFromId(id)
-                                    creditorName =
-                                        camt53doc.pickString("//*[local-name()='RltdPties']//*[local-name()='Dbtr']//*[local-name()='Nm']")
-                                    creditorIban =
-                                        camt53doc.pickString("//*[local-name()='CdtrAcct']//*[local-name()='IBAN']")
+                                    creditorName = camt53doc.pickString("//*[local-name()='RltdPties']//*[local-name()='Dbtr']//*[local-name()='Nm']")
+                                    creditorIban = camt53doc.pickString("//*[local-name()='CdtrAcct']//*[local-name()='IBAN']")
                                     debitorName = camt53doc.pickString("//*[local-name()='RltdPties']//*[local-name()='Dbtr']//*[local-name()='Nm']")
                                     debitorIban = camt53doc.pickString("//*[local-name()='DbtrAcct']//*[local-name()='IBAN']")
                                     counterpartBic = camt53doc.pickString("//*[local-name()='RltdAgts']//*[local-name()='BIC']")
@@ -1413,6 +1455,10 @@ fun main() {
                     subscriber.bankEncryptionPublicKey = SerialBlob(hpbData.encryptionPubKey.encoded)
                 }
                 call.respondText("Bank keys stored in database\n", ContentType.Text.Plain, HttpStatusCode.OK)
+                return@post
+            }
+            post("/test/intercept") {
+                call.respondText(call.receive<String>() + "\n")
                 return@post
             }
         }

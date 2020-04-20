@@ -96,7 +96,7 @@ object EbicsRawBankTransactionsTable : LongIdTable() {
     val debitorIban = text("debitorIban")
     val debitorName = text("debitorName")
     val counterpartBic = text("counterpartBic")
-    val bookingDate = text("bookingDate")
+    val bookingDate = long("bookingDate")
     val status = text("status") // BOOK, ..
 }
 

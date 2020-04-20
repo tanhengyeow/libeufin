@@ -4,6 +4,8 @@ import io.ktor.application.ApplicationCall
 import io.ktor.http.HttpStatusCode
 import org.jetbrains.exposed.sql.and
 import org.jetbrains.exposed.sql.transactions.transaction
+import org.joda.time.DateTime
+import org.joda.time.format.DateTimeFormat
 import tech.libeufin.util.CryptoUtil
 import tech.libeufin.util.base64ToBytes
 import javax.sql.rowset.serial.SerialBlob
@@ -103,10 +105,9 @@ fun extractUserAndHashedPassword(authorizationHeader: String): Pair<String, Byte
  * @return subscriber id
  */
 fun authenticateRequest(authorization: String?): String {
-    val headerLine = authorization ?: throw NexusError(
+    val headerLine = if (authorization == null) throw NexusError(
         HttpStatusCode.BadRequest, "Authentication:-header line not found"
-    )
-    logger.debug("Checking for authorization: $headerLine")
+    ) else authorization
     val subscriber = transaction {
         val (user, pass) = extractUserAndHashedPassword(headerLine)
         EbicsSubscriberEntity.find {
@@ -114,4 +115,8 @@ fun authenticateRequest(authorization: String?): String {
         }.firstOrNull()
     } ?: throw NexusError(HttpStatusCode.Forbidden, "Wrong password")
     return subscriber.id.value
+}
+
+fun parseDate(date: String): DateTime {
+    return DateTime.parse(date, DateTimeFormat.forPattern("YYYY-MM-DD"))
 }

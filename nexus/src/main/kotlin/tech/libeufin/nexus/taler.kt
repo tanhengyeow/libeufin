@@ -1,6 +1,8 @@
 package tech.libeufin.nexus
 
+import com.google.gson.Gson
 import io.ktor.application.call
+import io.ktor.content.TextContent
 import io.ktor.http.ContentType
 import io.ktor.http.HttpStatusCode
 import io.ktor.request.receive
@@ -18,6 +20,7 @@ import tech.libeufin.util.Amount
 import tech.libeufin.util.CryptoUtil
 import tech.libeufin.util.toZonedString
 import kotlin.math.abs
+import kotlin.math.min
 
 class Taler(app: Route) {
 
@@ -73,8 +76,11 @@ class Taler(app: Route) {
         val debit_account: String
     )
 
+    private data class GnunetTimestamp(
+        val t_ms: Long
+    )
     private data class TalerAddIncomingResponse(
-        val timestamp: Long,
+        val timestamp: GnunetTimestamp,
         val row_id: Long
     )
 
@@ -94,13 +100,36 @@ class Taler(app: Route) {
     /**
      * Helper functions
      */
-
     fun parsePayto(paytoUri: String): Payto {
-        // payto://iban/BIC?/IBAN?name=<name>
-        val match = Regex("payto://iban/([A-Z0-9]+/)?([A-Z0-9]+)\\?name=(\\w+)").find(paytoUri) ?: throw
-                NexusError(HttpStatusCode.BadRequest, "invalid payto URI ($paytoUri)")
-        val (bic, iban, name) = match.destructured
-        return Payto(name, iban, bic.replace("/", ""))
+        /**
+         * First try to parse a "iban"-type payto URI.  If that fails,
+         * then assume a test is being run under the "x-taler-bank" type.
+         * If that one fails too, throw exception.
+         *
+         * Note: since the Nexus doesn't have the notion of "x-taler-bank",
+         * such URIs must yield a iban-compatible tuple of values.  Therefore,
+         * the plain bank account number maps to a "iban", and the <bank hostname>
+         * maps to a "bic".
+         */
+
+
+        /**
+         * payto://iban/BIC?/IBAN?name=<name>
+         * payto://x-taler-bank/<bank hostname>/<plain account number>
+         */
+
+        val ibanMatch = Regex("payto://iban/([A-Z0-9]+/)?([A-Z0-9]+)\\?name=(\\w+)").find(paytoUri)
+        if (ibanMatch != null) {
+            val (bic, iban, name) = ibanMatch.destructured
+            return Payto(name, iban, bic.replace("/", ""))
+        }
+        val xTalerBankMatch = Regex("payto://x-taler-bank/localhost/([0-9])?").find(paytoUri)
+        if (xTalerBankMatch != null) {
+            val xTalerBankAcctNo = xTalerBankMatch.destructured.component1()
+            return Payto("Taler Exchange", xTalerBankAcctNo, "localhost")
+        }
+
+        throw NexusError(HttpStatusCode.BadRequest, "invalid payto URI ($paytoUri)")
     }
 
     fun parseAmount(amount: String): AmountWithCurrency {
@@ -122,9 +151,6 @@ class Taler(app: Route) {
     }
     private fun getPaytoUri(iban: String, bic: String): String {
         return "payto://iban/$iban/$bic"
-    }
-    private fun parseDate(date: String): DateTime {
-        return DateTime.parse(date, DateTimeFormat.forPattern("YYYY-MM-DD"))
     }
 
     /** Builds the comparison operator for history entries based on the sign of 'delta'  */
@@ -156,6 +182,18 @@ class Taler(app: Route) {
              */
             Long.MAX_VALUE
         }
+    }
+
+    /**
+     * The Taler layer cannot rely on the ktor-internal JSON-converter/responder,
+     * because this one adds a "charset" extra information in the Content-Type header
+     * that makes the GNUnet JSON parser unhappy.
+     *
+     * The workaround is to explicitly convert the 'data class'-object into a JSON
+     * string (what this function does), and use the simpler respondText method.
+     */
+    private fun customConverter(body: Any): String {
+        return Gson().toJson(body)
     }
 
     /** Attach Taler endpoints to the main Web server */
@@ -201,7 +239,8 @@ class Taler(app: Route) {
                     ),
                     exchangeBankAccount.id.value
                 )
-                val rawEbics = if (System.getenv("NEXUS_PRODUCTION") == null) {
+
+                val rawEbics = if (!isProduction()) {
                     EbicsRawBankTransactionEntity.new {
                         sourceFileName = "test"
                         unstructuredRemittanceInformation = transferRequest.wtid
@@ -213,7 +252,7 @@ class Taler(app: Route) {
                         creditorName = creditorObj.name
                         creditorIban = creditorObj.iban
                         counterpartBic = creditorObj.bic
-                        bookingDate = DateTime.now().toString("Y-MM-dd")
+                        bookingDate = DateTime.now().millis
                         nexusSubscriber = exchangeBankAccount.subscriber
                         status = "BOOK"
                     }
@@ -264,20 +303,29 @@ class Taler(app: Route) {
                     debitorIban = debtor.iban
                     debitorName = debtor.name
                     counterpartBic = debtor.bic
-                    bookingDate = DateTime.now().toZonedString()
+                    bookingDate = DateTime.now().millis
                     status = "BOOK"
+                    nexusSubscriber = getSubscriberEntityFromId(exchangeId)
                 }
                 /** This payment is "valid by default" and will be returned
                  * as soon as the exchange will ask for new payments.  */
                 val row = TalerIncomingPaymentEntity.new {
                     payment = rawPayment
+                    valid = true
                 }
                 Pair(rawPayment.bookingDate, row.id.value)
             }
-            call.respond(HttpStatusCode.OK, TalerAddIncomingResponse(
-                timestamp = parseDate(bookingDate).millis / 1000,
-                row_id = opaque_row_id
-            ))
+            call.respond(
+                TextContent(
+                    customConverter(
+                        TalerAddIncomingResponse(
+                            timestamp = GnunetTimestamp(bookingDate/ 1000),
+                            row_id = opaque_row_id
+                        )
+                    ),
+                ContentType.Application.Json
+                )
+            )
             return@post
         }
 
@@ -398,9 +446,8 @@ class Taler(app: Route) {
                             row_id = it.id.value,
                             amount = it.amount,
                             wtid = it.wtid,
-                            date = parseDate(it.rawConfirmed?.bookingDate ?: throw NexusError(
-                                HttpStatusCode.InternalServerError, "Null value met after check, VERY strange.")
-                            ).millis / 1000,
+                            date = it.rawConfirmed?.bookingDate?.div(1000) ?: throw NexusError(
+                                HttpStatusCode.InternalServerError, "Null value met after check, VERY strange."),
                             credit_account = it.creditAccount,
                             debit_account = getPaytoUri(subscriberBankAccount.iban, subscriberBankAccount.bankCode),
                             exchange_base_url = "FIXME-to-request-along-subscriber-registration"
@@ -423,26 +470,29 @@ class Taler(app: Route) {
             val startCmpOp = getComparisonOperator(delta, start)
             transaction {
                 val subscriberBankAccount = getBankAccountsInfoFromId(subscriberId)
-                TalerIncomingPaymentEntity.find {
+                val orderedPayments = TalerIncomingPaymentEntity.find {
                     TalerIncomingPayments.valid eq true and startCmpOp
-                }.orderTaler(delta).subList(0, abs(delta)).forEach {
-                    history.incoming_transactions.add(
-                        TalerIncomingBankTransaction(
-                            date = parseDate(it.payment.bookingDate).millis / 1000, // timestamp in seconds
-                            row_id = it.id.value,
-                            amount = "${it.payment.currency}:${it.payment.amount}",
-                            reserve_pub = it.payment.unstructuredRemittanceInformation,
-                            debit_account = getPaytoUri(
-                                it.payment.debitorName, it.payment.debitorIban, it.payment.counterpartBic
-                            ),
-                            credit_account = getPaytoUri(
-                                it.payment.creditorName, it.payment.creditorIban, subscriberBankAccount.first().bankCode
+                }.orderTaler(delta)
+                if (orderedPayments.isNotEmpty()) {
+                    orderedPayments.subList(0, min(abs(delta), orderedPayments.size)).forEach {
+                        history.incoming_transactions.add(
+                            TalerIncomingBankTransaction(
+                                date = it.payment.bookingDate / 1000, // timestamp in seconds
+                                row_id = it.id.value,
+                                amount = "${it.payment.currency}:${it.payment.amount}",
+                                reserve_pub = it.payment.unstructuredRemittanceInformation,
+                                debit_account = getPaytoUri(
+                                    it.payment.debitorName, it.payment.debitorIban, it.payment.counterpartBic
+                                ),
+                                credit_account = getPaytoUri(
+                                    it.payment.creditorName, it.payment.creditorIban, subscriberBankAccount.first().bankCode
+                                )
                             )
                         )
-                    )
+                    }
                 }
             }
-            call.respond(history)
+            call.respond(TextContent(customConverter(history), ContentType.Application.Json))
             return@get
         }
     }
