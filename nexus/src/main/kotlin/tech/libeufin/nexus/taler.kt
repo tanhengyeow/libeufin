@@ -41,7 +41,7 @@ class Taler(app: Route) {
     /** History accounting data structures */
     private data class TalerIncomingBankTransaction(
         val row_id: Long,
-        val date: Long, // timestamp
+        val date: GnunetTimestamp, // timestamp
         val amount: String,
         val credit_account: String, // payto form,
         val debit_account: String,
@@ -52,7 +52,7 @@ class Taler(app: Route) {
     )
     private data class TalerOutgoingBankTransaction(
         val row_id: Long,
-        val date: Long, // timestamp
+        val date: GnunetTimestamp, // timestamp
         val amount: String,
         val credit_account: String, // payto form,
         val debit_account: String,
@@ -133,7 +133,7 @@ class Taler(app: Route) {
     }
 
     fun parseAmount(amount: String): AmountWithCurrency {
-        val match = Regex("([A-Z][A-Z][A-Z]):([0-9]+(\\.[0-9]+)?)").find(amount) ?: throw
+        val match = Regex("([A-Z]+):([0-9]+(\\.[0-9]+)?)").find(amount) ?: throw
                 NexusError(HttpStatusCode.BadRequest, "invalid payto URI ($amount)")
         val (currency, number) = match.destructured
         return AmountWithCurrency(currency, Amount(number))
@@ -446,8 +446,8 @@ class Taler(app: Route) {
                             row_id = it.id.value,
                             amount = it.amount,
                             wtid = it.wtid,
-                            date = it.rawConfirmed?.bookingDate?.div(1000) ?: throw NexusError(
-                                HttpStatusCode.InternalServerError, "Null value met after check, VERY strange."),
+                            date = GnunetTimestamp(it.rawConfirmed?.bookingDate?.div(1000) ?: throw NexusError(
+                                HttpStatusCode.InternalServerError, "Null value met after check, VERY strange.")),
                             credit_account = it.creditAccount,
                             debit_account = getPaytoUri(subscriberBankAccount.iban, subscriberBankAccount.bankCode),
                             exchange_base_url = "FIXME-to-request-along-subscriber-registration"
@@ -477,7 +477,7 @@ class Taler(app: Route) {
                     orderedPayments.subList(0, min(abs(delta), orderedPayments.size)).forEach {
                         history.incoming_transactions.add(
                             TalerIncomingBankTransaction(
-                                date = it.payment.bookingDate / 1000, // timestamp in seconds
+                                date = GnunetTimestamp(it.payment.bookingDate / 1000),
                                 row_id = it.id.value,
                                 amount = "${it.payment.currency}:${it.payment.amount}",
                                 reserve_pub = it.payment.unstructuredRemittanceInformation,
