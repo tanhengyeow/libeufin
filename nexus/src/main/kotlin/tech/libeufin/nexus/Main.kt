@@ -152,7 +152,7 @@ fun getSubscriberDetailsFromBankAccount(bankAccountId: String): EbicsClientSubsc
  * Given a subscriber id, returns the _list_ of bank accounts associated to it.
  * @param id the subscriber id
  * @return the query set containing the subscriber's bank accounts.  The result
- * is guaranteed to be non empty.
+ * is guaranteed not to be empty.
  */
 fun getBankAccountsInfoFromId(id: String): SizedIterable<EbicsAccountInfoEntity> {
     logger.debug("Looking up bank account of user '$id'")
@@ -162,25 +162,10 @@ fun getBankAccountsInfoFromId(id: String): SizedIterable<EbicsAccountInfoEntity>
         }
     }
     if (list.empty()) {
-        if (!isProduction()) {
-            /* make up a bank account info object */
-            transaction {
-                EbicsAccountInfoEntity.new("mocked-bank-account") {
-                    subscriber = EbicsSubscriberEntity.findById(id) ?: throw NexusError(
-                        HttpStatusCode.NotFound, "Please create subscriber '${id}' first."
-                    )
-                    accountHolder = "Tests runner"
-                    iban = "IBAN-FOR-TESTS"
-                    bankCode = "BIC-FOR-TESTS"
-                }
-            }
-            logger.debug("Faked bank account info object for user '$id'")
-        } else throw NexusError(
+        throw NexusError(
             HttpStatusCode.NotFound,
             "This subscriber '$id' did never fetch its own bank accounts, request HTD first."
         )
-        // call this function again now that the database is augmented with the mocked information.
-        return getBankAccountsInfoFromId(id)
     }
     return list
 }

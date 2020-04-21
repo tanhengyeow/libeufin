@@ -17,7 +17,7 @@ const val ID_MAX_LENGTH = 50
  * in the PAIN-table.
  */
 object TalerRequestedPayments: LongIdTable() {
-    val preparedPayment = TalerIncomingPayments.reference("payment", Pain001Table)
+    val preparedPayment = reference("payment", Pain001Table)
     val requestUId = text("request_uid")
     val amount = text("amount")
     val exchangeBaseUrl = text("exchange_base_url")
@@ -219,7 +219,8 @@ fun dbCreateTables() {
              EbicsSubscribersTable,
              EbicsAccountsInfoTable,
              EbicsRawBankTransactionsTable,
-             TalerIncomingPayments
+             TalerIncomingPayments,
+             TalerRequestedPayments
          )
     }
 }

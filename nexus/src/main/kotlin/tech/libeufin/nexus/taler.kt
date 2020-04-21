@@ -12,6 +12,7 @@ import io.ktor.routing.Route
 import io.ktor.routing.get
 import io.ktor.routing.post
 import org.jetbrains.exposed.dao.Entity
+import org.jetbrains.exposed.dao.IdTable
 import org.jetbrains.exposed.sql.*
 import org.jetbrains.exposed.sql.transactions.transaction
 import org.joda.time.DateTime
@@ -34,7 +35,7 @@ class Taler(app: Route) {
     )
     private data class TalerTransferResponse(
         // point in time when the nexus put the payment instruction into the database.
-        val timestamp: Long,
+        val timestamp: GnunetTimestamp,
         val row_id: Long
     )
 
@@ -123,7 +124,7 @@ class Taler(app: Route) {
             val (bic, iban, name) = ibanMatch.destructured
             return Payto(name, iban, bic.replace("/", ""))
         }
-        val xTalerBankMatch = Regex("payto://x-taler-bank/localhost/([0-9])?").find(paytoUri)
+        val xTalerBankMatch = Regex("payto://x-taler-bank/localhost/([0-9]+)").find(paytoUri)
         if (xTalerBankMatch != null) {
             val xTalerBankAcctNo = xTalerBankMatch.destructured.component1()
             return Payto("Taler Exchange", xTalerBankAcctNo, "localhost")
@@ -146,22 +147,28 @@ class Taler(app: Route) {
             this.sortedBy { it.id }
         }
     }
-    private fun getPaytoUri(name: String, iban: String, bic: String): String {
-        return "payto://iban/$iban/$bic?receiver-name=$name"
+
+    /**
+     * NOTE: those payto-builders default all to the x-taler-bank transport.
+     * A mechanism to easily switch transport is needed, as production needs
+     * 'iban'.
+     */
+    private fun buildPaytoUri(name: String, iban: String, bic: String): String {
+        return "payto://x-taler-bank/localhost/$iban"
     }
-    private fun getPaytoUri(iban: String, bic: String): String {
-        return "payto://iban/$iban/$bic"
+    private fun buildPaytoUri(iban: String, bic: String): String {
+        return "payto://x-taler-bank/localhost/$iban"
     }
 
     /** Builds the comparison operator for history entries based on the sign of 'delta'  */
-    private fun getComparisonOperator(delta: Int, start: Long): Op<Boolean> {
+    private fun getComparisonOperator(delta: Int, start: Long, table: IdTable<Long>): Op<Boolean> {
         return if (delta < 0) {
             Expression.build {
-                TalerIncomingPayments.id less start
+                table.id less start
             }
         } else {
             Expression.build {
-                TalerIncomingPayments.id greater start
+                table.id greater start
             }
         }
     }
@@ -272,18 +279,22 @@ class Taler(app: Route) {
             }
             call.respond(
                 HttpStatusCode.OK,
-                TalerTransferResponse(
-                    /**
-                     * Normally should point to the next round where the background
-                     * routine will send new PAIN.001 data to the bank; work in progress..
-                     */
-                    timestamp = DateTime.now().millis / 1000,
-                    row_id = opaque_row_id
+                TextContent(
+                    customConverter(
+                        TalerTransferResponse(
+                            /**
+                             * Normally should point to the next round where the background
+                             * routine will send new PAIN.001 data to the bank; work in progress..
+                             */
+                            timestamp = GnunetTimestamp(DateTime.now().millis),
+                            row_id = opaque_row_id
+                        )
+                    ),
+                    ContentType.Application.Json
                 )
             )
             return@post
         }
-
         /** Test-API that creates one new payment addressed to the exchange.  */
         app.post("/taler/admin/add-incoming") {
             val exchangeId = authenticateRequest(call.request.headers["Authorization"])
@@ -299,7 +310,7 @@ class Taler(app: Route) {
                     currency = amount.currency
                     this.amount = amount.amount.toPlainString()
                     creditorIban = exchangeBankAccount.iban
-                    creditorName = "Exchange's company name"
+                    creditorName = exchangeBankAccount.accountHolder ?: "Exchange default name for tests"
                     debitorIban = debtor.iban
                     debitorName = debtor.name
                     counterpartBic = debtor.bic
@@ -432,44 +443,66 @@ class Taler(app: Route) {
             val subscriberId = authenticateRequest(call.request.headers["Authorization"])
             val delta: Int = expectInt(call.expectUrlParameter("delta"))
             val start: Long = handleStartArgument(call.request.queryParameters["start"], delta)
-            val startCmpOp = getComparisonOperator(delta, start)
+            val startCmpOp = getComparisonOperator(delta, start, TalerRequestedPayments)
             /* retrieve database elements */
             val history = TalerOutgoingHistory()
             transaction {
                 /** Retrieve all the outgoing payments from the _clean Taler outgoing table_ */
                 val subscriberBankAccount = getBankAccountsInfoFromId(subscriberId).first()
-                TalerRequestedPaymentEntity.find {
+                val reqPayments = TalerRequestedPaymentEntity.find {
                     TalerRequestedPayments.rawConfirmed.isNotNull() and startCmpOp
-                }.orderTaler(delta).subList(0, abs(delta)).forEach {
-                    history.outgoing_transactions.add(
-                        TalerOutgoingBankTransaction(
-                            row_id = it.id.value,
-                            amount = it.amount,
-                            wtid = it.wtid,
-                            date = GnunetTimestamp(it.rawConfirmed?.bookingDate?.div(1000) ?: throw NexusError(
-                                HttpStatusCode.InternalServerError, "Null value met after check, VERY strange.")),
-                            credit_account = it.creditAccount,
-                            debit_account = getPaytoUri(subscriberBankAccount.iban, subscriberBankAccount.bankCode),
-                            exchange_base_url = "FIXME-to-request-along-subscriber-registration"
+                }.orderTaler(delta)
+                if (reqPayments.isNotEmpty()) {
+                    reqPayments.subList(0, min(abs(delta), reqPayments.size)).forEach {
+                        history.outgoing_transactions.add(
+                            TalerOutgoingBankTransaction(
+                                row_id = it.id.value,
+                                amount = it.amount,
+                                wtid = it.wtid,
+                                date = GnunetTimestamp(it.rawConfirmed?.bookingDate?.div(1000) ?: throw NexusError(
+                                    HttpStatusCode.InternalServerError, "Null value met after check, VERY strange.")),
+                                credit_account = it.creditAccount,
+                                debit_account = buildPaytoUri(subscriberBankAccount.iban, subscriberBankAccount.bankCode),
+                                exchange_base_url = "FIXME-to-request-along-subscriber-registration"
+                            )
                         )
-                    )
+                    }
                 }
             }
             call.respond(
                 HttpStatusCode.OK,
-                history
+                TextContent(customConverter(history), ContentType.Application.Json)
             )
             return@get
         }
         /** Responds only with the valid incoming payments */
         app.get("/taler/history/incoming") {
-            val subscriberId = authenticateRequest(call.request.headers["Authorization"])
+            val exchangeId = authenticateRequest(call.request.headers["Authorization"])
             val delta: Int = expectInt(call.expectUrlParameter("delta"))
             val start: Long = handleStartArgument(call.request.queryParameters["start"], delta)
             val history = TalerIncomingHistory()
-            val startCmpOp = getComparisonOperator(delta, start)
+            val startCmpOp = getComparisonOperator(delta, start, TalerIncomingPayments)
             transaction {
-                val subscriberBankAccount = getBankAccountsInfoFromId(subscriberId)
+                /**
+                 * Below, the test harness creates the exchange's bank account
+                 * object based on the payto:// given as the funds receiver.
+                 *
+                 * This is needed because nexus takes this information from the
+                 * bank - normally - but tests are currently avoiding any interaction
+                 * with banks or sandboxes.
+                 */
+                if (! isProduction()) {
+                    val EXCHANGE_BANKACCOUNT_ID = "exchange-bankaccount-id"
+                    if (EbicsAccountInfoEntity.findById(EXCHANGE_BANKACCOUNT_ID) == null) {
+                        EbicsAccountInfoEntity.new(id = EXCHANGE_BANKACCOUNT_ID) {
+                            subscriber = getSubscriberEntityFromId(exchangeId)
+                            accountHolder = "Test Exchange"
+                            iban = "42"
+                            bankCode = "localhost"
+                        }
+                    }
+                }
+                val exchangeBankAccount = getBankAccountsInfoFromId(exchangeId)
                 val orderedPayments = TalerIncomingPaymentEntity.find {
                     TalerIncomingPayments.valid eq true and startCmpOp
                 }.orderTaler(delta)
@@ -481,11 +514,11 @@ class Taler(app: Route) {
                                 row_id = it.id.value,
                                 amount = "${it.payment.currency}:${it.payment.amount}",
                                 reserve_pub = it.payment.unstructuredRemittanceInformation,
-                                debit_account = getPaytoUri(
+                                debit_account = buildPaytoUri(
                                     it.payment.debitorName, it.payment.debitorIban, it.payment.counterpartBic
                                 ),
-                                credit_account = getPaytoUri(
-                                    it.payment.creditorName, it.payment.creditorIban, subscriberBankAccount.first().bankCode
+                                credit_account = buildPaytoUri(
+                                    it.payment.creditorName, it.payment.creditorIban, exchangeBankAccount.first().bankCode
                                 )
                             )
                         )
