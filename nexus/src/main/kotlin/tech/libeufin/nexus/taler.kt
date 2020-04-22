@@ -203,6 +203,11 @@ class Taler(app: Route) {
         return Gson().toJson(body)
     }
 
+    /** Work in progress */
+    private fun duplicatePayment(entry: EbicsRawBankTransactionEntity): Boolean {
+        return false
+    }
+
     /** Attach Taler endpoints to the main Web server */
 
     init {
@@ -385,16 +390,21 @@ class Taler(app: Route) {
             transaction {
                 val subscriberAccount = getBankAccountsInfoFromId(id).first()
                 /**
-                 * Search for fresh INCOMING transactions having a BOOK status.  Cancellations and
-                 * other status changes will (1) be _appended_ to the payment history, and (2) be
-                 * handled _independently_ by another dedicated routine.
+                 * Search for fresh incoming payments in the raw table, and making pointers
+                 * from the Taler incoming payments table to the found fresh payments.
                  */
                 val latestIncomingPaymentId: Long = TalerIncomingPaymentEntity.getLast()
                 EbicsRawBankTransactionEntity.find {
+                    /** select payments having the exchange as the credited party */
                     EbicsRawBankTransactionsTable.creditorIban eq subscriberAccount.iban and
                             (EbicsRawBankTransactionsTable.status eq "BOOK") and
+                            /** avoid processing old payments from the raw table */
                             (EbicsRawBankTransactionsTable.id.greater(latestIncomingPaymentId))
                 }.forEach {
+                    if (duplicatePayment(it)) {
+                        logger.warn("A duplicate payment situation is happening")
+                        throw NexusError(HttpStatusCode.InternalServerError, "Duplicate payment situation")
+                    }
                     if (CryptoUtil.checkValidEddsaPublicKey(it.unstructuredRemittanceInformation)) {
                         TalerIncomingPaymentEntity.new {
                             payment = it

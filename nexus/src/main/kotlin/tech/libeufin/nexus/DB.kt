@@ -80,9 +80,8 @@ class TalerIncomingPaymentEntity(id: EntityID<Long>) : LongEntity(id) {
 }
 
 /**
- * This table _assumes_ that all the entries have a BOOK status.  The
- * current code however does only enforces this trusting the C53 response,
- * but never actually checking the appropriate "Sts" field.
+ * This table contains history "elements" as returned by the bank from a
+ * CAMT message.  Therefore, any row could come from a C52/3/4 message response.
  */
 object EbicsRawBankTransactionsTable : LongIdTable() {
     val nexusSubscriber = reference("subscriber", EbicsSubscribersTable)
@@ -97,7 +96,7 @@ object EbicsRawBankTransactionsTable : LongIdTable() {
     val debitorName = text("debitorName")
     val counterpartBic = text("counterpartBic")
     val bookingDate = long("bookingDate")
-    val status = text("status") // BOOK, ..
+    val status = text("status") // BOOK or other.
 }
 
 class EbicsRawBankTransactionEntity(id: EntityID<Long>) : LongEntity(id) {
