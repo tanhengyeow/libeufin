@@ -203,8 +203,26 @@ class Taler(app: Route) {
         return Gson().toJson(body)
     }
 
-    /** Work in progress */
+    /**
+     * This function indicates whether a payment in the raw table was already reported
+     * by some other EBICS message.  It works for both incoming and outgoing payments.
+     * Basically, it tries to match all the relevant details with those from the records
+     * that are already stored in the local "taler" database.
+     *
+     * @param entry a new raw payment to be checked.
+     * @return true if the payment was already "seen" by the Taler layer, false otherwise.
+     */
     private fun duplicatePayment(entry: EbicsRawBankTransactionEntity): Boolean {
+        return false
+    }
+
+    /**
+     * This function checks whether the bank didn't accept one exchange's payment initiation.
+     *
+     * @param entry the raw entry to check
+     * @return true if the payment failed, false if it was successful.
+     */
+    private fun paymentFailed(entry: EbicsRawBankTransactionEntity): Boolean {
         return false
     }
 
@@ -402,8 +420,11 @@ class Taler(app: Route) {
                             (EbicsRawBankTransactionsTable.id.greater(latestIncomingPaymentId))
                 }.forEach {
                     if (duplicatePayment(it)) {
-                        logger.warn("A duplicate payment situation is happening")
-                        throw NexusError(HttpStatusCode.InternalServerError, "Duplicate payment situation")
+                        logger.warn("Incomint payment already seen")
+                        throw NexusError(
+                            HttpStatusCode.InternalServerError,
+                            "Incoming payment already seen"
+                        )
                     }
                     if (CryptoUtil.checkValidEddsaPublicKey(it.unstructuredRemittanceInformation)) {
                         TalerIncomingPaymentEntity.new {
@@ -425,8 +446,22 @@ class Taler(app: Route) {
                 val latestOutgoingPaymentId = TalerRequestedPaymentEntity.getLast()
                 EbicsRawBankTransactionEntity.find {
                     EbicsRawBankTransactionsTable.id greater latestOutgoingPaymentId and
-                            (EbicsRawBankTransactionsTable.status eq "BOOK")
+                            ( EbicsRawBankTransactionsTable.debitorIban eq  subscriberAccount.iban)
                 }.forEach {
+                    if (paymentFailed(it)) {
+                        logger.error("Bank didn't accept one payment from the exchange")
+                        throw NexusError(
+                            HttpStatusCode.InternalServerError,
+                            "Bank didn't accept one payment from the exchange"
+                        )
+                    }
+                    if (duplicatePayment(it)) {
+                        logger.warn("Incomint payment already seen")
+                        throw NexusError(
+                            HttpStatusCode.InternalServerError,
+                            "Outgoing payment already seen"
+                        )
+                    }
                     var talerRequested = TalerRequestedPaymentEntity.find {
                         TalerRequestedPayments.wtid eq it.unstructuredRemittanceInformation
                     }.firstOrNull() ?: throw NexusError(
