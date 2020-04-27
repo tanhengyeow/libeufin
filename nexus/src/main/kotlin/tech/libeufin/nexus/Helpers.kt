@@ -73,11 +73,11 @@ fun expectLong(param: String?): Long? {
 }
 
 /* Needs a transaction{} block to be called */
-fun expectAcctidTransaction(param: String?): EbicsAccountInfoEntity {
+fun expectAcctidTransaction(param: String?): BankAccountEntity {
     if (param == null) {
         throw NexusError(HttpStatusCode.BadRequest, "Null Acctid given")
     }
-    return EbicsAccountInfoEntity.findById(param) ?: throw NexusError(HttpStatusCode.NotFound, "Account: $param not found")
+    return BankAccountEntity.findById(param) ?: throw NexusError(HttpStatusCode.NotFound, "Account: $param not found")
 }
 
 /**

@@ -538,8 +538,8 @@ class Taler(app: Route) {
                  */
                 if (! isProduction()) {
                     val EXCHANGE_BANKACCOUNT_ID = "exchange-bankaccount-id"
-                    if (EbicsAccountInfoEntity.findById(EXCHANGE_BANKACCOUNT_ID) == null) {
-                        EbicsAccountInfoEntity.new(id = EXCHANGE_BANKACCOUNT_ID) {
+                    if (BankAccountEntity.findById(EXCHANGE_BANKACCOUNT_ID) == null) {
+                        BankAccountEntity.new(id = EXCHANGE_BANKACCOUNT_ID) {
                             subscriber = getSubscriberEntityFromId(exchangeId)
                             accountHolder = "Test Exchange"
                             iban = "42"

@@ -20,7 +20,7 @@ class PainTest {
         Database.connect("jdbc:h2:mem:test;DB_CLOSE_DELAY=-1", driver = "org.h2.Driver")
         transaction {
             SchemaUtils.create(EbicsSubscribersTable)
-            SchemaUtils.create(EbicsAccountsInfoTable)
+            SchemaUtils.create(BankAccountsTable)
             SchemaUtils.create(Pain001Table)
 
             val subscriberEntity = EbicsSubscriberEntity.new(id = "123asdf-0") {
@@ -33,7 +33,7 @@ class PainTest {
                 authenticationPrivateKey = SerialBlob("authenticationPrivateKey".toByteArray())
                 encryptionPrivateKey = SerialBlob("encryptionPrivateKey".toByteArray())
             }
-            EbicsAccountInfoEntity.new(id = "acctid") {
+            BankAccountEntity.new(id = "acctid") {
                 subscriber = subscriberEntity
                 accountHolder = "Account Holder"
                 iban = "IBAN"

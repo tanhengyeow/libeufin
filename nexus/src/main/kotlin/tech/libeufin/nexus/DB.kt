@@ -42,9 +42,8 @@ class TalerRequestedPaymentEntity(id: EntityID<Long>) : LongEntity(id) {
 }
 
 /**
- * This table "augments" the information given in the raw payments table, with Taler-related
- * ones.  It tells if a payment is valid and/or it was refunded already.  And moreover, it is
- * the table whose ("clean") IDs the exchange will base its history requests on.
+ * This is the table of the incoming payments.  Entries are merely "pointers" to the
+ * entries from the raw payments table.  Fixme: name should end with "-table".
  */
 object TalerIncomingPayments: LongIdTable() {
     val payment = reference("payment", RawBankTransactionsTable)
@@ -162,20 +161,20 @@ class Pain001Entity(id: EntityID<Int>) : IntEntity(id) {
     var invalid by Pain001Table.invalid
 }
 
-object EbicsAccountsInfoTable : IdTable<String>() {
+object BankAccountsTable : IdTable<String>() {
     override val id = varchar("id", ID_MAX_LENGTH).entityId().primaryKey()
     val subscriber = reference("subscriber", EbicsSubscribersTable)
     val accountHolder = text("accountHolder").nullable()
     val iban = text("iban")
-    val bankCode = text("bankCode")
+    val bankCode = text("bankCode") 
 }
 
-class EbicsAccountInfoEntity(id: EntityID<String>) : Entity<String>(id) {
-    companion object : EntityClass<String, EbicsAccountInfoEntity>(EbicsAccountsInfoTable)
-    var subscriber by EbicsSubscriberEntity referencedOn EbicsAccountsInfoTable.subscriber
-    var accountHolder by EbicsAccountsInfoTable.accountHolder
-    var iban by EbicsAccountsInfoTable.iban
-    var bankCode by EbicsAccountsInfoTable.bankCode
+class BankAccountEntity(id: EntityID<String>) : Entity<String>(id) {
+    companion object : EntityClass<String, BankAccountEntity>(BankAccountsTable)
+    var subscriber by EbicsSubscriberEntity referencedOn BankAccountsTable.subscriber
+    var accountHolder by BankAccountsTable.accountHolder
+    var iban by BankAccountsTable.iban
+    var bankCode by BankAccountsTable.bankCode
 }
 
 object EbicsSubscribersTable : IdTable<String>() {
@@ -216,7 +215,7 @@ fun dbCreateTables() {
          SchemaUtils.create(
              Pain001Table,
              EbicsSubscribersTable,
-             EbicsAccountsInfoTable,
+             BankAccountsTable,
              RawBankTransactionsTable,
              TalerIncomingPayments,
              TalerRequestedPayments

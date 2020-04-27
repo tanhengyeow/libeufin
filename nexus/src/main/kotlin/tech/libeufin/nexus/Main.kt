@@ -142,7 +142,7 @@ fun extractFirstBic(bankCodes: List<EbicsTypes.AbstractBankCode>?): String? {
 
 fun getSubscriberDetailsFromBankAccount(bankAccountId: String): EbicsClientSubscriberDetails {
     return transaction {
-        val accountInfo = EbicsAccountInfoEntity.findById(bankAccountId) ?: throw NexusError(HttpStatusCode.NotFound, "Bank account ($bankAccountId) not managed by Nexus")
+        val accountInfo = BankAccountEntity.findById(bankAccountId) ?: throw NexusError(HttpStatusCode.NotFound, "Bank account ($bankAccountId) not managed by Nexus")
         logger.debug("Mapping bank account: ${bankAccountId}, to customer: ${accountInfo.subscriber.id.value}")
         getSubscriberDetailsFromId(accountInfo.subscriber.id.value)
     }
@@ -154,11 +154,11 @@ fun getSubscriberDetailsFromBankAccount(bankAccountId: String): EbicsClientSubsc
  * @return the query set containing the subscriber's bank accounts.  The result
  * is guaranteed not to be empty.
  */
-fun getBankAccountsInfoFromId(id: String): SizedIterable<EbicsAccountInfoEntity> {
+fun getBankAccountsInfoFromId(id: String): SizedIterable<BankAccountEntity> {
     logger.debug("Looking up bank account of user '$id'")
     val list = transaction {
-        EbicsAccountInfoEntity.find {
-            EbicsAccountsInfoTable.subscriber eq id
+        BankAccountEntity.find {
+            BankAccountsTable.subscriber eq id
         }
     }
     if (list.empty()) {
@@ -281,13 +281,13 @@ fun createPain001document(pain001Entity: Pain001Entity): String {
                     }
                     element("DbtrAcct/Id/IBAN") {
                         text(transaction {
-                            EbicsAccountInfoEntity.findById(pain001Entity.debtorAccount)?.iban ?: throw NexusError(HttpStatusCode.NotFound,"Debtor IBAN not found in database")
+                            BankAccountEntity.findById(pain001Entity.debtorAccount)?.iban ?: throw NexusError(HttpStatusCode.NotFound,"Debtor IBAN not found in database")
                         })
                     }
                     element("DbtrAgt/FinInstnId/BIC") {
 
                         text(transaction {
-                            EbicsAccountInfoEntity.findById(pain001Entity.debtorAccount)?.bankCode ?: throw NexusError(HttpStatusCode.NotFound,"Debtor BIC not found in database")
+                            BankAccountEntity.findById(pain001Entity.debtorAccount)?.bankCode ?: throw NexusError(HttpStatusCode.NotFound,"Debtor BIC not found in database")
                         })
                     }
                     element("ChrgBr") {
@@ -478,13 +478,13 @@ fun main() {
             get("/ebics/subscribers/{id}/accounts") {
                 // this information is only avaiable *after* HTD or HKD has been called
                 val id = expectId(call.parameters["id"])
-                val ret = EbicsAccountsInfoResponse()
+                val ret = BankAccountsInfoResponse()
                 transaction {
-                    EbicsAccountInfoEntity.find {
-                        EbicsAccountsInfoTable.subscriber eq id
+                    BankAccountEntity.find {
+                        BankAccountsTable.subscriber eq id
                     }.forEach {
                         ret.accounts.add(
-                            EbicsAccountInfoElement(
+                            BankAccountInfoElement(
                                 accountHolderName = it.accountHolder,
                                 iban = it.iban,
                                 bankCode = it.bankCode,
@@ -530,8 +530,8 @@ fun main() {
                 val id = expectId(call.parameters["id"])
                 val ret = PaymentsInfo()
                 transaction {
-                    EbicsAccountInfoEntity.find {
-                        EbicsAccountsInfoTable.subscriber eq id
+                    BankAccountEntity.find {
+                        BankAccountsTable.subscriber eq id
                     }.forEach {
                         Pain001Entity.find {
                             Pain001Table.debtorAccount eq it.id.value
@@ -1340,7 +1340,7 @@ fun main() {
                         val payload = XMLUtil.convertStringToJaxb<HTDResponseOrderData>(response.orderData.toString(Charsets.UTF_8))
                         transaction {
                             payload.value.partnerInfo.accountInfoList?.forEach {
-                                EbicsAccountInfoEntity.new(id = it.id) {
+                                BankAccountEntity.new(id = it.id) {
                                     this.subscriber = getSubscriberEntityFromId(customerIdAtNexus)
                                     accountHolder = it.accountHolder
                                     iban = extractFirstIban(it.accountNumberList) ?: throw NexusError(HttpStatusCode.NotFound, reason = "bank gave no IBAN")
