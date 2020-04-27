@@ -1,13 +1,11 @@
 package tech.libeufin.nexus
 
-import org.jetbrains.exposed.dao.EntityID
 import org.junit.Before
 import org.junit.Test
 
 import org.jetbrains.exposed.sql.Database
 import org.jetbrains.exposed.sql.transactions.transaction
 import org.jetbrains.exposed.sql.SchemaUtils
-import org.joda.time.DateTime
 import tech.libeufin.util.Amount
 import javax.sql.rowset.serial.SerialBlob
 
@@ -24,9 +22,9 @@ class DbTest {
     }
 
     @Test
-    fun makeCustomer() {
+    fun makeEbicsSubscriber() {
         transaction {
-            EbicsSubscriberEntity.new(id = "123asdf-1") {
+            EbicsSubscriberEntity.new {
                 ebicsURL = "ebics url"
                 hostID = "host"
                 partnerID = "partner"
@@ -36,7 +34,6 @@ class DbTest {
                 authenticationPrivateKey = SerialBlob("authenticationPrivateKey".toByteArray())
                 encryptionPrivateKey = SerialBlob("encryptionPrivateKey".toByteArray())
             }
-            assert(EbicsSubscriberEntity.findById("123asdf-1") != null)
         }
     }
 

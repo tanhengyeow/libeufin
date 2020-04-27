@@ -216,7 +216,7 @@ object NexusUsersTable : IdTable<String>() {
 
 class NexusUserEntity(id: EntityID<String>) : Entity<String>(id) {
     companion object : EntityClass<String, NexusUserEntity>(NexusUsersTable)
-    var ebicsSubscriber by EbicsSubscriberEntity referencedOn NexusUsersTable.ebicsSubscriber
+    var ebicsSubscriber by EbicsSubscriberEntity referencedOn  NexusUsersTable.ebicsSubscriber
     var password by NexusUsersTable.password
 }
 

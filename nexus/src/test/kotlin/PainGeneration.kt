@@ -1,9 +1,7 @@
 package tech.libeufin.nexus
 
-import org.jetbrains.exposed.dao.EntityID
 import org.junit.Before
 import org.junit.Test
-
 import org.jetbrains.exposed.sql.Database
 import org.jetbrains.exposed.sql.transactions.transaction
 import org.jetbrains.exposed.sql.SchemaUtils
@@ -22,8 +20,7 @@ class PainTest {
             SchemaUtils.create(EbicsSubscribersTable)
             SchemaUtils.create(BankAccountsTable)
             SchemaUtils.create(Pain001Table)
-
-            val subscriberEntity = EbicsSubscriberEntity.new(id = "123asdf-0") {
+            EbicsSubscriberEntity.new {
                 ebicsURL = "ebics url"
                 hostID = "host"
                 partnerID = "partner"
@@ -34,7 +31,6 @@ class PainTest {
                 encryptionPrivateKey = SerialBlob("encryptionPrivateKey".toByteArray())
             }
             BankAccountEntity.new(id = "acctid") {
-                subscriber = subscriberEntity
                 accountHolder = "Account Holder"
                 iban = "IBAN"
                 bankCode = "BIC"
