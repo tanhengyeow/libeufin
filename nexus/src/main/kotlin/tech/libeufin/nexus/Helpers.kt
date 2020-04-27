@@ -2,6 +2,7 @@ package tech.libeufin.nexus
 
 import io.ktor.application.ApplicationCall
 import io.ktor.http.HttpStatusCode
+import org.jetbrains.exposed.sql.SqlExpressionBuilder.eq
 import org.jetbrains.exposed.sql.and
 import org.jetbrains.exposed.sql.transactions.transaction
 import org.joda.time.DateTime
@@ -37,11 +38,11 @@ fun expectId(param: String?): String {
 }
 
 /* Needs a transaction{} block to be called */
-fun expectIdTransaction(param: String?): EbicsSubscriberEntity {
+fun expectNexusIdTransaction(param: String?): NexusUserEntity {
     if (param == null) {
         throw NexusError(HttpStatusCode.BadRequest, "Null Id given")
     }
-    return EbicsSubscriberEntity.findById(param) ?: throw NexusError(HttpStatusCode.NotFound, "Subscriber: $param not found")
+    return NexusUserEntity.findById(param) ?: throw NexusError(HttpStatusCode.NotFound, "Subscriber: $param not found")
 }
 
 fun ApplicationCall.expectUrlParameter(name: String): String {
@@ -110,12 +111,29 @@ fun authenticateRequest(authorization: String?): String {
     ) else authorization
     val subscriber = transaction {
         val (user, pass) = extractUserAndHashedPassword(headerLine)
-        EbicsSubscriberEntity.find {
-            EbicsSubscribersTable.id eq user and (EbicsSubscribersTable.password eq SerialBlob(pass))
+        NexusUserEntity.find {
+            NexusUsersTable.id eq user and (NexusUsersTable.password eq SerialBlob(pass))
         }.firstOrNull()
     } ?: throw NexusError(HttpStatusCode.Forbidden, "Wrong password")
     return subscriber.id.value
 }
+
+/**
+ * Check if the subscriber has the right to use the (claimed) bank account.
+ * @param subscriber id of the EBICS subscriber to check
+ * @param bankAccount id of the claimed bank account
+ * @return true if the subscriber can use the bank account.
+ */
+fun subscriberHasRights(subscriber: EbicsSubscriberEntity, bankAccount: BankAccountEntity): Boolean {
+    val row = transaction {
+        EbicsToBankAccountEntity.find {
+            EbicsToBankAccountsTable.bankAccount eq bankAccount.id and
+                    (EbicsToBankAccountsTable.ebicsSubscriber eq subscriber.id)
+        }.firstOrNull()
+    }
+    return row != null
+}
+
 
 fun parseDate(date: String): DateTime {
     return DateTime.parse(date, DateTimeFormat.forPattern("YYYY-MM-DD"))

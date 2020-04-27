@@ -78,7 +78,7 @@ data class EbicsSubscriberInfoRequestJson(
  * Contain the ID that identifies the new user in the Nexus system.
  */
 data class EbicsSubscriberInfoResponseJson(
-    val accountID: String,
+    val nexusUserID: String,
     val ebicsURL: String,
     val hostID: String,
     val partnerID: String,

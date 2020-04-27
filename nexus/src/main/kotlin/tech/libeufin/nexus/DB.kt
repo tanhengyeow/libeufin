@@ -5,6 +5,9 @@ import org.jetbrains.exposed.dao.*
 import org.jetbrains.exposed.sql.*
 import org.jetbrains.exposed.sql.transactions.TransactionManager
 import org.jetbrains.exposed.sql.transactions.transaction
+import tech.libeufin.nexus.EbicsSubscribersTable.entityId
+import tech.libeufin.nexus.EbicsSubscribersTable.nullable
+import tech.libeufin.nexus.EbicsSubscribersTable.primaryKey
 import tech.libeufin.util.IntIdTableWithAmount
 import java.sql.Connection
 
@@ -161,9 +164,11 @@ class Pain001Entity(id: EntityID<Int>) : IntEntity(id) {
     var invalid by Pain001Table.invalid
 }
 
+/**
+ * This table holds triples of <iban, bic, holder name>.
+ */
 object BankAccountsTable : IdTable<String>() {
     override val id = varchar("id", ID_MAX_LENGTH).entityId().primaryKey()
-    val subscriber = reference("subscriber", EbicsSubscribersTable)
     val accountHolder = text("accountHolder").nullable()
     val iban = text("iban")
     val bankCode = text("bankCode") 
@@ -171,15 +176,12 @@ object BankAccountsTable : IdTable<String>() {
 
 class BankAccountEntity(id: EntityID<String>) : Entity<String>(id) {
     companion object : EntityClass<String, BankAccountEntity>(BankAccountsTable)
-    var subscriber by EbicsSubscriberEntity referencedOn BankAccountsTable.subscriber
     var accountHolder by BankAccountsTable.accountHolder
     var iban by BankAccountsTable.iban
     var bankCode by BankAccountsTable.bankCode
 }
 
-object EbicsSubscribersTable : IdTable<String>() {
-    override val id = varchar("id", ID_MAX_LENGTH).entityId().primaryKey()
-    val password = blob("password").nullable()
+object EbicsSubscribersTable : IntIdTable() {
     val ebicsURL = text("ebicsURL")
     val hostID = text("hostID")
     val partnerID = text("partnerID")
@@ -192,9 +194,8 @@ object EbicsSubscribersTable : IdTable<String>() {
     val bankAuthenticationPublicKey = blob("bankAuthenticationPublicKey").nullable()
 }
 
-class EbicsSubscriberEntity(id: EntityID<String>) : Entity<String>(id) {
-    companion object : EntityClass<String, EbicsSubscriberEntity>(EbicsSubscribersTable)
-    var password by EbicsSubscribersTable.password
+class EbicsSubscriberEntity(id: EntityID<Int>) : Entity<Int>(id) {
+    companion object : EntityClass<Int, EbicsSubscriberEntity>(EbicsSubscribersTable)
     var ebicsURL by EbicsSubscribersTable.ebicsURL
     var hostID by EbicsSubscribersTable.hostID
     var partnerID by EbicsSubscribersTable.partnerID
@@ -205,6 +206,40 @@ class EbicsSubscriberEntity(id: EntityID<String>) : Entity<String>(id) {
     var authenticationPrivateKey by EbicsSubscribersTable.authenticationPrivateKey
     var bankEncryptionPublicKey by EbicsSubscribersTable.bankEncryptionPublicKey
     var bankAuthenticationPublicKey by EbicsSubscribersTable.bankAuthenticationPublicKey
+}
+
+object NexusUsersTable : IdTable<String>() {
+    override val id = varchar("id", ID_MAX_LENGTH).entityId().primaryKey()
+    val ebicsSubscriber = reference("ebicsSubscriber", EbicsSubscribersTable)
+    val password = EbicsSubscribersTable.blob("password").nullable()
+}
+
+class NexusUserEntity(id: EntityID<String>) : Entity<String>(id) {
+    companion object : EntityClass<String, NexusUserEntity>(NexusUsersTable)
+    var ebicsSubscriber by EbicsSubscriberEntity referencedOn NexusUsersTable.ebicsSubscriber
+    var password by NexusUsersTable.password
+}
+
+object UserToBankAccountsTable : IntIdTable() {
+    val nexusUser = reference("nexusUser", NexusUsersTable)
+    val bankAccount = reference("bankAccount", BankAccountsTable)
+}
+
+class UserToBankAccountEntity(id: EntityID<Int>): IntEntity(id) {
+    companion object : IntEntityClass<UserToBankAccountEntity>(UserToBankAccountsTable)
+    var nexusUser by NexusUserEntity referencedOn UserToBankAccountsTable.nexusUser
+    var bankAccount by BankAccountEntity referencedOn EbicsToBankAccountsTable.bankAccount
+}
+
+object EbicsToBankAccountsTable : IntIdTable() {
+    val ebicsSubscriber = reference("ebicsSubscriber", EbicsSubscribersTable)
+    val bankAccount = reference("bankAccount", BankAccountsTable)
+}
+
+class EbicsToBankAccountEntity(id: EntityID<Int>): IntEntity(id) {
+    companion object : IntEntityClass<EbicsToBankAccountEntity>(EbicsToBankAccountsTable)
+    var ebicsSubscriber by EbicsSubscriberEntity referencedOn EbicsToBankAccountsTable.ebicsSubscriber
+    var bankAccount by BankAccountEntity referencedOn EbicsToBankAccountsTable.bankAccount
 }
 
 fun dbCreateTables() {

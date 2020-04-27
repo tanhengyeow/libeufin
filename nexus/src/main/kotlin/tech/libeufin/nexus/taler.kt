@@ -241,7 +241,8 @@ class Taler(app: Route) {
 
             val opaque_row_id = transaction {
                 val creditorData = parsePayto(transferRequest.credit_account)
-                val exchangeBankAccount = getBankAccountsInfoFromId(exchangeId).first()
+                val exchangeBankAccount = getBankAccountFromNexusUserId(exchangeId)
+                val nexusUser = expectNexusIdTransaction(exchangeId)
                 /**
                  * Checking the UID has the desired characteristics.
                  */
@@ -283,7 +284,7 @@ class Taler(app: Route) {
                         creditorIban = creditorObj.iban
                         counterpartBic = creditorObj.bic
                         bookingDate = DateTime.now().millis
-                        nexusSubscriber = exchangeBankAccount.subscriber
+                        nexusSubscriber = nexusUser.ebicsSubscriber
                         status = "BOOK"
                     }
                 } else null
@@ -325,7 +326,7 @@ class Taler(app: Route) {
             val debtor = parsePayto(addIncomingData.debit_account)
             val amount = parseAmount(addIncomingData.amount)
             val (bookingDate, opaque_row_id) = transaction {
-                val exchangeBankAccount = getBankAccountsInfoFromId(exchangeId).first()
+                val exchangeBankAccount = getBankAccountFromNexusUserId(exchangeId)
                 val rawPayment = RawBankTransactionEntity.new {
                     sourceFileName = "test"
                     unstructuredRemittanceInformation = addIncomingData.reserve_pub
@@ -339,7 +340,7 @@ class Taler(app: Route) {
                     counterpartBic = debtor.bic
                     bookingDate = DateTime.now().millis
                     status = "BOOK"
-                    nexusSubscriber = getSubscriberEntityFromId(exchangeId)
+                    nexusSubscriber = getSubscriberEntityFromNexusUserId(exchangeId)
                 }
                 /** This payment is "valid by default" and will be returned
                  * as soon as the exchange will ask for new payments.  */
@@ -369,9 +370,10 @@ class Taler(app: Route) {
          * all the prepared payments.  */
         app.post("/ebics/taler/{id}/accounts/{acctid}/refund-invalid-payments") {
             transaction {
-                val subscriber = expectIdTransaction(call.parameters["id"])
+                val nexusUser = expectNexusIdTransaction(call.parameters["id"])
+                val subscriber = nexusUser.ebicsSubscriber
                 val acctid = expectAcctidTransaction(call.parameters["acctid"])
-                if (acctid.subscriber.id != subscriber.id) {
+                if (!subscriberHasRights(subscriber, acctid)) {
                     throw NexusError(
                         HttpStatusCode.Forbidden,
                         "Such subscriber (${subscriber.id}) can't drive such account (${acctid.id})"
@@ -406,7 +408,7 @@ class Taler(app: Route) {
             val id = expectId(call.parameters["id"])
             // first find highest ID value of already processed rows.
             transaction {
-                val subscriberAccount = getBankAccountsInfoFromId(id).first()
+                val subscriberAccount = getBankAccountFromNexusUserId(id)
                 /**
                  * Search for fresh incoming payments in the raw table, and making pointers
                  * from the Taler incoming payments table to the found fresh payments.
@@ -493,7 +495,7 @@ class Taler(app: Route) {
             val history = TalerOutgoingHistory()
             transaction {
                 /** Retrieve all the outgoing payments from the _clean Taler outgoing table_ */
-                val subscriberBankAccount = getBankAccountsInfoFromId(subscriberId).first()
+                val subscriberBankAccount = getBankAccountFromNexusUserId(subscriberId)
                 val reqPayments = TalerRequestedPaymentEntity.find {
                     TalerRequestedPayments.rawConfirmed.isNotNull() and startCmpOp
                 }.orderTaler(delta)
@@ -536,18 +538,22 @@ class Taler(app: Route) {
                  * bank - normally - but tests are currently avoiding any interaction
                  * with banks or sandboxes.
                  */
-                if (! isProduction()) {
+                if (!isProduction()) {
                     val EXCHANGE_BANKACCOUNT_ID = "exchange-bankaccount-id"
                     if (BankAccountEntity.findById(EXCHANGE_BANKACCOUNT_ID) == null) {
-                        BankAccountEntity.new(id = EXCHANGE_BANKACCOUNT_ID) {
-                            subscriber = getSubscriberEntityFromId(exchangeId)
+                        val newBankAccount = BankAccountEntity.new(id = EXCHANGE_BANKACCOUNT_ID) {
                             accountHolder = "Test Exchange"
                             iban = "42"
                             bankCode = "localhost"
                         }
+                        val nexusUser = expectNexusIdTransaction(exchangeId)
+                        EbicsToBankAccountEntity.new {
+                            bankAccount = newBankAccount
+                            ebicsSubscriber = nexusUser.ebicsSubscriber
+                        }
                     }
                 }
-                val exchangeBankAccount = getBankAccountsInfoFromId(exchangeId)
+                val exchangeBankAccount = getBankAccountFromNexusUserId(exchangeId)
                 val orderedPayments = TalerIncomingPaymentEntity.find {
                     TalerIncomingPayments.valid eq true and startCmpOp
                 }.orderTaler(delta)
@@ -563,7 +569,7 @@ class Taler(app: Route) {
                                     it.payment.debitorName, it.payment.debitorIban, it.payment.counterpartBic
                                 ),
                                 credit_account = buildPaytoUri(
-                                    it.payment.creditorName, it.payment.creditorIban, exchangeBankAccount.first().bankCode
+                                    it.payment.creditorName, it.payment.creditorIban, exchangeBankAccount.bankCode
                                 )
                             )
                         )

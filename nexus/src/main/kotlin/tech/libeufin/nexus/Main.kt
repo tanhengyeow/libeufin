@@ -68,24 +68,6 @@ import java.util.zip.InflaterInputStream
 import javax.crypto.EncryptedPrivateKeyInfo
 import javax.sql.rowset.serial.SerialBlob
 
-fun testData() {
-    val pairA = CryptoUtil.generateRsaKeyPair(2048)
-    val pairB = CryptoUtil.generateRsaKeyPair(2048)
-    val pairC = CryptoUtil.generateRsaKeyPair(2048)
-    val salt = Random().nextLong()
-    transaction {
-        addLogger(StdOutSqlLogger)
-        EbicsSubscriberEntity.new(id = "default-customer-$salt") {
-            ebicsURL = "http://localhost:5000/ebicsweb"
-            userID = "USER1"
-            partnerID = "PARTNER1"
-            hostID = "host01"
-            signaturePrivateKey = SerialBlob(pairA.private.encoded)
-            encryptionPrivateKey = SerialBlob(pairB.private.encoded)
-            authenticationPrivateKey = SerialBlob(pairC.private.encoded)
-        }
-    }
-}
 
 data class NexusError(val statusCode: HttpStatusCode, val reason: String) : Exception()
 
@@ -95,11 +77,10 @@ fun isProduction(): Boolean {
     return System.getenv("NEXUS_PRODUCTION") != null
 }
 
-fun getSubscriberEntityFromId(id: String): EbicsSubscriberEntity {
+fun getSubscriberEntityFromNexusUserId(nexusUserId: String): EbicsSubscriberEntity {
     return transaction {
-        EbicsSubscriberEntity.findById(id) ?: throw NexusError(
-            HttpStatusCode.NotFound, "Subscriber not found from id '$id'"
-        )
+        val nexusUser = expectNexusIdTransaction(nexusUserId)
+        nexusUser.ebicsSubscriber
     }
 }
 
@@ -140,66 +121,74 @@ fun extractFirstBic(bankCodes: List<EbicsTypes.AbstractBankCode>?): String? {
     return null
 }
 
+/**
+ * Get EBICS subscriber details from bank account id.
+ * bank account id => ... => ebics details
+ */
 fun getSubscriberDetailsFromBankAccount(bankAccountId: String): EbicsClientSubscriberDetails {
     return transaction {
-        val accountInfo = BankAccountEntity.findById(bankAccountId) ?: throw NexusError(HttpStatusCode.NotFound, "Bank account ($bankAccountId) not managed by Nexus")
-        logger.debug("Mapping bank account: ${bankAccountId}, to customer: ${accountInfo.subscriber.id.value}")
-        getSubscriberDetailsFromId(accountInfo.subscriber.id.value)
+        val map = EbicsToBankAccountEntity.find {
+            EbicsToBankAccountsTable.bankAccount eq bankAccountId
+        }.firstOrNull() ?: throw NexusError(
+            HttpStatusCode.NotFound,
+            "Such bank account '$bankAccountId' has no EBICS subscriber associated"
+        )
+        getSubscriberDetailsInternal(map.ebicsSubscriber)
     }
 }
 
 /**
- * Given a subscriber id, returns the _list_ of bank accounts associated to it.
+ * Given a nexus user id, returns the _list_ of bank accounts associated to it.
+ *
  * @param id the subscriber id
- * @return the query set containing the subscriber's bank accounts.  The result
- * is guaranteed not to be empty.
+ * @return the bank account associated with this user.  Can/should be adapted to
+ * return multiple bank accounts.
  */
-fun getBankAccountsInfoFromId(id: String): SizedIterable<BankAccountEntity> {
+fun getBankAccountFromNexusUserId(id: String): BankAccountEntity {
     logger.debug("Looking up bank account of user '$id'")
-    val list = transaction {
-        BankAccountEntity.find {
-            BankAccountsTable.subscriber eq id
+    val map = transaction {
+        UserToBankAccountEntity.find {
+            UserToBankAccountsTable.nexusUser eq id
         }
-    }
-    if (list.empty()) {
-        throw NexusError(
-            HttpStatusCode.NotFound,
-            "This subscriber '$id' did never fetch its own bank accounts, request HTD first."
-        )
-    }
-    return list
+    }.firstOrNull() ?: throw NexusError(
+        HttpStatusCode.NotFound,
+        "Such user '$id' does not have any bank account associated"
+    )
+    return map.bankAccount
 }
 
-fun getSubscriberDetailsFromId(id: String): EbicsClientSubscriberDetails {
+fun getSubscriberDetailsInternal(subscriber: EbicsSubscriberEntity): EbicsClientSubscriberDetails {
+    var bankAuthPubValue: RSAPublicKey? = null
+    if (subscriber.bankAuthenticationPublicKey != null) {
+        bankAuthPubValue = CryptoUtil.loadRsaPublicKey(
+            subscriber.bankAuthenticationPublicKey?.toByteArray()!!
+        )
+    }
+    var bankEncPubValue: RSAPublicKey? = null
+    if (subscriber.bankEncryptionPublicKey != null) {
+        bankEncPubValue = CryptoUtil.loadRsaPublicKey(
+            subscriber.bankEncryptionPublicKey?.toByteArray()!!
+        )
+    }
+    return EbicsClientSubscriberDetails(
+        bankAuthPub = bankAuthPubValue,
+        bankEncPub = bankEncPubValue,
+
+        ebicsUrl = subscriber.ebicsURL,
+        hostId = subscriber.hostID,
+        userId = subscriber.userID,
+        partnerId = subscriber.partnerID,
+
+        customerSignPriv = CryptoUtil.loadRsaPrivateKey(subscriber.signaturePrivateKey.toByteArray()),
+        customerAuthPriv = CryptoUtil.loadRsaPrivateKey(subscriber.authenticationPrivateKey.toByteArray()),
+        customerEncPriv = CryptoUtil.loadRsaPrivateKey(subscriber.encryptionPrivateKey.toByteArray())
+    )
+}
+
+fun getSubscriberDetailsFromNexusUserId(id: String): EbicsClientSubscriberDetails {
     return transaction {
-        val subscriber = EbicsSubscriberEntity.findById(id) ?: throw NexusError(
-            HttpStatusCode.NotFound, "subscriber not found from id '$id'"
-        )
-        var bankAuthPubValue: RSAPublicKey? = null
-        if (subscriber.bankAuthenticationPublicKey != null) {
-            bankAuthPubValue = CryptoUtil.loadRsaPublicKey(
-                subscriber.bankAuthenticationPublicKey?.toByteArray()!!
-            )
-        }
-        var bankEncPubValue: RSAPublicKey? = null
-        if (subscriber.bankEncryptionPublicKey != null) {
-            bankEncPubValue = CryptoUtil.loadRsaPublicKey(
-                subscriber.bankEncryptionPublicKey?.toByteArray()!!
-            )
-        }
-        EbicsClientSubscriberDetails(
-            bankAuthPub = bankAuthPubValue,
-            bankEncPub = bankEncPubValue,
-
-            ebicsUrl = subscriber.ebicsURL,
-            hostId = subscriber.hostID,
-            userId = subscriber.userID,
-            partnerId = subscriber.partnerID,
-
-            customerSignPriv = CryptoUtil.loadRsaPrivateKey(subscriber.signaturePrivateKey.toByteArray()),
-            customerAuthPriv = CryptoUtil.loadRsaPrivateKey(subscriber.authenticationPrivateKey.toByteArray()),
-            customerEncPriv = CryptoUtil.loadRsaPrivateKey(subscriber.encryptionPrivateKey.toByteArray())
-        )
+        val nexusUser = expectNexusIdTransaction(id)
+        getSubscriberDetailsInternal(nexusUser.ebicsSubscriber)
     }
 }
 
@@ -353,7 +342,6 @@ fun createPain001entity(entry: Pain001Data, debtorAccountId: String): Pain001Ent
 @KtorExperimentalAPI
 fun main() {
     dbCreateTables()
-    testData()
     val client = HttpClient() {
         expectSuccess = false // this way, it does not throw exceptions on != 200 responses.
     }
@@ -433,7 +421,7 @@ fun main() {
                 val paramsJson = call.receive<EbicsStandardOrderParamsJson>()
                 val orderParams = paramsJson.toOrderParams()
                 println("PTK order params: $orderParams")
-                val subscriberData = getSubscriberDetailsFromId(id)
+                val subscriberData = getSubscriberDetailsFromNexusUserId(id)
                 val response = doEbicsDownloadTransaction(client, subscriberData, "PTK", orderParams)
                 when (response) {
                     is EbicsDownloadSuccessResult -> {
@@ -457,7 +445,7 @@ fun main() {
                 val id = expectId(call.parameters["id"])
                 val paramsJson = call.receive<EbicsStandardOrderParamsJson>()
                 val orderParams = paramsJson.toOrderParams()
-                val subscriberData = getSubscriberDetailsFromId(id)
+                val subscriberData = getSubscriberDetailsFromNexusUserId(id)
                 val response = doEbicsDownloadTransaction(client, subscriberData, "HAC", orderParams)
                 when (response) {
                     is EbicsDownloadSuccessResult -> {
@@ -481,7 +469,7 @@ fun main() {
                 val ret = BankAccountsInfoResponse()
                 transaction {
                     BankAccountEntity.find {
-                        BankAccountsTable.subscriber eq id
+                        UserToBankAccountsTable.nexusUser eq id
                     }.forEach {
                         ret.accounts.add(
                             BankAccountInfoElement(
@@ -506,11 +494,11 @@ fun main() {
             post("/ebics/subscribers/{id}/accounts/{acctid}/prepare-payment") {
                 val acctid = transaction {
                     val accountInfo = expectAcctidTransaction(call.parameters["acctid"])
-                    val subscriber = expectIdTransaction(call.parameters["subscriber"])
-                    if (accountInfo.subscriber != subscriber) {
+                    val nexusUser = expectNexusIdTransaction(call.parameters["id"])
+                    if (!subscriberHasRights(nexusUser.ebicsSubscriber, accountInfo)) {
                         throw NexusError(
                             HttpStatusCode.BadRequest,
-                            "Claimed bank account '${accountInfo.id}' doesn't belong to subscriber '${subscriber.id}'!"
+                            "Claimed bank account '${accountInfo.id}' doesn't belong to user '${nexusUser.id.value}'!"
                         )
                     }
                     accountInfo.id.value
@@ -527,14 +515,16 @@ fun main() {
              * list all the prepared payments related to customer {id}
              */
             get("/ebics/subscribers/{id}/payments") {
-                val id = expectId(call.parameters["id"])
+                val nexusUserId = expectId(call.parameters["id"])
                 val ret = PaymentsInfo()
                 transaction {
-                    BankAccountEntity.find {
-                        BankAccountsTable.subscriber eq id
-                    }.forEach {
+                    val nexusUser = expectNexusIdTransaction(nexusUserId)
+                    val bankAccountsMap = EbicsToBankAccountEntity.find {
+                        EbicsToBankAccountsTable.ebicsSubscriber eq nexusUser.ebicsSubscriber.id
+                    }
+                    bankAccountsMap.forEach {
                         Pain001Entity.find {
-                            Pain001Table.debtorAccount eq it.id.value
+                            Pain001Table.debtorAccount eq it.bankAccount.iban
                         }.forEach {
                             ret.payments.add(
                                 PaymentInfoElement(
@@ -632,7 +622,7 @@ fun main() {
                 val id = expectId(call.parameters["id"])
                 val paramsJson = call.receive<EbicsStandardOrderParamsJson>()
                 val orderParams = paramsJson.toOrderParams()
-                val subscriberData = getSubscriberDetailsFromId(id)
+                val subscriberData = getSubscriberDetailsFromNexusUserId(id)
                 val response = doEbicsDownloadTransaction(
                     client,
                     subscriberData,
@@ -662,7 +652,7 @@ fun main() {
                 val id = expectId(call.parameters["id"])
                 var ret = ""
                 transaction {
-                    val subscriber: EbicsSubscriberEntity = getSubscriberEntityFromId(id)
+                    val subscriber: EbicsSubscriberEntity = getSubscriberEntityFromNexusUserId(id)
                     RawBankTransactionEntity.find {
                         RawBankTransactionsTable.nexusSubscriber eq subscriber.id.value
                     }.forEach {
@@ -685,7 +675,7 @@ fun main() {
                 val id = expectId(call.parameters["id"])
                 val paramsJson = call.receive<EbicsStandardOrderParamsJson>()
                 val orderParams = paramsJson.toOrderParams()
-                val subscriberData = getSubscriberDetailsFromId(id)
+                val subscriberData = getSubscriberDetailsFromNexusUserId(id)
                 when (val response = doEbicsDownloadTransaction(client, subscriberData, "C53", orderParams)) {
                     is EbicsDownloadSuccessResult -> {
                         /**
@@ -707,7 +697,7 @@ fun main() {
                                     amount = camt53doc.pickString("//*[local-name()='Ntry']//*[local-name()='Amt']")
                                     status = camt53doc.pickString("//*[local-name()='Ntry']//*[local-name()='Sts']")
                                     bookingDate = parseDate(camt53doc.pickString("//*[local-name()='BookgDt']//*[local-name()='Dt']")).millis
-                                    nexusSubscriber = getSubscriberEntityFromId(id)
+                                    nexusSubscriber = getSubscriberEntityFromNexusUserId(id)
                                     creditorName = camt53doc.pickString("//*[local-name()='RltdPties']//*[local-name()='Dbtr']//*[local-name()='Nm']")
                                     creditorIban = camt53doc.pickString("//*[local-name()='CdtrAcct']//*[local-name()='IBAN']")
                                     debitorName = camt53doc.pickString("//*[local-name()='RltdPties']//*[local-name()='Dbtr']//*[local-name()='Nm']")
@@ -738,7 +728,7 @@ fun main() {
                 val id = expectId(call.parameters["id"])
                 val paramsJson = call.receive<EbicsStandardOrderParamsJson>()
                 val orderParams = paramsJson.toOrderParams()
-                val subscriberData = getSubscriberDetailsFromId(id)
+                val subscriberData = getSubscriberDetailsFromNexusUserId(id)
                 val response = doEbicsDownloadTransaction(client, subscriberData, "C52", orderParams)
                 when (response) {
                     is EbicsDownloadSuccessResult -> {
@@ -760,7 +750,7 @@ fun main() {
                 val id = expectId(call.parameters["id"])
                 val paramsJson = call.receive<EbicsStandardOrderParamsJson>()
                 val orderParams = paramsJson.toOrderParams()
-                val subscriberData = getSubscriberDetailsFromId(id)
+                val subscriberData = getSubscriberDetailsFromNexusUserId(id)
                 val response = doEbicsDownloadTransaction(client, subscriberData, "CRZ", orderParams)
                 when (response) {
                     is EbicsDownloadSuccessResult -> {
@@ -782,7 +772,7 @@ fun main() {
                 val id = expectId(call.parameters["id"])
                 val paramsJson = call.receive<EbicsStandardOrderParamsJson>()
                 val orderParams = paramsJson.toOrderParams()
-                val subscriberData = getSubscriberDetailsFromId(id)
+                val subscriberData = getSubscriberDetailsFromNexusUserId(id)
                 val response = doEbicsDownloadTransaction(client, subscriberData, "C53", orderParams)
                 when (response) {
                     is EbicsDownloadSuccessResult -> {
@@ -804,7 +794,7 @@ fun main() {
                 val id = expectId(call.parameters["id"])
                 val paramsJson = call.receive<EbicsStandardOrderParamsJson>()
                 val orderParams = paramsJson.toOrderParams()
-                val subscriberData = getSubscriberDetailsFromId(id)
+                val subscriberData = getSubscriberDetailsFromNexusUserId(id)
                 val response = doEbicsDownloadTransaction(client, subscriberData, "C54", orderParams)
                 when (response) {
                     is EbicsDownloadSuccessResult -> {
@@ -825,7 +815,7 @@ fun main() {
             }
             get("/ebics/subscribers/{id}/sendHTD") {
                 val customerIdAtNexus = expectId(call.parameters["id"])
-                val subscriberData = getSubscriberDetailsFromId(customerIdAtNexus)
+                val subscriberData = getSubscriberDetailsFromNexusUserId(customerIdAtNexus)
                 val response = doEbicsDownloadTransaction(
                     client,
                     subscriberData,
@@ -851,7 +841,7 @@ fun main() {
             }
             post("/ebics/subscribers/{id}/sendHAA") {
                 val id = expectId(call.parameters["id"])
-                val subscriberData = getSubscriberDetailsFromId(id)
+                val subscriberData = getSubscriberDetailsFromNexusUserId(id)
                 val response = doEbicsDownloadTransaction(client, subscriberData, "HAA", EbicsStandardOrderParams())
                 when (response) {
                     is EbicsDownloadSuccessResult -> {
@@ -873,7 +863,7 @@ fun main() {
 
             post("/ebics/subscribers/{id}/sendHVZ") {
                 val id = expectId(call.parameters["id"])
-                val subscriberData = getSubscriberDetailsFromId(id)
+                val subscriberData = getSubscriberDetailsFromNexusUserId(id)
                 // FIXME: order params are wrong
                 val response = doEbicsDownloadTransaction(client, subscriberData, "HVZ", EbicsStandardOrderParams())
                 when (response) {
@@ -896,7 +886,7 @@ fun main() {
 
             post("/ebics/subscribers/{id}/sendHVU") {
                 val id = expectId(call.parameters["id"])
-                val subscriberData = getSubscriberDetailsFromId(id)
+                val subscriberData = getSubscriberDetailsFromNexusUserId(id)
                 // FIXME: order params are wrong
                 val response = doEbicsDownloadTransaction(client, subscriberData, "HVU", EbicsStandardOrderParams())
                 when (response) {
@@ -919,7 +909,7 @@ fun main() {
 
             post("/ebics/subscribers/{id}/sendHPD") {
                 val id = expectId(call.parameters["id"])
-                val subscriberData = getSubscriberDetailsFromId(id)
+                val subscriberData = getSubscriberDetailsFromNexusUserId(id)
                 val response = doEbicsDownloadTransaction(client, subscriberData, "HPD", EbicsStandardOrderParams())
                 when (response) {
                     is EbicsDownloadSuccessResult -> {
@@ -941,7 +931,7 @@ fun main() {
 
             get("/ebics/subscribers/{id}/sendHKD") {
                 val id = expectId(call.parameters["id"])
-                val subscriberData = getSubscriberDetailsFromId(id)
+                val subscriberData = getSubscriberDetailsFromNexusUserId(id)
                 val response = doEbicsDownloadTransaction(
                     client,
                     subscriberData,
@@ -968,7 +958,7 @@ fun main() {
 
             post("/ebics/subscribers/{id}/sendTSD") {
                 val id = expectId(call.parameters["id"])
-                val subscriberData = getSubscriberDetailsFromId(id)
+                val subscriberData = getSubscriberDetailsFromNexusUserId(id)
                 val response = doEbicsDownloadTransaction(client, subscriberData, "TSD", EbicsGenericOrderParams())
                 when (response) {
                     is EbicsDownloadSuccessResult -> {
@@ -989,7 +979,7 @@ fun main() {
             }
 
             get("/ebics/subscribers/{id}/keyletter") {
-                val id = expectId(call.parameters["id"])
+                val nexusUserId = expectId(call.parameters["id"])
                 var usernameLine = "TODO"
                 var recipientLine = "TODO"
                 val customerIdLine = "TODO"
@@ -1013,9 +1003,8 @@ fun main() {
                 val timeLine = timeFormat.format(now)
                 var hostID = ""
                 transaction {
-                    val subscriber = EbicsSubscriberEntity.findById(id) ?: throw NexusError(
-                        HttpStatusCode.NotFound, "Subscriber '$id' not found"
-                    )
+                    val nexusUser = expectNexusIdTransaction(nexusUserId)
+                    val subscriber = nexusUser.ebicsSubscriber
                     val signPubTmp = CryptoUtil.getRsaPublicFromPrivate(
                         CryptoUtil.loadRsaPrivateKey(subscriber.signaturePrivateKey.toByteArray())
                     )
@@ -1117,19 +1106,21 @@ fun main() {
                     HttpStatusCode.OK
                 )
             }
-
+            /**
+             * Lists the EBICS subscribers known to this service.
+             */
             get("/ebics/subscribers") {
                 val ret = EbicsSubscribersResponseJson()
                 transaction {
-                    EbicsSubscriberEntity.all().forEach {
+                    NexusUserEntity.all().forEach {
                         ret.ebicsSubscribers.add(
                             EbicsSubscriberInfoResponseJson(
-                                accountID = it.id.value,
-                                hostID = it.hostID,
-                                partnerID = it.partnerID,
-                                systemID = it.systemID,
-                                ebicsURL = it.ebicsURL,
-                                userID = it.userID
+                                hostID = it.ebicsSubscriber.hostID,
+                                partnerID = it.ebicsSubscriber.partnerID,
+                                systemID = it.ebicsSubscriber.systemID,
+                                ebicsURL = it.ebicsSubscriber.ebicsURL,
+                                userID = it.ebicsSubscriber.userID,
+                                nexusUserID = it.id.value
                             )
                         )
                     }
@@ -1138,19 +1129,20 @@ fun main() {
                 return@get
             }
 
+            /**
+             * Get all the details associated with a NEXUS user.
+             */
             get("/ebics/subscribers/{id}") {
-                val id = expectId(call.parameters["id"])
+                val nexusUserId = expectId(call.parameters["id"])
                 val response = transaction {
-                    val tmp = EbicsSubscriberEntity.findById(id) ?: throw NexusError(
-                        HttpStatusCode.NotFound, "Subscriber '$id' not found"
-                    )
+                    val nexusUser = expectNexusIdTransaction(nexusUserId)
                     EbicsSubscriberInfoResponseJson(
-                        accountID = tmp.id.value,
-                        hostID = tmp.hostID,
-                        partnerID = tmp.partnerID,
-                        systemID = tmp.systemID,
-                        ebicsURL = tmp.ebicsURL,
-                        userID = tmp.userID
+                        nexusUserID = nexusUser.id.value,
+                        hostID = nexusUser.ebicsSubscriber.hostID,
+                        partnerID = nexusUser.ebicsSubscriber.partnerID,
+                        systemID = nexusUser.ebicsSubscriber.systemID,
+                        ebicsURL = nexusUser.ebicsSubscriber.ebicsURL,
+                        userID = nexusUser.ebicsSubscriber.userID
                     )
                 }
                 call.respond(HttpStatusCode.OK, response)
@@ -1159,7 +1151,7 @@ fun main() {
 
             get("/ebics/{id}/sendHev") {
                 val id = expectId(call.parameters["id"])
-                val subscriberData = getSubscriberDetailsFromId(id)
+                val subscriberData = getSubscriberDetailsFromNexusUserId(id)
                 val request = makeEbicsHEVRequest(subscriberData)
                 val response = client.postToBank(subscriberData.ebicsUrl, request)
                 val versionDetails = parseEbicsHEVResponse(response)
@@ -1175,38 +1167,39 @@ fun main() {
                 return@get
             }
 
-            post("/ebics/{id}/subscribers") {
+            /**
+             * Make a new NEXUS user in the system.  This user gets (also) a new EBICS
+             * user associated.
+             */
+            post("/{id}/subscribers") {
                 val newUserId = call.parameters["id"]
                 val body = call.receive<EbicsSubscriberInfoRequestJson>()
                 val pairA = CryptoUtil.generateRsaKeyPair(2048)
                 val pairB = CryptoUtil.generateRsaKeyPair(2048)
                 val pairC = CryptoUtil.generateRsaKeyPair(2048)
-                val row = try {
-                    transaction {
-                        EbicsSubscriberEntity.new(id = expectId(newUserId)) {
-                            ebicsURL = body.ebicsURL
-                            hostID = body.hostID
-                            partnerID = body.partnerID
-                            userID = body.userID
-                            systemID = body.systemID
-                            signaturePrivateKey = SerialBlob(pairA.private.encoded)
-                            encryptionPrivateKey = SerialBlob(pairB.private.encoded)
-                            authenticationPrivateKey = SerialBlob(pairC.private.encoded)
-                            password = if (body.password != null) {
-                                SerialBlob(CryptoUtil.hashStringSHA256(body.password))
-                            } else {
-                                logger.debug("No password set for $newUserId")
-                                null
-                            }
+                transaction {
+                    val newEbicsSubscriber = EbicsSubscriberEntity.new {
+                        ebicsURL = body.ebicsURL
+                        hostID = body.hostID
+                        partnerID = body.partnerID
+                        userID = body.userID
+                        systemID = body.systemID
+                        signaturePrivateKey = SerialBlob(pairA.private.encoded)
+                        encryptionPrivateKey = SerialBlob(pairB.private.encoded)
+                        authenticationPrivateKey = SerialBlob(pairC.private.encoded)
+                    }
+                    NexusUserEntity.new(id = newUserId) {
+                        ebicsSubscriber = newEbicsSubscriber
+                        password = if (body.password != null) {
+                            SerialBlob(CryptoUtil.hashStringSHA256(body.password))
+                        } else {
+                            logger.debug("No password set for $newUserId")
+                            null
                         }
                     }
-                } catch (e: Exception) {
-                    print(e)
-                    call.respond(NexusErrorJson("Could not store the new account into database"))
-                    return@post
                 }
                 call.respondText(
-                    "Subscriber registered, ID: ${row.id.value}",
+                    "New NEXUS user registered. ID: $newUserId",
                     ContentType.Text.Plain,
                     HttpStatusCode.OK
                 )
@@ -1215,7 +1208,7 @@ fun main() {
 
             post("/ebics/subscribers/{id}/sendIni") {
                 val id = expectId(call.parameters["id"])
-                val subscriberData = getSubscriberDetailsFromId(id)
+                val subscriberData = getSubscriberDetailsFromNexusUserId(id)
                 val iniRequest = makeEbicsIniRequest(subscriberData)
                 val responseStr = client.postToBank(
                     subscriberData.ebicsUrl,
@@ -1231,7 +1224,7 @@ fun main() {
 
             post("/ebics/subscribers/{id}/sendHia") {
                 val id = expectId(call.parameters["id"])
-                val subscriberData = getSubscriberDetailsFromId(id)
+                val subscriberData = getSubscriberDetailsFromNexusUserId(id)
                 val hiaRequest = makeEbicsHiaRequest(subscriberData)
                 val responseStr = client.postToBank(
                     subscriberData.ebicsUrl,
@@ -1251,9 +1244,9 @@ fun main() {
 
             post("/ebics/subscribers/{id}/restoreBackup") {
                 val body = call.receive<EbicsKeysBackupJson>()
-                val id = expectId(call.parameters["id"])
+                val nexusId = expectId(call.parameters["id"])
                 val subscriber = transaction {
-                    EbicsSubscriberEntity.findById(id)
+                    NexusUserEntity.findById(nexusId)
                 }
                 if (subscriber != null) {
                     call.respond(
@@ -1279,22 +1272,24 @@ fun main() {
                     logger.info("Restoring keys failed, probably due to wrong passphrase")
                     throw NexusError(HttpStatusCode.BadRequest, reason = "Bad backup given")
                 }
-                logger.info("Restoring keys, creating new user: $id")
+                logger.info("Restoring keys, creating new user: $nexusId")
                 try {
                     transaction {
-                        EbicsSubscriberEntity.new(id = expectId(call.parameters["id"])) {
-                            ebicsURL = body.ebicsURL
-                            hostID = body.hostID
-                            partnerID = body.partnerID
-                            userID = body.userID
-                            signaturePrivateKey = SerialBlob(sigKey.encoded)
-                            encryptionPrivateKey = SerialBlob(encKey.encoded)
-                            authenticationPrivateKey = SerialBlob(authKey.encoded)
+                        val newNexusUser = NexusUserEntity.new(id = nexusId) {
+                            ebicsSubscriber = EbicsSubscriberEntity.new {
+                                ebicsURL = body.ebicsURL
+                                hostID = body.hostID
+                                partnerID = body.partnerID
+                                userID = body.userID
+                                signaturePrivateKey = SerialBlob(sigKey.encoded)
+                                encryptionPrivateKey = SerialBlob(encKey.encoded)
+                                authenticationPrivateKey = SerialBlob(authKey.encoded)
+                            }
                         }
                     }
                 } catch (e: Exception) {
                     print(e)
-                    call.respond(NexusErrorJson("Could not store the new account $id into database"))
+                    call.respond(NexusErrorJson("Could not store the new account into database"))
                     return@post
                 }
                 call.respondText(
@@ -1306,11 +1301,10 @@ fun main() {
             }
 
             get("/ebics/subscribers/{id}/pubkeys") {
-                val id = expectId(call.parameters["id"])
+                val nexusId = expectId(call.parameters["id"])
                 val response = transaction {
-                    val subscriber = EbicsSubscriberEntity.findById(id) ?: throw NexusError(
-                        HttpStatusCode.NotFound, "Subscriber '$id' not found"
-                    )
+                    val nexusUser = expectNexusIdTransaction(nexusId)
+                    val subscriber = nexusUser.ebicsSubscriber
                     val authPriv = CryptoUtil.loadRsaPrivateKey(subscriber.authenticationPrivateKey.toByteArray())
                     val authPub = CryptoUtil.getRsaPublicFromPrivate(authPriv)
                     val encPriv = CryptoUtil.loadRsaPrivateKey(subscriber.encryptionPrivateKey.toByteArray())
@@ -1328,25 +1322,33 @@ fun main() {
                     response
                 )
             }
-
+            /**
+             * This endpoint downloads bank account information associated with the
+             * calling EBICS subscriber.
+             */
             post("/ebics/subscribers/{id}/fetch-accounts") {
-                val customerIdAtNexus = expectId(call.parameters["id"])
+                val nexusUserId = expectId(call.parameters["id"])
                 val paramsJson = call.receive<EbicsStandardOrderParamsJson>()
                 val orderParams = paramsJson.toOrderParams()
-                val subscriberData = getSubscriberDetailsFromId(customerIdAtNexus)
+                val subscriberData = getSubscriberDetailsFromNexusUserId(nexusUserId)
                 val response = doEbicsDownloadTransaction(client, subscriberData, "HTD", orderParams)
                 when (response) {
                     is EbicsDownloadSuccessResult -> {
                         val payload = XMLUtil.convertStringToJaxb<HTDResponseOrderData>(response.orderData.toString(Charsets.UTF_8))
                         transaction {
                             payload.value.partnerInfo.accountInfoList?.forEach {
-                                BankAccountEntity.new(id = it.id) {
-                                    this.subscriber = getSubscriberEntityFromId(customerIdAtNexus)
+                                val bankAccount = BankAccountEntity.new(id = it.id) {
                                     accountHolder = it.accountHolder
                                     iban = extractFirstIban(it.accountNumberList) ?: throw NexusError(HttpStatusCode.NotFound, reason = "bank gave no IBAN")
                                     bankCode = extractFirstBic(it.bankCodeList) ?: throw NexusError(HttpStatusCode.NotFound, reason = "bank gave no BIC")
                                 }
+                                val nexusUser = expectNexusIdTransaction(nexusUserId)
+                                EbicsToBankAccountEntity.new {
+                                    ebicsSubscriber = nexusUser.ebicsSubscriber
+                                    this.bankAccount = bankAccount
+                                }
                             }
+
                         }
                         call.respondText(
                             response.orderData.toString(Charsets.UTF_8),
@@ -1366,10 +1368,11 @@ fun main() {
 
             /* performs a keys backup */
             post("/ebics/subscribers/{id}/backup") {
-                val id = expectId(call.parameters["id"])
+                val nexusId = expectId(call.parameters["id"])
                 val body = call.receive<EbicsBackupRequestJson>()
                 val response = transaction {
-                    val subscriber = EbicsSubscriberEntity.findById(id) ?: throw NexusError(HttpStatusCode.NotFound, "Subscriber '$id' not found")
+                    val nexusUser = expectNexusIdTransaction(nexusId)
+                    val subscriber = nexusUser.ebicsSubscriber
                     EbicsKeysBackupJson(
                         userID = subscriber.userID,
                         hostID = subscriber.hostID,
@@ -1404,9 +1407,8 @@ fun main() {
 
             post("/ebics/subscribers/{id}/sendTSU") {
                 val id = expectId(call.parameters["id"])
-                val subscriberData = getSubscriberDetailsFromId(id)
+                val subscriberData = getSubscriberDetailsFromNexusUserId(id)
                 val payload = "PAYLOAD"
-
                 doEbicsUploadTransaction(
                     client,
                     subscriberData,
@@ -1414,7 +1416,6 @@ fun main() {
                     payload.toByteArray(Charsets.UTF_8),
                     EbicsGenericOrderParams()
                 )
-
                 call.respondText(
                     "TST INITIALIZATION & TRANSACTION phases succeeded\n",
                     ContentType.Text.Plain,
@@ -1423,8 +1424,8 @@ fun main() {
             }
 
             post("/ebics/subscribers/{id}/sync") {
-                val id = expectId(call.parameters["id"])
-                val subscriberDetails = getSubscriberDetailsFromId(id)
+                val nexusId = expectId(call.parameters["id"])
+                val subscriberDetails = getSubscriberDetailsFromNexusUserId(nexusId)
                 val hpbRequest = makeEbicsHpbRequest(subscriberDetails)
                 val responseStr = client.postToBank(subscriberDetails.ebicsUrl, hpbRequest)
 
@@ -1435,9 +1436,9 @@ fun main() {
 
                 // put bank's keys into database.
                 transaction {
-                    val subscriber = EbicsSubscriberEntity.findById(id) ?: throw NexusError(HttpStatusCode.BadRequest, "Invalid subscriber state")
-                    subscriber.bankAuthenticationPublicKey = SerialBlob(hpbData.authenticationPubKey.encoded)
-                    subscriber.bankEncryptionPublicKey = SerialBlob(hpbData.encryptionPubKey.encoded)
+                    val nexusUser = expectNexusIdTransaction(nexusId)
+                    nexusUser.ebicsSubscriber.bankAuthenticationPublicKey = SerialBlob(hpbData.authenticationPubKey.encoded)
+                    nexusUser.ebicsSubscriber.bankEncryptionPublicKey = SerialBlob(hpbData.encryptionPubKey.encoded)
                 }
                 call.respondText("Bank keys stored in database\n", ContentType.Text.Plain, HttpStatusCode.OK)
                 return@post
