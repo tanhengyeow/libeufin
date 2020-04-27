@@ -9,3 +9,4 @@ presentation/*.aux
 presentation/*.out
 presentation/*.snm
 presentation/*.toc
+.idea/misc.xml
