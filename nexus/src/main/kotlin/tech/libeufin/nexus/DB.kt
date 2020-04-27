@@ -27,7 +27,7 @@ object TalerRequestedPayments: LongIdTable() {
      * This column gets a value only after the bank acknowledges the payment via
      * a camt.05x entry.  The "crunch" logic is responsible for assigning such value.
      */
-    val rawConfirmed = reference("raw_confirmed", EbicsRawBankTransactionsTable).nullable()
+    val rawConfirmed = reference("raw_confirmed", RawBankTransactionsTable).nullable()
 }
 
 class TalerRequestedPaymentEntity(id: EntityID<Long>) : LongEntity(id) {
@@ -38,7 +38,7 @@ class TalerRequestedPaymentEntity(id: EntityID<Long>) : LongEntity(id) {
     var exchangeBaseUrl by TalerRequestedPayments.exchangeBaseUrl
     var wtid by TalerRequestedPayments.wtid
     var creditAccount by TalerRequestedPayments.creditAccount
-    var rawConfirmed by EbicsRawBankTransactionEntity optionalReferencedOn TalerRequestedPayments.rawConfirmed
+    var rawConfirmed by RawBankTransactionEntity optionalReferencedOn TalerRequestedPayments.rawConfirmed
 }
 
 /**
@@ -47,7 +47,7 @@ class TalerRequestedPaymentEntity(id: EntityID<Long>) : LongEntity(id) {
  * the table whose ("clean") IDs the exchange will base its history requests on.
  */
 object TalerIncomingPayments: LongIdTable() {
-    val payment = reference("payment", EbicsRawBankTransactionsTable)
+    val payment = reference("payment", RawBankTransactionsTable)
     val valid = bool("valid")
     // avoid refunding twice!
     val refunded = bool("refunded").default(false)
@@ -74,16 +74,16 @@ class TalerIncomingPaymentEntity(id: EntityID<Long>) : LongEntity(id) {
             return newRow
         }
     }
-    var payment by EbicsRawBankTransactionEntity referencedOn TalerIncomingPayments.payment
+    var payment by RawBankTransactionEntity referencedOn TalerIncomingPayments.payment
     var valid by TalerIncomingPayments.valid
     var refunded by TalerIncomingPayments.refunded
 }
 
 /**
  * This table contains history "elements" as returned by the bank from a
- * CAMT message.  Therefore, any row could come from a C52/3/4 message response.
+ * CAMT message.
  */
-object EbicsRawBankTransactionsTable : LongIdTable() {
+object RawBankTransactionsTable : LongIdTable() {
     val nexusSubscriber = reference("subscriber", EbicsSubscribersTable)
     val sourceFileName = text("sourceFileName") /* ZIP entry's name */
     val unstructuredRemittanceInformation = text("unstructuredRemittanceInformation")
@@ -99,21 +99,21 @@ object EbicsRawBankTransactionsTable : LongIdTable() {
     val status = text("status") // BOOK or other.
 }
 
-class EbicsRawBankTransactionEntity(id: EntityID<Long>) : LongEntity(id) {
-    companion object : LongEntityClass<EbicsRawBankTransactionEntity>(EbicsRawBankTransactionsTable)
-    var sourceFileName by EbicsRawBankTransactionsTable.sourceFileName
-    var unstructuredRemittanceInformation by EbicsRawBankTransactionsTable.unstructuredRemittanceInformation
-    var transactionType by EbicsRawBankTransactionsTable.transactionType
-    var currency by EbicsRawBankTransactionsTable.currency
-    var amount by EbicsRawBankTransactionsTable.amount
-    var debitorIban by EbicsRawBankTransactionsTable.debitorIban
-    var debitorName by EbicsRawBankTransactionsTable.debitorName
-    var creditorName by EbicsRawBankTransactionsTable.creditorName
-    var creditorIban by EbicsRawBankTransactionsTable.creditorIban
-    var counterpartBic by EbicsRawBankTransactionsTable.counterpartBic
-    var bookingDate by EbicsRawBankTransactionsTable.bookingDate
-    var nexusSubscriber by EbicsSubscriberEntity referencedOn EbicsRawBankTransactionsTable.nexusSubscriber
-    var status by EbicsRawBankTransactionsTable.status
+class RawBankTransactionEntity(id: EntityID<Long>) : LongEntity(id) {
+    companion object : LongEntityClass<RawBankTransactionEntity>(RawBankTransactionsTable)
+    var sourceFileName by RawBankTransactionsTable.sourceFileName
+    var unstructuredRemittanceInformation by RawBankTransactionsTable.unstructuredRemittanceInformation
+    var transactionType by RawBankTransactionsTable.transactionType
+    var currency by RawBankTransactionsTable.currency
+    var amount by RawBankTransactionsTable.amount
+    var debitorIban by RawBankTransactionsTable.debitorIban
+    var debitorName by RawBankTransactionsTable.debitorName
+    var creditorName by RawBankTransactionsTable.creditorName
+    var creditorIban by RawBankTransactionsTable.creditorIban
+    var counterpartBic by RawBankTransactionsTable.counterpartBic
+    var bookingDate by RawBankTransactionsTable.bookingDate
+    var nexusSubscriber by EbicsSubscriberEntity referencedOn RawBankTransactionsTable.nexusSubscriber
+    var status by RawBankTransactionsTable.status
 }
 
 /**
@@ -217,7 +217,7 @@ fun dbCreateTables() {
              Pain001Table,
              EbicsSubscribersTable,
              EbicsAccountsInfoTable,
-             EbicsRawBankTransactionsTable,
+             RawBankTransactionsTable,
              TalerIncomingPayments,
              TalerRequestedPayments
          )

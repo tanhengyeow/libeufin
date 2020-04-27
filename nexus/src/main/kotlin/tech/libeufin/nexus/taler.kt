@@ -212,7 +212,7 @@ class Taler(app: Route) {
      * @param entry a new raw payment to be checked.
      * @return true if the payment was already "seen" by the Taler layer, false otherwise.
      */
-    private fun duplicatePayment(entry: EbicsRawBankTransactionEntity): Boolean {
+    private fun duplicatePayment(entry: RawBankTransactionEntity): Boolean {
         return false
     }
 
@@ -222,7 +222,7 @@ class Taler(app: Route) {
      * @param entry the raw entry to check
      * @return true if the payment failed, false if it was successful.
      */
-    private fun paymentFailed(entry: EbicsRawBankTransactionEntity): Boolean {
+    private fun paymentFailed(entry: RawBankTransactionEntity): Boolean {
         return false
     }
 
@@ -271,7 +271,7 @@ class Taler(app: Route) {
                 )
 
                 val rawEbics = if (!isProduction()) {
-                    EbicsRawBankTransactionEntity.new {
+                    RawBankTransactionEntity.new {
                         sourceFileName = "test"
                         unstructuredRemittanceInformation = transferRequest.wtid
                         transactionType = "DBIT"
@@ -326,7 +326,7 @@ class Taler(app: Route) {
             val amount = parseAmount(addIncomingData.amount)
             val (bookingDate, opaque_row_id) = transaction {
                 val exchangeBankAccount = getBankAccountsInfoFromId(exchangeId).first()
-                val rawPayment = EbicsRawBankTransactionEntity.new {
+                val rawPayment = RawBankTransactionEntity.new {
                     sourceFileName = "test"
                     unstructuredRemittanceInformation = addIncomingData.reserve_pub
                     transactionType = "CRDT"
@@ -412,12 +412,12 @@ class Taler(app: Route) {
                  * from the Taler incoming payments table to the found fresh payments.
                  */
                 val latestIncomingPaymentId: Long = TalerIncomingPaymentEntity.getLast()
-                EbicsRawBankTransactionEntity.find {
+                RawBankTransactionEntity.find {
                     /** select payments having the exchange as the credited party */
-                    EbicsRawBankTransactionsTable.creditorIban eq subscriberAccount.iban and
-                            (EbicsRawBankTransactionsTable.status eq "BOOK") and
+                    RawBankTransactionsTable.creditorIban eq subscriberAccount.iban and
+                            (RawBankTransactionsTable.status eq "BOOK") and
                             /** avoid processing old payments from the raw table */
-                            (EbicsRawBankTransactionsTable.id.greater(latestIncomingPaymentId))
+                            (RawBankTransactionsTable.id.greater(latestIncomingPaymentId))
                 }.forEach {
                     if (duplicatePayment(it)) {
                         logger.warn("Incomint payment already seen")
@@ -444,9 +444,9 @@ class Taler(app: Route) {
                  * be really unexpected here.
                  */
                 val latestOutgoingPaymentId = TalerRequestedPaymentEntity.getLast()
-                EbicsRawBankTransactionEntity.find {
-                    EbicsRawBankTransactionsTable.id greater latestOutgoingPaymentId and
-                            ( EbicsRawBankTransactionsTable.debitorIban eq  subscriberAccount.iban)
+                RawBankTransactionEntity.find {
+                    RawBankTransactionsTable.id greater latestOutgoingPaymentId and
+                            ( RawBankTransactionsTable.debitorIban eq  subscriberAccount.iban)
                 }.forEach {
                     if (paymentFailed(it)) {
                         logger.error("Bank didn't accept one payment from the exchange")

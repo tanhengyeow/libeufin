@@ -663,8 +663,8 @@ fun main() {
                 var ret = ""
                 transaction {
                     val subscriber: EbicsSubscriberEntity = getSubscriberEntityFromId(id)
-                    EbicsRawBankTransactionEntity.find {
-                        EbicsRawBankTransactionsTable.nexusSubscriber eq subscriber.id.value
+                    RawBankTransactionEntity.find {
+                        RawBankTransactionsTable.nexusSubscriber eq subscriber.id.value
                     }.forEach {
                         ret += "###\nDebitor: ${it.debitorIban}\nCreditor: ${it.creditorIban}\nAmount: ${it.currency}:${it.amount}\nDate: ${it.bookingDate}\n"
                     }
@@ -699,7 +699,7 @@ fun main() {
                             val fileName = it.first
                             val camt53doc = XMLUtil.parseStringIntoDom(it.second)
                             transaction {
-                                EbicsRawBankTransactionEntity.new {
+                                RawBankTransactionEntity.new {
                                     sourceFileName = fileName
                                     unstructuredRemittanceInformation = camt53doc.pickString("//*[local-name()='Ntry']//*[local-name()='Amt']/@Ccy")
                                     transactionType = camt53doc.pickString("//*[local-name()='Ntry']//*[local-name()='CdtDbtInd']")
