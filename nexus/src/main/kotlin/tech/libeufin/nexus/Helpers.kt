@@ -20,10 +20,10 @@ import java.time.ZonedDateTime
 import java.time.Instant
 import java.time.ZoneId
 
-fun getSubscriberEntityFromNexusUserId(nexusUserId: String): EbicsSubscriberEntity {
+fun getSubscriberEntityFromNexusUserId(nexusUserId: String?): EbicsSubscriberEntity {
     return transaction {
-        val nexusUser = expectNexusIdTransaction(nexusUserId)
-        nexusUser.ebicsSubscriber
+        val nexusUser = expectNexusIdTransaction(expectId(nexusUserId))
+        getEbicsSubscriberFromUser(nexusUser)
     }
 }
 
@@ -128,10 +128,21 @@ fun getSubscriberDetailsInternal(subscriber: EbicsSubscriberEntity): EbicsClient
     )
 }
 
+/** Return non null Ebics subscriber, or throw error otherwise. */
+fun getEbicsSubscriberFromUser(nexusUser: NexusUserEntity): EbicsSubscriberEntity {
+    return nexusUser.ebicsSubscriber ?: throw NexusError(
+        HttpStatusCode.NotFound,
+        "Ebics subscriber was never activated"
+    )
+}
+
 fun getSubscriberDetailsFromNexusUserId(id: String): EbicsClientSubscriberDetails {
     return transaction {
         val nexusUser = expectNexusIdTransaction(id)
-        getSubscriberDetailsInternal(nexusUser.ebicsSubscriber)
+        getSubscriberDetailsInternal(nexusUser.ebicsSubscriber ?: throw NexusError(
+            HttpStatusCode.NotFound,
+            "Cannot get details for non-activated subscriber!"
+        ))
     }
 }
 
@@ -404,6 +415,16 @@ fun subscriberHasRights(subscriber: EbicsSubscriberEntity, bankAccount: BankAcco
     return row != null
 }
 
+/** Check if the nexus user is allowed to use the claimed bank account.  */
+fun userHasRights(subscriber: NexusUserEntity, bankAccount: BankAccountEntity): Boolean {
+    val row = transaction {
+        UserToBankAccountEntity.find {
+            UserToBankAccountsTable.bankAccount eq bankAccount.id and
+                    (UserToBankAccountsTable.nexusUser eq subscriber.id)
+        }.firstOrNull()
+    }
+    return row != null
+}
 
 fun parseDate(date: String): DateTime {
     return DateTime.parse(date, DateTimeFormat.forPattern("YYYY-MM-DD"))

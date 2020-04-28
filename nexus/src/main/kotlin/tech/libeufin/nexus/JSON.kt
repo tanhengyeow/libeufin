@@ -4,6 +4,7 @@ import tech.libeufin.util.Amount
 import tech.libeufin.util.EbicsDateRange
 import tech.libeufin.util.EbicsOrderParams
 import tech.libeufin.util.EbicsStandardOrderParams
+import java.lang.NullPointerException
 import java.time.LocalDate
 
 data class EbicsBackupRequestJson(
@@ -54,52 +55,10 @@ data class EbicsKeysBackupJson(
     val passphrase: String? = null
 )
 
-
 data class EbicsPubKeyInfo(
     val authPub: String,
     val encPub: String,
     val sigPub: String
-)
-
-/**
- * This object is POSTed by clients _after_ having created
- * a EBICS subscriber at the sandbox.
- */
-data class EbicsSubscriberInfoRequestJson(
-    val ebicsURL: String,
-    val hostID: String,
-    val partnerID: String,
-    val userID: String,
-    val systemID: String? = null,
-    val password: String? = null
-)
-
-/**
- * Contain the ID that identifies the new user in the Nexus system.
- */
-data class EbicsSubscriberInfoResponseJson(
-    val nexusUserID: String,
-    val ebicsURL: String,
-    val hostID: String,
-    val partnerID: String,
-    val userID: String,
-    val systemID: String? = null
-)
-
-data class Pain001Data(
-    val creditorIban: String,
-    val creditorBic: String,
-    val creditorName: String,
-    val sum: Amount,
-    val currency: String = "EUR",
-    val subject: String
-)
-
-/**
- * Admin call that tells all the subscribers managed by Nexus.
- */
-data class EbicsSubscribersResponseJson(
-    val ebicsSubscribers: MutableList<EbicsSubscriberInfoResponseJson> = mutableListOf()
 )
 
 data class ProtocolAndVersionJson(
@@ -131,6 +90,56 @@ data class BankAccountsInfoResponse(
     var accounts: MutableList<BankAccountInfoElement> = mutableListOf()
 )
 
+/** THE NEXUS USER */
+
+/** SHOWS details about one user */
+data class NexusUser(
+    val userID: String,
+    val transports: MutableList<Any> = mutableListOf()
+)
+
+/** Instructs the nexus to CREATE a new user */
+data class NexusUserRequest(
+    val userID: String,
+    val password: String?
+)
+
+/** Collection of all the nexus users existing in the system */
+data class NexusUsers(
+    val users: MutableList<NexusUser> = mutableListOf()
+)
+
+/************************************/
+
+/** TRANSPORT TYPES */
+
+/** Instructs the nexus to CREATE a new Ebics subscriber.
+ * Note that the nexus user to which the subscriber must be
+ * associated is extracted from other HTTP details.
+ *
+ * This same structure can be user to SHOW one Ebics subscriber
+ * existing at the nexus.
+ */
+data class EbicsSubscriber(
+    val ebicsURL: String,
+    val hostID: String,
+    val partnerID: String,
+    val userID: String,
+    val systemID: String? = null
+)
+
+/** Type representing the "test" transport.  Test transport
+ * does not cooperate with the bank/sandbox in order to obtain
+ * data about one user.  All the data is just mocked internally
+ * at the NEXUS.
+ */
+class TestSubscriber()
+
+
+/** PAYMENT INSTRUCTIONS TYPES */
+
+/** Represents a prepared payment at the nexus.  This structure is
+ * used to SHOW a prepared payment to the called.  */
 data class PaymentInfoElement(
     val debtorAccount: String,
     val creditorIban: String,
@@ -140,7 +149,16 @@ data class PaymentInfoElement(
     val sum: Amount,
     val submitted: Boolean
 )
-
 data class PaymentsInfo(
     var payments: MutableList<PaymentInfoElement> = mutableListOf()
+)
+
+/** This structure is used to INSTRUCT the nexus to prepare such payment.  */
+data class Pain001Data(
+    val creditorIban: String,
+    val creditorBic: String,
+    val creditorName: String,
+    val sum: Amount,
+    val currency: String = "EUR",
+    val subject: String
 )

@@ -284,7 +284,7 @@ class Taler(app: Route) {
                         creditorIban = creditorObj.iban
                         counterpartBic = creditorObj.bic
                         bookingDate = DateTime.now().millis
-                        nexusSubscriber = nexusUser.ebicsSubscriber
+                        nexusSubscriber = getEbicsSubscriberFromUser(nexusUser)
                         status = "BOOK"
                     }
                 } else null
@@ -370,8 +370,7 @@ class Taler(app: Route) {
          * all the prepared payments.  */
         app.post("/ebics/taler/{id}/accounts/{acctid}/refund-invalid-payments") {
             transaction {
-                val nexusUser = expectNexusIdTransaction(call.parameters["id"])
-                val subscriber = nexusUser.ebicsSubscriber
+                val subscriber = getSubscriberEntityFromNexusUserId(call.parameters["id"])
                 val acctid = expectAcctidTransaction(call.parameters["acctid"])
                 if (!subscriberHasRights(subscriber, acctid)) {
                     throw NexusError(
@@ -549,7 +548,7 @@ class Taler(app: Route) {
                         val nexusUser = expectNexusIdTransaction(exchangeId)
                         EbicsToBankAccountEntity.new {
                             bankAccount = newBankAccount
-                            ebicsSubscriber = nexusUser.ebicsSubscriber
+                            ebicsSubscriber = getEbicsSubscriberFromUser(nexusUser)
                         }
                     }
                 }

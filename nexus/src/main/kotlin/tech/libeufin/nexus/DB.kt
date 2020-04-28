@@ -210,13 +210,15 @@ class EbicsSubscriberEntity(id: EntityID<Int>) : Entity<Int>(id) {
 
 object NexusUsersTable : IdTable<String>() {
     override val id = varchar("id", ID_MAX_LENGTH).entityId().primaryKey()
-    val ebicsSubscriber = reference("ebicsSubscriber", EbicsSubscribersTable)
+    val ebicsSubscriber = reference("ebicsSubscriber", EbicsSubscribersTable).nullable()
+    val testSubscriber = reference("testSubscriber", EbicsSubscribersTable).nullable()
     val password = EbicsSubscribersTable.blob("password").nullable()
 }
 
 class NexusUserEntity(id: EntityID<String>) : Entity<String>(id) {
     companion object : EntityClass<String, NexusUserEntity>(NexusUsersTable)
-    var ebicsSubscriber by EbicsSubscriberEntity referencedOn  NexusUsersTable.ebicsSubscriber
+    var ebicsSubscriber by EbicsSubscriberEntity optionalReferencedOn NexusUsersTable.ebicsSubscriber
+    var testSubscriber by EbicsSubscriberEntity optionalReferencedOn NexusUsersTable.testSubscriber
     var password by NexusUsersTable.password
 }
 

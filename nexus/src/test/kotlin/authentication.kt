@@ -17,21 +17,11 @@ class AuthenticationTest {
             SchemaUtils.create(NexusUsersTable)
             NexusUserEntity.new(id = "username") {
                 password = SerialBlob(CryptoUtil.hashStringSHA256("password"))
-                ebicsSubscriber = EbicsSubscriberEntity.new {
-                    ebicsURL = "ebics url"
-                    hostID = "host"
-                    partnerID = "partner"
-                    userID = "user"
-                    systemID = "system"
-                    signaturePrivateKey = SerialBlob("signturePrivateKey".toByteArray())
-                    authenticationPrivateKey = SerialBlob("authenticationPrivateKey".toByteArray())
-                    encryptionPrivateKey = SerialBlob("encryptionPrivateKey".toByteArray())
-                }
             }
             // base64 of "username:password" == "dXNlcm5hbWU6cGFzc3dvcmQ="
-            val (username: String, hashedPass: ByteArray) = extractUserAndHashedPassword(
+            val hashedPass= extractUserAndHashedPassword(
                 "Basic dXNlcm5hbWU6cGFzc3dvcmQ="
-            )
+            ).second
             val row = NexusUserEntity.findById("username")
             assert(row?.password == SerialBlob(hashedPass))
         }
@@ -39,7 +29,9 @@ class AuthenticationTest {
 
     @Test
     fun basicAuthHeaderTest() {
-        val (username: String, hashedPass: ByteArray) = extractUserAndHashedPassword("Basic dXNlcm5hbWU6cGFzc3dvcmQ=")
+        val hashedPass = extractUserAndHashedPassword(
+            "Basic dXNlcm5hbWU6cGFzc3dvcmQ="
+        ).second
         assert(CryptoUtil.hashStringSHA256("password").contentEquals(hashedPass))
     }
 }
