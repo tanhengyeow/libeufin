@@ -119,6 +119,11 @@ assert(
 )
 
 #6 Prepare a payment (via pure Nexus service)
+
+# FIXME: this currently fails, because nexus has a
+# empty table w.r.t. bank accounts.  Thus, the sandbox
+# must provide such information via the usual HTD message.
+
 resp = post(
     "http://localhost:5001/users/{}/prepare-payment".format(USERNAME),
     json=dict(
