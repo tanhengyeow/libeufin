@@ -42,7 +42,7 @@ data class EbicsHostResponse(
 )
 
 data class EbicsHostCreateRequest(
-    val hostId: String,
+    val hostID: String,
     val ebicsVersion: String
 )
 
