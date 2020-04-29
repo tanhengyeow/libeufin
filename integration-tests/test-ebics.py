@@ -110,6 +110,14 @@ resp = post(
 assert(resp.status_code == 200)
 
 # FIXME: assert that history is EMPTY at this point!
+resp = get(
+    "http://localhost:5001/users/{}/history".format(USERNAME)
+)
+
+assert(
+    resp.status_code == 200 and \
+    len(resp.json().get("payments")) == 0
+)
 
 #6 Prepare a payment (via pure Nexus service)
 #7 Execute such payment via EBICS

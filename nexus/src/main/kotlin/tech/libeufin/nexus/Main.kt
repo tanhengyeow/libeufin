@@ -135,14 +135,13 @@ fun main() {
 
         routing {
 
-            /** General / debug endpoints */
+            /** GENERAL / DEBUG ENDPOINTS */
 
             get("/") {
                 call.respondText("Hello by Nexus!\n")
                 return@get
             }
-
-            get("/taler/test-auth") {
+            get("/test-auth") {
                 authenticateRequest(call.request.headers["Authorization"])
                 call.respondText("Authenticated!", ContentType.Text.Plain, HttpStatusCode.OK)
                 return@get
@@ -150,6 +149,31 @@ fun main() {
 
             /** USER endpoints (no EBICS) */
 
+            get("/users/{id}/history") {
+                /** NOTE: behaviour could be augmented by filtering on date range.  */
+                val nexusUser = extractNexusUser(call.parameters["id"])
+                val ret = RawPayments()
+                transaction {
+                    RawBankTransactionEntity.find {
+                        RawBankTransactionsTable.nexusUser eq nexusUser.id.value
+                    }.forEach {
+                        ret.payments.add(
+                            RawPayment(
+                                debitorIban = it.debitorIban,
+                                creditorIban = it.creditorIban,
+                                subject = it.unstructuredRemittanceInformation,
+                                date = DateTime(it.bookingDate).toDashedDate(),
+                                amount = "${it.currency}:${it.amount}"
+                            )
+                        )
+                    }
+                }
+                call.respond(
+                    HttpStatusCode.OK,
+                    ret
+                )
+                return@get
+            }
             /** Lists the users known to this system */
             get("/users") {
                 val ret = NexusUsers()
@@ -176,9 +200,8 @@ fun main() {
                 call.respond(ret)
                 return@get
             }
-
             /** Get all the details associated with a NEXUS user */
-            get("/user/{id}") {
+            get("/users/{id}") {
                 val response = transaction {
                     val nexusUser = extractNexusUser(call.parameters["id"])
                     NexusUser(
@@ -188,7 +211,6 @@ fun main() {
                 call.respond(HttpStatusCode.OK, response)
                 return@get
             }
-
             /** Make a new NEXUS user in the system */
             post("/users/{id}") {
                 val newUserId = expectId(call.parameters["id"])
@@ -210,8 +232,7 @@ fun main() {
                 )
                 return@post
             }
-
-            /** List all the bank accounts associated with a given NEXUS user.  */
+            /** Show bank accounts associated with a given NEXUS user */
             get("/users/{id}/accounts") {
                 // this information is only avaiable *after* HTD or HKD has been called
                 val id = expectId(call.parameters["id"])
@@ -236,10 +257,10 @@ fun main() {
                 )
                 return@get
             }
-            /** Show list of payments prepared by calling user.  */
+            /** Show PREPARED payments */
             get("/users/{id}/payments") {
                 val nexusUserId = expectId(call.parameters["id"])
-                val ret = PaymentsInfo()
+                val ret = RawPayments()
                 transaction {
                     val nexusUser = extractNexusUser(nexusUserId)
                     val bankAccountsMap = UserToBankAccountEntity.find {
@@ -250,14 +271,12 @@ fun main() {
                             Pain001Table.debtorAccount eq it.bankAccount.iban
                         }.forEach {
                             ret.payments.add(
-                                PaymentInfoElement(
-                                    debtorAccount = it.debtorAccount,
+                                RawPayment(
                                     creditorIban = it.creditorIban,
-                                    creditorBic = it.creditorBic,
-                                    creditorName = it.creditorName,
+                                    debitorIban = "FIXME",
                                     subject = it.subject,
-                                    sum = it.sum,
-                                    submitted = it.submitted // whether Nexus processed and sent to the bank
+                                    amount = "${it.currency}:${it.sum}",
+                                    date = DateTime(it.date).toDashedDate()
                                 )
                             )
                         }
