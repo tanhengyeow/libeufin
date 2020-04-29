@@ -428,12 +428,24 @@ fun subscriberHasRights(subscriber: EbicsSubscriberEntity, bankAccount: BankAcco
     return row != null
 }
 
+fun getBankAccountFromIban(iban: String): BankAccountEntity {
+    return transaction {
+        BankAccountEntity.find {
+            BankAccountsTable.iban eq iban
+        }.firstOrNull() ?: throw NexusError(
+            HttpStatusCode.NotFound,
+            "Bank account with IBAN '$iban' not found"
+        )
+    }
+}
+
 /** Check if the nexus user is allowed to use the claimed bank account.  */
-fun userHasRights(subscriber: NexusUserEntity, bankAccount: BankAccountEntity): Boolean {
+fun userHasRights(nexusUser: NexusUserEntity, iban: String): Boolean {
     val row = transaction {
+        val bankAccount = getBankAccountFromIban(iban)
         UserToBankAccountEntity.find {
             UserToBankAccountsTable.bankAccount eq bankAccount.id and
-                    (UserToBankAccountsTable.nexusUser eq subscriber.id)
+                    (UserToBankAccountsTable.nexusUser eq nexusUser.id)
         }.firstOrNull()
     }
     return row != null

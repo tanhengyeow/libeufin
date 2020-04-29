@@ -7,7 +7,6 @@ import org.jetbrains.exposed.sql.transactions.transaction
 import org.jetbrains.exposed.sql.SchemaUtils
 import org.joda.time.DateTime
 import tech.libeufin.util.Amount
-import javax.sql.rowset.serial.SerialBlob
 
 
 

@@ -121,12 +121,17 @@ assert(
 #6 Prepare a payment (via pure Nexus service)
 resp = post(
     "http://localhost:5001/users/{}/prepare-payment".format(USERNAME),
-    json=dict()
+    json=dict(
+        creditorIban="GB33BUKB20201555555555",
+        creditorBic="BUKBGB22",
+        creditorName="Oliver Smith",
+        debitorIban="FR7630006000011234567890189",
+        debitorBic="AGRIFRPP",
+        debitorName="Jacques LaFayette"
+    )
 )
 
 assert(resp.status_code == 200)
-
-
 
 #7 Execute such payment via EBICS
 #8 Request history again via EBICS

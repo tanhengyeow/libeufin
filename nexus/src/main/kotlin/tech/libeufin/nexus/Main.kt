@@ -285,19 +285,17 @@ fun main() {
                 call.respond(ret)
                 return@get
             }
-            post("/users/{id}/accounts/prepare-payment") {
+            post("/users/{id}/prepare-payment") {
                 val nexusUser = extractNexusUser(call.parameters["id"])
+                val pain001data = call.receive<Pain001Data>()
                 transaction {
-                    val accountInfo = expectAcctidTransaction(call.parameters["acctid"])
-                    if (!userHasRights(nexusUser, accountInfo)) {
+                    if (!userHasRights(nexusUser, pain001data.debitorIban)) {
                         throw NexusError(
                             HttpStatusCode.BadRequest,
-                            "Claimed bank account '${accountInfo.id}' doesn't belong to user '${nexusUser.id.value}'!"
+                            "User ${nexusUser.id.value} can't access ${pain001data.debitorIban}"
                         )
                     }
-
                 }
-                val pain001data = call.receive<Pain001Data>()
                 createPain001entity(pain001data, nexusUser)
                 call.respondText(
                     "Payment instructions persisted in DB",
