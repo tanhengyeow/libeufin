@@ -179,7 +179,7 @@ fun main() {
             /** Get all the details associated with a NEXUS user */
             get("/user/{id}") {
                 val response = transaction {
-                    val nexusUser = expectNexusIdTransaction(call.parameters["id"])
+                    val nexusUser = extractNexusUser(call.parameters["id"])
                     NexusUser(
                         userID = nexusUser.id.value
                     )
@@ -240,7 +240,7 @@ fun main() {
                 val nexusUserId = expectId(call.parameters["id"])
                 val ret = PaymentsInfo()
                 transaction {
-                    val nexusUser = expectNexusIdTransaction(nexusUserId)
+                    val nexusUser = extractNexusUser(nexusUserId)
                     val bankAccountsMap = UserToBankAccountEntity.find {
                         UserToBankAccountsTable.nexusUser eq nexusUser.id
                     }
@@ -268,7 +268,7 @@ fun main() {
             post("/users/{id}/accounts/{acctid}/prepare-payment") {
                 val acctid = transaction {
                     val accountInfo = expectAcctidTransaction(call.parameters["acctid"])
-                    val nexusUser = expectNexusIdTransaction(call.parameters["id"])
+                    val nexusUser = extractNexusUser(call.parameters["id"])
                     if (!userHasRights(nexusUser, accountInfo)) {
                         throw NexusError(
                             HttpStatusCode.BadRequest,
@@ -285,14 +285,13 @@ fun main() {
                 )
                 return@post
             }
-
             /** Associate a EBICS subscriber to the existing user */
-            post("/ebics/{id}/subscriber") {
+            post("/ebics/subscribers/{id}") {
+                val nexusUser = extractNexusUser(call.parameters["id"])
                 val body = call.receive<EbicsSubscriber>()
                 val pairA = CryptoUtil.generateRsaKeyPair(2048)
                 val pairB = CryptoUtil.generateRsaKeyPair(2048)
                 val pairC = CryptoUtil.generateRsaKeyPair(2048)
-
                 transaction {
                     val newEbicsSubscriber = EbicsSubscriberEntity.new {
                         ebicsURL = body.ebicsURL
@@ -304,10 +303,14 @@ fun main() {
                         encryptionPrivateKey = SerialBlob(pairB.private.encoded)
                         authenticationPrivateKey = SerialBlob(pairC.private.encoded)
                     }
-                    val nexusUser = expectNexusIdTransaction(call.parameters["id"])
                     nexusUser.ebicsSubscriber = newEbicsSubscriber
                 }
-
+                call.respondText(
+                    "EBICS user successfully created",
+                    ContentType.Text.Plain,
+                    HttpStatusCode.OK
+                )
+                return@post
             }
             post("/ebics/subscribers/{id}/restoreBackup") {
                 val body = call.receive<EbicsKeysBackupJson>()
@@ -370,7 +373,7 @@ fun main() {
             /** EBICS CONVENIENCE */
 
             get("/ebics/subscribers/{id}/pubkeys") {
-                val nexusUser = expectNexusIdTransaction(call.parameters["id"])
+                val nexusUser = extractNexusUser(call.parameters["id"])
                 val response = transaction {
                     val subscriber = getEbicsSubscriberFromUser(nexusUser)
                     val authPriv = CryptoUtil.loadRsaPrivateKey(subscriber.authenticationPrivateKey.toByteArray())
@@ -415,7 +418,7 @@ fun main() {
                 val timeLine = timeFormat.format(now)
                 var hostID = ""
                 transaction {
-                    val nexusUser = expectNexusIdTransaction(nexusUserId)
+                    val nexusUser = extractNexusUser(nexusUserId)
                     val subscriber = getEbicsSubscriberFromUser(nexusUser)
                     val signPubTmp = CryptoUtil.getRsaPublicFromPrivate(
                         CryptoUtil.loadRsaPrivateKey(subscriber.signaturePrivateKey.toByteArray())
@@ -592,7 +595,7 @@ fun main() {
             post("/ebics/subscribers/{id}/backup") {
                 val body = call.receive<EbicsBackupRequestJson>()
                 val response = transaction {
-                    val nexusUser = expectNexusIdTransaction(call.parameters["id"])
+                    val nexusUser = extractNexusUser(call.parameters["id"])
                     val subscriber = getEbicsSubscriberFromUser(nexusUser)
                     EbicsKeysBackupJson(
                         userID = subscriber.userID,
@@ -628,7 +631,7 @@ fun main() {
 
             /** Download keys from bank */
             post("/ebics/subscribers/{id}/sync") {
-                val nexusUser = expectNexusIdTransaction(call.parameters["id"])
+                val nexusUser = extractNexusUser(call.parameters["id"])
                 val subscriberDetails = getSubscriberDetailsFromNexusUserId(nexusUser.id.value)
                 val hpbRequest = makeEbicsHpbRequest(subscriberDetails)
                 val responseStr = client.postToBank(subscriberDetails.ebicsUrl, hpbRequest)
@@ -731,7 +734,7 @@ fun main() {
              * calling EBICS subscriber.
              */
             post("/ebics/subscribers/{id}/fetch-accounts") {
-                val nexusUser = expectNexusIdTransaction((call.parameters["id"]))
+                val nexusUser = extractNexusUser((call.parameters["id"]))
                 val paramsJson = call.receive<EbicsStandardOrderParamsJson>()
                 val orderParams = paramsJson.toOrderParams()
                 val subscriberData = getSubscriberDetailsFromNexusUserId(nexusUser.id.value)
@@ -831,7 +834,10 @@ fun main() {
                 if (resp.technicalReturnCode != EbicsReturnCode.EBICS_OK) {
                     throw NexusError(HttpStatusCode.InternalServerError,"Unexpected INI response code: ${resp.technicalReturnCode}")
                 }
-                call.respondText("Bank accepted signature key\n", ContentType.Text.Plain, HttpStatusCode.OK)
+                call.respondText(
+                    "Bank accepted signature key\n",
+                    ContentType.Text.Plain, HttpStatusCode.OK
+                )
                 return@post
             }
 
@@ -860,7 +866,6 @@ fun main() {
             Taler(this)
         }
     }
-
     logger.info("Up and running")
     server.start(wait = true)
 }

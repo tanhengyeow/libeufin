@@ -212,7 +212,7 @@ object NexusUsersTable : IdTable<String>() {
     override val id = varchar("id", ID_MAX_LENGTH).entityId().primaryKey()
     val ebicsSubscriber = reference("ebicsSubscriber", EbicsSubscribersTable).nullable()
     val testSubscriber = reference("testSubscriber", EbicsSubscribersTable).nullable()
-    val password = EbicsSubscribersTable.blob("password").nullable()
+    val password = blob("password").nullable()
 }
 
 class NexusUserEntity(id: EntityID<String>) : Entity<String>(id) {
@@ -249,13 +249,14 @@ fun dbCreateTables() {
     TransactionManager.manager.defaultIsolationLevel = Connection.TRANSACTION_SERIALIZABLE
     transaction {
         addLogger(StdOutSqlLogger)
-         SchemaUtils.create(
-             Pain001Table,
-             EbicsSubscribersTable,
-             BankAccountsTable,
-             RawBankTransactionsTable,
-             TalerIncomingPayments,
-             TalerRequestedPayments
+        SchemaUtils.create(
+            Pain001Table,
+            EbicsSubscribersTable,
+            BankAccountsTable,
+            RawBankTransactionsTable,
+            TalerIncomingPayments,
+            TalerRequestedPayments,
+            NexusUsersTable
          )
     }
 }

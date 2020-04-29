@@ -16,10 +16,8 @@ import org.jetbrains.exposed.dao.IdTable
 import org.jetbrains.exposed.sql.*
 import org.jetbrains.exposed.sql.transactions.transaction
 import org.joda.time.DateTime
-import org.joda.time.format.DateTimeFormat
 import tech.libeufin.util.Amount
 import tech.libeufin.util.CryptoUtil
-import tech.libeufin.util.toZonedString
 import kotlin.math.abs
 import kotlin.math.min
 
@@ -242,7 +240,7 @@ class Taler(app: Route) {
             val opaque_row_id = transaction {
                 val creditorData = parsePayto(transferRequest.credit_account)
                 val exchangeBankAccount = getBankAccountFromNexusUserId(exchangeId)
-                val nexusUser = expectNexusIdTransaction(exchangeId)
+                val nexusUser = extractNexusUser(exchangeId)
                 /**
                  * Checking the UID has the desired characteristics.
                  */
@@ -545,7 +543,7 @@ class Taler(app: Route) {
                             iban = "42"
                             bankCode = "localhost"
                         }
-                        val nexusUser = expectNexusIdTransaction(exchangeId)
+                        val nexusUser = extractNexusUser(exchangeId)
                         EbicsToBankAccountEntity.new {
                             bankAccount = newBankAccount
                             ebicsSubscriber = getEbicsSubscriberFromUser(nexusUser)

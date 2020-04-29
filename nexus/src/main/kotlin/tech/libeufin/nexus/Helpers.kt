@@ -22,7 +22,7 @@ import java.time.ZoneId
 
 fun getSubscriberEntityFromNexusUserId(nexusUserId: String?): EbicsSubscriberEntity {
     return transaction {
-        val nexusUser = expectNexusIdTransaction(expectId(nexusUserId))
+        val nexusUser = extractNexusUser(expectId(nexusUserId))
         getEbicsSubscriberFromUser(nexusUser)
     }
 }
@@ -138,7 +138,7 @@ fun getEbicsSubscriberFromUser(nexusUser: NexusUserEntity): EbicsSubscriberEntit
 
 fun getSubscriberDetailsFromNexusUserId(id: String): EbicsClientSubscriberDetails {
     return transaction {
-        val nexusUser = expectNexusIdTransaction(id)
+        val nexusUser = extractNexusUser(id)
         getSubscriberDetailsInternal(nexusUser.ebicsSubscriber ?: throw NexusError(
             HttpStatusCode.NotFound,
             "Cannot get details for non-activated subscriber!"
@@ -319,11 +319,16 @@ fun expectId(param: String?): String {
 }
 
 /* Needs a transaction{} block to be called */
-fun expectNexusIdTransaction(param: String?): NexusUserEntity {
+fun extractNexusUser(param: String?): NexusUserEntity {
     if (param == null) {
         throw NexusError(HttpStatusCode.BadRequest, "Null Id given")
     }
-    return NexusUserEntity.findById(param) ?: throw NexusError(HttpStatusCode.NotFound, "Subscriber: $param not found")
+    return transaction{
+        NexusUserEntity.findById(param) ?: throw NexusError(
+            HttpStatusCode.NotFound,
+            "Subscriber: $param not found"
+        )
+    }
 }
 
 fun ApplicationCall.expectUrlParameter(name: String): String {

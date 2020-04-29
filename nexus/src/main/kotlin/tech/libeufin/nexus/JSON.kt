@@ -100,7 +100,6 @@ data class NexusUser(
 
 /** Instructs the nexus to CREATE a new user */
 data class NexusUserRequest(
-    val userID: String,
     val password: String?
 )
 
