@@ -150,7 +150,6 @@ class EbicsResponse {
             }
         }
 
-
         fun createForDownloadReceiptPhase(transactionID: String, positiveAck: Boolean): EbicsResponse {
             return EbicsResponse().apply {
                 this.version = "H004"

@@ -282,7 +282,7 @@ class Taler(app: Route) {
                         creditorIban = creditorObj.iban
                         counterpartBic = creditorObj.bic
                         bookingDate = DateTime.now().millis
-                        nexusSubscriber = getEbicsSubscriberFromUser(nexusUser)
+                        this.nexusUser = nexusUser
                         status = "BOOK"
                     }
                 } else null
@@ -338,7 +338,7 @@ class Taler(app: Route) {
                     counterpartBic = debtor.bic
                     bookingDate = DateTime.now().millis
                     status = "BOOK"
-                    nexusSubscriber = getSubscriberEntityFromNexusUserId(exchangeId)
+                    nexusUser = extractNexusUser(exchangeId)
                 }
                 /** This payment is "valid by default" and will be returned
                  * as soon as the exchange will ask for new payments.  */

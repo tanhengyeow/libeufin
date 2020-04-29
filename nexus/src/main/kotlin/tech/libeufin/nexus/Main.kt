@@ -45,6 +45,7 @@ import kotlinx.coroutines.io.jvm.javaio.toInputStream
 import kotlinx.io.core.ExperimentalIoApi
 import org.jetbrains.exposed.sql.and
 import org.jetbrains.exposed.sql.transactions.transaction
+import org.joda.time.DateTime
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 import org.slf4j.event.Level
@@ -285,6 +286,31 @@ fun main() {
                 )
                 return@post
             }
+            get("/users/{id}/raw-payments") {
+                val nexusUser = extractNexusUser(call.parameters["id"])
+                var ret = RawPayments()
+                transaction {
+                    RawBankTransactionEntity.find {
+                        RawBankTransactionsTable.nexusUser eq nexusUser.id.value
+                    }.forEach {
+                        ret.payments.add(
+                            RawPayment(
+                                creditorIban = it.creditorIban,
+                                debitorIban = it.debitorIban,
+                                subject = it.unstructuredRemittanceInformation,
+                                date = DateTime(it.bookingDate).toDashedDate(),
+                                amount = it.amount + " " + it.currency
+                            )
+                        )
+                    }
+                }
+                call.respond(
+                    HttpStatusCode.OK,
+                    ret
+                )
+                return@get
+            }
+
             /** Associate a EBICS subscriber to the existing user */
             post("/ebics/subscribers/{id}") {
                 val nexusUser = extractNexusUser(call.parameters["id"])
@@ -587,10 +613,6 @@ fun main() {
                 )
                 return@post
             }
-            post("/ebics/subscribers/{id}/collect-transactions-c52") {
-                // FIXME(florian): Download C52 and store the result in the right database table
-
-            }
             /** exports keys backup copy */
             post("/ebics/subscribers/{id}/backup") {
                 val body = call.receive<EbicsBackupRequestJson>()
@@ -628,7 +650,6 @@ fun main() {
                     response
                 )
             }
-
             /** Download keys from bank */
             post("/ebics/subscribers/{id}/sync") {
                 val nexusUser = extractNexusUser(call.parameters["id"])
@@ -696,13 +717,13 @@ fun main() {
                             transaction {
                                 RawBankTransactionEntity.new {
                                     sourceFileName = fileName
-                                    unstructuredRemittanceInformation = camt53doc.pickString("//*[local-name()='Ntry']//*[local-name()='Amt']/@Ccy")
+                                    unstructuredRemittanceInformation = camt53doc.pickString("//*[local-name()='Ntry']//*[local-name()='Ustrd']")
                                     transactionType = camt53doc.pickString("//*[local-name()='Ntry']//*[local-name()='CdtDbtInd']")
                                     currency = camt53doc.pickString("//*[local-name()='Ntry']//*[local-name()='Amt']/@Ccy")
                                     amount = camt53doc.pickString("//*[local-name()='Ntry']//*[local-name()='Amt']")
                                     status = camt53doc.pickString("//*[local-name()='Ntry']//*[local-name()='Sts']")
                                     bookingDate = parseDate(camt53doc.pickString("//*[local-name()='BookgDt']//*[local-name()='Dt']")).millis
-                                    nexusSubscriber = getSubscriberEntityFromNexusUserId(id)
+                                    nexusUser = extractNexusUser(id)
                                     creditorName = camt53doc.pickString("//*[local-name()='RltdPties']//*[local-name()='Dbtr']//*[local-name()='Nm']")
                                     creditorIban = camt53doc.pickString("//*[local-name()='CdtrAcct']//*[local-name()='IBAN']")
                                     debitorName = camt53doc.pickString("//*[local-name()='RltdPties']//*[local-name()='Dbtr']//*[local-name()='Nm']")

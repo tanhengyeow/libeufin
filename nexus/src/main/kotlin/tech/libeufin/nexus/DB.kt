@@ -5,9 +5,6 @@ import org.jetbrains.exposed.dao.*
 import org.jetbrains.exposed.sql.*
 import org.jetbrains.exposed.sql.transactions.TransactionManager
 import org.jetbrains.exposed.sql.transactions.transaction
-import tech.libeufin.nexus.EbicsSubscribersTable.entityId
-import tech.libeufin.nexus.EbicsSubscribersTable.nullable
-import tech.libeufin.nexus.EbicsSubscribersTable.primaryKey
 import tech.libeufin.util.IntIdTableWithAmount
 import java.sql.Connection
 
@@ -86,7 +83,7 @@ class TalerIncomingPaymentEntity(id: EntityID<Long>) : LongEntity(id) {
  * CAMT message.
  */
 object RawBankTransactionsTable : LongIdTable() {
-    val nexusSubscriber = reference("subscriber", EbicsSubscribersTable)
+    val nexusUser = reference("nexusUser", NexusUsersTable)
     val sourceFileName = text("sourceFileName") /* ZIP entry's name */
     val unstructuredRemittanceInformation = text("unstructuredRemittanceInformation")
     val transactionType = text("transactionType") /* DBIT or CRDT */
@@ -114,7 +111,7 @@ class RawBankTransactionEntity(id: EntityID<Long>) : LongEntity(id) {
     var creditorIban by RawBankTransactionsTable.creditorIban
     var counterpartBic by RawBankTransactionsTable.counterpartBic
     var bookingDate by RawBankTransactionsTable.bookingDate
-    var nexusSubscriber by EbicsSubscriberEntity referencedOn RawBankTransactionsTable.nexusSubscriber
+    var nexusUser by NexusUserEntity referencedOn RawBankTransactionsTable.nexusUser
     var status by RawBankTransactionsTable.status
 }
 

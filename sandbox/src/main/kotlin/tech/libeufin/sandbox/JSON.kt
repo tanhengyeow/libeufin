@@ -19,122 +19,23 @@
 
 package tech.libeufin.sandbox
 
-/**
- * Error message.
- */
+/** Error message */
 data class SandboxError(
     val message: String
 )
 
 /**
- * Request for POST /admin/customers
+ * Used to show the list of Ebics hosts that exist
+ * in the system.
  */
-data class CustomerRequest(
-    val name: String
-)
-
-data class CustomerResponse(
-    val id: Int
-)
-
-data class CustomerBalance(
-    val name: String,
-    val balance: String
-)
-
-/**
- * Response for GET /admin/customers/:id
- */
-data class CustomerInfo(
-    val name: String,
-    val ebicsInfo: CustomerEbicsInfo
-)
-
-data class CustomerEbicsInfo(
-    val userId: String
-)
-
-data class CustomerHistoryRequest(
-    val start: String?,
-    val end: String?
-)
-
-data class CustomerHistoryResponseElement(
-    var amount: String,
-    val subject: String,
-    val counterpart: String,
-    val operationDate: String,
-    val valueDate: String
-)
-
-data class CustomerHistoryResponse(
-    var history: MutableList<CustomerHistoryResponseElement> = mutableListOf()
-)
-
-/**
- * Wrapper type around initialization letters
- * for RSA keys.
- */
-data class IniHiaLetters(
-    val ini: IniLetter,
-    val hia: HiaLetter
-)
-
-/**
- * Request for INI letter.
- */
-data class IniLetter(
-    val userId: String,
-    val customerId: String,
-    val name: String,
-    val date: String,
-    val time: String,
-    val recipient: String,
-    val public_exponent_length: Int,
-    val public_exponent: String,
-    val public_modulus_length: Int,
-    val public_modulus: String,
-    val hash: String
-)
-
-/**
- * Request for HIA letter.
- */
-data class HiaLetter(
-    val userId: String,
-    val customerId: String,
-    val name: String,
-    val date: String,
-    val time: String,
-    val recipient: String,
-    val ia_public_exponent_length: Int,
-    val ia_public_exponent: String,
-    val ia_public_modulus_length: Int,
-    val ia_public_modulus: String,
-    val ia_hash: String,
-    val enc_public_exponent_length: Int,
-    val enc_public_exponent: String,
-    val enc_public_modulus_length: Int,
-    val enc_public_modulus: String,
-    val enc_hash: String
-)
-
-data class EbicsSubscribersResponse(
-    val subscribers: List<String>
-)
-
-data class EbicsSubscriberResponse(
-    val id: String,
-    val partnerID: String,
-    val userID: String,
-    val systemID: String?,
-    val state: String
-)
-
 data class EbicsHostsResponse(
     val ebicsHosts: List<String>
 )
 
+/**
+ * Used to show information about ONE particular
+ * Ebics host that is active in the system.
+ */
 data class EbicsHostResponse(
     val hostID: String,
     val ebicsVersion: String
@@ -145,21 +46,16 @@ data class EbicsHostCreateRequest(
     val ebicsVersion: String
 )
 
-data class AdminAddSubscriberRequest(
-    val name: String, // person's name
+/**
+ * Used to create AND show one Ebics subscriber in the system.
+ */
+data class EbicsSubscriberElement(
     val hostID: String,
     val partnerID: String,
     val userID: String,
     val systemID: String? = null
 )
 
-data class AdminSubscriberElement(
-    var name: String,
-    var userId: String,
-    var partnerID: String,
-    var hostID: String
-)
-
 data class AdminGetSubscribers(
-    var subscribers: MutableList<AdminSubscriberElement> = mutableListOf()
+    var subscribers: MutableList<EbicsSubscriberElement> = mutableListOf()
 )

@@ -60,20 +60,6 @@ class UnacceptableFractional(badNumber: BigDecimal) : Exception(
     "Unacceptable fractional part ${badNumber}"
 )
 val LOGGER: Logger = LoggerFactory.getLogger("tech.libeufin.sandbox")
-fun findCustomer(id: String?): BankCustomerEntity {
-
-    val idN = try {
-        id!!.toInt()
-    } catch (e: Exception) {
-        e.printStackTrace()
-        throw BadInputData(id)
-    }
-
-    return transaction {
-        addLogger(StdOutSqlLogger)
-        BankCustomerEntity.findById(idN) ?: throw CustomerNotFound(id)
-    }
-}
 
 fun findEbicsSubscriber(partnerID: String, userID: String, systemID: String?): EbicsSubscriberEntity? {
     return if (systemID == null) {
@@ -120,82 +106,8 @@ fun BigDecimal.signToString(): String {
     // minus sign is added by default already.
 }
 
-fun sampleData() {
-    transaction {
-        val pairA = CryptoUtil.generateRsaKeyPair(2048)
-        val pairB = CryptoUtil.generateRsaKeyPair(2048)
-        val pairC = CryptoUtil.generateRsaKeyPair(2048)
-        EbicsHostEntity.new {
-            hostId = "host01"
-            ebicsVersion = "H004"
-            authenticationPrivateKey = SerialBlob(pairA.private.encoded)
-            encryptionPrivateKey = SerialBlob(pairB.private.encoded)
-            signaturePrivateKey = SerialBlob(pairC.private.encoded)
-        }
-        val customerEntity = BankCustomerEntity.new {
-            addLogger(StdOutSqlLogger)
-            customerName = "Mina"
-        }
-        LOGGER.debug("Creating customer number: ${customerEntity.id}")
-        EbicsSubscriberEntity.new {
-            partnerId = "PARTNER1"
-            userId = "USER1"
-            systemId = null
-            hostId = "HOST01"
-            state = SubscriberState.NEW
-            nextOrderID = 1
-            bankCustomer = customerEntity
-        }
-        for (i in listOf(Amount("-0.44"), Amount("6.02"))) {
-            BankTransactionEntity.new {
-                counterpart = "IBAN"
-                amount = i
-                subject = "transaction $i"
-                operationDate = DateTime.now().millis
-                valueDate = DateTime.now().millis
-                localCustomer = customerEntity
-            }
-        }
-    }
-}
-
-/**
- * @param id the customer whose history must be returned.  This
- * id is local to the bank and is not reused/encoded into other
- * EBICS id values.
- *
- * @return result set of all the operations related to the customer
- * identified by @p id.
- */
-fun extractHistory(id: Int, start: DateTime, end: DateTime): SizedIterable<BankTransactionEntity> {
-    LOGGER.debug("Fetching history from ${start.toLocalDateTime()} to ${end.toLocalDateTime()}")
-    return transaction {
-        addLogger(StdOutSqlLogger)
-        BankTransactionEntity.find {
-            BankTransactionsTable.localCustomer eq id and BankTransactionsTable.valueDate.between(start.millis, end.millis)
-        }
-    }
-}
-
-fun calculateBalance(id: Int, start: String?, end: String?): BigDecimal {
-    val s = if (start != null) DateTime.parse(start) else DateTime(0)
-    val e = if (end != null) DateTime.parse(end) else DateTime.now()
-
-    var ret = BigDecimal(0)
-
-    transaction {
-        BankTransactionEntity.find {
-            BankTransactionsTable.localCustomer eq id and BankTransactionsTable.operationDate.between(s.millis, e.millis)
-        }.forEach { ret += it.amount }
-    }
-    return ret
-}
-
 fun main() {
-
     dbCreateTables()
-    sampleData()
-
     val server = embeddedServer(Netty, port = 5000) {
         install(CallLogging) {
             this.level = Level.DEBUG
@@ -225,63 +137,15 @@ fun main() {
             }
         }
         routing {
-            post("/{id}/history") {
-                val req = call.receive<CustomerHistoryRequest>()
-                val customer = findCustomer(call.parameters["id"])
-                val ret = CustomerHistoryResponse()
-                val history = extractHistory(
-                    customer.id.value,
-                    DateTime.parse(req.start ?: "1970-01-01"),
-                    DateTime.parse(req.end ?: "3000-01-01")
-                )
+            get("/") {
+                call.respondText("Hello Sandbox!\n", ContentType.Text.Plain)
+            }
 
-                transaction {
-                    history.forEach {
-                        ret.history.add(
-                            CustomerHistoryResponseElement(
-                                subject = it.subject,
-                                amount = "${it.amount.signToString()}${it.amount} EUR",
-                                counterpart = it.counterpart,
-                                operationDate = DateTime(it.operationDate).toString("Y-M-d"),
-                                valueDate = DateTime(it.valueDate).toString("Y-M-d")
-                            )
-                        )
-                    }
-                }
-                call.respond(ret)
-                return@post
-            }
-            get("/{id}/balance") {
-                val customer = findCustomer(call.parameters["id"])
-                val balance = calculateBalance(customer.id.value, null, null)
-                call.respond(
-                    CustomerBalance(
-                    name = customer.customerName,
-                    balance = "${balance} EUR"
-                    )
-                )
-                return@get
-            }
-            get("/admin/subscribers") {
-                var ret = AdminGetSubscribers()
-                transaction {
-                    EbicsSubscriberEntity.all().forEach {
-                        ret.subscribers.add(
-                            AdminSubscriberElement(
-                            userId = it.userId, partnerID = it.partnerId, hostID = it.hostId, name = it.bankCustomer.customerName))
-                    }
-                }
-                call.respond(ret)
-                return@get
-            }
-            post("/admin/add/subscriber") {
-                val body = call.receive<AdminAddSubscriberRequest>()
+            /** EBICS ADMIN ENDPOINTS */
 
+            post("/admin/ebics-subscriber") {
+                val body = call.receive<EbicsSubscriberElement>()
                 transaction {
-                    val customerEntity = BankCustomerEntity.new {
-                        addLogger(StdOutSqlLogger)
-                        customerName = body.name
-                    }
                     EbicsSubscriberEntity.new {
                         partnerId = body.partnerID
                         userId = body.userID
@@ -289,23 +153,49 @@ fun main() {
                         hostId = body.hostID
                         state = SubscriberState.NEW
                         nextOrderID = 1
-                        bankCustomer = customerEntity
                     }
                 }
-
-                call.respondText("Subscriber created.", ContentType.Text.Plain, HttpStatusCode.OK)
+                call.respondText(
+                    "Subscriber created.",
+                    ContentType.Text.Plain, HttpStatusCode.OK
+                )
                 return@post
             }
-
-            get("/") {
-                call.respondText("Hello LibEuFin!\n", ContentType.Text.Plain)
-            }
-            get("/ebics/hosts") {
-                val ebicsHosts = transaction {
-                    EbicsHostEntity.all().map { it.hostId }
+            get("/admin/ebics-subscribers") {
+                var ret = AdminGetSubscribers()
+                transaction {
+                    EbicsSubscriberEntity.all().forEach {
+                        ret.subscribers.add(
+                            EbicsSubscriberElement(
+                                userID = it.userId,
+                                partnerID = it.partnerId,
+                                hostID = it.hostId
+                            )
+                        )
+                    }
                 }
-                call.respond(EbicsHostsResponse(ebicsHosts))
+                call.respond(ret)
+                return@get
             }
+
+            /* Show details about ONE Ebics host */
+            get("/ebics/hosts/{id}") {
+                val resp = transaction {
+                    val host = EbicsHostEntity.find { EbicsHostsTable.hostID eq call.parameters["id"]!! }.firstOrNull()
+                    if (host == null) null
+                    else EbicsHostResponse(
+                        host.hostId,
+                        host.ebicsVersion
+                    )
+                }
+                if (resp == null) call.respond(
+                    HttpStatusCode.NotFound,
+                    SandboxError("host not found")
+                )
+                else call.respond(resp)
+            }
+
+            /** Create a new EBICS host. */
             post("/ebics/hosts") {
                 val req = call.receive<EbicsHostCreateRequest>()
                 val pairA = CryptoUtil.generateRsaKeyPair(2048)
@@ -323,47 +213,25 @@ fun main() {
                     }
                 }
                 call.respondText(
-                    "Host created.",
+                    "Host '${req.hostId}' created.",
                     ContentType.Text.Plain,
                     HttpStatusCode.OK
                 )
                 return@post
             }
-            get("/ebics/hosts/{id}") {
-                val resp = transaction {
-                    val host = EbicsHostEntity.find { EbicsHostsTable.hostID eq call.parameters["id"]!! }.firstOrNull()
-                    if (host == null) null
-                    else EbicsHostResponse(host.hostId, host.ebicsVersion)
+            /* Show ONLY names of all the Ebics hosts */
+            get("/ebics/hosts") {
+                val ebicsHosts = transaction {
+                    EbicsHostEntity.all().map { it.hostId }
                 }
-                if (resp == null) call.respond(
-                    HttpStatusCode.NotFound,
-                    SandboxError("host not found")
-                )
-                else call.respond(resp)
+                call.respond(EbicsHostsResponse(ebicsHosts))
             }
-            get("/ebics/subscribers") {
-                val subscribers = transaction {
-                    EbicsSubscriberEntity.all().map { it.id.value.toString() }
-                }
-                call.respond(EbicsSubscribersResponse(subscribers))
-            }
-            get("/ebics/subscribers/{id}") {
-                val resp = transaction {
-                    val id = call.parameters["id"]!!
-                    val subscriber = EbicsSubscriberEntity.findById(id.toInt())!!
-                    EbicsSubscriberResponse(
-                        id,
-                        subscriber.partnerId,
-                        subscriber.userId,
-                        subscriber.systemId,
-                        subscriber.state.name
-                    )
-                }
-                call.respond(resp)
-            }
+
+            /** MAIN EBICS handler. */
             post("/ebicsweb") {
                 call.ebicsweb()
             }
+
         }
     }
     LOGGER.info("Up and running")

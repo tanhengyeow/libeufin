@@ -138,8 +138,11 @@ class TestSubscriber()
 /** PAYMENT INSTRUCTIONS TYPES */
 
 /** Represents a prepared payment at the nexus.  This structure is
- * used to SHOW a prepared payment to the called.  */
+ * used to SHOW a prepared payment to the caller.  */
 data class PaymentInfoElement(
+    /**
+     * This field is the mnemonic value that bank accounts usually have.
+     */
     val debtorAccount: String,
     val creditorIban: String,
     val creditorBic: String,
@@ -160,4 +163,21 @@ data class Pain001Data(
     val sum: Amount,
     val currency: String = "EUR",
     val subject: String
+)
+
+/**
+ * This type is more of a debug one, and it shows details
+ * about one payment that was accounted by the bank (typically
+ * in a CAMT.05x entry)
+ */
+data class RawPayment(
+    val creditorIban: String,
+    val debitorIban: String,
+    val amount: String,
+    val subject: String,
+    val date: String
+)
+
+data class RawPayments(
+    var payments: MutableList<RawPayment> = mutableListOf()
 )

@@ -19,26 +19,11 @@
 
 package tech.libeufin.sandbox
 
-import io.ktor.http.HttpStatusCode
 import org.jetbrains.exposed.dao.*
 import org.jetbrains.exposed.sql.*
 import org.jetbrains.exposed.sql.transactions.TransactionManager
 import org.jetbrains.exposed.sql.transactions.transaction
-import tech.libeufin.util.IntIdTableWithAmount
-import java.lang.ArithmeticException
-import java.math.BigDecimal
-import java.math.MathContext
-import java.math.RoundingMode
-import java.sql.Blob
 import java.sql.Connection
-
-const val CUSTOMER_NAME_MAX_LENGTH = 20
-const val EBICS_HOST_ID_MAX_LENGTH = 10
-const val EBICS_USER_ID_MAX_LENGTH = 10
-const val EBICS_PARTNER_ID_MAX_LENGTH = 10
-const val EBICS_SYSTEM_ID_MAX_LENGTH = 10
-const val MAX_ID_LENGTH = 21 // enough to contain IBANs
-const val MAX_SUBJECT_LENGTH = 140 // okay?
 
 /**
  * All the states to give a subscriber.
@@ -93,48 +78,6 @@ enum class KeyState {
     RELEASED
 }
 
-
-object BankTransactionsTable : IntIdTableWithAmount() {
-    /* Using varchar to store the IBAN - or possibly other formats
-     * - from the counterpart.  */
-    val counterpart = varchar("counterpart", MAX_ID_LENGTH)
-    val amount = amount("amount")
-    val subject = varchar("subject", MAX_SUBJECT_LENGTH)
-    val operationDate = long("operationDate")
-    val valueDate = long("valueDate")
-    val localCustomer = reference("localCustomer", BankCustomersTable)
-}
-
-class BankTransactionEntity(id: EntityID<Int>) : IntEntity(id) {
-    companion object : IntEntityClass<BankTransactionEntity>(BankTransactionsTable)
-    /* the id of the local customer involved in this transaction,
-    * either as the credit or the debit part; makes lookups easier */
-    var localCustomer by BankCustomerEntity referencedOn BankTransactionsTable.localCustomer
-    /* keeping as strings, as to allow hosting IBANs and/or other
-    * unobvious formats.  */
-    var counterpart by BankTransactionsTable.counterpart
-    var subject by BankTransactionsTable.subject
-    var operationDate by BankTransactionsTable.operationDate
-    var valueDate by BankTransactionsTable.valueDate
-    var amount by BankTransactionsTable.amount
-}
-
-
-/**
- * This table information *not* related to EBICS, for all
- * its customers.
- */
-object BankCustomersTable : IntIdTable() {
-    // Customer ID is the default 'id' field provided by the constructor.
-    val customerName = varchar("customerName", CUSTOMER_NAME_MAX_LENGTH)
-}
-
-class BankCustomerEntity(id: EntityID<Int>) : IntEntity(id) {
-    companion object : IntEntityClass<BankCustomerEntity>(BankCustomersTable)
-    var customerName by BankCustomersTable.customerName
-}
-
-
 /**
  * This table stores RSA public keys of subscribers.
  */
@@ -142,10 +85,6 @@ object EbicsSubscriberPublicKeysTable : IntIdTable() {
     val rsaPublicKey = blob("rsaPublicKey")
     val state = enumeration("state", KeyState::class)
 }
-
-/**
- * Definition of a row in the [EbicsSubscriberPublicKeyEntity] table
- */
 class EbicsSubscriberPublicKeyEntity(id: EntityID<Int>) : IntEntity(id) {
     companion object : IntEntityClass<EbicsSubscriberPublicKeyEntity>(EbicsSubscriberPublicKeysTable)
 
@@ -153,7 +92,9 @@ class EbicsSubscriberPublicKeyEntity(id: EntityID<Int>) : IntEntity(id) {
     var state by EbicsSubscriberPublicKeysTable.state
 }
 
-
+/**
+ * Ebics 'host'(s) that are served by one Sandbox instance.
+ */
 object EbicsHostsTable : IntIdTable() {
     val hostID = text("hostID")
     val ebicsVersion = text("ebicsVersion")
@@ -161,11 +102,8 @@ object EbicsHostsTable : IntIdTable() {
     val encryptionPrivateKey = blob("encryptionPrivateKey")
     val authenticationPrivateKey = blob("authenticationPrivateKey")
 }
-
-
 class EbicsHostEntity(id: EntityID<Int>) : IntEntity(id) {
     companion object : IntEntityClass<EbicsHostEntity>(EbicsHostsTable)
-
     var hostId by EbicsHostsTable.hostID
     var ebicsVersion by EbicsHostsTable.ebicsVersion
     var signaturePrivateKey by EbicsHostsTable.signaturePrivateKey
@@ -174,8 +112,7 @@ class EbicsHostEntity(id: EntityID<Int>) : IntEntity(id) {
 }
 
 /**
- * Subscribers table.  This table associates users with partners
- * and systems.  Each value can appear multiple times in the same column.
+ * Ebics Subscribers table.
  */
 object EbicsSubscribersTable : IntIdTable() {
     val userId = text("userID")
@@ -187,28 +124,23 @@ object EbicsSubscribersTable : IntIdTable() {
     val authenticationKey = reference("authorizationKey", EbicsSubscriberPublicKeysTable).nullable()
     val nextOrderID = integer("nextOrderID")
     val state = enumeration("state", SubscriberState::class)
-    val bankCustomer = reference("bankCustomer", BankCustomersTable)
 }
-
-
 class EbicsSubscriberEntity(id: EntityID<Int>) : IntEntity(id) {
     companion object : IntEntityClass<EbicsSubscriberEntity>(EbicsSubscribersTable)
-
     var userId by EbicsSubscribersTable.userId
     var partnerId by EbicsSubscribersTable.partnerId
     var systemId by EbicsSubscribersTable.systemId
     var hostId by EbicsSubscribersTable.hostId
-
     var signatureKey by EbicsSubscriberPublicKeyEntity optionalReferencedOn EbicsSubscribersTable.signatureKey
     var encryptionKey by EbicsSubscriberPublicKeyEntity optionalReferencedOn EbicsSubscribersTable.encryptionKey
     var authenticationKey by EbicsSubscriberPublicKeyEntity optionalReferencedOn EbicsSubscribersTable.authenticationKey
-
     var nextOrderID by EbicsSubscribersTable.nextOrderID
     var state by EbicsSubscribersTable.state
-    var bankCustomer by BankCustomerEntity referencedOn EbicsSubscribersTable.bankCustomer
 }
 
-
+/**
+ * Details of a download order.
+ */
 object EbicsDownloadTransactionsTable : IdTable<String>() {
     override val id = text("transactionID").entityId()
     val orderType = text("orderType")
@@ -220,7 +152,6 @@ object EbicsDownloadTransactionsTable : IdTable<String>() {
     val segmentSize = integer("segmentSize")
     val receiptReceived = bool("receiptReceived")
 }
-
 class EbicsDownloadTransactionEntity(id: EntityID<String>) : Entity<String>(id) {
     companion object : EntityClass<String, EbicsDownloadTransactionEntity>(EbicsDownloadTransactionsTable)
     var orderType by EbicsDownloadTransactionsTable.orderType
@@ -233,6 +164,9 @@ class EbicsDownloadTransactionEntity(id: EntityID<String>) : Entity<String>(id) 
     var receiptReceived by EbicsDownloadTransactionsTable.receiptReceived
 }
 
+/**
+ * Details of a upload order.
+ */
 object EbicsUploadTransactionsTable : IdTable<String>() {
     override val id = text("transactionID").entityId()
     val orderType = text("orderType")
@@ -243,10 +177,8 @@ object EbicsUploadTransactionsTable : IdTable<String>() {
     val lastSeenSegment = integer("lastSeenSegment")
     val transactionKeyEnc = blob("transactionKeyEnc")
 }
-
 class EbicsUploadTransactionEntity(id: EntityID<String>) : Entity<String>(id) {
     companion object : EntityClass<String, EbicsUploadTransactionEntity>(EbicsUploadTransactionsTable)
-
     var orderType by EbicsUploadTransactionsTable.orderType
     var orderID by EbicsUploadTransactionsTable.orderID
     var host by EbicsHostEntity referencedOn EbicsUploadTransactionsTable.host
@@ -256,6 +188,9 @@ class EbicsUploadTransactionEntity(id: EntityID<String>) : Entity<String>(id) {
     var transactionKeyEnc by EbicsUploadTransactionsTable.transactionKeyEnc
 }
 
+/**
+ * FIXME: document this.
+ */
 object EbicsOrderSignaturesTable : IntIdTable() {
     val orderID = text("orderID")
     val orderType = text("orderType")
@@ -264,7 +199,6 @@ object EbicsOrderSignaturesTable : IntIdTable() {
     val signatureAlgorithm = text("signatureAlgorithm")
     val signatureValue = blob("signatureValue")
 }
-
 class EbicsOrderSignatureEntity(id: EntityID<Int>) : IntEntity(id) {
     companion object : IntEntityClass<EbicsOrderSignatureEntity>(EbicsOrderSignaturesTable)
     var orderID by EbicsOrderSignaturesTable.orderID
@@ -275,13 +209,15 @@ class EbicsOrderSignatureEntity(id: EntityID<Int>) : IntEntity(id) {
     var signatureValue by EbicsOrderSignaturesTable.signatureValue
 }
 
+/**
+ * FIXME: document this.
+ */
 object EbicsUploadTransactionChunksTable : IdTable<String>() {
     override val id =
         text("transactionID").entityId()
     val chunkIndex = integer("chunkIndex")
     val chunkContent = blob("chunkContent")
 }
-
 class EbicsUploadTransactionChunkEntity(id : EntityID<String>): Entity<String>(id) {
     companion object : EntityClass<String, EbicsUploadTransactionChunkEntity>(EbicsUploadTransactionChunksTable)
     var chunkIndex by EbicsUploadTransactionChunksTable.chunkIndex
@@ -292,12 +228,9 @@ class EbicsUploadTransactionChunkEntity(id : EntityID<String>): Entity<String>(i
 fun dbCreateTables() {
     Database.connect("jdbc:sqlite:libeufin-sandbox.sqlite3", "org.sqlite.JDBC")
     TransactionManager.manager.defaultIsolationLevel = Connection.TRANSACTION_SERIALIZABLE
-
     transaction {
         addLogger(StdOutSqlLogger)
         SchemaUtils.create(
-            BankCustomersTable,
-            BankTransactionsTable,
             EbicsSubscribersTable,
             EbicsHostsTable,
             EbicsDownloadTransactionsTable,

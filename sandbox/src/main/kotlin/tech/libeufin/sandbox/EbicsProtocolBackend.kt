@@ -140,7 +140,7 @@ private suspend fun ApplicationCall.respondEbicsKeyManagement(
     respondText(text, ContentType.Application.Xml, HttpStatusCode.OK)
 }
 
-fun buildCamtString(history: SizedIterable<BankTransactionEntity>, type: Int): String {
+fun buildCamtString(type: Int): String {
 
     /**
      * Booking period: we keep two "lines" of booking periods; one for c52 and one for c53.
@@ -409,21 +409,13 @@ fun buildCamtString(history: SizedIterable<BankTransactionEntity>, type: Int): S
  * @param history the list of all the history elements
  * @param type 52 or 53.
  */
-private fun constructCamtResponse(type: Int, customerId: Int, header: EbicsRequest.Header): String {
-
+private fun constructCamtResponse(type: Int, header: EbicsRequest.Header): String {
     val dateRange = (header.static.orderDetails?.orderParams as EbicsRequest.StandardOrderParams).dateRange
     val (start: org.joda.time.DateTime, end: org.joda.time.DateTime) = if (dateRange != null) {
         Pair(DateTime(dateRange.start.toGregorianCalendar().time), DateTime(dateRange.end.toGregorianCalendar().time))
     } else Pair(DateTime(0), DateTime.now())
-    val history = extractHistory(
-        customerId,
-        start,
-        end
-    )
-    logger.debug("${history.count()} history elements found for account $customerId")
-    return buildCamtString(history, type)
+    return buildCamtString(type)
 }
-
 
 private fun handleEbicsTSD(requestContext: RequestContext): ByteArray {
     return "Hello World".toByteArray()
@@ -433,11 +425,36 @@ private fun handleEbicsPTK(requestContext: RequestContext): ByteArray {
     return "Hello I am a dummy PTK response.".toByteArray()
 }
 
+/**
+ * Process a payment request in the pain.001 format.
+ */
+private fun handleCct(paymentRequest: String, ebicsSubscriberEntity: EbicsSubscriberEntity) {
+    /**
+     * NOTE: this function is ONLY required to store some details
+     * to put then in the camt report.  IBANs / amount / subject / names?
+     */
+    val painDoc = XMLUtil.parseStringIntoDom(paymentRequest)
+    val creditorIban = painDoc.pickString("//*[local-name()='CdtrAcct']//*[local-name()='IBAN']")
+    val debitorIban = painDoc.pickString("//*[local-name()='DbtrAcct']//*[local-name()='IBAN']")
+    val subject = painDoc.pickString("//*[local-name()='Ustrd']")
+    val currency = painDoc.pickString("//*[local-name()='InstdAmt']/@ccy")
+    val amount = painDoc.pickString("//*[local-name()='InstdAmt']")
+
+    /*
+    transaction {
+        PaymentEntity.new {
+            this.creditorIban = creditorIban
+            this.debitorIban = debitorIban
+            this.subject = subject
+            this.amount = "${currency}:${amount}"
+        }
+    }*/
+}
+
 private fun handleEbicsC52(requestContext: RequestContext): ByteArray {
     val subscriber = requestContext.subscriber
     val camt = constructCamtResponse(
         52,
-        subscriber.bankCustomer.id.value,
         requestContext.requestObject.header
     )
     return camt.toByteArray().zip()
@@ -447,7 +464,6 @@ private fun handleEbicsC53(requestContext: RequestContext): ByteArray {
     val subscriber = requestContext.subscriber
     val camt = constructCamtResponse(
         53,
-        subscriber.bankCustomer.id.value,
         requestContext.requestObject.header
     )
     return camt.toByteArray().zip()
@@ -611,7 +627,6 @@ private suspend fun ApplicationCall.receiveEbicsXml(): Document {
     }
     return requestDocument
 }
-
 
 fun handleEbicsHtd(): ByteArray {
     val htd = HTDResponseOrderData().apply {
@@ -909,7 +924,6 @@ private fun handleEbicsUploadTransactionInitialization(requestContext: RequestCo
     return EbicsResponse.createForUploadInitializationPhase(transactionID, orderID)
 }
 
-
 private fun handleEbicsUploadTransactionTransmission(requestContext: RequestContext): EbicsResponse {
     val uploadTransaction = requestContext.uploadTransaction ?: throw EbicsInvalidRequestError()
     val requestObject = requestContext.requestObject
@@ -952,6 +966,10 @@ private fun handleEbicsUploadTransactionTransmission(requestContext: RequestCont
             }
         }
 
+        /** Handling a payment request */
+        if ("CCT" == requestContext.requestObject.header.static.orderDetails?.orderType) {
+            handleCct(unzippedData.toString(Charsets.UTF_8), requestContext.subscriber)
+        }
         return EbicsResponse.createForUploadTransferPhase(
             requestTransactionID,
             requestSegmentNumber,
