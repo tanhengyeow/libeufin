@@ -177,7 +177,6 @@ fun main() {
                 call.respond(ret)
                 return@get
             }
-
             /* Show details about ONE Ebics host */
             get("/ebics/hosts/{id}") {
                 val resp = transaction {
@@ -194,7 +193,6 @@ fun main() {
                 )
                 else call.respond(resp)
             }
-
             /** Create a new EBICS host. */
             post("/ebics/hosts") {
                 val req = call.receive<EbicsHostCreateRequest>()
