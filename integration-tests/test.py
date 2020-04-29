@@ -20,7 +20,7 @@ resp = post(
     "http://localhost:5001/ebics/subscribers/{}".format(USERNAME),
     json=dict(
 	ebicsURL="http://localhost:5000/ebicsweb",
-	hostID="HOST1",
+	hostID="HOST01",
 	partnerID="PARTNER1",
 	userID="USER1"
     )
@@ -44,6 +44,13 @@ resp = post(
 assert(resp.status_code == 200)
 
 #4 Download keys from the bank HPB
+resp = post(
+    "http://localhost:5001/ebics/subscribers/{}/sync".format(USERNAME),
+    json=dict()
+)
+
+assert(resp.status_code == 200)
+
 #5 Request history
 #6 Prepare a payment
 #7 Execute such payment via EBICS
