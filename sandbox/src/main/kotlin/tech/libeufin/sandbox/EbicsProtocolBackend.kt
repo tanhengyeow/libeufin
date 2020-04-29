@@ -54,6 +54,7 @@ import org.joda.time.DateTime
 import org.joda.time.Instant
 import java.io.BufferedInputStream
 import java.io.ByteArrayInputStream
+import java.nio.charset.Charset
 import java.time.ZoneId
 import java.time.ZonedDateTime
 import java.time.format.DateTimeFormatter
@@ -140,27 +141,12 @@ private suspend fun ApplicationCall.respondEbicsKeyManagement(
     respondText(text, ContentType.Application.Xml, HttpStatusCode.OK)
 }
 
-fun buildCamtString(type: Int): String {
-
-    /**
-     * Booking period: we keep two "lines" of booking periods; one for c52 and one for c53.
-     * Each line's period ends when the user requests the c52/c53, and a new period is started.
-     */
-
-    /**
-     * Checklist of data to be retrieved from the database.
-     *
-     * - IBAN(s): debitor and creditor's
-     * - last IDs (of all kinds) ?
-     */
-
-    /**
-     * What needs to be calculated before filling the document:
-     *
-     * - The balance _after_ all the transactions from the fresh
-     *   booking period.
-     */
-
+/**
+ * Returns a list of camt strings, representing each one payment
+ * accounted in the history.  It is up to the caller to then construct
+ * the final ZIP file to return in the response.
+ */
+fun buildCamtString(type: Int, history: MutableList<RawPayment>): MutableList<String> {
     /**
      * ID types required:
      *
@@ -173,195 +159,66 @@ fun buildCamtString(type: Int): String {
      * - Proprietary code of the bank transaction
      * - Id of the servicer (Issuer and Code)
      */
-
     val now = DateTime.now()
-
-    return constructXml(indent = true) {
-        root("Document") {
-            attribute("xmlns", "urn:iso:std:iso:20022:tech:xsd:camt.053.001.02")
-            attribute("xmlns:xsi", "http://www.w3.org/2001/XMLSchema-instance")
-            attribute("xsi:schemaLocation", "urn:iso:std:iso:20022:tech:xsd:camt.053.001.02 camt.053.001.02.xsd")
-            element("BkToCstmrStmt") {
-                element("GrpHdr") {
-                    element("MsgId") {
-                        text("0")
-                    }
-                    element("CreDtTm") {
-                        text(now.toZonedString())
-                    }
-                    element("MsgPgntn") {
-                        element("PgNb") {
-                            text("001")
-                        }
-                        element("LastPgInd") {
-                            text("true")
-                        }
-                    }
-                }
-                element(if (type == 52) "Rpt" else "Stmt") {
-                    element("Id") {
-                        text("0")
-                    }
-                    element("ElctrncSeqNb") {
-                        text("0")
-                    }
-                    element("LglSeqNb") {
-                        text("0")
-                    }
-                    element("CreDtTm") {
-                        text(now.toZonedString())
-                    }
-
-                    element("Acct") {
-                        // mandatory account identifier
-                        element("Id/IBAN") {
-                            text("GB33BUKB20201555555555")
-                        }
-                        element("Ccy") {
-                            text("EUR")
-                        }
-                        element("Ownr/Nm") {
-                            text("Max Mustermann")
-                        }
-                        element("Svcr/FinInstnId") {
-                            element("BIC") {
-                                text("GENODEM1GLS")
-                            }
-                            element("Nm") {
-                                text("Libeufin Bank")
-                            }
-                            element("Othr") {
-                                element("Id") {
-                                    text("0")
-                                }
-                                element("Issr") {
-                                    text("XY")
-                                }
-                            }
-                        }
-                    }
-                    element("Bal") {
-                        element("Tp/CdOrPrtry/Cd") {
-                            /* Balance type, in a coded format.  PRCD stands
-                               for "Previously closed booked" and shows the
-                               balance at the time _before_ all the entries
-                               reported in this document were posted to the
-                               involved bank account.  */
-                            text("PRCD")
-                        }
-                        element("Amt") {
-                            attribute("Ccy", "EUR")
-                            text(Amount(1).toPlainString())
-                        }
-                        element("CdtDbtInd") {
-                            text("DBIT")
-                            // CRDT or DBIT here
-                        }
-                        element("Dt/Dt") {
-                            // date of this balance
-                            text(now.toDashedDate())
-                        }
-                    }
-                    element("Bal") {
-                        element("Tp/CdOrPrtry/Cd") {
-                            /* CLBD stands for "Closing booked balance", and it
-                               is calculated by summing the PRCD with all the
-                               entries reported in this document */
-                            text("CLBD")
-                        }
-                        element("Amt") {
-                            attribute("Ccy", "EUR")
-                            text(Amount(1).toPlainString())
-                        }
-                        element("CdtDbtInd") {
-                            // CRDT or DBIT here
-                            text("DBIT")
-                        }
-                        element("Dt/Dt") {
-                            text(now.toDashedDate())
-                        }
-                    }
-                    // history.forEach {
-                        element("Ntry") {
-                            element("Amt") {
-                                attribute("Ccy", "EUR")
-                                text(Amount(1).toPlainString())
-                            }
-                            element("CdtDbtInd") {
-                                text("DBIT")
-                            }
-                            element("Sts") {
-                                /* Status of the entry (see 2.4.2.15.5 from the ISO20022 reference document.)
-                                 * From the original text:
-                                 * "Status of an entry on the books of the account servicer" */
-                                text("BOOK")
-                            }
-                            element("BookgDt/Dt") {
-                                text(now.toDashedDate())
-                            } // date of the booking
-                            element("ValDt/Dt") {
-                                text(now.toDashedDate())
-                            } // date of assets' actual (un)availability
-                            element("AcctSvcrRef") {
+    val ret = mutableListOf<String>()
+    history.forEach {
+        ret.add(
+            constructXml(indent = true) {
+                root("Document") {
+                    attribute("xmlns", "urn:iso:std:iso:20022:tech:xsd:camt.053.001.02")
+                    attribute("xmlns:xsi", "http://www.w3.org/2001/XMLSchema-instance")
+                    attribute("xsi:schemaLocation", "urn:iso:std:iso:20022:tech:xsd:camt.053.001.02 camt.053.001.02.xsd")
+                    element("BkToCstmrStmt") {
+                        element("GrpHdr") {
+                            element("MsgId") {
                                 text("0")
                             }
-                            element("BkTxCd") {
-                                /*  "Set of elements used to fully identify the type of underlying
-                                 *   transaction resulting in an entry".  */
-                                element("Domn") {
-                                    element("Cd") {
-                                        text("PMNT")
-                                    }
-                                    element("Fmly") {
-                                        element("Cd") {
-                                            text("ICDT")
-                                        }
-                                        element("SubFmlyCd") {
-                                            text("ESCT")
-                                        }
-                                    }
+                            element("CreDtTm") {
+                                text(now.toZonedString())
+                            }
+                            element("MsgPgntn") {
+                                element("PgNb") {
+                                    text("001")
                                 }
-                                element("Prtry") {
-                                    element("Cd") {
-                                        text("0")
-                                    }
-                                    element("Issr") {
-                                        text("XY")
-                                    }
+                                element("LastPgInd") {
+                                    text("true")
                                 }
                             }
-                            element("NtryDtls/TxDtls") {
-                                element("Refs") {
-                                    element("MsgId") {
-                                        text("0")
-                                    }
-                                    element("PmtInfId") {
-                                        text("0")
-                                    }
-                                    element("EndToEndId") {
-                                        text("NOTPROVIDED")
-                                    }
+                        }
+                        element(if (type == 52) "Rpt" else "Stmt") {
+                            element("Id") {
+                                text("0")
+                            }
+                            element("ElctrncSeqNb") {
+                                text("0")
+                            }
+                            element("LglSeqNb") {
+                                text("0")
+                            }
+                            element("CreDtTm") {
+                                text(now.toZonedString())
+                            }
+
+                            element("Acct") {
+                                // mandatory account identifier
+                                element("Id/IBAN") {
+                                    text("GB33BUKB20201555555555")
                                 }
-                                element("AmtDtls/TxAmt/Amt") {
-                                    attribute("Ccy", "EUR")
-                                    text(Amount(1).toPlainString())
+                                element("Ccy") {
+                                    text("EUR")
                                 }
-                                element("BkTxCd") {
-                                    element("Domn") {
-                                        element("Cd") {
-                                            text("PMNT")
-                                        }
-                                        element("Fmly") {
-                                            element("Cd") {
-                                                text("ICDT")
-                                            }
-                                            element("SubFmlyCd") {
-                                                text("ESCT")
-                                            }
-                                        }
+                                element("Ownr/Nm") {
+                                    text("Max Mustermann")
+                                }
+                                element("Svcr/FinInstnId") {
+                                    element("BIC") {
+                                        text("GENODEM1GLS")
                                     }
-                                    element("Prtry") {
-                                        element("Cd") {
+                                    element("Nm") {
+                                        text("Libeufin Bank")
+                                    }
+                                    element("Othr") {
+                                        element("Id") {
                                             text("0")
                                         }
                                         element("Issr") {
@@ -369,52 +226,208 @@ fun buildCamtString(type: Int): String {
                                         }
                                     }
                                 }
-                                element("RltdPties") {
-                                    element("Dbtr/Nm") {
-                                        text("Max Mustermann")
-                                    }
-                                    element("DbtrAcct/Id/IBAN") {
-                                        text("GB33BUKB20201555555555")
-                                    }
-                                    element("Cdtr/Nm") {
-                                        text("Lina Musterfrau")
-                                    }
-                                    element("CdtrAcct/Id/IBAN") {
-                                        text("DE75512108001245126199")
-                                    }
+                            }
+                            element("Bal") {
+                                element("Tp/CdOrPrtry/Cd") {
+                                    /* Balance type, in a coded format.  PRCD stands
+                                       for "Previously closed booked" and shows the
+                                       balance at the time _before_ all the entries
+                                       reported in this document were posted to the
+                                       involved bank account.  */
+                                    text("PRCD")
                                 }
-                                element("RltdAgts") {
-                                    element("CdtrAgt/FinInstnId/BIC") {
-                                        text("GENODEM1GLS")
-                                    }
+                                element("Amt") {
+                                    attribute("Ccy", "EUR")
+                                    text(Amount(1).toPlainString())
                                 }
-                                element("RmtInf/Ustrd") {
-                                    text("made up subject")
+                                element("CdtDbtInd") {
+                                    text("DBIT")
+                                    // CRDT or DBIT here
+                                }
+                                element("Dt/Dt") {
+                                    // date of this balance
+                                    text(now.toDashedDate())
                                 }
                             }
-                            element("AddtlNtryInf") {
-                                text("additional information not given")
+                            element("Bal") {
+                                element("Tp/CdOrPrtry/Cd") {
+                                    /* CLBD stands for "Closing booked balance", and it
+                                       is calculated by summing the PRCD with all the
+                                       entries reported in this document */
+                                    text("CLBD")
+                                }
+                                element("Amt") {
+                                    attribute("Ccy", "EUR")
+                                    text(Amount(1).toPlainString())
+                                }
+                                element("CdtDbtInd") {
+                                    // CRDT or DBIT here
+                                    text("DBIT")
+                                }
+                                element("Dt/Dt") {
+                                    text(now.toDashedDate())
+                                }
+                            }
+                            /**
+                             * NOTE: instead of looping here, please emulate GLS behaviour of
+                             * creating ONE ZIP entry per CAMT document.  */
+                            history.forEach {
+                                element("Ntry") {
+                                    element("Amt") {
+                                        attribute("Ccy", "EUR")
+                                        text(Amount(1).toPlainString())
+                                    }
+                                    element("CdtDbtInd") {
+                                        text("DBIT")
+                                    }
+                                    element("Sts") {
+                                        /* Status of the entry (see 2.4.2.15.5 from the ISO20022 reference document.)
+                                         * From the original text:
+                                         * "Status of an entry on the books of the account servicer" */
+                                        text("BOOK")
+                                    }
+                                    element("BookgDt/Dt") {
+                                        text(now.toDashedDate())
+                                    } // date of the booking
+                                    element("ValDt/Dt") {
+                                        text(now.toDashedDate())
+                                    } // date of assets' actual (un)availability
+                                    element("AcctSvcrRef") {
+                                        text("0")
+                                    }
+                                    element("BkTxCd") {
+                                        /*  "Set of elements used to fully identify the type of underlying
+                                         *   transaction resulting in an entry".  */
+                                        element("Domn") {
+                                            element("Cd") {
+                                                text("PMNT")
+                                            }
+                                            element("Fmly") {
+                                                element("Cd") {
+                                                    text("ICDT")
+                                                }
+                                                element("SubFmlyCd") {
+                                                    text("ESCT")
+                                                }
+                                            }
+                                        }
+                                        element("Prtry") {
+                                            element("Cd") {
+                                                text("0")
+                                            }
+                                            element("Issr") {
+                                                text("XY")
+                                            }
+                                        }
+                                    }
+                                    element("NtryDtls/TxDtls") {
+                                        element("Refs") {
+                                            element("MsgId") {
+                                                text("0")
+                                            }
+                                            element("PmtInfId") {
+                                                text("0")
+                                            }
+                                            element("EndToEndId") {
+                                                text("NOTPROVIDED")
+                                            }
+                                        }
+                                        element("AmtDtls/TxAmt/Amt") {
+                                            attribute("Ccy", "EUR")
+                                            text(Amount(1).toPlainString())
+                                        }
+                                        element("BkTxCd") {
+                                            element("Domn") {
+                                                element("Cd") {
+                                                    text("PMNT")
+                                                }
+                                                element("Fmly") {
+                                                    element("Cd") {
+                                                        text("ICDT")
+                                                    }
+                                                    element("SubFmlyCd") {
+                                                        text("ESCT")
+                                                    }
+                                                }
+                                            }
+                                            element("Prtry") {
+                                                element("Cd") {
+                                                    text("0")
+                                                }
+                                                element("Issr") {
+                                                    text("XY")
+                                                }
+                                            }
+                                        }
+                                        element("RltdPties") {
+                                            element("Dbtr/Nm") {
+                                                text("Max Mustermann")
+                                            }
+                                            element("DbtrAcct/Id/IBAN") {
+                                                text("GB33BUKB20201555555555")
+                                            }
+                                            element("Cdtr/Nm") {
+                                                text("Lina Musterfrau")
+                                            }
+                                            element("CdtrAcct/Id/IBAN") {
+                                                text("DE75512108001245126199")
+                                            }
+                                        }
+                                        element("RltdAgts") {
+                                            element("CdtrAgt/FinInstnId/BIC") {
+                                                text("GENODEM1GLS")
+                                            }
+                                        }
+                                        element("RmtInf/Ustrd") {
+                                            text("made up subject")
+                                        }
+                                    }
+                                    element("AddtlNtryInf") {
+                                        text("additional information not given")
+                                    }
+                                }
                             }
                         }
-                    // }
+                    }
                 }
             }
-        }
+        )
     }
+    return ret
 }
 
 /**
  * Builds CAMT response.
  *
- * @param history the list of all the history elements
  * @param type 52 or 53.
  */
-private fun constructCamtResponse(type: Int, header: EbicsRequest.Header): String {
+private fun constructCamtResponse(
+    type: Int,
+    header: EbicsRequest.Header,
+    subscriber: EbicsSubscriberEntity
+): MutableList<String> {
     val dateRange = (header.static.orderDetails?.orderParams as EbicsRequest.StandardOrderParams).dateRange
-    val (start: org.joda.time.DateTime, end: org.joda.time.DateTime) = if (dateRange != null) {
+    val (start: DateTime, end: DateTime) = if (dateRange != null) {
         Pair(DateTime(dateRange.start.toGregorianCalendar().time), DateTime(dateRange.end.toGregorianCalendar().time))
     } else Pair(DateTime(0), DateTime.now())
-    return buildCamtString(type)
+    val history = mutableListOf<RawPayment>()
+    transaction {
+        PaymentEntity.find {
+            PaymentsTable.ebicsSubscriber eq subscriber.id.value
+        }.forEach {
+            history.add(
+                RawPayment(
+                    subject = it.subject,
+                    creditorIban = it.creditorIban,
+                    debitorIban = it.debitorIban,
+                    date = DateTime(it.date).toDashedDate(),
+                    amount = it.amount
+                )
+            )
+        }
+        history
+    }
+    return buildCamtString(type, history)
 }
 
 private fun handleEbicsTSD(requestContext: RequestContext): ByteArray {
@@ -428,7 +441,7 @@ private fun handleEbicsPTK(requestContext: RequestContext): ByteArray {
 /**
  * Process a payment request in the pain.001 format.
  */
-private fun handleCct(paymentRequest: String, ebicsSubscriberEntity: EbicsSubscriberEntity) {
+private fun handleCct(paymentRequest: String, ebicsSubscriber: EbicsSubscriberEntity) {
     /**
      * NOTE: this function is ONLY required to store some details
      * to put then in the camt report.  IBANs / amount / subject / names?
@@ -440,33 +453,26 @@ private fun handleCct(paymentRequest: String, ebicsSubscriberEntity: EbicsSubscr
     val currency = painDoc.pickString("//*[local-name()='InstdAmt']/@ccy")
     val amount = painDoc.pickString("//*[local-name()='InstdAmt']")
 
-    /*
     transaction {
         PaymentEntity.new {
             this.creditorIban = creditorIban
             this.debitorIban = debitorIban
             this.subject = subject
             this.amount = "${currency}:${amount}"
+            this.ebicsSubscriber = ebicsSubscriber
         }
-    }*/
-}
-
-private fun handleEbicsC52(requestContext: RequestContext): ByteArray {
-    val subscriber = requestContext.subscriber
-    val camt = constructCamtResponse(
-        52,
-        requestContext.requestObject.header
-    )
-    return camt.toByteArray().zip()
+    }
 }
 
 private fun handleEbicsC53(requestContext: RequestContext): ByteArray {
-    val subscriber = requestContext.subscriber
     val camt = constructCamtResponse(
         53,
-        requestContext.requestObject.header
+        requestContext.requestObject.header,
+        requestContext.subscriber
     )
-    return camt.toByteArray().zip()
+    return camt.map {
+        it.toByteArray(Charsets.UTF_8)
+    }.zip()
 }
 
 private suspend fun ApplicationCall.handleEbicsHia(header: EbicsUnsecuredRequest.Header, orderData: ByteArray) {
@@ -829,7 +835,6 @@ private fun handleEbicsDownloadTransactionInitialization(requestContext: Request
         "HTD" -> handleEbicsHtd()
         "HKD" -> handleEbicsHkd()
         /* Temporarily handling C52/C53 with same logic */
-        "C52" -> handleEbicsC52(requestContext)
         "C53" -> handleEbicsC53(requestContext)
         "TSD" -> handleEbicsTSD(requestContext)
         "PTK" -> handleEbicsPTK(requestContext)

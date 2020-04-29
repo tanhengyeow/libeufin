@@ -218,12 +218,32 @@ object EbicsUploadTransactionChunksTable : IdTable<String>() {
     val chunkIndex = integer("chunkIndex")
     val chunkContent = blob("chunkContent")
 }
-class EbicsUploadTransactionChunkEntity(id : EntityID<String>): Entity<String>(id) {
+class EbicsUploadTransactionChunkEntity(id: EntityID<String>) : Entity<String>(id) {
     companion object : EntityClass<String, EbicsUploadTransactionChunkEntity>(EbicsUploadTransactionChunksTable)
     var chunkIndex by EbicsUploadTransactionChunksTable.chunkIndex
     var chunkContent by EbicsUploadTransactionChunksTable.chunkContent
 }
 
+/**
+ * Table that keeps all the payments initiated by pain.
+ */
+object PaymentsTable : IntIdTable() {
+    val creditorIban = text("creditorIban")
+    val debitorIban = text("debitorIban")
+    val subject = text("subject")
+    val amount = text("amount")
+    val date = long("date")
+    val ebicsSubscriber = reference("ebicsSubscriber", EbicsSubscribersTable)
+}
+class PaymentEntity(id: EntityID<Int>) : IntEntity(id) {
+    companion object : IntEntityClass<PaymentEntity>(PaymentsTable)
+    var creditorIban by PaymentsTable.creditorIban
+    var debitorIban by PaymentsTable.debitorIban
+    var subject by PaymentsTable.subject
+    var amount by PaymentsTable.amount
+    var date by PaymentsTable.date
+    var ebicsSubscriber by EbicsSubscriberEntity referencedOn PaymentsTable.ebicsSubscriber
+}
 
 fun dbCreateTables() {
     Database.connect("jdbc:sqlite:libeufin-sandbox.sqlite3", "org.sqlite.JDBC")

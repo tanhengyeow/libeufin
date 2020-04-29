@@ -614,7 +614,7 @@ fun main() {
                     client,
                     subscriberDetails,
                     "CCC",
-                    painDoc.toByteArray(Charsets.UTF_8).zip(),
+                    listOf(painDoc.toByteArray(Charsets.UTF_8)).zip(),
                     EbicsStandardOrderParams()
                 )
                 /* flow here == no errors occurred */
@@ -730,7 +730,7 @@ fun main() {
                          * return all the "Ntry" elements into one single ZIP entry, or even unzipped
                          * at all.
                          */
-                        response.orderData.unzipWithLoop {
+                        response.orderData.unzipWithLambda {
                             val fileName = it.first
                             val camt53doc = XMLUtil.parseStringIntoDom(it.second)
                             transaction {

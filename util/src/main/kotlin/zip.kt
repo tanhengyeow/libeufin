@@ -8,18 +8,20 @@ import org.apache.commons.compress.archivers.zip.ZipFile
 import org.apache.commons.compress.utils.IOUtils
 import org.apache.commons.compress.utils.SeekableInMemoryByteChannel
 
-
-fun ByteArray.zip(): ByteArray {
-
+fun List<ByteArray>.zip(): ByteArray {
     val baos = ByteArrayOutputStream()
-    val asf = ArchiveStreamFactory().createArchiveOutputStream(ArchiveStreamFactory.ZIP, baos)
-    val zae = ZipArchiveEntry("File 1")
-    asf.putArchiveEntry(zae) // link Zip archive to output stream.
-
-    val bais = ByteArrayInputStream(this)
-    IOUtils.copy(bais, asf)
-    bais.close()
-    asf.closeArchiveEntry()
+    val asf = ArchiveStreamFactory().createArchiveOutputStream(
+        ArchiveStreamFactory.ZIP,
+        baos
+    )
+    for (fileIndex in this.indices) {
+        val zae = ZipArchiveEntry("File $fileIndex")
+        asf.putArchiveEntry(zae)
+        val bais = ByteArrayInputStream(this[fileIndex])
+        IOUtils.copy(bais, asf)
+        bais.close()
+        asf.closeArchiveEntry()
+    }
     asf.finish()
     baos.close()
     return baos.toByteArray()
@@ -37,7 +39,7 @@ fun ByteArray.prettyPrintUnzip(): String {
     return s.toString()
 }
 
-fun ByteArray.unzipWithLoop(process: (Pair<String, String>) -> Unit) {
+fun ByteArray.unzipWithLambda(process: (Pair<String, String>) -> Unit) {
     val mem = SeekableInMemoryByteChannel(this)
     val zipFile = ZipFile(mem)
     zipFile.getEntriesInPhysicalOrder().iterator().forEach {
