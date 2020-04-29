@@ -236,14 +236,11 @@ class Taler(app: Route) {
             val transferRequest = call.receive<TalerTransferRequest>()
             val amountObj = parseAmount(transferRequest.amount)
             val creditorObj = parsePayto(transferRequest.credit_account)
-
             val opaque_row_id = transaction {
                 val creditorData = parsePayto(transferRequest.credit_account)
                 val exchangeBankAccount = getBankAccountFromNexusUserId(exchangeId)
                 val nexusUser = extractNexusUser(exchangeId)
-                /**
-                 * Checking the UID has the desired characteristics.
-                 */
+                /** Checking the UID has the desired characteristics */
                 TalerRequestedPaymentEntity.find {
                     TalerRequestedPayments.requestUId eq transferRequest.request_uid
                 }.forEach {
@@ -264,11 +261,13 @@ class Taler(app: Route) {
                         creditorBic = creditorData.bic,
                         creditorName = creditorData.name,
                         subject = transferRequest.wtid,
-                        sum = parseAmount(transferRequest.amount).amount
+                        sum = parseAmount(transferRequest.amount).amount,
+                        debitorName = exchangeBankAccount.accountHolder,
+                        debitorBic = exchangeBankAccount.bankCode,
+                        debitorIban = exchangeBankAccount.iban
                     ),
-                    exchangeBankAccount.id.value
+                    nexusUser
                 )
-
                 val rawEbics = if (!isProduction()) {
                     RawBankTransactionEntity.new {
                         sourceFileName = "test"
@@ -368,14 +367,15 @@ class Taler(app: Route) {
          * all the prepared payments.  */
         app.post("/ebics/taler/{id}/accounts/{acctid}/refund-invalid-payments") {
             transaction {
-                val subscriber = getSubscriberEntityFromNexusUserId(call.parameters["id"])
+                val nexusUser = extractNexusUser(call.parameters["id"])
                 val acctid = expectAcctidTransaction(call.parameters["acctid"])
-                if (!subscriberHasRights(subscriber, acctid)) {
+                if (!subscriberHasRights(getEbicsSubscriberFromUser(nexusUser), acctid)) {
                     throw NexusError(
                         HttpStatusCode.Forbidden,
-                        "Such subscriber (${subscriber.id}) can't drive such account (${acctid.id})"
+                        "The requester can't drive such account (${acctid.id})"
                     )
                 }
+                val requesterBankAccount = getBankAccountFromNexusUserId(nexusUser.id.value)
                 TalerIncomingPaymentEntity.find {
                     TalerIncomingPayments.refunded eq false and (TalerIncomingPayments.valid eq false)
                 }.forEach {
@@ -385,9 +385,12 @@ class Taler(app: Route) {
                             creditorIban = it.payment.debitorIban,
                             creditorBic = it.payment.counterpartBic,
                             sum = calculateRefund(it.payment.amount),
-                            subject = "Taler refund"
+                            subject = "Taler refund",
+                            debitorIban = requesterBankAccount.iban,
+                            debitorBic = requesterBankAccount.bankCode,
+                            debitorName = requesterBankAccount.accountHolder
                         ),
-                        acctid.id.value
+                        nexusUser
                     )
                     it.refunded = true
                 }

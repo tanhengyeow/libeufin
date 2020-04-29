@@ -164,6 +164,16 @@ fun createPain001document(pain001Entity: Pain001Entity): String {
      * we'll assign the SAME id (= the row id) to all the three aforementioned
      * PAIN id types.
      */
+    val debitorBankAccountLabel = transaction {
+        val debitorBankAcount = BankAccountEntity.find {
+            BankAccountsTable.iban eq pain001Entity.debitorIban and
+                    (BankAccountsTable.bankCode eq pain001Entity.debitorBic)
+        }.firstOrNull() ?: throw NexusError(
+            HttpStatusCode.NotFound,
+            "Please download bank accounts details first (HTD)"
+        )
+        debitorBankAcount.id.value
+    }
 
     val s = constructXml(indent = true) {
         root("Document") {
@@ -191,7 +201,7 @@ fun createPain001document(pain001Entity: Pain001Entity): String {
                         text(pain001Entity.sum.toString())
                     }
                     element("InitgPty/Nm") {
-                        text(pain001Entity.debtorAccount)
+                        text(debitorBankAccountLabel)
                     }
                 }
                 element("PmtInf") {
@@ -220,18 +230,13 @@ fun createPain001document(pain001Entity: Pain001Entity): String {
                         text(DateTime(dateMillis).toString("Y-MM-dd"))
                     }
                     element("Dbtr/Nm") {
-                        text(pain001Entity.debtorAccount)
+                        text(debitorBankAccountLabel)
                     }
                     element("DbtrAcct/Id/IBAN") {
-                        text(transaction {
-                            BankAccountEntity.findById(pain001Entity.debtorAccount)?.iban ?: throw NexusError(HttpStatusCode.NotFound,"Debtor IBAN not found in database")
-                        })
+                        text(pain001Entity.debitorIban)
                     }
                     element("DbtrAgt/FinInstnId/BIC") {
-
-                        text(transaction {
-                            BankAccountEntity.findById(pain001Entity.debtorAccount)?.bankCode ?: throw NexusError(HttpStatusCode.NotFound,"Debtor BIC not found in database")
-                        })
+                        text(pain001Entity.debitorBic)
                     }
                     element("ChrgBr") {
                         text("SLEV")
@@ -274,13 +279,15 @@ fun createPain001document(pain001Entity: Pain001Entity): String {
  * it will be the account whose money will pay the wire transfer being defined
  * by this pain document.
  */
-fun createPain001entity(entry: Pain001Data, debtorAccountId: String): Pain001Entity {
+fun createPain001entity(entry: Pain001Data, nexusUser: NexusUserEntity): Pain001Entity {
     val randomId = Random().nextLong()
     return transaction {
         Pain001Entity.new {
             subject = entry.subject
             sum = entry.sum
-            debtorAccount = debtorAccountId
+            debitorIban = entry.debitorIban
+            debitorBic = entry.debitorBic
+            debitorName = entry.debitorName
             creditorName = entry.creditorName
             creditorBic = entry.creditorBic
             creditorIban = entry.creditorIban
@@ -288,6 +295,7 @@ fun createPain001entity(entry: Pain001Data, debtorAccountId: String): Pain001Ent
             paymentId = randomId
             msgId = randomId
             endToEndId = randomId
+            this.nexusUser = nexusUser
         }
     }
 }

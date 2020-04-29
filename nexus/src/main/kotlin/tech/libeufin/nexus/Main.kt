@@ -268,7 +268,7 @@ fun main() {
                     }
                     bankAccountsMap.forEach {
                         Pain001Entity.find {
-                            Pain001Table.debtorAccount eq it.bankAccount.iban
+                            Pain001Table.debitorIban eq it.bankAccount.iban
                         }.forEach {
                             ret.payments.add(
                                 RawPayment(
@@ -285,20 +285,20 @@ fun main() {
                 call.respond(ret)
                 return@get
             }
-            post("/users/{id}/accounts/{acctid}/prepare-payment") {
-                val acctid = transaction {
+            post("/users/{id}/accounts/prepare-payment") {
+                val nexusUser = extractNexusUser(call.parameters["id"])
+                transaction {
                     val accountInfo = expectAcctidTransaction(call.parameters["acctid"])
-                    val nexusUser = extractNexusUser(call.parameters["id"])
                     if (!userHasRights(nexusUser, accountInfo)) {
                         throw NexusError(
                             HttpStatusCode.BadRequest,
                             "Claimed bank account '${accountInfo.id}' doesn't belong to user '${nexusUser.id.value}'!"
                         )
                     }
-                    accountInfo.id.value
+
                 }
                 val pain001data = call.receive<Pain001Data>()
-                createPain001entity(pain001data, acctid)
+                createPain001entity(pain001data, nexusUser)
                 call.respondText(
                     "Payment instructions persisted in DB",
                     ContentType.Text.Plain, HttpStatusCode.OK
@@ -329,7 +329,6 @@ fun main() {
                 )
                 return@get
             }
-
             /** Associate a EBICS subscriber to the existing user */
             post("/ebics/subscribers/{id}") {
                 val nexusUser = extractNexusUser(call.parameters["id"])
@@ -571,17 +570,22 @@ fun main() {
             /** STATE CHANGES VIA EBICS */
 
             post("/ebics/admin/execute-payments") {
-                val (paymentRowId, painDoc: String, debtorAccount) = transaction {
+                val (paymentRowId, painDoc, subscriber) = transaction {
                     val entity = Pain001Entity.find {
                         (Pain001Table.submitted eq false) and (Pain001Table.invalid eq false)
                     }.firstOrNull() ?: throw NexusError(HttpStatusCode.Accepted, reason = "No ready payments found")
-                    Triple(entity.id, createPain001document(entity), entity.debtorAccount)
+                    Triple(entity.id, createPain001document(entity), entity.nexusUser.ebicsSubscriber)
+                }
+                if (subscriber == null) {
+                    throw NexusError(
+                        HttpStatusCode.NotFound,
+                        "Ebics subscriber wasn't found for this prepared payment."
+                    )
                 }
                 logger.debug("Uploading PAIN.001: ${painDoc}")
-                val subscriberDetails = getSubscriberDetailsFromBankAccount(debtorAccount)
                 doEbicsUploadTransaction(
                     client,
-                    subscriberDetails,
+                    getSubscriberDetailsInternal(subscriber),
                     "CCT",
                     painDoc.toByteArray(Charsets.UTF_8),
                     EbicsStandardOrderParams()
@@ -596,37 +600,6 @@ fun main() {
                 }
                 call.respondText(
                     "CCT message submitted to the bank",
-                    ContentType.Text.Plain,
-                    HttpStatusCode.OK
-                )
-                return@post
-            }
-            post("/ebics/admin/execute-payments-ccc") {
-                val (paymentRowId, painDoc: String, debtorAccount) = transaction {
-                    val entity = Pain001Entity.find {
-                        (Pain001Table.submitted eq false) and (Pain001Table.invalid eq false)
-                    }.firstOrNull() ?: throw NexusError(HttpStatusCode.Accepted, reason = "No ready payments found")
-                    Triple(entity.id, createPain001document(entity), entity.debtorAccount)
-                }
-                logger.debug("Uploading PAIN.001 via CCC: ${painDoc}")
-                val subscriberDetails = getSubscriberDetailsFromBankAccount(debtorAccount)
-                doEbicsUploadTransaction(
-                    client,
-                    subscriberDetails,
-                    "CCC",
-                    listOf(painDoc.toByteArray(Charsets.UTF_8)).zip(),
-                    EbicsStandardOrderParams()
-                )
-                /* flow here == no errors occurred */
-                transaction {
-                    val payment = Pain001Entity.findById(paymentRowId) ?: throw NexusError(
-                        HttpStatusCode.InternalServerError,
-                        "Severe internal error: could not find payment in DB after having submitted it to the bank"
-                    )
-                    payment.submitted = true
-                }
-                call.respondText(
-                    "CCC message submitted to the bank",
                     ContentType.Text.Plain,
                     HttpStatusCode.OK
                 )

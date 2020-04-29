@@ -139,6 +139,9 @@ data class Pain001Data(
     val creditorIban: String,
     val creditorBic: String,
     val creditorName: String,
+    val debitorIban: String,
+    val debitorBic: String,
+    val debitorName: String?,
     val sum: Amount,
     val currency: String = "EUR",
     val subject: String

@@ -256,7 +256,8 @@ fun dbCreateTables() {
             EbicsDownloadTransactionsTable,
             EbicsUploadTransactionsTable,
             EbicsUploadTransactionChunksTable,
-            EbicsOrderSignaturesTable
+            EbicsOrderSignaturesTable,
+            PaymentsTable
         )
     }
 }

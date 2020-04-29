@@ -114,12 +114,8 @@ class RawBankTransactionEntity(id: EntityID<Long>) : LongEntity(id) {
     var nexusUser by NexusUserEntity referencedOn RawBankTransactionsTable.nexusUser
     var status by RawBankTransactionsTable.status
 }
-
 /**
- * NOTE: every column in this table corresponds to a particular
- * value described in the pain.001 official documentation; therefore
- * this table is not really suitable to hold custom data (like Taler-related,
- * for example)
+ * Represent a prepare payment.
  */
 object Pain001Table : IntIdTableWithAmount() {
     val msgId = long("msgId").uniqueIndex().autoIncrement()
@@ -127,23 +123,22 @@ object Pain001Table : IntIdTableWithAmount() {
     val fileDate = long("fileDate")
     val sum = amount("sum")
     val currency = varchar("currency", length = 3).default("EUR")
-    val debtorAccount = text("debtorAccount")
     val endToEndId = long("EndToEndId")
     val subject = text("subject")
     val creditorIban = text("creditorIban")
     val creditorBic = text("creditorBic")
     val creditorName = text("creditorName")
-
+    val debitorIban = text("debitorIban")
+    val debitorBic = text("debitorBic")
+    val debitorName = text("debitorName").nullable()
     /* Indicates whether the PAIN message was sent to the bank. */
     val submitted = bool("submitted").default(false)
-
     /* Indicates whether the bank didn't perform the payment: note that
-    * this state can be reached when the payment gets listed in a CRZ
-    * response OR when the payment doesn't show up in a C52/C53 response
-    */
+     * this state can be reached when the payment gets listed in a CRZ
+     * response OR when the payment doesn't show up in a C52/C53 response */
     val invalid = bool("invalid").default(false)
+    val nexusUser = reference("nexusUser", NexusUsersTable)
 }
-
 class Pain001Entity(id: EntityID<Int>) : IntEntity(id) {
     companion object : IntEntityClass<Pain001Entity>(Pain001Table)
     var msgId by Pain001Table.msgId
@@ -151,7 +146,9 @@ class Pain001Entity(id: EntityID<Int>) : IntEntity(id) {
     var date by Pain001Table.fileDate
     var sum by Pain001Table.sum
     var currency by Pain001Table.currency
-    var debtorAccount by Pain001Table.debtorAccount
+    var debitorIban by Pain001Table.debitorIban
+    var debitorBic by Pain001Table.debitorBic
+    var debitorName by Pain001Table.debitorName
     var endToEndId by Pain001Table.endToEndId
     var subject by Pain001Table.subject
     var creditorIban by Pain001Table.creditorIban
@@ -159,6 +156,7 @@ class Pain001Entity(id: EntityID<Int>) : IntEntity(id) {
     var creditorName by Pain001Table.creditorName
     var submitted by Pain001Table.submitted
     var invalid by Pain001Table.invalid
+    var nexusUser by NexusUserEntity referencedOn Pain001Table.nexusUser
 }
 
 /**
@@ -206,7 +204,7 @@ class EbicsSubscriberEntity(id: EntityID<Int>) : Entity<Int>(id) {
 }
 
 object NexusUsersTable : IdTable<String>() {
-    override val id = varchar("id", ID_MAX_LENGTH).entityId().primaryKey()
+    override val id = varchar("id", ID_MAX_LENGTH).entityId()
     val ebicsSubscriber = reference("ebicsSubscriber", EbicsSubscribersTable).nullable()
     val testSubscriber = reference("testSubscriber", EbicsSubscribersTable).nullable()
     val password = blob("password").nullable()

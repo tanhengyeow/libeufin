@@ -12,28 +12,17 @@ import javax.sql.rowset.serial.SerialBlob
 
 
 class PainTest {
-
     @Before
     fun prepare() {
         Database.connect("jdbc:h2:mem:test;DB_CLOSE_DELAY=-1", driver = "org.h2.Driver")
         transaction {
-            SchemaUtils.create(EbicsSubscribersTable)
             SchemaUtils.create(BankAccountsTable)
             SchemaUtils.create(Pain001Table)
-            EbicsSubscriberEntity.new {
-                ebicsURL = "ebics url"
-                hostID = "host"
-                partnerID = "partner"
-                userID = "user"
-                systemID = "system"
-                signaturePrivateKey = SerialBlob("signturePrivateKey".toByteArray())
-                authenticationPrivateKey = SerialBlob("authenticationPrivateKey".toByteArray())
-                encryptionPrivateKey = SerialBlob("encryptionPrivateKey".toByteArray())
-            }
+            SchemaUtils.create(NexusUsersTable)
             BankAccountEntity.new(id = "acctid") {
                 accountHolder = "Account Holder"
-                iban = "IBAN"
-                bankCode = "BIC"
+                iban = "DEBIT IBAN"
+                bankCode = "DEBIT BIC"
             }
         }
     }
@@ -41,9 +30,12 @@ class PainTest {
     @Test
     fun testPain001document() {
         transaction {
+            val nu = NexusUserEntity.new(id = "mock") { }
             val pain001Entity = Pain001Entity.new {
                 sum = Amount(1)
-                debtorAccount = "acctid"
+                debitorIban = "DEBIT IBAN"
+                debitorBic = "DEBIT BIC"
+                debitorName = "DEBIT NAME"
                 subject = "subject line"
                 creditorIban = "CREDIT IBAN"
                 creditorBic = "CREDIT BIC"
@@ -52,7 +44,7 @@ class PainTest {
                 msgId = 1
                 endToEndId = 1
                 date = DateTime.now().millis
-
+                nexusUser = nu
             }
             val s = createPain001document(pain001Entity)
             println(s)

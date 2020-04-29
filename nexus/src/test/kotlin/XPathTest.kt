@@ -13,10 +13,8 @@ class XPathTest {
               <node>lorem ipsum</node>
             </root>""".trimIndent()
         val doc: Document = XMLUtil.parseStringIntoDom(xml)
-        val node = XMLUtil.getNodeFromXpath(doc, "/*[local-name()='root']")
-        assert(node != null)
+        XMLUtil.getNodeFromXpath(doc, "/*[local-name()='root']")
         val text = XMLUtil.getStringFromXpath(doc, "//*[local-name()='node']")
-        assert(text != null)
         println(text)
     }
 }
