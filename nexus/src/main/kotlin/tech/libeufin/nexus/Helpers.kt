@@ -58,22 +58,6 @@ fun extractFirstBic(bankCodes: List<EbicsTypes.AbstractBankCode>?): String? {
 }
 
 /**
- * Get EBICS subscriber details from bank account id.
- * bank account id => ... => ebics details
- */
-fun getSubscriberDetailsFromBankAccount(bankAccountId: String): EbicsClientSubscriberDetails {
-    return transaction {
-        val map = BankAccountMapEntity.find {
-            BankAccountMapsTable.bankAccount eq bankAccountId
-        }.firstOrNull() ?: throw NexusError(
-            HttpStatusCode.NotFound,
-            "Such bank account '$bankAccountId' has no EBICS subscriber associated"
-        )
-        getSubscriberDetailsInternal(map.ebicsSubscriber)
-    }
-}
-
-/**
  * Given a nexus user id, returns the _list_ of bank accounts associated to it.
  *
  * @param id the subscriber id
@@ -293,28 +277,6 @@ fun createPain001entity(entry: Pain001Data, nexusUser: NexusUserEntity): Pain001
     }
 }
 
-/**
- * Inserts spaces every 2 characters, and a newline after 8 pairs.
- */
-fun chunkString(input: String): String {
-    val ret = StringBuilder()
-    var columns = 0
-    for (i in input.indices) {
-        if ((i + 1).rem(2) == 0) {
-            if (columns == 15) {
-                ret.append(input[i] + "\n")
-                columns = 0
-                continue
-            }
-            ret.append(input[i] + " ")
-            columns++
-            continue
-        }
-        ret.append(input[i])
-    }
-    return ret.toString().toUpperCase()
-}
-
 fun expectId(param: String?): String {
     return param ?: throw NexusError(HttpStatusCode.BadRequest, "Bad ID given")
 }
@@ -330,34 +292,6 @@ fun extractNexusUser(param: String?): NexusUserEntity {
             "Subscriber: $param not found"
         )
     }
-}
-
-fun ApplicationCall.expectUrlParameter(name: String): String {
-    return this.request.queryParameters[name]
-        ?: throw NexusError(HttpStatusCode.BadRequest, "Parameter '$name' not provided in URI")
-}
-
-fun expectInt(param: String): Int {
-    return try {
-        param.toInt()
-    } catch (e: Exception) {
-        throw NexusError(HttpStatusCode.BadRequest,"'$param' is not Int")
-    }
-}
-
-fun expectLong(param: String): Long {
-    return try {
-        param.toLong()
-    } catch (e: Exception) {
-        throw NexusError(HttpStatusCode.BadRequest,"'$param' is not Long")
-    }
-}
-
-fun expectLong(param: String?): Long? {
-    if (param != null) {
-        return expectLong(param)
-    }
-    return null
 }
 
 /* Needs a transaction{} block to be called */
@@ -387,7 +321,8 @@ fun extractUserAndHashedPassword(authorizationHeader: String): Pair<String, Byte
 }
 
 /**
- * Test HTTP basic auth.  Throws error if password is wrong
+ * Test HTTP basic auth.  Throws error if password is wrong,
+ * and makes sure that the user exists in the system.
  *
  * @param authorization the Authorization:-header line.
  * @return subscriber id

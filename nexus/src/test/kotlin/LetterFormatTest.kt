@@ -1,8 +1,7 @@
 package tech.libeufin.nexus
 
 import org.junit.Test
-import tech.libeufin.nexus.chunkString
-import tech.libeufin.nexus.getNonce
+import tech.libeufin.util.chunkString
 import tech.libeufin.util.toHexString
 import java.security.SecureRandom
 

@@ -1,5 +1,5 @@
 package tech.libeufin.util
-import org.apache.commons.codec.binary.Base32
+
 import java.math.BigInteger
 import java.util.*
 
@@ -47,4 +47,26 @@ fun BigInteger.toUnsignedHexString(): String {
     val start = if (signedValue[0] == 0.toByte()) { 1 } else { 0 }
     val bytes = Arrays.copyOfRange(signedValue, start, signedValue.size)
     return bytes.toHexString()
+}
+
+/**
+ * Inserts spaces every 2 characters, and a newline after 8 pairs.
+ */
+fun chunkString(input: String): String {
+    val ret = StringBuilder()
+    var columns = 0
+    for (i in input.indices) {
+        if ((i + 1).rem(2) == 0) {
+            if (columns == 15) {
+                ret.append(input[i] + "\n")
+                columns = 0
+                continue
+            }
+            ret.append(input[i] + " ")
+            columns++
+            continue
+        }
+        ret.append(input[i])
+    }
+    return ret.toString().toUpperCase()
 }
