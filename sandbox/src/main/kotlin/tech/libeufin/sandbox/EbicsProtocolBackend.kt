@@ -452,7 +452,6 @@ private fun handleCct(paymentRequest: String, ebicsSubscriber: EbicsSubscriberEn
     val creditorIban = painDoc.pickString("//*[local-name()='CdtrAcct']//*[local-name()='IBAN']")
     val debitorIban = painDoc.pickString("//*[local-name()='DbtrAcct']//*[local-name()='IBAN']")
     val subject = painDoc.pickString("//*[local-name()='Ustrd']")
-    val currency = painDoc.pickString("//*[local-name()='InstdAmt']/@ccy")
     val amount = painDoc.pickString("//*[local-name()='InstdAmt']")
 
     transaction {
@@ -460,7 +459,7 @@ private fun handleCct(paymentRequest: String, ebicsSubscriber: EbicsSubscriberEn
             this.creditorIban = creditorIban
             this.debitorIban = debitorIban
             this.subject = subject
-            this.amount = "${currency}:${amount}"
+            this.amount = amount
             this.ebicsSubscriber = ebicsSubscriber
             this.date = DateTime.now().millis
         }

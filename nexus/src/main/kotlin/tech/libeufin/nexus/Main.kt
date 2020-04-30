@@ -702,6 +702,7 @@ fun main() {
                          * at all.
                          */
                         response.orderData.unzipWithLambda {
+                            logger.debug("C53 entry: ${it.second}")
                             val fileName = it.first
                             val camt53doc = XMLUtil.parseStringIntoDom(it.second)
                             transaction {
