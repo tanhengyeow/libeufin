@@ -70,8 +70,8 @@ fun extractFirstBic(bankCodes: List<EbicsTypes.AbstractBankCode>?): String? {
  */
 fun getSubscriberDetailsFromBankAccount(bankAccountId: String): EbicsClientSubscriberDetails {
     return transaction {
-        val map = EbicsToBankAccountEntity.find {
-            EbicsToBankAccountsTable.bankAccount eq bankAccountId
+        val map = BankAccountMapEntity.find {
+            BankAccountMapsTable.bankAccount eq bankAccountId
         }.firstOrNull() ?: throw NexusError(
             HttpStatusCode.NotFound,
             "Such bank account '$bankAccountId' has no EBICS subscriber associated"
@@ -90,8 +90,8 @@ fun getSubscriberDetailsFromBankAccount(bankAccountId: String): EbicsClientSubsc
 fun getBankAccountFromNexusUserId(id: String): BankAccountEntity {
     logger.debug("Looking up bank account of user '$id'")
     val map = transaction {
-        UserToBankAccountEntity.find {
-            UserToBankAccountsTable.nexusUser eq id
+        BankAccountMapEntity.find {
+            BankAccountMapsTable.nexusUser eq id
         }
     }.firstOrNull() ?: throw NexusError(
         HttpStatusCode.NotFound,
@@ -420,9 +420,9 @@ fun authenticateRequest(authorization: String?): String {
  */
 fun subscriberHasRights(subscriber: EbicsSubscriberEntity, bankAccount: BankAccountEntity): Boolean {
     val row = transaction {
-        EbicsToBankAccountEntity.find {
-            EbicsToBankAccountsTable.bankAccount eq bankAccount.id and
-                    (EbicsToBankAccountsTable.ebicsSubscriber eq subscriber.id)
+        BankAccountMapEntity.find {
+            BankAccountMapsTable.bankAccount eq bankAccount.id and
+                    (BankAccountMapsTable.ebicsSubscriber eq subscriber.id)
         }.firstOrNull()
     }
     return row != null
@@ -443,9 +443,9 @@ fun getBankAccountFromIban(iban: String): BankAccountEntity {
 fun userHasRights(nexusUser: NexusUserEntity, iban: String): Boolean {
     val row = transaction {
         val bankAccount = getBankAccountFromIban(iban)
-        UserToBankAccountEntity.find {
-            UserToBankAccountsTable.bankAccount eq bankAccount.id and
-                    (UserToBankAccountsTable.nexusUser eq nexusUser.id)
+        BankAccountMapEntity.find {
+            BankAccountMapsTable.bankAccount eq bankAccount.id and
+                    (BankAccountMapsTable.nexusUser eq nexusUser.id)
         }.firstOrNull()
     }
     return row != null

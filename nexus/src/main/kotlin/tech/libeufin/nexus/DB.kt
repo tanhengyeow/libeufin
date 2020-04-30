@@ -217,26 +217,16 @@ class NexusUserEntity(id: EntityID<String>) : Entity<String>(id) {
     var password by NexusUsersTable.password
 }
 
-object UserToBankAccountsTable : IntIdTable() {
-    val nexusUser = reference("nexusUser", NexusUsersTable)
-    val bankAccount = reference("bankAccount", BankAccountsTable)
-}
-
-class UserToBankAccountEntity(id: EntityID<Int>): IntEntity(id) {
-    companion object : IntEntityClass<UserToBankAccountEntity>(UserToBankAccountsTable)
-    var nexusUser by NexusUserEntity referencedOn UserToBankAccountsTable.nexusUser
-    var bankAccount by BankAccountEntity referencedOn EbicsToBankAccountsTable.bankAccount
-}
-
-object EbicsToBankAccountsTable : IntIdTable() {
+object BankAccountMapsTable : IntIdTable() {
     val ebicsSubscriber = reference("ebicsSubscriber", EbicsSubscribersTable)
     val bankAccount = reference("bankAccount", BankAccountsTable)
+    val nexusUser = reference("nexusUser", NexusUsersTable)
 }
-
-class EbicsToBankAccountEntity(id: EntityID<Int>): IntEntity(id) {
-    companion object : IntEntityClass<EbicsToBankAccountEntity>(EbicsToBankAccountsTable)
-    var ebicsSubscriber by EbicsSubscriberEntity referencedOn EbicsToBankAccountsTable.ebicsSubscriber
-    var bankAccount by BankAccountEntity referencedOn EbicsToBankAccountsTable.bankAccount
+class BankAccountMapEntity(id: EntityID<Int>): IntEntity(id) {
+    companion object : IntEntityClass<BankAccountMapEntity>(BankAccountMapsTable)
+    var ebicsSubscriber by EbicsSubscriberEntity referencedOn BankAccountMapsTable.ebicsSubscriber
+    var bankAccount by BankAccountEntity referencedOn BankAccountMapsTable.bankAccount
+    var nexusUser by NexusUserEntity referencedOn BankAccountMapsTable.nexusUser
 }
 
 fun dbCreateTables() {
@@ -252,7 +242,7 @@ fun dbCreateTables() {
             TalerIncomingPayments,
             TalerRequestedPayments,
             NexusUsersTable,
-            EbicsToBankAccountsTable
+            BankAccountMapsTable
          )
     }
 }

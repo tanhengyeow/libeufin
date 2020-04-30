@@ -547,9 +547,10 @@ class Taler(app: Route) {
                             bankCode = "localhost"
                         }
                         val nexusUser = extractNexusUser(exchangeId)
-                        EbicsToBankAccountEntity.new {
+                        BankAccountMapEntity.new {
                             bankAccount = newBankAccount
                             ebicsSubscriber = getEbicsSubscriberFromUser(nexusUser)
+                            this.nexusUser = nexusUser
                         }
                     }
                 }

@@ -238,15 +238,15 @@ fun main() {
                 val id = expectId(call.parameters["id"])
                 val ret = BankAccountsInfoResponse()
                 transaction {
-                    BankAccountEntity.find {
-                        UserToBankAccountsTable.nexusUser eq id
+                    BankAccountMapEntity.find {
+                        BankAccountMapsTable.nexusUser eq id
                     }.forEach {
                         ret.accounts.add(
                             BankAccountInfoElement(
-                                accountHolderName = it.accountHolder,
-                                iban = it.iban,
-                                bankCode = it.bankCode,
-                                accountId = it.id.value
+                                accountHolderName = it.bankAccount.accountHolder,
+                                iban = it.bankAccount.iban,
+                                bankCode = it.bankAccount.bankCode,
+                                accountId = it.bankAccount.id.value
                             )
                         )
                     }
@@ -263,8 +263,8 @@ fun main() {
                 val ret = RawPayments()
                 transaction {
                     val nexusUser = extractNexusUser(nexusUserId)
-                    val bankAccountsMap = UserToBankAccountEntity.find {
-                        UserToBankAccountsTable.nexusUser eq nexusUser.id
+                    val bankAccountsMap = BankAccountMapEntity.find {
+                        BankAccountMapsTable.nexusUser eq nexusUser.id
                     }
                     bankAccountsMap.forEach {
                         Pain001Entity.find {
@@ -760,8 +760,9 @@ fun main() {
                                     iban = extractFirstIban(it.accountNumberList) ?: throw NexusError(HttpStatusCode.NotFound, reason = "bank gave no IBAN")
                                     bankCode = extractFirstBic(it.bankCodeList) ?: throw NexusError(HttpStatusCode.NotFound, reason = "bank gave no BIC")
                                 }
-                                EbicsToBankAccountEntity.new {
+                                BankAccountMapEntity.new {
                                     ebicsSubscriber = getEbicsSubscriberFromUser(nexusUser)
+                                    this.nexusUser = nexusUser
                                     this.bankAccount = bankAccount
                                 }
                             }
