@@ -3,6 +3,7 @@ package tech.libeufin.nexus
 import org.junit.Test
 import org.w3c.dom.Document
 import tech.libeufin.util.XMLUtil
+import tech.libeufin.util.pickString
 
 class XPathTest {
 
@@ -13,9 +14,7 @@ class XPathTest {
               <node>lorem ipsum</node>
             </root>""".trimIndent()
         val doc: Document = XMLUtil.parseStringIntoDom(xml)
-        XMLUtil.getNodeFromXpath(doc, "/*[local-name()='root']")
-        val text = XMLUtil.getStringFromXpath(doc, "//*[local-name()='node']")
-        println(text)
+        println(doc.pickString( "//*[local-name()='node']"))
     }
 }
 

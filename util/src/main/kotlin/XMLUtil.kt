@@ -417,8 +417,10 @@ class XMLUtil private constructor() {
 
         fun getStringFromXpath(doc: Document, query: String): String {
             val xpath = XPathFactory.newInstance().newXPath()
-            val ret = xpath.evaluate(query, doc, XPathConstants.STRING)
-                ?: throw UtilError(HttpStatusCode.NotFound, "Unsuccessful XPath query string: $query")
+            val ret = xpath.evaluate(query, doc, XPathConstants.STRING) as String
+            if (ret.isEmpty()) {
+                throw UtilError(HttpStatusCode.NotFound, "Unsuccessful XPath query string: $query")
+            }
             return ret as String
         }
     }
