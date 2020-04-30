@@ -429,12 +429,3 @@ class XMLUtil private constructor() {
 fun Document.pickString(xpath: String): String {
     return XMLUtil.getStringFromXpath(this, xpath)
 }
-
-fun Document.pickStringNullable(xpath: String): String? {
-    return try {
-        XMLUtil.getStringFromXpath(this, xpath)
-    } catch (e: UtilError) {
-        logger.info("Tolerating missing value: $xpath")
-        null
-    }
-}
