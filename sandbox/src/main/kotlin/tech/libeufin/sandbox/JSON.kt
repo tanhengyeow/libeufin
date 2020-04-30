@@ -19,10 +19,8 @@
 
 package tech.libeufin.sandbox
 
-/** Error message */
-data class SandboxError(
-    val message: String
-)
+import io.ktor.http.HttpStatusCode
+import java.lang.Exception
 
 /**
  * Used to show the list of Ebics hosts that exist
@@ -58,4 +56,11 @@ data class EbicsSubscriberElement(
 
 data class AdminGetSubscribers(
     var subscribers: MutableList<EbicsSubscriberElement> = mutableListOf()
+)
+
+data class BankAccountRequest(
+    val subscriber: EbicsSubscriberElement,
+    val iban: String,
+    val bic: String,
+    val name: String
 )

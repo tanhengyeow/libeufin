@@ -225,7 +225,7 @@ class EbicsUploadTransactionChunkEntity(id: EntityID<String>) : Entity<String>(i
 }
 
 /**
- * Table that keeps all the payments initiated by pain.
+ * Table that keeps all the payments initiated by PAIN.001.
  */
 object PaymentsTable : IntIdTable() {
     val creditorIban = text("creditorIban")
@@ -243,6 +243,24 @@ class PaymentEntity(id: EntityID<Int>) : IntEntity(id) {
     var amount by PaymentsTable.amount
     var date by PaymentsTable.date
     var ebicsSubscriber by EbicsSubscriberEntity referencedOn PaymentsTable.ebicsSubscriber
+}
+
+/**
+ * Table that keeps information about which bank accounts (iban+bic+name)
+ * are active in the system.
+ */
+object BankAccountsTable : IntIdTable() {
+    val iban = text("iban")
+    val bic = text("bic")
+    val name = text("name")
+    val subscriber = reference("subscriber", EbicsSubscribersTable)
+}
+class BankAccountEntity(id: EntityID<Int>) : IntEntity(id) {
+    companion object : IntEntityClass<BankAccountEntity>(BankAccountsTable)
+    var iban by BankAccountsTable.iban
+    var bic by BankAccountsTable.bic
+    var name by BankAccountsTable.name
+    var subscriber by EbicsSubscriberEntity referencedOn BankAccountsTable.subscriber
 }
 
 fun dbCreateTables() {

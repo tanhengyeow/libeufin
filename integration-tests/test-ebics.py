@@ -5,12 +5,14 @@ from requests import post, get
 # Steps implemented in this test.
 #
 # 1 Prepare the Sandbox to run the test.
-#  -> Make a EBICS host, and make a EBICS subscriber
-#     for the test runner.
+#  -> (a) Make a EBICS host, (b) make a EBICS subscriber
+#     for the test runner, and (c) assign a IBAN to such
+#     subscriber.
 #
 # 2 Prepare the Nexus to run the test.
-#  -> Make a Nexus user, and make a EBICS transport
-#     entity associated with that user.
+#  -> (a) Make a Nexus user, (b) make a EBICS subscriber
+#     associated to that user, and (c) fetch the bank
+#     account owned by that subscriber at the bank.
 #
 # 3 Upload keys from Nexus to the Bank (INI & HIA)
 # 4 Download key from the Bank (HPB) to the Nexus
@@ -32,7 +34,12 @@ PARTNER_ID="PARTNER1"
 USER_ID="USER1"
 EBICS_VERSION = "H004"
 
-#0 Prepare Sandbox (make Ebics host & one subscriber)
+# Subscriber's bank account
+SUBSCRIBER_IBAN="GB33BUKB20201555555555"
+SUBSCRIBER_BIC="BUKBGB22"
+SUBSCRIBER_NAME="Oliver Smith"
+
+#0.a
 resp = post(
     "http://localhost:5000/admin/ebics-host",
     json=dict(
@@ -43,12 +50,30 @@ resp = post(
 
 assert(resp.status_code == 200)
 
+#0.b
 resp = post(
     "http://localhost:5000/admin/ebics-subscriber",
     json=dict(
         hostID=HOST_ID,
 	partnerID=PARTNER_ID,
 	userID=USER_ID
+    )
+)
+
+assert(resp.status_code == 200)
+
+#0.c, WIP
+resp = post(
+    "http://localhost:5000/admin/ebics-subscriber/bank-account",
+    json=dict(
+        subscriber=dict(
+            hostID=HOST_ID,
+            partnerID=PARTNER_ID,
+            userID=USER_ID
+	),
+        iban=SUBSCRIBER_IBAN,
+        bic=SUBSCRIBER_BIC,
+        name=SUBSCRIBER_NAME
     )
 )
 

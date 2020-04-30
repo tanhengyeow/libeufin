@@ -61,6 +61,8 @@ class UnacceptableFractional(badNumber: BigDecimal) : Exception(
 )
 val LOGGER: Logger = LoggerFactory.getLogger("tech.libeufin.sandbox")
 
+data class SandboxError(val statusCode: HttpStatusCode, val reason: String) : java.lang.Exception()
+
 fun findEbicsSubscriber(partnerID: String, userID: String, systemID: String?): EbicsSubscriberEntity? {
     return if (systemID == null) {
         EbicsSubscriberEntity.find {
@@ -142,6 +144,26 @@ fun main() {
             }
 
             /** EBICS ADMIN ENDPOINTS */
+            post("/admin/ebics-subscriber/bank-account") {
+                val body = call.receive<BankAccountRequest>()
+                transaction {
+                    val subscriber = getEbicsSubscriberFromDetails(
+                        body.subscriber.userID,
+                        body.subscriber.partnerID,
+                        body.subscriber.hostID
+                    )
+                    BankAccountEntity.new {
+                        this.subscriber = subscriber
+                        iban = body.iban
+                        bic = body.bic
+                        name = body.name
+                    }
+                }
+                call.respondText(
+                    "Bank account created, and associated to the subscriber"
+                )
+                return@post
+            }
 
             post("/admin/ebics-subscriber") {
                 val body = call.receive<EbicsSubscriberElement>()
@@ -189,7 +211,7 @@ fun main() {
                 }
                 if (resp == null) call.respond(
                     HttpStatusCode.NotFound,
-                    SandboxError("host not found")
+                    SandboxError(HttpStatusCode.NotFound,"host not found")
                 )
                 else call.respond(resp)
             }
