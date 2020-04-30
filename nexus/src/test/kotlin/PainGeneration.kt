@@ -8,8 +8,6 @@ import org.jetbrains.exposed.sql.SchemaUtils
 import org.joda.time.DateTime
 import tech.libeufin.util.Amount
 
-
-
 class PainTest {
     @Before
     fun prepare() {
@@ -23,14 +21,7 @@ class PainTest {
                 iban = "DEBIT IBAN"
                 bankCode = "DEBIT BIC"
             }
-        }
-    }
-
-    @Test
-    fun testPain001document() {
-        transaction {
-            val nu = NexusUserEntity.new(id = "mock") { }
-            val pain001Entity = Pain001Entity.new {
+            Pain001Entity.new {
                 sum = Amount(1)
                 debitorIban = "DEBIT IBAN"
                 debitorBic = "DEBIT BIC"
@@ -43,9 +34,15 @@ class PainTest {
                 msgId = 1
                 endToEndId = 1
                 date = DateTime.now().millis
-                nexusUser = nu
+                nexusUser = NexusUserEntity.new(id = "mock") { }
             }
-            val s = createPain001document(pain001Entity)
+        }
+    }
+
+    @Test
+    fun testPain001document() {
+        transaction {
+            val s = createPain001document(Pain001Entity.all().first())
             println(s)
         }
     }
