@@ -132,39 +132,35 @@ resp = post(
     json=dict()
 )
 assert(resp.status_code == 200)
-exit(77)
 
-#3 Request history via EBICS
+#3
 resp = post(
     "http://localhost:5001/ebics/subscribers/{}/collect-transactions-c53".format(USERNAME),
     json=dict()
 )
-
 assert(resp.status_code == 200)
 
+#4
 resp = get(
     "http://localhost:5001/users/{}/history".format(USERNAME)
 )
-
-#4
-assert(
-    resp.status_code == 200 and \
-    len(resp.json().get("payments")) == 0
-)
+assert(resp.status_code == 200)
+assert(len(resp.json().get("payments")) == 0)
 
 #5.a
 resp = post(
     "http://localhost:5001/users/{}/prepare-payment".format(USERNAME),
     json=dict(
-        creditorIban="GB33BUKB20201555555555",
-        creditorBic="BUKBGB22",
-        creditorName="Oliver Smith",
-        debitorIban="FR7630006000011234567890189",
-        debitorBic="AGRIFRPP",
-        debitorName="Jacques LaFayette"
+        creditorIban="FR7630006000011234567890189",
+        creditorBic="AGRIFRPP",
+        creditorName="Jacques La Fayette",
+        debitorIban=SUBSCRIBER_IBAN,
+        debitorBic=SUBSCRIBER_BIC,
+        debitorName=SUBSCRIBER_NAME,
+	subject="integration test",
+	sum=1
     )
 )
-
 assert(resp.status_code == 200)
 
 #7 Execute such payment via EBICS
