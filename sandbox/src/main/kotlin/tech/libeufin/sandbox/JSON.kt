@@ -62,5 +62,6 @@ data class BankAccountRequest(
     val subscriber: EbicsSubscriberElement,
     val iban: String,
     val bic: String,
-    val name: String
+    val name: String,
+    val label: String
 )

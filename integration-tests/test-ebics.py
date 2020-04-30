@@ -38,6 +38,7 @@ EBICS_VERSION = "H004"
 SUBSCRIBER_IBAN="GB33BUKB20201555555555"
 SUBSCRIBER_BIC="BUKBGB22"
 SUBSCRIBER_NAME="Oliver Smith"
+BANK_ACCOUNT_LABEL="savings"
 
 #0.a
 resp = post(
@@ -74,6 +75,7 @@ resp = post(
         iban=SUBSCRIBER_IBAN,
         bic=SUBSCRIBER_BIC,
         name=SUBSCRIBER_NAME
+	label=BANK_ACCOUNT_LABEL
     )
 )
 

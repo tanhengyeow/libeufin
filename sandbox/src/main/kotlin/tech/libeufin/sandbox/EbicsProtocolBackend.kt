@@ -50,6 +50,7 @@ import java.util.zip.InflaterInputStream
 import javax.sql.rowset.serial.SerialBlob
 import javax.xml.datatype.DatatypeFactory
 import org.apache.commons.compress.utils.IOUtils
+import org.jetbrains.exposed.sql.SqlExpressionBuilder.eq
 import org.joda.time.DateTime
 import org.joda.time.Instant
 import java.io.BufferedInputStream
@@ -634,86 +635,79 @@ private suspend fun ApplicationCall.receiveEbicsXml(): Document {
     return requestDocument
 }
 
-fun handleEbicsHtd(): ByteArray {
-    val htd = HTDResponseOrderData().apply {
-        this.partnerInfo = EbicsTypes.PartnerInfo().apply {
-            this.accountInfoList = listOf(
-                EbicsTypes.AccountInfo().apply {
-                    this.id = "acctid1"
-                    this.accountHolder = "Mina Musterfrau"
-                    this.accountNumberList = listOf(
-                        EbicsTypes.GeneralAccountNumber().apply {
-                            this.international = true
-                            this.value = "DE21500105174751659277"
-                        }
-                    )
-                    this.currency = "EUR"
-                    this.description = "ACCT"
-                    this.bankCodeList = listOf(
-                        EbicsTypes.GeneralBankCode().apply {
-                            this.international = true
-                            this.value = "INGDDEFFXXX"
-                        }
-                    )
-                },
-                EbicsTypes.AccountInfo().apply {
-                    this.id = "glsdemo"
-                    this.accountHolder = "Mina Musterfrau"
-                    this.accountNumberList = listOf(
-                        EbicsTypes.GeneralAccountNumber().apply {
-                            this.international = true
-                            this.value = "DE91430609670123123123"
-                        }
-                    )
-                    this.currency = "EUR"
-                    this.description = "glsdemoacct"
-                    this.bankCodeList = listOf(
-                        EbicsTypes.GeneralBankCode().apply {
-                            this.international = true
-                            this.value = "GENODEM1GLS"
-                        }
-                    )
-                }
-            )
-            this.addressInfo = EbicsTypes.AddressInfo().apply {
-                this.name = "Foo"
+private fun makePartnerInfo(subscriber: EbicsSubscriberEntity): EbicsTypes.PartnerInfo {
+    val bankAccount = getBankAccountFromSubscriber(subscriber)
+    return EbicsTypes.PartnerInfo().apply {
+        this.accountInfoList = listOf(
+            EbicsTypes.AccountInfo().apply {
+                this.id = bankAccount.label
+                this.accountHolder = bankAccount.name
+                this.accountNumberList = listOf(
+                    EbicsTypes.GeneralAccountNumber().apply {
+                        this.international = true
+                        this.value = bankAccount.iban
+                    }
+                )
+                this.currency = "EUR"
+                this.description = "Ordinary Bank Account"
+                this.bankCodeList = listOf(
+                    EbicsTypes.GeneralBankCode().apply {
+                        this.international = true
+                        this.value = bankAccount.bic
+                    }
+                )
             }
-            this.bankInfo = EbicsTypes.BankInfo().apply {
-                this.hostID = "host01"
-            }
-            this.orderInfoList = listOf(
-                EbicsTypes.AuthOrderInfoType().apply {
-                    this.description = "foo1"
-                    this.orderType = "C53"
-                    this.transferType = "Download"
-                },
-                EbicsTypes.AuthOrderInfoType().apply {
-                    this.description = "foo2"
-                    this.orderType = "C52"
-                    this.transferType = "Download"
-                },
-                EbicsTypes.AuthOrderInfoType().apply {
-                    this.description = "foo3"
-                    this.orderType = "CCC"
-                    this.transferType = "Upload"
-                },
-                EbicsTypes.AuthOrderInfoType().apply {
-                    this.description = "foo4"
-                    this.orderType = "VMK"
-                    this.transferType = "Download"
-                },
-                EbicsTypes.AuthOrderInfoType().apply {
-                    this.description = "foo5"
-                    this.orderType = "STA"
-                    this.transferType = "Download"
-                }
-            )
+        )
+        this.addressInfo = EbicsTypes.AddressInfo().apply {
+            this.name = "Address Info Object"
         }
+        this.bankInfo = EbicsTypes.BankInfo().apply {
+            this.hostID = subscriber.hostId
+        }
+        this.orderInfoList = listOf(
+            EbicsTypes.AuthOrderInfoType().apply {
+                this.description = "Transactions statement"
+                this.orderType = "C53"
+                this.transferType = "Download"
+            },
+            EbicsTypes.AuthOrderInfoType().apply {
+                this.description = "Transactions report"
+                this.orderType = "C52"
+                this.transferType = "Download"
+            },
+            EbicsTypes.AuthOrderInfoType().apply {
+                this.description = "Payment initiation (ZIPped payload)"
+                this.orderType = "CCC"
+                this.transferType = "Upload"
+            },
+            EbicsTypes.AuthOrderInfoType().apply {
+                this.description = "Payment initiation (plain text payload)"
+                this.orderType = "CCT"
+                this.transferType = "Upload"
+            },
+            EbicsTypes.AuthOrderInfoType().apply {
+                this.description = "vmk"
+                this.orderType = "VMK"
+                this.transferType = "Download"
+            },
+            EbicsTypes.AuthOrderInfoType().apply {
+                this.description = "sta"
+                this.orderType = "STA"
+                this.transferType = "Download"
+            }
+        )
+    }
+}
+
+private fun handleEbicsHtd(requestContext: RequestContext): ByteArray {
+    val bankAccount = getBankAccountFromSubscriber(requestContext.subscriber)
+    val htd = HTDResponseOrderData().apply {
+        this.partnerInfo = makePartnerInfo(requestContext.subscriber)
         this.userInfo = EbicsTypes.UserInfo().apply {
             this.name = "Some User"
             this.userID = EbicsTypes.UserIDType().apply {
                 this.status = 5
-                this.value = "USER1"
+                this.value = requestContext.subscriber.userId
             }
             this.permissionList = listOf(
                 EbicsTypes.UserPermission().apply {
@@ -727,78 +721,15 @@ fun handleEbicsHtd(): ByteArray {
     return str.toByteArray()
 }
 
-
-fun handleEbicsHkd(): ByteArray {
+private fun handleEbicsHkd(requestContext: RequestContext): ByteArray {
     val hkd = HKDResponseOrderData().apply {
-        this.partnerInfo = EbicsTypes.PartnerInfo().apply {
-            this.accountInfoList = listOf(
-                EbicsTypes.AccountInfo().apply {
-                    this.id = "acctid1"
-                    this.accountHolder = "Mina Musterfrau"
-                    this.accountNumberList = listOf(
-                        EbicsTypes.GeneralAccountNumber().apply {
-                            this.international = true
-                            this.value = "DE21500105174751659277"
-                        }
-                    )
-                    this.currency = "EUR"
-                    this.description = "ACCT"
-                    this.bankCodeList = listOf(
-                        EbicsTypes.GeneralBankCode().apply {
-                            this.international = true
-                            this.value = "INGDDEFFXXX"
-                        }
-                    )
-                },
-                EbicsTypes.AccountInfo().apply {
-                    this.id = "glsdemo"
-                    this.accountHolder = "Mina Musterfrau"
-                    this.accountNumberList = listOf(
-                        EbicsTypes.GeneralAccountNumber().apply {
-                            this.international = true
-                            this.value = "DE91430609670123123123"
-                        }
-                    )
-                    this.currency = "EUR"
-                    this.description = "glsdemoacct"
-                    this.bankCodeList = listOf(
-                        EbicsTypes.GeneralBankCode().apply {
-                            this.international = true
-                            this.value = "GENODEM1GLS"
-                        }
-                    )
-                }
-            )
-            this.addressInfo = EbicsTypes.AddressInfo().apply {
-                this.name = "Foo"
-            }
-            this.bankInfo = EbicsTypes.BankInfo().apply {
-                this.hostID = "host01"
-            }
-            this.orderInfoList = listOf(
-                EbicsTypes.AuthOrderInfoType().apply {
-                    this.description = "foo"
-                    this.orderType = "C53"
-                    this.transferType = "Download"
-                },
-                EbicsTypes.AuthOrderInfoType().apply {
-                    this.description = "foo"
-                    this.orderType = "C52"
-                    this.transferType = "Download"
-                },
-                EbicsTypes.AuthOrderInfoType().apply {
-                    this.description = "foo"
-                    this.orderType = "CCC"
-                    this.transferType = "Upload"
-                }
-            )
-        }
+        this.partnerInfo = makePartnerInfo(requestContext.subscriber)
         this.userInfoList = listOf(
             EbicsTypes.UserInfo().apply {
                 this.name = "Some User"
                 this.userID = EbicsTypes.UserIDType().apply {
                     this.status = 1
-                    this.value = "USER1"
+                    this.value = requestContext.subscriber.userId
                 }
                 this.permissionList = listOf(
                     EbicsTypes.UserPermission().apply {
@@ -832,8 +763,8 @@ private fun handleEbicsDownloadTransactionInitialization(requestContext: Request
         requestContext.requestObject.header.static.orderDetails?.orderType ?: throw EbicsInvalidRequestError()
     println("handling initialization for order type $orderType")
     val response = when (orderType) {
-        "HTD" -> handleEbicsHtd()
-        "HKD" -> handleEbicsHkd()
+        "HTD" -> handleEbicsHtd(requestContext)
+        "HKD" -> handleEbicsHkd(requestContext)
         /* Temporarily handling C52/C53 with same logic */
         "C53" -> handleEbicsC53(requestContext)
         "TSD" -> handleEbicsTSD(requestContext)
@@ -1048,7 +979,6 @@ private fun makeReqestContext(requestObject: EbicsRequest): RequestContext {
     )
 }
 
-
 suspend fun ApplicationCall.ebicsweb() {
     val requestDocument = receiveEbicsXml()
 
@@ -1140,7 +1070,10 @@ suspend fun ApplicationCall.ebicsweb() {
             LOGGER.info("Unknown message, just logging it!")
             respond(
                 HttpStatusCode.NotImplemented,
-                SandboxError("Not Implemented")
+                SandboxError(
+                    HttpStatusCode.NotImplemented,
+                    "Not Implemented"
+                )
             )
         }
     }
