@@ -4,24 +4,27 @@ from requests import post, get
 
 # Steps implemented in this test.
 #
-# 1 Prepare the Sandbox to run the test.
+# 0 Prepare sandbox.
 #  -> (a) Make a EBICS host, (b) make a EBICS subscriber
 #     for the test runner, and (c) assign a IBAN to such
 #     subscriber.
 #
-# 2 Prepare the Nexus to run the test.
+# 1 Prepare nexus.
 #  -> (a) Make a Nexus user, (b) make a EBICS subscriber
-#     associated to that user, and (c) fetch the bank
-#     account owned by that subscriber at the bank.
+#     associated to that user
 #
-# 3 Upload keys from Nexus to the Bank (INI & HIA)
-# 4 Download key from the Bank (HPB) to the Nexus
-#
-# 5 Request history from the Nexus to the Bank (C53).
-# 6 Verify that history is empty.
-# 7 Issue a payment from Nexus (Prepare & trigger CCT)
-# 8 Request history again, from Nexus to Bank.
-# 9 Verify that previous payment shows up.
+# 2 Prepare the Ebics transport for the nexus user.
+#  -> (a) Upload keys from Nexus to the Bank (INI & HIA),
+#     (b) Download key from the Bank (HPB) to the Nexus,
+#     and (c) Fetch the bank account owned by that subscriber
+#     at the bank.
+
+# 3 Request history from the Nexus to the Bank (C53).
+# 4 Verify that history is empty.
+# 5 Issue a payment from Nexus
+#  -> (a) Prepare & (b) trigger CCT.
+# 6 Request history again, from Nexus to Bank.
+# 7 Verify that previous payment shows up.
 
 
 # Nexus user details
@@ -63,7 +66,7 @@ resp = post(
 
 assert(resp.status_code == 200)
 
-#0.c, WIP
+#0.c
 resp = post(
     "http://localhost:5000/admin/ebics-subscriber/bank-account",
     json=dict(
@@ -74,15 +77,13 @@ resp = post(
 	),
         iban=SUBSCRIBER_IBAN,
         bic=SUBSCRIBER_BIC,
-        name=SUBSCRIBER_NAME
+        name=SUBSCRIBER_NAME,
 	label=BANK_ACCOUNT_LABEL
     )
 )
-
 assert(resp.status_code == 200)
 
-#1 Create a Nexus user
-
+#1.a
 resp = post(
     "http://localhost:5001/users/{}".format(USERNAME),
     json=dict(
@@ -92,7 +93,7 @@ resp = post(
 
 assert(resp.status_code == 200)
 
-#2 Create a EBICS user
+#1.b
 resp = post(
     "http://localhost:5001/ebics/subscribers/{}".format(USERNAME),
     json=dict(
@@ -105,30 +106,35 @@ resp = post(
 
 assert(resp.status_code == 200)
 
-#3 Upload keys to the bank INI & HIA
+#2.a
 resp = post(
     "http://localhost:5001/ebics/subscribers/{}/sendINI".format(USERNAME),
     json=dict()
 )
-
 assert(resp.status_code == 200)
 
 resp = post(
     "http://localhost:5001/ebics/subscribers/{}/sendHIA".format(USERNAME),
     json=dict()
 )
-
 assert(resp.status_code == 200)
 
-#4 Download keys from the bank HPB
+#2.b
 resp = post(
     "http://localhost:5001/ebics/subscribers/{}/sync".format(USERNAME),
     json=dict()
 )
-
 assert(resp.status_code == 200)
 
-#5 Request history via EBICS
+#2.c
+resp = post(
+    "http://localhost:5001/ebics/subscribers/{}/fetch-accounts".format(USERNAME),
+    json=dict()
+)
+assert(resp.status_code == 200)
+exit(77)
+
+#3 Request history via EBICS
 resp = post(
     "http://localhost:5001/ebics/subscribers/{}/collect-transactions-c53".format(USERNAME),
     json=dict()
@@ -140,17 +146,13 @@ resp = get(
     "http://localhost:5001/users/{}/history".format(USERNAME)
 )
 
+#4
 assert(
     resp.status_code == 200 and \
     len(resp.json().get("payments")) == 0
 )
 
-#6 Prepare a payment (via pure Nexus service)
-
-# FIXME: this currently fails, because nexus has a
-# empty table w.r.t. bank accounts.  Thus, the sandbox
-# must provide such information via the usual HTD message.
-
+#5.a
 resp = post(
     "http://localhost:5001/users/{}/prepare-payment".format(USERNAME),
     json=dict(

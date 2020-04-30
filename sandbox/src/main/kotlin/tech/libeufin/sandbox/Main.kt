@@ -157,6 +157,7 @@ fun main() {
                         iban = body.iban
                         bic = body.bic
                         name = body.name
+                        label = body.label
                     }
                 }
                 call.respondText(

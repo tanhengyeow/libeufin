@@ -251,7 +251,8 @@ fun dbCreateTables() {
             RawBankTransactionsTable,
             TalerIncomingPayments,
             TalerRequestedPayments,
-            NexusUsersTable
+            NexusUsersTable,
+            EbicsToBankAccountsTable
          )
     }
 }
