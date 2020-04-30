@@ -20,13 +20,6 @@ import java.time.ZonedDateTime
 import java.time.Instant
 import java.time.ZoneId
 
-fun getSubscriberEntityFromNexusUserId(nexusUserId: String?): EbicsSubscriberEntity {
-    return transaction {
-        val nexusUser = extractNexusUser(expectId(nexusUserId))
-        getEbicsSubscriberFromUser(nexusUser)
-    }
-}
-
 fun calculateRefund(amount: String): Amount {
     // fixme: must apply refund fees!
     return Amount(amount)
@@ -449,8 +442,4 @@ fun userHasRights(nexusUser: NexusUserEntity, iban: String): Boolean {
         }.firstOrNull()
     }
     return row != null
-}
-
-fun parseDate(date: String): DateTime {
-    return DateTime.parse(date, DateTimeFormat.forPattern("YYYY-MM-DD"))
 }

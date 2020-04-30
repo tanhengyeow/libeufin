@@ -158,7 +158,6 @@ class CryptoUtilTest {
     // from Crockford32 encoding to binary.
     fun base32ToBytesTest() {
         val expectedEncoding = "C9P6YRG"
-        val blob = "blob".toByteArray(Charsets.UTF_8)
         assert(Base32Crockford.decode(expectedEncoding).toString(Charsets.UTF_8) == "blob")
     }
 }

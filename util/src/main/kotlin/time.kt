@@ -1,6 +1,7 @@
 package tech.libeufin.util
 
 import org.joda.time.DateTime
+import org.joda.time.format.DateTimeFormat
 import java.time.ZoneId
 import java.time.ZonedDateTime
 import java.time.format.DateTimeFormatter
@@ -13,5 +14,10 @@ fun DateTime.toZonedString(): String {
 }
 
 fun DateTime.toDashedDate(): String {
-    return this.toString("Y-MM-dd")
+    return this.toString("y-MM-d")
+}
+
+fun parseDashedDate(date: String): DateTime {
+    logger.debug("Parsing date: $date")
+    return DateTime.parse(date, DateTimeFormat.forPattern("y-M-d"))
 }

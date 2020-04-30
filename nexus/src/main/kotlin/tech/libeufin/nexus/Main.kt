@@ -273,7 +273,7 @@ fun main() {
                             ret.payments.add(
                                 RawPayment(
                                     creditorIban = it.creditorIban,
-                                    debitorIban = "FIXME",
+                                    debitorIban = it.debitorIban,
                                     subject = it.subject,
                                     amount = "${it.currency}:${it.sum}",
                                     date = DateTime(it.date).toDashedDate()
@@ -712,7 +712,7 @@ fun main() {
                                     currency = camt53doc.pickString("//*[local-name()='Ntry']//*[local-name()='Amt']/@Ccy")
                                     amount = camt53doc.pickString("//*[local-name()='Ntry']//*[local-name()='Amt']")
                                     status = camt53doc.pickString("//*[local-name()='Ntry']//*[local-name()='Sts']")
-                                    bookingDate = parseDate(camt53doc.pickString("//*[local-name()='BookgDt']//*[local-name()='Dt']")).millis
+                                    bookingDate = parseDashedDate(camt53doc.pickString("//*[local-name()='BookgDt']//*[local-name()='Dt']")).millis
                                     nexusUser = extractNexusUser(id)
                                     creditorName = camt53doc.pickString("//*[local-name()='RltdPties']//*[local-name()='Dbtr']//*[local-name()='Nm']")
                                     creditorIban = camt53doc.pickString("//*[local-name()='CdtrAcct']//*[local-name()='IBAN']")

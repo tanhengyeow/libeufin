@@ -164,6 +164,7 @@ fun buildCamtString(type: Int, history: MutableList<RawPayment>): MutableList<St
     history.forEach {
         val dashedDate = DateTime.parse(it.date).toDashedDate()
         val zonedDateTime = DateTime.now().toZonedString()
+        logger.debug("Dashed date for CAMT: $dashedDate")
         ret.add(
             constructXml(indent = true) {
                 root("Document") {
