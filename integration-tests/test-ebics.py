@@ -168,3 +168,16 @@ resp = post("http://localhost:5001/ebics/execute-payments")
 assert(resp.status_code == 200)
 
 #6
+resp = post(
+    "http://localhost:5001/ebics/subscribers/{}/collect-transactions-c53".format(USERNAME),
+    json=dict()
+)
+assert(resp.status_code == 200)
+
+resp = get(
+    "http://localhost:5001/users/{}/history".format(USERNAME)
+)
+assert(resp.status_code == 200)
+assert(len(resp.json().get("payments")) == 1)
+
+

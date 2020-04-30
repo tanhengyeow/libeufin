@@ -160,9 +160,10 @@ fun buildCamtString(type: Int, history: MutableList<RawPayment>): MutableList<St
      * - Proprietary code of the bank transaction
      * - Id of the servicer (Issuer and Code)
      */
-    val now = DateTime.now()
     val ret = mutableListOf<String>()
     history.forEach {
+        val dashedDate = DateTime.parse(it.date).toDashedDate()
+        val zonedDateTime = DateTime.now().toZonedString()
         ret.add(
             constructXml(indent = true) {
                 root("Document") {
@@ -175,7 +176,7 @@ fun buildCamtString(type: Int, history: MutableList<RawPayment>): MutableList<St
                                 text("0")
                             }
                             element("CreDtTm") {
-                                text(now.toZonedString())
+                                text(zonedDateTime)
                             }
                             element("MsgPgntn") {
                                 element("PgNb") {
@@ -197,23 +198,23 @@ fun buildCamtString(type: Int, history: MutableList<RawPayment>): MutableList<St
                                 text("0")
                             }
                             element("CreDtTm") {
-                                text(now.toZonedString())
+                                text(zonedDateTime)
                             }
 
                             element("Acct") {
                                 // mandatory account identifier
                                 element("Id/IBAN") {
-                                    text("GB33BUKB20201555555555")
+                                    text("Owner IBAN")
                                 }
                                 element("Ccy") {
                                     text("EUR")
                                 }
                                 element("Ownr/Nm") {
-                                    text("Max Mustermann")
+                                    text("Debitor/Owner Name")
                                 }
                                 element("Svcr/FinInstnId") {
                                     element("BIC") {
-                                        text("GENODEM1GLS")
+                                        text("Owner Bic")
                                     }
                                     element("Nm") {
                                         text("Libeufin Bank")
@@ -239,15 +240,14 @@ fun buildCamtString(type: Int, history: MutableList<RawPayment>): MutableList<St
                                 }
                                 element("Amt") {
                                     attribute("Ccy", "EUR")
-                                    text(Amount(1).toPlainString())
+                                    text(Amount(0).toPlainString())
                                 }
                                 element("CdtDbtInd") {
                                     text("DBIT")
-                                    // CRDT or DBIT here
                                 }
                                 element("Dt/Dt") {
                                     // date of this balance
-                                    text(now.toDashedDate())
+                                    text(dashedDate)
                                 }
                             }
                             element("Bal") {
@@ -259,14 +259,14 @@ fun buildCamtString(type: Int, history: MutableList<RawPayment>): MutableList<St
                                 }
                                 element("Amt") {
                                     attribute("Ccy", "EUR")
-                                    text(Amount(1).toPlainString())
+                                    text(Amount(0).toPlainString())
                                 }
                                 element("CdtDbtInd") {
                                     // CRDT or DBIT here
                                     text("DBIT")
                                 }
                                 element("Dt/Dt") {
-                                    text(now.toDashedDate())
+                                    text(dashedDate)
                                 }
                             }
                             /**
@@ -276,7 +276,7 @@ fun buildCamtString(type: Int, history: MutableList<RawPayment>): MutableList<St
                                 element("Ntry") {
                                     element("Amt") {
                                         attribute("Ccy", "EUR")
-                                        text(Amount(1).toPlainString())
+                                        text(it.amount)
                                     }
                                     element("CdtDbtInd") {
                                         text("DBIT")
@@ -288,10 +288,10 @@ fun buildCamtString(type: Int, history: MutableList<RawPayment>): MutableList<St
                                         text("BOOK")
                                     }
                                     element("BookgDt/Dt") {
-                                        text(now.toDashedDate())
+                                        text(dashedDate)
                                     } // date of the booking
                                     element("ValDt/Dt") {
-                                        text(now.toDashedDate())
+                                        text(dashedDate)
                                     } // date of assets' actual (un)availability
                                     element("AcctSvcrRef") {
                                         text("0")
@@ -335,7 +335,7 @@ fun buildCamtString(type: Int, history: MutableList<RawPayment>): MutableList<St
                                         }
                                         element("AmtDtls/TxAmt/Amt") {
                                             attribute("Ccy", "EUR")
-                                            text(Amount(1).toPlainString())
+                                            text(it.amount)
                                         }
                                         element("BkTxCd") {
                                             element("Domn") {
@@ -362,25 +362,25 @@ fun buildCamtString(type: Int, history: MutableList<RawPayment>): MutableList<St
                                         }
                                         element("RltdPties") {
                                             element("Dbtr/Nm") {
-                                                text("Max Mustermann")
+                                                text("Debitor Name")
                                             }
                                             element("DbtrAcct/Id/IBAN") {
-                                                text("GB33BUKB20201555555555")
+                                                text(it.debitorIban)
                                             }
                                             element("Cdtr/Nm") {
-                                                text("Lina Musterfrau")
+                                                text("Creditor Name")
                                             }
                                             element("CdtrAcct/Id/IBAN") {
-                                                text("DE75512108001245126199")
+                                                text(it.creditorIban)
                                             }
                                         }
                                         element("RltdAgts") {
                                             element("CdtrAgt/FinInstnId/BIC") {
-                                                text("GENODEM1GLS")
+                                                text("Creditor Bic")
                                             }
                                         }
                                         element("RmtInf/Ustrd") {
-                                            text("made up subject")
+                                            text(it.subject)
                                         }
                                     }
                                     element("AddtlNtryInf") {

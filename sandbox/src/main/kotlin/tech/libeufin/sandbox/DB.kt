@@ -242,6 +242,7 @@ class PaymentEntity(id: EntityID<Int>) : IntEntity(id) {
     var subject by PaymentsTable.subject
     var amount by PaymentsTable.amount
     var date by PaymentsTable.date /** Date when the payment was persisted in this system.  */
+    /* Subscirber involved in the payment */
     var ebicsSubscriber by EbicsSubscriberEntity referencedOn PaymentsTable.ebicsSubscriber
 }
 
