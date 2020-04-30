@@ -461,6 +461,7 @@ private fun handleCct(paymentRequest: String, ebicsSubscriber: EbicsSubscriberEn
             this.subject = subject
             this.amount = "${currency}:${amount}"
             this.ebicsSubscriber = ebicsSubscriber
+            this.date = DateTime.now().millis
         }
     }
 }
@@ -832,7 +833,6 @@ private fun handleEbicsUploadTransactionInitialization(requestContext: RequestCo
     val plainSigData = InflaterInputStream(decryptedSignatureData.inputStream()).use {
         it.readAllBytes()
     }
-
     println("creating upload transaction for transactionID $transactionID")
     EbicsUploadTransactionEntity.new(transactionID) {
         this.host = requestContext.ebicsHost
@@ -856,7 +856,6 @@ private fun handleEbicsUploadTransactionInitialization(requestContext: RequestCo
             this.signatureValue = SerialBlob(sig.signatureValue)
         }
     }
-
     return EbicsResponse.createForUploadInitializationPhase(transactionID, orderID)
 }
 
@@ -882,11 +881,9 @@ private fun handleEbicsUploadTransactionTransmission(requestContext: RequestCont
             (EbicsOrderSignaturesTable.orderID eq uploadTransaction.orderID) and
                     (EbicsOrderSignaturesTable.orderType eq uploadTransaction.orderType)
         }
-
         if (sigs.count() == 0) {
             throw EbicsInvalidRequestError()
         }
-
         for (sig in sigs) {
             if (sig.signatureAlgorithm == "A006") {
 
@@ -902,8 +899,8 @@ private fun handleEbicsUploadTransactionTransmission(requestContext: RequestCont
             }
         }
 
-        /** Handling a payment request */
-        if ("CCT" == requestContext.requestObject.header.static.orderDetails?.orderType) {
+        if (getOrderTypeFromTransactionId(requestTransactionID) == "CCT") {
+            logger.debug("Attempting a payment.")
             handleCct(unzippedData.toString(Charsets.UTF_8), requestContext.subscriber)
         }
         return EbicsResponse.createForUploadTransferPhase(

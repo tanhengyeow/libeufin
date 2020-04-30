@@ -163,5 +163,8 @@ resp = post(
 )
 assert(resp.status_code == 200)
 
-#7 Execute such payment via EBICS
-#8 Request history again via EBICS
+#5.b
+resp = post("http://localhost:5001/ebics/execute-payments")
+assert(resp.status_code == 200)
+
+#6

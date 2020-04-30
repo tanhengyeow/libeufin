@@ -567,7 +567,7 @@ fun main() {
 
             /** STATE CHANGES VIA EBICS */
 
-            post("/ebics/admin/execute-payments") {
+            post("/ebics/execute-payments") {
                 val (paymentRowId, painDoc, subscriber) = transaction {
                     val entity = Pain001Entity.find {
                         (Pain001Table.submitted eq false) and (Pain001Table.invalid eq false)

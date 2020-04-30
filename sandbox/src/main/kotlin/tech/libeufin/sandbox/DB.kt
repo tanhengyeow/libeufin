@@ -241,7 +241,7 @@ class PaymentEntity(id: EntityID<Int>) : IntEntity(id) {
     var debitorIban by PaymentsTable.debitorIban
     var subject by PaymentsTable.subject
     var amount by PaymentsTable.amount
-    var date by PaymentsTable.date
+    var date by PaymentsTable.date /** Date when the payment was persisted in this system.  */
     var ebicsSubscriber by EbicsSubscriberEntity referencedOn PaymentsTable.ebicsSubscriber
 }
 

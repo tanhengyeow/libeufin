@@ -5,6 +5,21 @@ import org.jetbrains.exposed.sql.SqlExpressionBuilder.eq
 import org.jetbrains.exposed.sql.and
 import org.jetbrains.exposed.sql.transactions.transaction
 
+
+fun getOrderTypeFromTransactionId(transactionID: String): String {
+    val uploadTransaction = transaction {
+        EbicsUploadTransactionEntity.findById(transactionID)
+    } ?: throw SandboxError(
+        /**
+         * NOTE: at this point, it might even be the server's fault.
+         * For example, if it failed to store a ID earlier.
+         */
+        HttpStatusCode.NotFound,
+        "Could not retrieve order type for transaction: $transactionID"
+    )
+    return uploadTransaction.orderType
+}
+
 fun getBankAccountFromSubscriber(subscriber: EbicsSubscriberEntity): BankAccountEntity {
     return transaction {
         BankAccountEntity.find(BankAccountsTable.subscriber eq subscriber.id)
