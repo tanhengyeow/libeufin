@@ -50,7 +50,7 @@ def checkPorts(ports):
     for i in ports:
         s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         try:
-            s.bind(i)
+            s.bind(("0.0.0.0", i))
             s.close()
         except:
             print("Port {} is not available".format(i))
@@ -253,4 +253,6 @@ resp = assertResponse(
 )
 assert(len(resp.json().get("payments")) == 1)
 
+nexus.terminate()
+sandbox.terminate()
 print("Test passed!")
