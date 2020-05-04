@@ -1,6 +1,9 @@
 #!/usr/bin/env python3
 
 from requests import post, get
+from subprocess import call, Popen, PIPE
+from time import sleep
+import os
 
 # Steps implemented in this test.
 #
@@ -26,7 +29,6 @@ from requests import post, get
 # 6 Request history again, from Nexus to Bank.
 # 7 Verify that previous payment shows up.
 
-
 # Nexus user details
 USERNAME="person"
 
@@ -42,6 +44,38 @@ SUBSCRIBER_IBAN="GB33BUKB20201555555555"
 SUBSCRIBER_BIC="BUKBGB22"
 SUBSCRIBER_NAME="Oliver Smith"
 BANK_ACCOUNT_LABEL="savings"
+
+#-1 Clean databases and start services.
+assert(0 == call(["rm", "-f", "../sandbox/libeufin-sandbox.sqlite3"]))
+assert(0 == call(["rm", "-f", "../nexus/libeufin-nexus.sqlite3"]))
+DEVNULL = open(os.devnull, "w")
+
+# Start nexus
+nexus = Popen(["../gradlew", "nexus:run"], stdout=PIPE, stderr=PIPE)
+for i in range(10):
+    try:
+      get("http://localhost:5001/")
+    except:
+        if i == 9:
+            stdout, stderr = nexus.communicate()
+            print("{}\n{}".format(stdout.decode(), stderr.decode()))
+            exit(77)
+        sleep(1)
+        continue
+    break
+
+sandbox = Popen(["../gradlew", "sandbox:run"], stdout=PIPE, stderr=PIPE)
+for i in range(10):
+    try:
+      get("http://localhost:5000/")
+    except:
+        if i == 9:
+            stdout, stderr = nexus.communicate()
+            print("{}\n{}".format(stdout.decode(), stderr.decode()))
+            exit(77)
+        sleep(1)
+        continue
+    break
 
 #0.a
 resp = post(
