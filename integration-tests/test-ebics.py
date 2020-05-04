@@ -4,6 +4,7 @@ from requests import post, get
 from subprocess import call, Popen, PIPE
 from time import sleep
 import os
+import socket
 
 # Steps implemented in this test.
 #
@@ -45,29 +46,42 @@ SUBSCRIBER_BIC="BUKBGB22"
 SUBSCRIBER_NAME="Oliver Smith"
 BANK_ACCOUNT_LABEL="savings"
 
+def checkPorts():
+    for i in [5000, 5001]:
+        s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        try:
+            s.bind(i)
+            s.close()
+        except:
+            print("Port {} is not available")
+            exit(77)
+
 def assertResponse(response):
     if response.status_code != 200:
         print("Test failed on URL: {}".format(response.url))
         # stdout/stderr from both services is A LOT of text.
         # Confusing to dump all that to console.
-        print("Check nexus.log and sandbox.log under /tmp (?)")
+        print("Check nexus.log and sandbox.log, probably under /tmp")
         nexus.terminate()
         sandbox.terminate()
+        exit(1)
     # Allows for finer grained checks.
     return response
 
 #-1 Clean databases and start services.
-assert(0 == call(["rm", "-f", "../sandbox/libeufin-sandbox.sqlite3"]))
-assert(0 == call(["rm", "-f", "../nexus/libeufin-nexus.sqlite3"]))
+os.chdir("..")
+assert(0 == call(["rm", "-f", "sandbox/libeufin-sandbox.sqlite3"]))
+assert(0 == call(["rm", "-f", "nexus/libeufin-nexus.sqlite3"]))
 DEVNULL = open(os.devnull, "w")
 
 # Start nexus
-nexus = Popen(["../gradlew", "nexus:run"], stdout=PIPE, stderr=PIPE)
+nexus = Popen(["./gradlew", "nexus:run"], stdout=PIPE, stderr=PIPE)
 for i in range(10):
     try:
       get("http://localhost:5001/")
     except:
         if i == 9:
+            nexus.terminate()
             stdout, stderr = nexus.communicate()
             print("{}\n{}".format(stdout.decode(), stderr.decode()))
             exit(77)
@@ -75,12 +89,14 @@ for i in range(10):
         continue
     break
 
-sandbox = Popen(["../gradlew", "sandbox:run"], stdout=PIPE, stderr=PIPE)
+sandbox = Popen(["./gradlew", "sandbox:run"], stdout=PIPE, stderr=PIPE)
 for i in range(10):
     try:
       get("http://localhost:5000/")
     except:
         if i == 9:
+            nexus.terminate()
+            sandbox.terminate()
             stdout, stderr = nexus.communicate()
             print("{}\n{}".format(stdout.decode(), stderr.decode()))
             exit(77)
@@ -234,3 +250,5 @@ resp = assertResponse(
     )
 )
 assert(len(resp.json().get("payments")) == 1)
+
+print("Test passed!")
