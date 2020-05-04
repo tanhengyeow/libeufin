@@ -53,7 +53,7 @@ def checkPorts(ports):
             s.bind(i)
             s.close()
         except:
-            print("Port {} is not available")
+            print("Port {} is not available".format(i))
             exit(77)
 
 def assertResponse(response):
