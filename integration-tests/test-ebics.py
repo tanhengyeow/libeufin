@@ -46,8 +46,8 @@ SUBSCRIBER_BIC="BUKBGB22"
 SUBSCRIBER_NAME="Oliver Smith"
 BANK_ACCOUNT_LABEL="savings"
 
-def checkPorts():
-    for i in [5000, 5001]:
+def checkPorts(ports):
+    for i in ports:
         s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         try:
             s.bind(i)
@@ -75,6 +75,7 @@ assert(0 == call(["rm", "-f", "nexus/libeufin-nexus.sqlite3"]))
 DEVNULL = open(os.devnull, "w")
 
 # Start nexus
+checkPorts([5001])
 nexus = Popen(["./gradlew", "nexus:run"], stdout=PIPE, stderr=PIPE)
 for i in range(10):
     try:
@@ -89,6 +90,7 @@ for i in range(10):
         continue
     break
 
+checkPorts([5000])
 sandbox = Popen(["./gradlew", "sandbox:run"], stdout=PIPE, stderr=PIPE)
 for i in range(10):
     try:
