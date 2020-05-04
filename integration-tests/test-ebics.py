@@ -45,6 +45,17 @@ SUBSCRIBER_BIC="BUKBGB22"
 SUBSCRIBER_NAME="Oliver Smith"
 BANK_ACCOUNT_LABEL="savings"
 
+def assertResponse(response):
+    if response.status_code != 200:
+        print("Test failed on URL: {}".format(response.url))
+        # stdout/stderr from both services is A LOT of text.
+        # Confusing to dump all that to console.
+        print("Check nexus.log and sandbox.log under /tmp (?)")
+        nexus.terminate()
+        sandbox.terminate()
+    # Allows for finer grained checks.
+    return response
+
 #-1 Clean databases and start services.
 assert(0 == call(["rm", "-f", "../sandbox/libeufin-sandbox.sqlite3"]))
 assert(0 == call(["rm", "-f", "../nexus/libeufin-nexus.sqlite3"]))
@@ -78,138 +89,148 @@ for i in range(10):
     break
 
 #0.a
-resp = post(
-    "http://localhost:5000/admin/ebics-host",
-    json=dict(
-	hostID=HOST_ID,
-	ebicsVersion=EBICS_VERSION
+assertResponse(
+    post(
+        "http://localhost:5000/admin/ebics-host",
+        json=dict(
+            hostID=HOST_ID,
+        ebicsVersion=EBICS_VERSION
+        )
     )
 )
-
-assert(resp.status_code == 200)
 
 #0.b
-resp = post(
-    "http://localhost:5000/admin/ebics-subscriber",
-    json=dict(
-        hostID=HOST_ID,
-	partnerID=PARTNER_ID,
-	userID=USER_ID
+assertResponse(
+    post(
+        "http://localhost:5000/admin/ebics-subscriber",
+        json=dict(
+            hostID=HOST_ID,
+        partnerID=PARTNER_ID,
+        userID=USER_ID
+        )
     )
 )
-
-assert(resp.status_code == 200)
 
 #0.c
-resp = post(
-    "http://localhost:5000/admin/ebics-subscriber/bank-account",
-    json=dict(
-        subscriber=dict(
-            hostID=HOST_ID,
-            partnerID=PARTNER_ID,
-            userID=USER_ID
-	),
-        iban=SUBSCRIBER_IBAN,
-        bic=SUBSCRIBER_BIC,
-        name=SUBSCRIBER_NAME,
-	label=BANK_ACCOUNT_LABEL
+assertResponse(
+    post(
+        "http://localhost:5000/admin/ebics-subscriber/bank-account",
+        json=dict(
+            subscriber=dict(
+                hostID=HOST_ID,
+                partnerID=PARTNER_ID,
+                userID=USER_ID
+        ),
+            iban=SUBSCRIBER_IBAN,
+            bic=SUBSCRIBER_BIC,
+            name=SUBSCRIBER_NAME,
+        label=BANK_ACCOUNT_LABEL
+        )
     )
 )
-assert(resp.status_code == 200)
 
 #1.a
-resp = post(
-    "http://localhost:5001/users/{}".format(USERNAME),
-    json=dict(
-	password="secret"
+assertResponse(
+    post(
+        "http://localhost:5001/users/{}".format(USERNAME),
+        json=dict(
+        password="secret"
+        )
     )
 )
-
-assert(resp.status_code == 200)
 
 #1.b
-resp = post(
-    "http://localhost:5001/ebics/subscribers/{}".format(USERNAME),
-    json=dict(
-	ebicsURL=EBICS_URL,
-	hostID=HOST_ID,
-	partnerID=PARTNER_ID,
-	userID=USER_ID
+assertResponse(
+    post(
+        "http://localhost:5001/ebics/subscribers/{}".format(USERNAME),
+        json=dict(
+        ebicsURL=EBICS_URL,
+        hostID=HOST_ID,
+        partnerID=PARTNER_ID,
+        userID=USER_ID
+        )
+    )
+)
+#2.a
+assertResponse(
+    post(
+        "http://localhost:5001/ebics/subscribers/{}/sendINI".format(USERNAME),
+        json=dict()
     )
 )
 
-assert(resp.status_code == 200)
-
-#2.a
-resp = post(
-    "http://localhost:5001/ebics/subscribers/{}/sendINI".format(USERNAME),
-    json=dict()
+assertResponse(
+    post(
+        "http://localhost:5001/ebics/subscribers/{}/sendHIA".format(USERNAME),
+        json=dict()
+    )
 )
-assert(resp.status_code == 200)
-
-resp = post(
-    "http://localhost:5001/ebics/subscribers/{}/sendHIA".format(USERNAME),
-    json=dict()
-)
-assert(resp.status_code == 200)
 
 #2.b
-resp = post(
-    "http://localhost:5001/ebics/subscribers/{}/sync".format(USERNAME),
-    json=dict()
+assertResponse(
+    post(
+        "http://localhost:5001/ebics/subscribers/{}/sync".format(USERNAME),
+        json=dict()
+    )
 )
-assert(resp.status_code == 200)
 
 #2.c
-resp = post(
-    "http://localhost:5001/ebics/subscribers/{}/fetch-accounts".format(USERNAME),
-    json=dict()
+assertResponse(
+    post(
+        "http://localhost:5001/ebics/subscribers/{}/fetch-accounts".format(USERNAME),
+        json=dict()
+    )
 )
-assert(resp.status_code == 200)
 
 #3
-resp = post(
-    "http://localhost:5001/ebics/subscribers/{}/collect-transactions-c53".format(USERNAME),
-    json=dict()
+assertResponse(
+    post(
+        "http://localhost:5001/ebics/subscribers/{}/collect-transactions-c53".format(USERNAME),
+        json=dict()
+    )
 )
-assert(resp.status_code == 200)
 
 #4
-resp = get(
-    "http://localhost:5001/users/{}/history".format(USERNAME)
+resp = assertResponse(
+    get(
+        "http://localhost:5001/users/{}/history".format(USERNAME)
+    )
 )
-assert(resp.status_code == 200)
 assert(len(resp.json().get("payments")) == 0)
 
 #5.a
-resp = post(
-    "http://localhost:5001/users/{}/prepare-payment".format(USERNAME),
-    json=dict(
-        creditorIban="FR7630006000011234567890189",
-        creditorBic="AGRIFRPP",
-        creditorName="Jacques La Fayette",
-        debitorIban=SUBSCRIBER_IBAN,
-        debitorBic=SUBSCRIBER_BIC,
-        debitorName=SUBSCRIBER_NAME,
-	subject="integration test",
-	sum=1
+assertResponse(
+    post(
+        "http://localhost:5001/users/{}/prepare-payment".format(USERNAME),
+        json=dict(
+            creditorIban="FR7630006000011234567890189",
+            creditorBic="AGRIFRPP",
+            creditorName="Jacques La Fayette",
+            debitorIban=SUBSCRIBER_IBAN,
+            debitorBic=SUBSCRIBER_BIC,
+            debitorName=SUBSCRIBER_NAME,
+        subject="integration test",
+        sum=1
+        )
     )
 )
-assert(resp.status_code == 200)
 
 #5.b
-resp = post("http://localhost:5001/ebics/execute-payments")
-assert(resp.status_code == 200)
+assertResponse(
+    post("http://localhost:5001/ebics/execute-payments")
+)
 
 #6
-resp = post(
-    "http://localhost:5001/ebics/subscribers/{}/collect-transactions-c53".format(USERNAME),
-    json=dict()
+assertResponse(
+    post(
+        "http://localhost:5001/ebics/subscribers/{}/collect-transactions-c53".format(USERNAME),
+        json=dict()
+    )
 )
-assert(resp.status_code == 200)
 
-resp = get(
-    "http://localhost:5001/users/{}/history".format(USERNAME)
+resp = assertResponse(
+    get(
+        "http://localhost:5001/users/{}/history".format(USERNAME)
+    )
 )
-assert(resp.status_code == 200)
 assert(len(resp.json().get("payments")) == 1)
