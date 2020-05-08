@@ -95,6 +95,12 @@ data class NexusUser(
     val transports: MutableList<Any> = mutableListOf()
 )
 
+/** is "UserResponse" in the API spec */
+data class UserResponse(
+    val username: String,
+    val superuser: Boolean
+)
+
 /** Instructs the nexus to CREATE a new user */
 data class User(
     val username: String,

@@ -133,17 +133,14 @@ fun main() {
              */
             get("/user") {
                 val userId = authenticateRequest(call.request.headers["Authorization"])
-                val bankAccounts = BankAccounts()
-                getBankAccountsFromNexusUserId(userId).forEach {
-                    bankAccounts.accounts.add(
-                        BankAccount(
-                            holder = it.accountHolder,
-                            iban = it.iban,
-                            bic = it.bankCode,
-                            account = it.id.value
-                        )
+                val ret = transaction {
+                    NexusUserEntity.findById(userId)
+                    UserResponse(
+                        username = userId,
+                        superuser = userId.equals("admin")
                     )
                 }
+                call.respond(HttpStatusCode.OK, ret)
                 return@get
             }
             /**
@@ -172,6 +169,18 @@ fun main() {
              * Shows the bank accounts belonging to the requesting user.
              */
             get("/bank-accounts") {
+                val userId = authenticateRequest(call.request.headers["Authorization"])
+                val bankAccounts = BankAccounts()
+                getBankAccountsFromNexusUserId(userId).forEach {
+                    bankAccounts.accounts.add(
+                        BankAccount(
+                            holder = it.accountHolder,
+                            iban = it.iban,
+                            bic = it.bankCode,
+                            account = it.id.value
+                        )
+                    )
+                }
                 return@get
             }
             /**
