@@ -138,8 +138,41 @@ fun main() {
             /** GENERAL / DEBUG ENDPOINTS */
 
             get("/") {
-                call.respondText("Hello by Nexus!\n")
+                call.respondText("Hello by nexus!\n")
                 return@get
+            }
+            get("/user") {
+                return@get
+            }
+            post("/users") {
+                return@post
+            }
+            get("/bank-accounts") {
+                return@get
+            }
+            post("/bank-accounts/{accountid}/prepared-payments/submit") {
+                return@post
+            }
+            get("/bank-accounts/{accountid}/prepared-payments/{uuid}") {
+                return@get
+            }
+            post("/bank-accounts/{accountid}/prepared-payments") {
+                return@post
+            }
+            post("/bank-accounts/{accountid}/collected-transactions") {
+                return@post
+            }
+            get("/bank-accounts/{accountid}/collected-transactions") {
+                return@post
+            }
+            post("/bank-transports") {
+                return@post
+            }
+            post("/bank-transports/{transportName}/send{MSG}") {
+                return@post
+            }
+            post("/bank-transports/{transportName}/sync{MSG}") {
+                return@post
             }
         }
         logger.info("Up and running")
