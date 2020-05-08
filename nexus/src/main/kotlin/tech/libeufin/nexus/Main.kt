@@ -270,6 +270,72 @@ fun main() {
              * Downloads new transactions from the bank.
              */
             post("/bank-accounts/{accountid}/collected-transactions") {
+                val userId = authenticateRequest(call.request.headers["Authorization"])
+                val body = call.receive<CollectedTransaction>()
+                when (body.transport) {
+                    "ebics" -> {
+                        val orderParams = EbicsStandardOrderParamsJson(
+                            EbicsDateRangeJson(
+                                body.start,
+                                body.end
+                            )
+                        ).toOrderParams()
+                        val subscriberData = getSubscriberDetailsFromNexusUserId(userId)
+                        when (val response = doEbicsDownloadTransaction(client, subscriberData, "C53", orderParams)) {
+                            is EbicsDownloadSuccessResult -> {
+                                /**
+                                 * The current code is _heavily_ dependent on the way GLS returns
+                                 * data.  For example, GLS makes one ZIP entry for each "Ntry" element
+                                 * (a bank transfer), but per the specifications one bank can choose to
+                                 * return all the "Ntry" elements into one single ZIP entry, or even unzipped
+                                 * at all.
+                                 */
+                                response.orderData.unzipWithLambda {
+                                    logger.debug("C53 entry: ${it.second}")
+                                    val fileName = it.first
+                                    val camt53doc = XMLUtil.parseStringIntoDom(it.second)
+                                    transaction {
+                                        RawBankTransactionEntity.new {
+                                            sourceFileName = fileName
+                                            unstructuredRemittanceInformation = camt53doc.pickString("//*[local-name()='Ntry']//*[local-name()='Ustrd']")
+                                            transactionType = camt53doc.pickString("//*[local-name()='Ntry']//*[local-name()='CdtDbtInd']")
+                                            currency = camt53doc.pickString("//*[local-name()='Ntry']//*[local-name()='Amt']/@Ccy")
+                                            amount = camt53doc.pickString("//*[local-name()='Ntry']//*[local-name()='Amt']")
+                                            status = camt53doc.pickString("//*[local-name()='Ntry']//*[local-name()='Sts']")
+                                            bookingDate = parseDashedDate(camt53doc.pickString("//*[local-name()='BookgDt']//*[local-name()='Dt']")).millis
+                                            nexusUser = extractNexusUser(userId)
+                                            creditorName = camt53doc.pickString("//*[local-name()='RltdPties']//*[local-name()='Dbtr']//*[local-name()='Nm']")
+                                            creditorIban = camt53doc.pickString("//*[local-name()='CdtrAcct']//*[local-name()='IBAN']")
+                                            debitorName = camt53doc.pickString("//*[local-name()='RltdPties']//*[local-name()='Dbtr']//*[local-name()='Nm']")
+                                            debitorIban = camt53doc.pickString("//*[local-name()='DbtrAcct']//*[local-name()='IBAN']")
+                                            counterpartBic = camt53doc.pickString("//*[local-name()='RltdAgts']//*[local-name()='BIC']")
+                                        }
+                                    }
+                                }
+                                call.respondText(
+                                    "C53 data persisted into the database (WIP).",
+                                    ContentType.Text.Plain,
+                                    HttpStatusCode.OK
+                                )
+                            }
+                            is EbicsDownloadBankErrorResult -> {
+                                call.respond(
+                                    HttpStatusCode.BadGateway,
+                                    EbicsErrorJson(
+                                        EbicsErrorDetailJson(
+                                            "bankError",
+                                            response.returnCode.errorCode
+                                        )
+                                    )
+                                )
+                            }
+                        }
+                    }
+                    else -> throw NexusError(
+                        HttpStatusCode.NotImplemented,
+                        "Bank transport ${body.transport} is not implemented"
+                    )
+                }
                 return@post
             }
             /**
@@ -298,6 +364,7 @@ fun main() {
             post("/bank-transports/{transportName}/sync{MSG}") {
                 return@post
             }
+
             /**
              * Hello endpoint.
              */

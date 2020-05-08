@@ -12,9 +12,7 @@ data class NexusErrorJson(
     val message: String
 )
 
-data class EbicsStandardOrderParamsJson(
-    val dateRange: EbicsDateRangeJson?
-) {
+data class EbicsStandardOrderParamsJson(val dateRange: EbicsDateRangeJson?) {
     fun toOrderParams(): EbicsOrderParams {
         var dateRange: EbicsDateRange? = if (this.dateRange != null) {
             EbicsDateRange(
@@ -29,9 +27,7 @@ data class EbicsStandardOrderParamsJson(
 }
 
 data class EbicsDateRangeJson(
-    /**
-     * ISO 8601 calendar dates: YEAR-MONTH(01-12)-DAY(1-31)
-     */
+    /** ISO 8601 calendar dates: YEAR-MONTH(01-12)-DAY(1-31) */
     val start: String?,
     val end: String?
 )
@@ -173,4 +169,10 @@ data class RawPayments(
 data class SubmitPayment(
     val uuid: String,
     val transport: String?
+)
+
+data class CollectedTransaction(
+    val transport: String?,
+    val start: String?,
+    val end: String?
 )
