@@ -150,6 +150,8 @@ fun main() {
              * Add a new ordinary user in the system (requires "admin" privileges)
              */
             post("/users") {
+                authenticateAdminRequest(call.request.headers["Authorization"])
+                
                 return@post
             }
             /**

@@ -369,6 +369,15 @@ fun authenticateRequest(authorization: String?): String {
     return subscriber.id.value
 }
 
+fun authenticateAdminRequest(authorization: String?): String {
+    val userId = authenticateRequest(authorization)
+    if (!userId.equals("admin")) throw NexusError(
+        HttpStatusCode.Forbidden,
+        "Not the 'admin' user"
+    )
+    return userId
+}
+
 /**
  * Check if the subscriber has the right to use the (claimed) bank account.
  * @param subscriber id of the EBICS subscriber to check
