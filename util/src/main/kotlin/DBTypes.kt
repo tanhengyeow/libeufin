@@ -1,8 +1,10 @@
 package tech.libeufin.util
 
+import org.jetbrains.exposed.dao.IdTable
 import org.jetbrains.exposed.dao.IntIdTable
 import org.jetbrains.exposed.sql.Column
 import org.jetbrains.exposed.sql.ColumnType
+import org.jetbrains.exposed.sql.Table
 import java.math.BigDecimal
 import java.math.RoundingMode
 
@@ -15,15 +17,10 @@ class BadAmount(badValue: Any?) : Exception("Value '${badValue}' is not a valid 
  */
 typealias Amount = BigDecimal
 
-open class IntIdTableWithAmount : IntIdTable() {
-
-    class AmountColumnType : ColumnType() {
-        override fun sqlType(): String  = "DECIMAL(${NUMBER_MAX_DIGITS}, ${SCALE_TWO})"
-
+class AmountColumnType : ColumnType() {
+    override fun sqlType(): String  = "DECIMAL(${NUMBER_MAX_DIGITS}, ${SCALE_TWO})"
         override fun valueFromDB(value: Any): Any {
-
             val valueFromDB = super.valueFromDB(value)
-
             try {
                 return when (valueFromDB) {
                     is BigDecimal -> valueFromDB.setScale(SCALE_TWO, RoundingMode.UNNECESSARY)
@@ -55,13 +52,12 @@ open class IntIdTableWithAmount : IntIdTable() {
             }
             return super.valueToDB(value)
         }
-    }
+}
 
-    /**
-     * Make sure the number entered by upper layers does not need any rounding
-     * to conform to scale == 2
-     */
-    fun amount(name: String): Column<Amount> {
-        return registerColumn(name, AmountColumnType())
-    }
+/**
+ * Make sure the number entered by upper layers does not need any rounding
+ * to conform to scale == 2
+ */
+fun IdTable<*>.amount(name: String): Column<Amount> {
+    return registerColumn(name, AmountColumnType())
 }

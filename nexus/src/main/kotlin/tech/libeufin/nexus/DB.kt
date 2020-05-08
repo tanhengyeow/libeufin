@@ -5,7 +5,9 @@ import org.jetbrains.exposed.dao.*
 import org.jetbrains.exposed.sql.*
 import org.jetbrains.exposed.sql.transactions.TransactionManager
 import org.jetbrains.exposed.sql.transactions.transaction
-import tech.libeufin.util.IntIdTableWithAmount
+import tech.libeufin.nexus.BankAccountsTable.entityId
+import tech.libeufin.nexus.BankAccountsTable.primaryKey
+import tech.libeufin.util.amount
 import java.sql.Connection
 
 const val ID_MAX_LENGTH = 50
@@ -117,8 +119,8 @@ class RawBankTransactionEntity(id: EntityID<Long>) : LongEntity(id) {
 /**
  * Represent a prepare payment.
  */
-object Pain001Table : IntIdTableWithAmount() {
-    val msgId = long("msgId").uniqueIndex().autoIncrement()
+object Pain001Table : IdTable<String>() {
+    override val id = BankAccountsTable.varchar("id", ID_MAX_LENGTH).entityId().primaryKey()
     val paymentId = long("paymentId")
     val fileDate = long("fileDate")
     val sum = amount("sum")
@@ -139,9 +141,8 @@ object Pain001Table : IntIdTableWithAmount() {
     val invalid = bool("invalid").default(false)
     val nexusUser = reference("nexusUser", NexusUsersTable)
 }
-class Pain001Entity(id: EntityID<Int>) : IntEntity(id) {
-    companion object : IntEntityClass<Pain001Entity>(Pain001Table)
-    var msgId by Pain001Table.msgId
+class Pain001Entity(id: EntityID<String>) : Entity<String>(id) {
+    companion object : EntityClass<String, Pain001Entity>(Pain001Table)
     var paymentId by Pain001Table.paymentId
     var date by Pain001Table.fileDate
     var sum by Pain001Table.sum

@@ -157,3 +157,8 @@ data class Pain001Data(
 data class RawPayments(
     var payments: MutableList<RawPayment> = mutableListOf()
 )
+
+data class SubmitPayment(
+    val uuid: String,
+    val transport: String?
+)

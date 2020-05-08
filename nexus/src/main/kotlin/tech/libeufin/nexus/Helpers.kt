@@ -288,7 +288,7 @@ fun createPain001document(pain001Entity: Pain001Entity): String {
 fun createPain001entity(entry: Pain001Data, nexusUser: NexusUserEntity): Pain001Entity {
     val randomId = Random().nextLong()
     return transaction {
-        Pain001Entity.new {
+        Pain001Entity.new(randomId.toString()) {
             subject = entry.subject
             sum = entry.sum
             debitorIban = entry.debitorIban
@@ -299,7 +299,6 @@ fun createPain001entity(entry: Pain001Data, nexusUser: NexusUserEntity): Pain001
             creditorIban = entry.creditorIban
             date = DateTime.now().millis
             paymentId = randomId
-            msgId = randomId
             endToEndId = randomId
             this.nexusUser = nexusUser
         }

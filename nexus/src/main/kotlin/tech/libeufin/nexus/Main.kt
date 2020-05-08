@@ -114,7 +114,6 @@ fun main() {
                 return@intercept finish()
             }
         }
-
         receivePipeline.intercept(ApplicationReceivePipeline.Before) {
             if (this.context.request.headers["Content-Encoding"] == "deflate") {
                 logger.debug("About to inflate received data")
@@ -126,7 +125,6 @@ fun main() {
             proceed()
             return@intercept
         }
-
         routing {
             /**
              * Shows information about the requesting user.
@@ -187,6 +185,59 @@ fun main() {
              * Submit one particular payment at the bank.
              */
             post("/bank-accounts/{accountid}/prepared-payments/submit") {
+                val userId = authenticateRequest(call.request.headers["Authorization"])
+                val body = call.receive<SubmitPayment>()
+
+                // 1 find payment.
+                val preparedPayment = transaction {
+                    Pain001Entity.findById(body.uuid)
+                } ?: throw NexusError(
+                    HttpStatusCode.NotFound,
+                    "Could not find prepared payment: ${body.uuid}"
+                )
+
+                // 2 check if was submitted yet
+                if (preparedPayment.submitted) {
+                    throw NexusError(
+                        HttpStatusCode.PreconditionFailed,
+                        "Payment ${body.uuid} was submitted already"
+                    )
+                }
+
+                // 3 submit
+                val pain001document = createPain001document(preparedPayment)
+
+                // 4 check if the user has a instance in such bank transport.
+                when (body.transport) {
+                    "ebics" -> {
+                        val subscriberDetails = getSubscriberDetailsFromNexusUserId(userId)
+                        logger.debug("Uploading PAIN.001: ${pain001document}")
+                        doEbicsUploadTransaction(
+                            client,
+                            subscriberDetails,
+                            "CCT",
+                            pain001document.toByteArray(Charsets.UTF_8),
+                            EbicsStandardOrderParams()
+                        )
+                        /** mark payment as 'submitted' */
+                        transaction {
+                            val payment = Pain001Entity.findById(body.uuid) ?: throw NexusError(
+                                HttpStatusCode.InternalServerError,
+                                "Severe internal error: could not find payment in DB after having submitted it to the bank"
+                            )
+                            payment.submitted = true
+                        }
+                        call.respondText(
+                            "CCT message submitted to the bank",
+                            ContentType.Text.Plain,
+                            HttpStatusCode.OK
+                        )
+                    }
+                    else -> throw NexusError(
+                        HttpStatusCode.NotImplemented,
+                        "Bank transport ${body.transport} is not implemented"
+                    )
+                }
                 return@post
             }
             /**
