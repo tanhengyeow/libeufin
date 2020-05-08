@@ -133,6 +133,17 @@ fun main() {
              */
             get("/user") {
                 val userId = authenticateRequest(call.request.headers["Authorization"])
+                val bankAccounts = BankAccounts()
+                getBankAccountsFromNexusUserId(userId).forEach {
+                    bankAccounts.accounts.add(
+                        BankAccount(
+                            holder = it.accountHolder,
+                            iban = it.iban,
+                            bic = it.bankCode,
+                            account = it.id.value
+                        )
+                    )
+                }
                 return@get
             }
             /**

@@ -58,12 +58,6 @@ import java.util.zip.InflaterInputStream
 import javax.crypto.EncryptedPrivateKeyInfo
 import javax.sql.rowset.serial.SerialBlob
 
-
-data class NexusError(val statusCode: HttpStatusCode, val reason: String) : Exception()
-
-val logger: Logger = LoggerFactory.getLogger("tech.libeufin.nexus")
-
-
 @ExperimentalIoApi
 @KtorExperimentalAPI
 fun main() {

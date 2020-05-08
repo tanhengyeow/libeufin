@@ -164,7 +164,7 @@ class Pain001Entity(id: EntityID<Int>) : IntEntity(id) {
  */
 object BankAccountsTable : IdTable<String>() {
     override val id = varchar("id", ID_MAX_LENGTH).entityId().primaryKey()
-    val accountHolder = text("accountHolder").nullable()
+    val accountHolder = text("accountHolder")
     val iban = text("iban")
     val bankCode = text("bankCode") 
 }

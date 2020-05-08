@@ -81,6 +81,31 @@ fun getBankAccountFromNexusUserId(id: String): BankAccountEntity {
     return map.bankAccount
 }
 
+/**
+ * Given a nexus user id, returns the _list_ of bank accounts associated to it.
+ *
+ * @param id the subscriber id
+ * @return the (non-empty) list of bank accounts associated with this user.
+ */
+fun getBankAccountsFromNexusUserId(id: String): MutableList<BankAccountEntity> {
+    logger.debug("Looking up bank account of user '$id'")
+    val ret = mutableListOf<BankAccountEntity>()
+    transaction {
+        BankAccountMapEntity.find {
+            BankAccountMapsTable.nexusUser eq id
+        }.forEach {
+            ret.add(it.bankAccount)
+        }
+    }
+    if (ret.isEmpty()) {
+        throw NexusError(
+            HttpStatusCode.NotFound,
+            "Such user '$id' does not have any bank account associated"
+        )
+    }
+    return ret
+}
+
 fun getSubscriberDetailsInternal(subscriber: EbicsSubscriberEntity): EbicsClientSubscriberDetails {
     var bankAuthPubValue: RSAPublicKey? = null
     if (subscriber.bankAuthenticationPublicKey != null) {
