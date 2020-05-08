@@ -16,7 +16,7 @@ plugins {
 
 sourceSets {
     main.kotlin.srcDirs = ["src/main/kotlin"]
-    main.kotlin.excludes = ["**/Main2.kt"]
+    // main.kotlin.excludes = ["**/Main2.kt"]
 }
 
 task installToPrefix(type: Copy) {

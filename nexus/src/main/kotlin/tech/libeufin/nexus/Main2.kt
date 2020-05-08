@@ -59,13 +59,15 @@ import javax.crypto.EncryptedPrivateKeyInfo
 import javax.sql.rowset.serial.SerialBlob
 
 
+/**
+ * Conflicts with current Main.kt
+
 data class NexusError(val statusCode: HttpStatusCode, val reason: String) : Exception()
-
 val logger: Logger = LoggerFactory.getLogger("tech.libeufin.nexus")
-
 fun isProduction(): Boolean {
     return System.getenv("NEXUS_PRODUCTION") != null
 }
+ */
 
 @ExperimentalIoApi
 @KtorExperimentalAPI
@@ -185,7 +187,7 @@ fun main() {
              * Queries list of transactions ALREADY downloaded from the bank.
              */
             get("/bank-accounts/{accountid}/collected-transactions") {
-                return@post
+                return@get
             }
             /**
              * Adds a new bank transport.
@@ -208,7 +210,7 @@ fun main() {
                 return@post
             }
         }
-        logger.info("Up and running")
-        server.start(wait = true)
     }
+    logger.info("Up and running")
+    server.start(wait = true)
 }

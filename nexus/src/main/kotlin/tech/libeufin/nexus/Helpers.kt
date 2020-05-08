@@ -325,7 +325,7 @@ fun extractUserAndHashedPassword(authorizationHeader: String): Pair<String, Byte
  * and makes sure that the user exists in the system.
  *
  * @param authorization the Authorization:-header line.
- * @return subscriber id
+ * @return user id
  */
 fun authenticateRequest(authorization: String?): String {
     val headerLine = if (authorization == null) throw NexusError(
