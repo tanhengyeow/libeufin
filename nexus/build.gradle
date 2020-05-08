@@ -1,4 +1,5 @@
 plugins {
+    id 'kotlin'
     id 'java'
     id 'application'
     id 'org.jetbrains.kotlin.jvm'
@@ -11,6 +12,11 @@ plugins {
      * suitable launch script.
      */
     id "com.github.johnrengelman.shadow" version "5.2.0"
+}
+
+sourceSets {
+    main.kotlin.srcDirs = ["src/main/kotlin"]
+    main.kotlin.excludes = ["**/Main2.kt"]
 }
 
 task installToPrefix(type: Copy) {
