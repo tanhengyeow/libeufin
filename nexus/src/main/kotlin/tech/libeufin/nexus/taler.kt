@@ -90,11 +90,6 @@ class Taler(app: Route) {
         val iban: String,
         val bic: String = "NOTGIVEN"
     )
-    data class AmountWithCurrency(
-        val currency: String,
-        val amount: Amount
-    )
-
     /**
      * Helper functions
      */
@@ -130,12 +125,6 @@ class Taler(app: Route) {
         throw NexusError(HttpStatusCode.BadRequest, "invalid payto URI ($paytoUri)")
     }
 
-    fun parseAmount(amount: String): AmountWithCurrency {
-        val match = Regex("([A-Z]+):([0-9]+(\\.[0-9]+)?)").find(amount) ?: throw
-                NexusError(HttpStatusCode.BadRequest, "invalid payto URI ($amount)")
-        val (currency, number) = match.destructured
-        return AmountWithCurrency(currency, Amount(number))
-    }
     /** Sort query results in descending order for negative deltas, and ascending otherwise.  */
     private fun <T : Entity<Long>> SizedIterable<T>.orderTaler(delta: Int): List<T> {
         return if (delta < 0) {

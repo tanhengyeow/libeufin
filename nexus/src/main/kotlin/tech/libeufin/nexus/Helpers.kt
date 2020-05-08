@@ -61,6 +61,15 @@ fun extractFirstBic(bankCodes: List<EbicsTypes.AbstractBankCode>?): String? {
     return null
 }
 
+fun getBankAccount(id: String): BankAccountEntity {
+    return transaction {
+        BankAccountEntity.findById(id)
+    } ?: throw NexusError(
+        HttpStatusCode.NotFound,
+        "Bank account '$id' not found"
+    )
+}
+
 /**
  * Given a nexus user id, returns the _list_ of bank accounts associated to it.
  *

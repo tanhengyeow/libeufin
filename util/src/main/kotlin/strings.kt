@@ -1,5 +1,6 @@
 package tech.libeufin.util
 
+import io.ktor.http.HttpStatusCode
 import java.math.BigInteger
 import java.util.*
 
@@ -69,4 +70,16 @@ fun chunkString(input: String): String {
         ret.append(input[i])
     }
     return ret.toString().toUpperCase()
+}
+
+data class AmountWithCurrency(
+    val currency: String,
+    val amount: Amount
+)
+
+fun parseAmount(amount: String): AmountWithCurrency {
+    val match = Regex("([A-Z]+):([0-9]+(\\.[0-9]+)?)").find(amount) ?: throw
+    UtilError(HttpStatusCode.BadRequest, "invalid payto URI ($amount)")
+    val (currency, number) = match.destructured
+    return AmountWithCurrency(currency, Amount(number))
 }

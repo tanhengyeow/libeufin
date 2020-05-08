@@ -141,6 +141,18 @@ class TestSubscriber()
 
 /** PAYMENT INSTRUCTIONS TYPES */
 
+data class PreparedPaymentRequest(
+    val iban: String,
+    val bic: String,
+    val name: String,
+    val amount: String,
+    val subject: String
+)
+
+data class PreparedPaymentResponse(
+    val uuid: String
+)
+
 /** This structure is used to INSTRUCT the nexus to prepare such payment.  */
 data class Pain001Data(
     val creditorIban: String,

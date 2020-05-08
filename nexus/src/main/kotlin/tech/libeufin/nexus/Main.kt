@@ -187,27 +187,19 @@ fun main() {
             post("/bank-accounts/{accountid}/prepared-payments/submit") {
                 val userId = authenticateRequest(call.request.headers["Authorization"])
                 val body = call.receive<SubmitPayment>()
-
-                // 1 find payment.
                 val preparedPayment = transaction {
                     Pain001Entity.findById(body.uuid)
                 } ?: throw NexusError(
                     HttpStatusCode.NotFound,
                     "Could not find prepared payment: ${body.uuid}"
                 )
-
-                // 2 check if was submitted yet
                 if (preparedPayment.submitted) {
                     throw NexusError(
                         HttpStatusCode.PreconditionFailed,
                         "Payment ${body.uuid} was submitted already"
                     )
                 }
-
-                // 3 submit
                 val pain001document = createPain001document(preparedPayment)
-
-                // 4 check if the user has a instance in such bank transport.
                 when (body.transport) {
                     "ebics" -> {
                         val subscriberDetails = getSubscriberDetailsFromNexusUserId(userId)
@@ -250,6 +242,28 @@ fun main() {
              * Adds a new prepared payment.
              */
             post("/bank-accounts/{accountid}/prepared-payments") {
+                val userId = authenticateRequest(call.request.headers["Authorization"])
+                val body = call.receive<PreparedPaymentRequest>()
+                val debitBankAccount = getBankAccount(expectId(call.parameters["accountid"]))
+                val amount = parseAmount(body.amount)
+                val paymentEntity = createPain001entity(
+                    Pain001Data(
+                        creditorIban = body.iban,
+                        creditorBic = body.bic,
+                        creditorName = body.name,
+                        debitorIban = debitBankAccount.iban,
+                        debitorBic = debitBankAccount.bankCode,
+                        debitorName = debitBankAccount.accountHolder,
+                        sum = amount.amount,
+                        currency = amount.currency,
+                        subject = body.subject
+                    ),
+                    extractNexusUser(userId)
+                )
+                call.respond(
+                    HttpStatusCode.OK,
+                    PreparedPaymentResponse(uuid = paymentEntity.id.value)
+                )
                 return@post
             }
             /**
