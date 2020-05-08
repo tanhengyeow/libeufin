@@ -96,12 +96,13 @@ data class NexusUser(
 )
 
 /** Instructs the nexus to CREATE a new user */
-data class NexusUserRequest(
-    val password: String?
+data class User(
+    val username: String,
+    val password: String
 )
 
 /** Collection of all the nexus users existing in the system */
-data class NexusUsers(
+data class Users(
     val users: MutableList<NexusUser> = mutableListOf()
 )
 

@@ -151,7 +151,21 @@ fun main() {
              */
             post("/users") {
                 authenticateAdminRequest(call.request.headers["Authorization"])
-                
+                val body = call.receive<User>()
+                if (body.username.equals("admin")) throw NexusError(
+                    HttpStatusCode.Forbidden,
+                    "'admin' is a reserved username"
+                )
+                transaction {
+                    NexusUserEntity.new(body.username) {
+                        password = SerialBlob(CryptoUtil.hashStringSHA256(body.password))
+                    }
+                }
+                call.respondText(
+                    "New NEXUS user registered. ID: ${body.username}",
+                    ContentType.Text.Plain,
+                    HttpStatusCode.OK
+                )
                 return@post
             }
             /**
