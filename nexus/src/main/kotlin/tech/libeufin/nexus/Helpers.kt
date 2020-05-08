@@ -20,6 +20,10 @@ import java.time.ZonedDateTime
 import java.time.Instant
 import java.time.ZoneId
 
+fun isProduction(): Boolean {
+    return System.getenv("NEXUS_PRODUCTION") != null
+}
+
 fun calculateRefund(amount: String): Amount {
     // fixme: must apply refund fees!
     return Amount(amount)

@@ -76,15 +76,15 @@ data class EbicsErrorJson(
     val error: EbicsErrorDetailJson
 )
 
-data class BankAccountInfoElement(
-    var accountHolderName: String? = null,
+data class BankAccount(
+    var holder: String,
     var iban: String,
-    var bankCode: String,
-    var accountId: String
+    var bic: String,
+    var account: String
 )
 
-data class BankAccountsInfoResponse(
-    var accounts: MutableList<BankAccountInfoElement> = mutableListOf()
+data class BankAccounts(
+    var accounts: MutableList<BankAccount> = mutableListOf()
 )
 
 /** THE NEXUS USER */

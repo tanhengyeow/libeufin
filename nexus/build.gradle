@@ -16,7 +16,7 @@ plugins {
 
 sourceSets {
     main.kotlin.srcDirs = ["src/main/kotlin"]
-    // main.kotlin.excludes = ["**/Main2.kt"]
+    main.kotlin.excludes = ["**/MainDeprecated.kt"]
 }
 
 task installToPrefix(type: Copy) {
@@ -71,14 +71,15 @@ dependencies {
     testImplementation group: 'junit', name: 'junit', version: '4.12'
 }
 
-application {
-    mainClassName = "tech.libeufin.nexus.MainKt"
-}
-
 dependencies {
     implementation project(":util")
     compile "io.ktor:ktor-client-apache:1.2.4"
 }
+
+application {
+    mainClassName = "tech.libeufin.nexus.MainKt"
+}
+
 
 jar {
     manifest {
