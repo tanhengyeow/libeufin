@@ -135,42 +135,75 @@ fun main() {
 
         routing {
 
-            /** GENERAL / DEBUG ENDPOINTS */
-
             get("/") {
                 call.respondText("Hello by nexus!\n")
                 return@get
             }
+            /**
+             * Shows information about the requesting user.
+             */
             get("/user") {
                 return@get
             }
+            /**
+             * Add a new ordinary user in the system (requires "admin" privileges)
+             */
             post("/users") {
                 return@post
             }
+            /**
+             * Shows the bank accounts belonging to the requesting user.
+             */
             get("/bank-accounts") {
                 return@get
             }
+            /**
+             * Submit one particular payment at the bank.
+             */
             post("/bank-accounts/{accountid}/prepared-payments/submit") {
                 return@post
             }
+            /**
+             * Shows information about one particular prepared payment.
+             */
             get("/bank-accounts/{accountid}/prepared-payments/{uuid}") {
                 return@get
             }
+            /**
+             * Adds a new prepared payment.
+             */
             post("/bank-accounts/{accountid}/prepared-payments") {
                 return@post
             }
+            /**
+             * Downloads new transactions from the bank.
+             */
             post("/bank-accounts/{accountid}/collected-transactions") {
                 return@post
             }
+            /**
+             * Queries list of transactions ALREADY downloaded from the bank.
+             */
             get("/bank-accounts/{accountid}/collected-transactions") {
                 return@post
             }
+            /**
+             * Adds a new bank transport.
+             */
             post("/bank-transports") {
                 return@post
             }
+            /**
+             * Sends to the bank a message "MSG" according to the transport
+             * "transportName".  Does not alterate any DB table.
+             */
             post("/bank-transports/{transportName}/send{MSG}") {
                 return@post
             }
+            /**
+             * Sends the bank a message "MSG" according to the transport
+             * "transportName".  DOES alterate DB tables.
+             */
             post("/bank-transports/{transportName}/sync{MSG}") {
                 return@post
             }
