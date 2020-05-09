@@ -14,14 +14,14 @@ class PainTest {
         Database.connect("jdbc:h2:mem:test;DB_CLOSE_DELAY=-1", driver = "org.h2.Driver")
         transaction {
             SchemaUtils.create(BankAccountsTable)
-            SchemaUtils.create(Pain001Table)
+            SchemaUtils.create(PreparedPaymentsTable)
             SchemaUtils.create(NexusUsersTable)
             BankAccountEntity.new(id = "acctid") {
                 accountHolder = "Account Holder"
                 iban = "DEBIT IBAN"
                 bankCode = "DEBIT BIC"
             }
-            Pain001Entity.new {
+            PreparedPaymentEntity.new {
                 sum = Amount(1)
                 debitorIban = "DEBIT IBAN"
                 debitorBic = "DEBIT BIC"
@@ -42,7 +42,7 @@ class PainTest {
     @Test
     fun testPain001document() {
         transaction {
-            val s = createPain001document(Pain001Entity.all().first())
+            val s = createPain001document(PreparedPaymentEntity.all().first())
             println(s)
         }
     }

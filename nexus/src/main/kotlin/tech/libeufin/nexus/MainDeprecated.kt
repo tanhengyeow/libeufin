@@ -46,8 +46,6 @@ import kotlinx.io.core.ExperimentalIoApi
 import org.jetbrains.exposed.sql.and
 import org.jetbrains.exposed.sql.transactions.transaction
 import org.joda.time.DateTime
-import org.slf4j.Logger
-import org.slf4j.LoggerFactory
 import org.slf4j.event.Level
 import tech.libeufin.util.*
 import tech.libeufin.util.ebics_h004.HTDResponseOrderData
@@ -258,8 +256,8 @@ fun main() {
                         BankAccountMapsTable.nexusUser eq nexusUser.id
                     }
                     bankAccountsMap.forEach {
-                        Pain001Entity.find {
-                            Pain001Table.debitorIban eq it.bankAccount.iban
+                        PreparedPaymentEntity.find {
+                            PreparedPaymentsTable.debitorIban eq it.bankAccount.iban
                         }.forEach {
                             ret.payments.add(
                                 RawPayment(
@@ -287,7 +285,7 @@ fun main() {
                         )
                     }
                 }
-                createPain001entity(pain001data, nexusUser)
+                addPreparedPayment(pain001data, nexusUser)
                 call.respondText(
                     "Payment instructions persisted in DB",
                     ContentType.Text.Plain, HttpStatusCode.OK
@@ -560,8 +558,8 @@ fun main() {
 
             post("/ebics/execute-payments") {
                 val (paymentRowId, painDoc, subscriber) = transaction {
-                    val entity = Pain001Entity.find {
-                        (Pain001Table.submitted eq false) and (Pain001Table.invalid eq false)
+                    val entity = PreparedPaymentEntity.find {
+                        (PreparedPaymentsTable.submitted eq false) and (PreparedPaymentsTable.invalid eq false)
                     }.firstOrNull() ?: throw NexusError(HttpStatusCode.Accepted, reason = "No ready payments found")
                     Triple(entity.id, createPain001document(entity), entity.nexusUser.ebicsSubscriber)
                 }
@@ -581,7 +579,7 @@ fun main() {
                 )
                 /* flow here == no errors occurred */
                 transaction {
-                    val payment = Pain001Entity.findById(paymentRowId) ?: throw NexusError(
+                    val payment = PreparedPaymentEntity.findById(paymentRowId) ?: throw NexusError(
                         HttpStatusCode.InternalServerError,
                         "Severe internal error: could not find payment in DB after having submitted it to the bank"
                     )

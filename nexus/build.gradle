@@ -16,7 +16,7 @@ plugins {
 
 sourceSets {
     main.kotlin.srcDirs = ["src/main/kotlin"]
-    main.kotlin.excludes = ["**/MainDeprecated.kt"]
+    main.kotlin.excludes = ["**/MainDeprecated.kt", "**/taler.kt"]
 }
 
 task installToPrefix(type: Copy) {

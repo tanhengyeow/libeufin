@@ -5,8 +5,6 @@ import org.jetbrains.exposed.dao.*
 import org.jetbrains.exposed.sql.*
 import org.jetbrains.exposed.sql.transactions.TransactionManager
 import org.jetbrains.exposed.sql.transactions.transaction
-import tech.libeufin.nexus.BankAccountsTable.entityId
-import tech.libeufin.nexus.BankAccountsTable.primaryKey
 import tech.libeufin.util.amount
 import java.sql.Connection
 
@@ -19,7 +17,7 @@ const val ID_MAX_LENGTH = 50
  * in the PAIN-table.
  */
 object TalerRequestedPayments: LongIdTable() {
-    val preparedPayment = reference("payment", Pain001Table)
+    val preparedPayment = reference("payment", PreparedPaymentsTable)
     val requestUId = text("request_uid")
     val amount = text("amount")
     val exchangeBaseUrl = text("exchange_base_url")
@@ -34,7 +32,7 @@ object TalerRequestedPayments: LongIdTable() {
 
 class TalerRequestedPaymentEntity(id: EntityID<Long>) : LongEntity(id) {
     companion object : LongEntityClass<TalerRequestedPaymentEntity>(TalerRequestedPayments)
-    var preparedPayment by Pain001Entity referencedOn TalerRequestedPayments.preparedPayment
+    var preparedPayment by PreparedPaymentEntity referencedOn TalerRequestedPayments.preparedPayment
     var requestUId by TalerRequestedPayments.requestUId
     var amount by TalerRequestedPayments.amount
     var exchangeBaseUrl by TalerRequestedPayments.exchangeBaseUrl
@@ -91,11 +89,9 @@ object RawBankTransactionsTable : LongIdTable() {
     val transactionType = text("transactionType") /* DBIT or CRDT */
     val currency = text("currency")
     val amount = text("amount")
-    val creditorIban = text("creditorIban")
-    val creditorName = text("creditorBic")
-    val debitorIban = text("debitorIban")
-    val debitorName = text("debitorName")
+    val counterpartIban = text("counterpartIban")
     val counterpartBic = text("counterpartBic")
+    val counterpartName = text("counterpartName")
     val bookingDate = long("bookingDate")
     val status = text("status") // BOOK or other.
 }
@@ -107,11 +103,9 @@ class RawBankTransactionEntity(id: EntityID<Long>) : LongEntity(id) {
     var transactionType by RawBankTransactionsTable.transactionType
     var currency by RawBankTransactionsTable.currency
     var amount by RawBankTransactionsTable.amount
-    var debitorIban by RawBankTransactionsTable.debitorIban
-    var debitorName by RawBankTransactionsTable.debitorName
-    var creditorName by RawBankTransactionsTable.creditorName
-    var creditorIban by RawBankTransactionsTable.creditorIban
+    var counterpartIban by RawBankTransactionsTable.counterpartIban
     var counterpartBic by RawBankTransactionsTable.counterpartBic
+    var counterpartName by RawBankTransactionsTable.counterpartName
     var bookingDate by RawBankTransactionsTable.bookingDate
     var nexusUser by NexusUserEntity referencedOn RawBankTransactionsTable.nexusUser
     var status by RawBankTransactionsTable.status
@@ -119,10 +113,12 @@ class RawBankTransactionEntity(id: EntityID<Long>) : LongEntity(id) {
 /**
  * Represent a prepare payment.
  */
-object Pain001Table : IdTable<String>() {
+object PreparedPaymentsTable : IdTable<String>() {
+    /** the UUID representing this payment in the system */
     override val id = BankAccountsTable.varchar("id", ID_MAX_LENGTH).entityId().primaryKey()
     val paymentId = long("paymentId")
-    val fileDate = long("fileDate")
+    val preparationDate = long("preparationDate")
+    val submissionDate = long("submissionDate").nullable()
     val sum = amount("sum")
     val currency = varchar("currency", length = 3).default("EUR")
     val endToEndId = long("EndToEndId")
@@ -139,25 +135,27 @@ object Pain001Table : IdTable<String>() {
      * this state can be reached when the payment gets listed in a CRZ
      * response OR when the payment doesn't show up in a C52/C53 response */
     val invalid = bool("invalid").default(false)
+    /** never really used, but it makes sure the user always exists  */
     val nexusUser = reference("nexusUser", NexusUsersTable)
 }
-class Pain001Entity(id: EntityID<String>) : Entity<String>(id) {
-    companion object : EntityClass<String, Pain001Entity>(Pain001Table)
-    var paymentId by Pain001Table.paymentId
-    var date by Pain001Table.fileDate
-    var sum by Pain001Table.sum
-    var currency by Pain001Table.currency
-    var debitorIban by Pain001Table.debitorIban
-    var debitorBic by Pain001Table.debitorBic
-    var debitorName by Pain001Table.debitorName
-    var endToEndId by Pain001Table.endToEndId
-    var subject by Pain001Table.subject
-    var creditorIban by Pain001Table.creditorIban
-    var creditorBic by Pain001Table.creditorBic
-    var creditorName by Pain001Table.creditorName
-    var submitted by Pain001Table.submitted
-    var invalid by Pain001Table.invalid
-    var nexusUser by NexusUserEntity referencedOn Pain001Table.nexusUser
+class PreparedPaymentEntity(id: EntityID<String>) : Entity<String>(id) {
+    companion object : EntityClass<String, PreparedPaymentEntity>(PreparedPaymentsTable)
+    var paymentId by PreparedPaymentsTable.paymentId
+    var preparationDate by PreparedPaymentsTable.preparationDate
+    var submissionDate by PreparedPaymentsTable.submissionDate
+    var sum by PreparedPaymentsTable.sum
+    var currency by PreparedPaymentsTable.currency
+    var debitorIban by PreparedPaymentsTable.debitorIban
+    var debitorBic by PreparedPaymentsTable.debitorBic
+    var debitorName by PreparedPaymentsTable.debitorName
+    var endToEndId by PreparedPaymentsTable.endToEndId
+    var subject by PreparedPaymentsTable.subject
+    var creditorIban by PreparedPaymentsTable.creditorIban
+    var creditorBic by PreparedPaymentsTable.creditorBic
+    var creditorName by PreparedPaymentsTable.creditorName
+    var submitted by PreparedPaymentsTable.submitted
+    var invalid by PreparedPaymentsTable.invalid
+    var nexusUser by NexusUserEntity referencedOn PreparedPaymentsTable.nexusUser
 }
 
 /**
@@ -236,7 +234,7 @@ fun dbCreateTables() {
     transaction {
         addLogger(StdOutSqlLogger)
         SchemaUtils.create(
-            Pain001Table,
+            PreparedPaymentsTable,
             EbicsSubscribersTable,
             BankAccountsTable,
             RawBankTransactionsTable,

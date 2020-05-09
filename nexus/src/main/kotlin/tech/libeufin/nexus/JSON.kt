@@ -95,6 +95,19 @@ data class RawPayments(
  *  API types (used as requests/responses types) *
  *************************************************/
 
+/** Response type of "GET /prepared-payments/{uuid}" */
+data class PaymentStatus(
+    val uuid: String,
+    val submitted: Boolean,
+    val creditorIban: String,
+    val creditorBic: String,
+    val creditorName: String,
+    val amount: String,
+    val subject: String,
+    val submissionDate: String,
+    val preparationDate: String
+)
+
 /** Response type of "GET /collected-transactions" */
 data class Transaction(
     val account: String,
@@ -104,6 +117,10 @@ data class Transaction(
     val amount: String,
     val subject: String,
     val date: String
+)
+
+data class Transactions(
+    val transactions: MutableList<Transaction>
 )
 
 /** Request type of "POST /prepared-payments/submit" */
@@ -167,9 +184,7 @@ data class Pain001Data(
     val creditorIban: String,
     val creditorBic: String,
     val creditorName: String,
-    val debitorIban: String,
-    val debitorBic: String,
-    val debitorName: String,
+    val debitorAccount: String,
     val sum: Amount,
     val currency: String,
     val subject: String

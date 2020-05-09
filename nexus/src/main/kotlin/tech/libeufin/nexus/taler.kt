@@ -243,7 +243,7 @@ class Taler(app: Route) {
                         )
                     }
                 }
-                val pain001 = createPain001entity(
+                val pain001 = addPreparedPayment(
                     Pain001Data(
                         creditorIban = creditorData.iban,
                         creditorBic = creditorData.bic,
@@ -368,7 +368,7 @@ class Taler(app: Route) {
                 TalerIncomingPaymentEntity.find {
                     TalerIncomingPayments.refunded eq false and (TalerIncomingPayments.valid eq false)
                 }.forEach {
-                    createPain001entity(
+                    addPreparedPayment(
                         Pain001Data(
                             creditorName = it.payment.debitorName,
                             creditorIban = it.payment.debitorIban,

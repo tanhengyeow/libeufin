@@ -50,12 +50,8 @@ import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 import org.slf4j.event.Level
 import tech.libeufin.util.*
-import tech.libeufin.util.ebics_h004.HTDResponseOrderData
 import java.text.DateFormat
-import java.text.SimpleDateFormat
-import java.util.*
 import java.util.zip.InflaterInputStream
-import javax.crypto.EncryptedPrivateKeyInfo
 import javax.sql.rowset.serial.SerialBlob
 
 data class NexusError(val statusCode: HttpStatusCode, val reason: String) : Exception()
@@ -187,11 +183,10 @@ fun main() {
             post("/bank-accounts/{accountid}/prepared-payments/submit") {
                 val userId = authenticateRequest(call.request.headers["Authorization"])
                 val body = call.receive<SubmitPayment>()
-                val preparedPayment = transaction {
-                    Pain001Entity.findById(body.uuid)
-                } ?: throw NexusError(
-                    HttpStatusCode.NotFound,
-                    "Could not find prepared payment: ${body.uuid}"
+                val preparedPayment = getPreparedPayment(body.uuid)
+                if (preparedPayment.nexusUser.id.value != userId) throw NexusError(
+                    HttpStatusCode.Forbidden,
+                    "No rights over such payment"
                 )
                 if (preparedPayment.submitted) {
                     throw NexusError(
@@ -213,7 +208,7 @@ fun main() {
                         )
                         /** mark payment as 'submitted' */
                         transaction {
-                            val payment = Pain001Entity.findById(body.uuid) ?: throw NexusError(
+                            val payment = PreparedPaymentEntity.findById(body.uuid) ?: throw NexusError(
                                 HttpStatusCode.InternalServerError,
                                 "Severe internal error: could not find payment in DB after having submitted it to the bank"
                             )
@@ -224,6 +219,7 @@ fun main() {
                             ContentType.Text.Plain,
                             HttpStatusCode.OK
                         )
+                        preparedPayment.submissionDate = DateTime.now().millis
                     }
                     else -> throw NexusError(
                         HttpStatusCode.NotImplemented,
@@ -236,6 +232,25 @@ fun main() {
              * Shows information about one particular prepared payment.
              */
             get("/bank-accounts/{accountid}/prepared-payments/{uuid}") {
+                val userId = authenticateRequest(call.request.headers["Authorization"])
+                val preparedPayment = getPreparedPayment(expectId(call.parameters["uuid"]))
+                if (preparedPayment.nexusUser.id.value != userId) throw NexusError(
+                    HttpStatusCode.Forbidden,
+                    "No rights over such payment"
+                )
+                call.respond(
+                    PaymentStatus(
+                        uuid = preparedPayment.id.value,
+                        submitted = preparedPayment.submitted,
+                        creditorName = preparedPayment.creditorName,
+                        creditorBic = preparedPayment.creditorBic,
+                        creditorIban = preparedPayment.creditorIban,
+                        amount = "${preparedPayment.sum}:${preparedPayment.currency}",
+                        subject = preparedPayment.subject,
+                        submissionDate = DateTime(preparedPayment.submissionDate).toDashedDate(),
+                        preparationDate = DateTime(preparedPayment.preparationDate).toDashedDate()
+                    )
+                )
                 return@get
             }
             /**
@@ -243,17 +258,15 @@ fun main() {
              */
             post("/bank-accounts/{accountid}/prepared-payments") {
                 val userId = authenticateRequest(call.request.headers["Authorization"])
+                val bankAccount = getBankAccount(userId, expectId(call.parameters["accountid"]))
                 val body = call.receive<PreparedPaymentRequest>()
-                val debitBankAccount = getBankAccount(expectId(call.parameters["accountid"]))
                 val amount = parseAmount(body.amount)
-                val paymentEntity = createPain001entity(
+                val paymentEntity = addPreparedPayment(
                     Pain001Data(
                         creditorIban = body.iban,
                         creditorBic = body.bic,
                         creditorName = body.name,
-                        debitorIban = debitBankAccount.iban,
-                        debitorBic = debitBankAccount.bankCode,
-                        debitorName = debitBankAccount.accountHolder,
+                        debitorAccount = bankAccount.id.value,
                         sum = amount.amount,
                         currency = amount.currency,
                         subject = body.subject
@@ -304,10 +317,24 @@ fun main() {
                                             status = camt53doc.pickString("//*[local-name()='Ntry']//*[local-name()='Sts']")
                                             bookingDate = parseDashedDate(camt53doc.pickString("//*[local-name()='BookgDt']//*[local-name()='Dt']")).millis
                                             nexusUser = extractNexusUser(userId)
-                                            creditorName = camt53doc.pickString("//*[local-name()='RltdPties']//*[local-name()='Dbtr']//*[local-name()='Nm']")
-                                            creditorIban = camt53doc.pickString("//*[local-name()='CdtrAcct']//*[local-name()='IBAN']")
-                                            debitorName = camt53doc.pickString("//*[local-name()='RltdPties']//*[local-name()='Dbtr']//*[local-name()='Nm']")
-                                            debitorIban = camt53doc.pickString("//*[local-name()='DbtrAcct']//*[local-name()='IBAN']")
+                                            counterpartIban = camt53doc.pickString(
+                                                if (this.transactionType == "DBIT") {
+                                                    // counterpart is credit
+                                                    "//*[local-name()='CdtrAcct']//*[local-name()='IBAN']"
+                                                } else {
+                                                    // counterpart is debit
+                                                    "//*[local-name()='DbtrAcct']//*[local-name()='IBAN']"
+                                                }
+                                            )
+                                            counterpartName = camt53doc.pickString(
+                                                "//*[local-name()='RltdPties']//*[local-name()='${
+                                                if (this.transactionType == "DBIT") {
+                                                    "Cdtr"
+                                                } else {
+                                                    "Dbtr"
+                                                }
+                                                }']//*[local-name()='Nm']"
+                                            )
                                             counterpartBic = camt53doc.pickString("//*[local-name()='RltdAgts']//*[local-name()='BIC']")
                                         }
                                     }
@@ -345,7 +372,23 @@ fun main() {
                 val userId = authenticateRequest(call.request.headers["Authorization"])
                 val start = call.request.queryParameters["start"]
                 val end = call.request.queryParameters["end"]
+                val ret = Transactions()
+                transaction {
+                    RawBankTransactionEntity.find {
+                        RawBankTransactionsTable.nexusUser eq userId and
+                                RawBankTransactionsTable.bookingDate.between(
+                                    parseDashedDate(start ?: "1970-01-01"),
+                                    parseDashedDate(end ?: DateTime.now().toDashedDate())
+                                )
+                    }.forEach {
+                        ret.transactions.add(
+                            Transaction(
+                                account = it.
+                            )
+                        )
 
+                    }
+                }
                 return@get
             }
             /**
