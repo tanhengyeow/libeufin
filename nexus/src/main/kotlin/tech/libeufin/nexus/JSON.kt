@@ -72,46 +72,6 @@ data class EbicsErrorJson(
     val error: EbicsErrorDetailJson
 )
 
-data class BankAccount(
-    var holder: String,
-    var iban: String,
-    var bic: String,
-    var account: String
-)
-
-data class BankAccounts(
-    var accounts: MutableList<BankAccount> = mutableListOf()
-)
-
-/** THE NEXUS USER */
-
-/** SHOWS details about one user */
-data class NexusUser(
-    val userID: String,
-    val transports: MutableList<Any> = mutableListOf()
-)
-
-/** is "UserResponse" in the API spec */
-data class UserResponse(
-    val username: String,
-    val superuser: Boolean
-)
-
-/** Instructs the nexus to CREATE a new user */
-data class User(
-    val username: String,
-    val password: String
-)
-
-/** Collection of all the nexus users existing in the system */
-data class Users(
-    val users: MutableList<NexusUser> = mutableListOf()
-)
-
-/************************************/
-
-/** TRANSPORT TYPES */
-
 /** Instructs the nexus to CREATE a new Ebics subscriber.
  * Note that the nexus user to which the subscriber must be
  * associated is extracted from other HTTP details.
@@ -127,16 +87,39 @@ data class EbicsSubscriber(
     val systemID: String? = null
 )
 
-/** Type representing the "test" transport.  Test transport
- * does not cooperate with the bank/sandbox in order to obtain
- * data about one user.  All the data is just mocked internally
- * at the NEXUS.
- */
-class TestSubscriber()
+data class RawPayments(
+    var payments: MutableList<RawPayment> = mutableListOf()
+)
 
+/*************************************************
+ *  API types (used as requests/responses types) *
+ *************************************************/
 
-/** PAYMENT INSTRUCTIONS TYPES */
+/** Response type of "GET /collected-transactions" */
+data class Transaction(
+    val account: String,
+    val counterpartIban: String,
+    val counterpartBic: String,
+    val counterpartName: String,
+    val amount: String,
+    val subject: String,
+    val date: String
+)
 
+/** Request type of "POST /prepared-payments/submit" */
+data class SubmitPayment(
+    val uuid: String,
+    val transport: String?
+)
+
+/** Request type of "POST /collected-transactions" */
+data class CollectedTransaction(
+    val transport: String?,
+    val start: String?,
+    val end: String?
+)
+
+/** Request type of "POST /prepared-payments" */
 data class PreparedPaymentRequest(
     val iban: String,
     val bic: String,
@@ -145,34 +128,68 @@ data class PreparedPaymentRequest(
     val subject: String
 )
 
+/** Response type of "POST /prepared-payments" */
 data class PreparedPaymentResponse(
     val uuid: String
 )
 
-/** This structure is used to INSTRUCT the nexus to prepare such payment.  */
+/** Response type of "GET /user" */
+data class UserResponse(
+    val username: String,
+    val superuser: Boolean
+)
+
+/** Request type of "POST /users" */
+data class User(
+    val username: String,
+    val password: String
+)
+
+/** Response (list's element) type of "GET /bank-accounts" */
+data class BankAccount(
+    var holder: String,
+    var iban: String,
+    var bic: String,
+    var account: String
+)
+
+/** Response type of "GET /bank-accounts" */
+data class BankAccounts(
+    var accounts: MutableList<BankAccount> = mutableListOf()
+)
+
+
+/**********************************************************************
+ * Convenience types (ONLY used to gather data together in one place) *
+ **********************************************************************/
+
 data class Pain001Data(
     val creditorIban: String,
     val creditorBic: String,
     val creditorName: String,
     val debitorIban: String,
     val debitorBic: String,
-    val debitorName: String?,
+    val debitorName: String,
     val sum: Amount,
-    val currency: String = "EUR",
+    val currency: String,
     val subject: String
 )
 
-data class RawPayments(
-    var payments: MutableList<RawPayment> = mutableListOf()
-)
 
-data class SubmitPayment(
-    val uuid: String,
-    val transport: String?
-)
 
-data class CollectedTransaction(
-    val transport: String?,
-    val start: String?,
-    val end: String?
-)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

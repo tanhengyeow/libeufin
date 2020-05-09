@@ -249,7 +249,8 @@ class Taler(app: Route) {
                         creditorBic = creditorData.bic,
                         creditorName = creditorData.name,
                         subject = transferRequest.wtid,
-                        sum = parseAmount(transferRequest.amount).amount,
+                        sum = amountObj.amount,
+                        currency = amountObj.currency,
                         debitorName = exchangeBankAccount.accountHolder,
                         debitorBic = exchangeBankAccount.bankCode,
                         debitorIban = exchangeBankAccount.iban
@@ -262,7 +263,7 @@ class Taler(app: Route) {
                         unstructuredRemittanceInformation = transferRequest.wtid
                         transactionType = "DBIT"
                         currency = amountObj.currency
-                        amount = amountObj.amount.toPlainString()
+                        this.amount = amountObj.amount.toPlainString()
                         debitorName = "Exchange Company"
                         debitorIban = exchangeBankAccount.iban
                         creditorName = creditorObj.name
@@ -319,7 +320,7 @@ class Taler(app: Route) {
                     currency = amount.currency
                     this.amount = amount.amount.toPlainString()
                     creditorIban = exchangeBankAccount.iban
-                    creditorName = exchangeBankAccount.accountHolder ?: "Exchange default name for tests"
+                    creditorName = exchangeBankAccount.accountHolder
                     debitorIban = debtor.iban
                     debitorName = debtor.name
                     counterpartBic = debtor.bic
@@ -376,7 +377,8 @@ class Taler(app: Route) {
                             subject = "Taler refund",
                             debitorIban = requesterBankAccount.iban,
                             debitorBic = requesterBankAccount.bankCode,
-                            debitorName = requesterBankAccount.accountHolder
+                            debitorName = requesterBankAccount.accountHolder,
+                            currency = it.payment.currency
                         ),
                         nexusUser
                     )

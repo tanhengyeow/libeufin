@@ -339,9 +339,13 @@ fun main() {
                 return@post
             }
             /**
-             * Queries list of transactions ALREADY downloaded from the bank.
+             * Asks list of transactions ALREADY downloaded from the bank.
              */
             get("/bank-accounts/{accountid}/collected-transactions") {
+                val userId = authenticateRequest(call.request.headers["Authorization"])
+                val start = call.request.queryParameters["start"]
+                val end = call.request.queryParameters["end"]
+
                 return@get
             }
             /**
