@@ -309,6 +309,7 @@ fun main() {
                                     val camt53doc = XMLUtil.parseStringIntoDom(it.second)
                                     transaction {
                                         RawBankTransactionEntity.new {
+                                            bankAccount = getBankAccountFromIban(camt53doc.pickString("//*[local-name()='Stmt']/Acct/Id/IBAN"))
                                             sourceFileName = fileName
                                             unstructuredRemittanceInformation = camt53doc.pickString("//*[local-name()='Ntry']//*[local-name()='Ustrd']")
                                             transactionType = camt53doc.pickString("//*[local-name()='Ntry']//*[local-name()='CdtDbtInd']")
@@ -317,24 +318,8 @@ fun main() {
                                             status = camt53doc.pickString("//*[local-name()='Ntry']//*[local-name()='Sts']")
                                             bookingDate = parseDashedDate(camt53doc.pickString("//*[local-name()='BookgDt']//*[local-name()='Dt']")).millis
                                             nexusUser = extractNexusUser(userId)
-                                            counterpartIban = camt53doc.pickString(
-                                                if (this.transactionType == "DBIT") {
-                                                    // counterpart is credit
-                                                    "//*[local-name()='CdtrAcct']//*[local-name()='IBAN']"
-                                                } else {
-                                                    // counterpart is debit
-                                                    "//*[local-name()='DbtrAcct']//*[local-name()='IBAN']"
-                                                }
-                                            )
-                                            counterpartName = camt53doc.pickString(
-                                                "//*[local-name()='RltdPties']//*[local-name()='${
-                                                if (this.transactionType == "DBIT") {
-                                                    "Cdtr"
-                                                } else {
-                                                    "Dbtr"
-                                                }
-                                                }']//*[local-name()='Nm']"
-                                            )
+                                            counterpartIban = camt53doc.pickString("//*[local-name()='${if (this.transactionType == "DBIT") "CdtrAcct" else "DbtrAcct"}']//*[local-name()='IBAN']")
+                                            counterpartName = camt53doc.pickString("//*[local-name()='RltdPties']//*[local-name()='${if (this.transactionType == "DBIT") "Cdtr" else "Dbtr"}']//*[local-name()='Nm']")
                                             counterpartBic = camt53doc.pickString("//*[local-name()='RltdAgts']//*[local-name()='BIC']")
                                         }
                                     }
@@ -383,10 +368,15 @@ fun main() {
                     }.forEach {
                         ret.transactions.add(
                             Transaction(
-                                account = it.
+                                account = it.bankAccount.id.value,
+                                counterpartBic = it.counterpartBic,
+                                counterpartIban = it.counterpartIban,
+                                counterpartName = it.counterpartName,
+                                date = DateTime(it.bookingDate).toDashedDate(),
+                                subject = it.unstructuredRemittanceInformation,
+                                amount = "${it.currency}:${it.amount}"
                             )
                         )
-
                     }
                 }
                 return@get

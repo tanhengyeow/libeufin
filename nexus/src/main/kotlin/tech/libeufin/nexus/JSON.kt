@@ -120,7 +120,7 @@ data class Transaction(
 )
 
 data class Transactions(
-    val transactions: MutableList<Transaction>
+    val transactions: MutableList<Transaction> = mutableListOf()
 )
 
 /** Request type of "POST /prepared-payments/submit" */

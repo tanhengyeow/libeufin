@@ -94,6 +94,7 @@ object RawBankTransactionsTable : LongIdTable() {
     val counterpartName = text("counterpartName")
     val bookingDate = long("bookingDate")
     val status = text("status") // BOOK or other.
+    val bankAccount = reference("bankAccount", BankAccountsTable)
 }
 
 class RawBankTransactionEntity(id: EntityID<Long>) : LongEntity(id) {
@@ -109,6 +110,7 @@ class RawBankTransactionEntity(id: EntityID<Long>) : LongEntity(id) {
     var bookingDate by RawBankTransactionsTable.bookingDate
     var nexusUser by NexusUserEntity referencedOn RawBankTransactionsTable.nexusUser
     var status by RawBankTransactionsTable.status
+    var bankAccount by BankAccountEntity referencedOn RawBankTransactionsTable.bankAccount
 }
 /**
  * Represent a prepare payment.
