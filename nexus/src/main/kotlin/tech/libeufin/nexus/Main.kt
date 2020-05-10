@@ -52,6 +52,7 @@ import org.slf4j.event.Level
 import tech.libeufin.util.*
 import java.text.DateFormat
 import java.util.zip.InflaterInputStream
+import javax.crypto.EncryptedPrivateKeyInfo
 import javax.sql.rowset.serial.SerialBlob
 
 data class NexusError(val statusCode: HttpStatusCode, val reason: String) : Exception()
@@ -197,7 +198,7 @@ fun main() {
                 val pain001document = createPain001document(preparedPayment)
                 when (body.transport) {
                     "ebics" -> {
-                        val subscriberDetails = getSubscriberDetailsFromNexusUserId(userId)
+                        val subscriberDetails = getTransport(body.transport)
                         logger.debug("Uploading PAIN.001: ${pain001document}")
                         doEbicsUploadTransaction(
                             client,
@@ -377,6 +378,7 @@ fun main() {
                                 amount = "${it.currency}:${it.amount}"
                             )
                         )
+
                     }
                 }
                 return@get
@@ -385,6 +387,87 @@ fun main() {
              * Adds a new bank transport.
              */
             post("/bank-transports") {
+                val userId = authenticateRequest(call.request.headers["Authorization"])
+                // user exists and is authenticated.
+                val body = call.receive<BankTransport>()
+                when (body.backup) {
+                    is EbicsKeysBackupJson -> {
+                        val (authKey, encKey, sigKey) = try {
+                            Triple(
+                                CryptoUtil.decryptKey(
+                                    EncryptedPrivateKeyInfo(base64ToBytes(body.backup.authBlob)),
+                                    body.backup.passphrase
+                                ),
+                                CryptoUtil.decryptKey(
+                                    EncryptedPrivateKeyInfo(base64ToBytes(body.backup.encBlob)),
+                                    body.backup.passphrase
+                                ),
+                                CryptoUtil.decryptKey(
+                                    EncryptedPrivateKeyInfo(base64ToBytes(body.backup.sigBlob)),
+                                    body.backup.passphrase
+                                )
+                            )
+                        } catch (e: Exception) {
+                            e.printStackTrace()
+                            logger.info("Restoring keys failed, probably due to wrong passphrase")
+                            throw NexusError(
+                                HttpStatusCode.BadRequest,
+                                "Bad backup given"
+                            )
+                        }
+                        logger.info("Restoring keys, creating new user: $userId")
+                        try {
+                            transaction {
+                                EbicsSubscriberEntity.new(userId) {
+                                    this.nexusUser = extractNexusUser(userId)
+                                    ebicsURL = body.backup.ebicsURL
+                                    hostID = body.backup.hostID
+                                    partnerID = body.backup.partnerID
+                                    userID = body.backup.userID
+                                    signaturePrivateKey = SerialBlob(sigKey.encoded)
+                                    encryptionPrivateKey = SerialBlob(encKey.encoded)
+                                    authenticationPrivateKey = SerialBlob(authKey.encoded)
+                                }
+                            }
+                        } catch (e: Exception) {
+                            print(e)
+                            call.respond(
+                                NexusErrorJson("Could not store the new account into database")
+                            )
+                            return@post
+                        }
+                    }
+                }
+                when (body.new) {
+                    is EbicsNewTransport -> {
+                        val pairA = CryptoUtil.generateRsaKeyPair(2048)
+                        val pairB = CryptoUtil.generateRsaKeyPair(2048)
+                        val pairC = CryptoUtil.generateRsaKeyPair(2048)
+                        transaction {
+                            EbicsSubscriberEntity.new {
+                                nexusUser = extractNexusUser(userId)
+                                ebicsURL = body.new.ebicsURL
+                                hostID = body.new.hostID
+                                partnerID = body.new.partnerID
+                                userID = body.new.userID
+                                systemID = body.new.systemID
+                                signaturePrivateKey = SerialBlob(pairA.private.encoded)
+                                encryptionPrivateKey = SerialBlob(pairB.private.encoded)
+                                authenticationPrivateKey = SerialBlob(pairC.private.encoded)
+                            }
+                        }
+                        call.respondText(
+                            "EBICS user successfully created",
+                            ContentType.Text.Plain,
+                            HttpStatusCode.OK
+                        )
+                        return@post
+                    }
+                }
+                call.respond(
+                    HttpStatusCode.BadRequest,
+                    "Neither backup nor new transport given in request"
+                )
                 return@post
             }
             /**

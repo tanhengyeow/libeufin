@@ -127,23 +127,8 @@ fun getSubscriberDetailsInternal(subscriber: EbicsSubscriberEntity): EbicsClient
     )
 }
 
-/** Return non null Ebics subscriber, or throw error otherwise. */
-fun getEbicsSubscriberFromUser(nexusUser: NexusUserEntity): EbicsSubscriberEntity {
-    return nexusUser.ebicsSubscriber ?: throw NexusError(
-        HttpStatusCode.NotFound,
-        "Ebics subscriber was never activated"
-    )
-}
+fun getTransport()
 
-fun getSubscriberDetailsFromNexusUserId(id: String): EbicsClientSubscriberDetails {
-    return transaction {
-        val nexusUser = extractNexusUser(id)
-        getSubscriberDetailsInternal(nexusUser.ebicsSubscriber ?: throw NexusError(
-            HttpStatusCode.NotFound,
-            "Cannot get details for non-activated subscriber!"
-        ))
-    }
-}
 
 /**
  * Create a PAIN.001 XML document according to the input data.

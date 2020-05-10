@@ -32,22 +32,6 @@ data class EbicsDateRangeJson(
     val end: String?
 )
 
-/**
- * This object is used twice: as a response to the backup request,
- * and as a request to the backup restore.  Note: in the second case
- * the client must provide the passphrase.
- */
-data class EbicsKeysBackupJson(
-    val userID: String,
-    val partnerID: String,
-    val hostID: String,
-    val ebicsURL: String,
-    val authBlob: String,
-    val encBlob: String,
-    val sigBlob: String,
-    val passphrase: String? = null
-)
-
 data class EbicsPubKeyInfo(
     val authPub: String,
     val encPub: String,
@@ -94,6 +78,36 @@ data class RawPayments(
 /*************************************************
  *  API types (used as requests/responses types) *
  *************************************************/
+data class BankTransport(
+    val name: String,
+    val backup: Any, // only EbicsKeysBackupJson exists now.
+    val new: Any,
+    val type: String
+)
+
+/**
+ * This object is used twice: as a response to the backup request,
+ * and as a request to the backup restore.  Note: in the second case
+ * the client must provide the passphrase.
+ */
+data class EbicsKeysBackupJson(
+    val userID: String,
+    val partnerID: String,
+    val hostID: String,
+    val ebicsURL: String,
+    val authBlob: String,
+    val encBlob: String,
+    val sigBlob: String,
+    val passphrase: String
+)
+
+data class EbicsNewTransport(
+    val userID: String,
+    val partnerID: String,
+    val hostID: String,
+    val ebicsURL: String,
+    val systemID: String
+)
 
 /** Response type of "GET /prepared-payments/{uuid}" */
 data class PaymentStatus(

@@ -177,7 +177,8 @@ class BankAccountEntity(id: EntityID<String>) : Entity<String>(id) {
     var bankCode by BankAccountsTable.bankCode
 }
 
-object EbicsSubscribersTable : IntIdTable() {
+object EbicsSubscribersTable : IdTable<String>() {
+    override val id = varchar("id", ID_MAX_LENGTH).entityId().primaryKey()
     val ebicsURL = text("ebicsURL")
     val hostID = text("hostID")
     val partnerID = text("partnerID")
@@ -188,10 +189,11 @@ object EbicsSubscribersTable : IntIdTable() {
     val authenticationPrivateKey = blob("authenticationPrivateKey")
     val bankEncryptionPublicKey = blob("bankEncryptionPublicKey").nullable()
     val bankAuthenticationPublicKey = blob("bankAuthenticationPublicKey").nullable()
+    var nexusUser = reference("nexusUser", NexusUsersTable)
 }
 
-class EbicsSubscriberEntity(id: EntityID<Int>) : Entity<Int>(id) {
-    companion object : EntityClass<Int, EbicsSubscriberEntity>(EbicsSubscribersTable)
+class EbicsSubscriberEntity(id: EntityID<String>) : Entity<String>(id) {
+    companion object : EntityClass<String, EbicsSubscriberEntity>(EbicsSubscribersTable)
     var ebicsURL by EbicsSubscribersTable.ebicsURL
     var hostID by EbicsSubscribersTable.hostID
     var partnerID by EbicsSubscribersTable.partnerID
@@ -202,19 +204,16 @@ class EbicsSubscriberEntity(id: EntityID<Int>) : Entity<Int>(id) {
     var authenticationPrivateKey by EbicsSubscribersTable.authenticationPrivateKey
     var bankEncryptionPublicKey by EbicsSubscribersTable.bankEncryptionPublicKey
     var bankAuthenticationPublicKey by EbicsSubscribersTable.bankAuthenticationPublicKey
+    var nexusUser by NexusUserEntity referencedOn EbicsSubscribersTable.nexusUser
 }
 
 object NexusUsersTable : IdTable<String>() {
     override val id = varchar("id", ID_MAX_LENGTH).entityId()
-    val ebicsSubscriber = reference("ebicsSubscriber", EbicsSubscribersTable).nullable()
-    val testSubscriber = reference("testSubscriber", EbicsSubscribersTable).nullable()
     val password = blob("password").nullable()
 }
 
 class NexusUserEntity(id: EntityID<String>) : Entity<String>(id) {
     companion object : EntityClass<String, NexusUserEntity>(NexusUsersTable)
-    var ebicsSubscriber by EbicsSubscriberEntity optionalReferencedOn NexusUsersTable.ebicsSubscriber
-    var testSubscriber by EbicsSubscriberEntity optionalReferencedOn NexusUsersTable.testSubscriber
     var password by NexusUsersTable.password
 }
 
