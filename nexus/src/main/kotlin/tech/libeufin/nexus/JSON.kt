@@ -80,10 +80,9 @@ data class RawPayments(
  *  API types (used as requests/responses types) *
  *************************************************/
 data class BankTransport(
-    val name: String,
-    val backup: Any, // only EbicsKeysBackupJson exists now.
-    val new: Any,
-    val type: String
+    val transport: tech.libeufin.nexus.Transport,
+    val backup: Any?,
+    val data: Any?
 )
 
 /**
@@ -107,7 +106,7 @@ data class EbicsNewTransport(
     val partnerID: String,
     val hostID: String,
     val ebicsURL: String,
-    val systemID: String
+    val systemID: String?
 )
 
 /** Response type of "GET /prepared-payments/{uuid}" */

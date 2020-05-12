@@ -92,9 +92,10 @@ for i in range(10):
         if i == 9:
             nexus.terminate()
             stdout, stderr = nexus.communicate()
+            print("Nexus timed out")
             print("{}\n{}".format(stdout.decode(), stderr.decode()))
             exit(77)
-        sleep(1)
+        sleep(2)
         continue
     break
 # Start sandbox
@@ -108,9 +109,10 @@ for i in range(10):
             nexus.terminate()
             sandbox.terminate()
             stdout, stderr = nexus.communicate()
+            print("Sandbox timed out")
             print("{}\n{}".format(stdout.decode(), stderr.decode()))
             exit(77)
-        sleep(1)
+        sleep(2)
         continue
     break
 
@@ -169,7 +171,7 @@ dbconn.close()
 assertResponse(
     post(
         "http://localhost:5001/users",
-        headers=dict(authorization=ADMIN_AUTHORIZATION_HEADER),
+        headers=dict(Authorization=ADMIN_AUTHORIZATION_HEADER),
         json=dict(
         username=USERNAME,
         password=PASSWORD
@@ -177,23 +179,30 @@ assertResponse(
     )
 )
 
-nexus.terminate()
-sandbox.terminate()
-print("All done!")
-exit(44)
-
-#1.b
+#1.b, make a ebics transport for the new user.
 assertResponse(
     post(
-        "http://localhost:5001/ebics/subscribers/{}".format(USERNAME),
+        "http://localhost:5001/bank-transports",
         json=dict(
-        ebicsURL=EBICS_URL,
-        hostID=HOST_ID,
-        partnerID=PARTNER_ID,
-        userID=USER_ID
-        )
+            transport=dict(
+                name="my-ebics",
+                type="ebics"
+            ),
+            data=dict(
+                ebicsURL=EBICS_URL,
+                hostID=HOST_ID,
+                partnerID=PARTNER_ID,
+                userID=USER_ID
+            )
+        ),
+        headers=dict(Authorization=USER_AUTHORIZATION_HEADER)
     )
 )
+
+nexus.terminate()
+sandbox.terminate()
+exit(44)
+
 #2.a
 assertResponse(
     post(

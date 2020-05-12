@@ -405,8 +405,10 @@ fun main() {
                 val userId = authenticateRequest(call.request.headers["Authorization"])
                 // user exists and is authenticated.
                 val body = call.receive<BankTransport>()
+                logger.debug("Request body parsed")
                 when (body.backup) {
                     is EbicsKeysBackupJson -> {
+                        logger.debug("Restoring a transport: ${body.transport.name}")
                         val (authKey, encKey, sigKey) = try {
                             Triple(
                                 CryptoUtil.decryptKey(
@@ -433,7 +435,7 @@ fun main() {
                         logger.info("Restoring keys, creating new user: $userId")
                         try {
                             transaction {
-                                EbicsSubscriberEntity.new(userId) {
+                                EbicsSubscriberEntity.new(body.transport.name) {
                                     this.nexusUser = extractNexusUser(userId)
                                     ebicsURL = body.backup.ebicsURL
                                     hostID = body.backup.hostID
@@ -451,34 +453,34 @@ fun main() {
                             )
                             return@post
                         }
+                        call.respondText("Backup restored")
+                        return@post
                     }
                 }
-                when (body.new) {
+                when (body.data) {
                     is EbicsNewTransport -> {
+                        logger.debug("Creating new transport: ${body.transport.name}")
                         val pairA = CryptoUtil.generateRsaKeyPair(2048)
                         val pairB = CryptoUtil.generateRsaKeyPair(2048)
                         val pairC = CryptoUtil.generateRsaKeyPair(2048)
                         transaction {
-                            EbicsSubscriberEntity.new {
+                            EbicsSubscriberEntity.new(body.transport.name) {
                                 nexusUser = extractNexusUser(userId)
-                                ebicsURL = body.new.ebicsURL
-                                hostID = body.new.hostID
-                                partnerID = body.new.partnerID
-                                userID = body.new.userID
-                                systemID = body.new.systemID
+                                ebicsURL = body.data.ebicsURL
+                                hostID = body.data.hostID
+                                partnerID = body.data.partnerID
+                                userID = body.data.userID
+                                systemID = body.data.systemID
                                 signaturePrivateKey = SerialBlob(pairA.private.encoded)
                                 encryptionPrivateKey = SerialBlob(pairB.private.encoded)
                                 authenticationPrivateKey = SerialBlob(pairC.private.encoded)
                             }
                         }
-                        call.respondText(
-                            "EBICS user successfully created",
-                            ContentType.Text.Plain,
-                            HttpStatusCode.OK
-                        )
+                        call.respondText("EBICS user successfully created")
                         return@post
                     }
-                }
+                } // end of second 'when'.
+
                 call.respond(
                     HttpStatusCode.BadRequest,
                     "Neither backup nor new transport given in request"
