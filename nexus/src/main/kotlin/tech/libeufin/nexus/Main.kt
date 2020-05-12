@@ -533,10 +533,8 @@ fun main() {
                         "Transport '${body.type}' not implemented.  Use 'ebics'"
                     )
                 }
-
                 return@post
             }
-
             /**
              * Hello endpoint.
              */
