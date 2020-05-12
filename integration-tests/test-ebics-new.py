@@ -5,6 +5,9 @@ from subprocess import call, Popen, PIPE
 from time import sleep
 import os
 import socket
+import sqlite3
+import hashlib
+import base64
 
 # Steps implemented in this test.
 #
@@ -32,6 +35,11 @@ import socket
 
 # Nexus user details
 USERNAME="person"
+PASSWORD="y"
+USER_AUTHORIZATION_HEADER = "basic {}".format(base64.b64encode(b"person:y").decode("utf-8"))
+
+# Admin authentication
+ADMIN_AUTHORIZATION_HEADER = "basic {}".format(base64.b64encode(b"admin:x").decode("utf-8"))
 
 # EBICS details
 EBICS_URL="http://localhost:5000/ebicsweb"
@@ -89,7 +97,7 @@ for i in range(10):
         sleep(1)
         continue
     break
-
+# Start sandbox
 checkPorts([5000])
 sandbox = Popen(["./gradlew", "sandbox:run"], stdout=PIPE, stderr=PIPE)
 for i in range(10):
@@ -147,15 +155,32 @@ assertResponse(
     )
 )
 
-#1.a
+#1.a, make a new nexus user.
+
+# "Create" the admin user first.
+dbconn = sqlite3.connect("nexus/libeufin-nexus.sqlite3")
+dbconn.execute(
+    "INSERT INTO NexusUsers (id, password) VALUES (?, ?)",
+    ("admin", sqlite3.Binary(hashlib.sha256(b"x").digest()))
+)
+dbconn.commit()
+dbconn.close()
+
 assertResponse(
     post(
-        "http://localhost:5001/users/{}".format(USERNAME),
+        "http://localhost:5001/users",
+        headers=dict(authorization=ADMIN_AUTHORIZATION_HEADER),
         json=dict(
-        password="secret"
+        username=USERNAME,
+        password=PASSWORD
         )
     )
 )
+
+nexus.terminate()
+sandbox.terminate()
+print("All done!")
+exit(44)
 
 #1.b
 assertResponse(

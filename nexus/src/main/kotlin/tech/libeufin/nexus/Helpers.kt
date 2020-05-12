@@ -423,13 +423,15 @@ fun extractNexusUser(param: String?): NexusUserEntity {
  * will then be compared with the one kept into the database.
  */
 fun extractUserAndHashedPassword(authorizationHeader: String): Pair<String, ByteArray> {
+    logger.debug("Authenticating: $authorizationHeader")
     val (username, password) = try {
         val split = authorizationHeader.split(" ")
-        val valueUtf8 = String(base64ToBytes(split[1]), Charsets.UTF_8) // newline introduced here: BUG!
-        valueUtf8.split(":")
+        val plainUserAndPass = String(base64ToBytes(split[1]), Charsets.UTF_8)
+        plainUserAndPass.split(":")
     } catch (e: java.lang.Exception) {
         throw NexusError(
-            HttpStatusCode.BadRequest, "invalid Authorization:-header received"
+            HttpStatusCode.BadRequest,
+            "invalid Authorization:-header received"
         )
     }
     return Pair(username, CryptoUtil.hashStringSHA256(password))
