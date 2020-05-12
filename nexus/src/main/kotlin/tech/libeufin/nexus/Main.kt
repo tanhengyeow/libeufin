@@ -196,37 +196,27 @@ fun main() {
                     )
                 }
                 val pain001document = createPain001document(preparedPayment)
-                when (body.transport) {
-                    "ebics" -> {
-                        val subscriberDetails = getTransport(body.transport)
-                        logger.debug("Uploading PAIN.001: ${pain001document}")
-                        doEbicsUploadTransaction(
-                            client,
-                            subscriberDetails,
-                            "CCT",
-                            pain001document.toByteArray(Charsets.UTF_8),
-                            EbicsStandardOrderParams()
-                        )
-                        /** mark payment as 'submitted' */
-                        transaction {
-                            val payment = PreparedPaymentEntity.findById(body.uuid) ?: throw NexusError(
-                                HttpStatusCode.InternalServerError,
-                                "Severe internal error: could not find payment in DB after having submitted it to the bank"
+                if (body.transport != null) {
+                    // type and name aren't null
+                    when (body.transport.type) {
+                        "ebics" -> {
+                            submitPaymentEbics(
+                                client, userId, body.transport.name, pain001document
                             )
-                            payment.submitted = true
                         }
-                        call.respondText(
-                            "CCT message submitted to the bank",
-                            ContentType.Text.Plain,
-                            HttpStatusCode.OK
+                        else -> throw NexusError(
+                            HttpStatusCode.NotFound,
+                            "Transport type '${body.transport.type}' not implemented"
                         )
-                        preparedPayment.submissionDate = DateTime.now().millis
                     }
-                    else -> throw NexusError(
-                        HttpStatusCode.NotImplemented,
-                        "Bank transport ${body.transport} is not implemented"
+                } else {
+                    // default to ebics and "first" transport from user
+                    submitPaymentEbics(
+                        client, userId, null, pain001document
                     )
                 }
+                preparedPayment.submitted = true
+                call.respondText("Payment ${body.uuid} submitted")
                 return@post
             }
             /**
@@ -282,73 +272,42 @@ fun main() {
             }
             /**
              * Downloads new transactions from the bank.
+             *
+             * NOTE: 'accountid' is not used.  Transaction are asked on
+             * the basis of a transport subscriber (regardless of their
+             * bank account details)
              */
             post("/bank-accounts/{accountid}/collected-transactions") {
                 val userId = authenticateRequest(call.request.headers["Authorization"])
                 val body = call.receive<CollectedTransaction>()
-                when (body.transport) {
-                    "ebics" -> {
-                        val orderParams = EbicsStandardOrderParamsJson(
-                            EbicsDateRangeJson(
+                if (body.transport != null) {
+                    when (body.transport.type) {
+                        "ebics" -> {
+                            downloadAndPersistC5xEbics(
+                                "C53",
+                                client,
+                                userId,
                                 body.start,
-                                body.end
+                                body.end,
+                                body.transport.name
                             )
-                        ).toOrderParams()
-                        val subscriberData = getSubscriberDetailsFromNexusUserId(userId)
-                        when (val response = doEbicsDownloadTransaction(client, subscriberData, "C53", orderParams)) {
-                            is EbicsDownloadSuccessResult -> {
-                                /**
-                                 * The current code is _heavily_ dependent on the way GLS returns
-                                 * data.  For example, GLS makes one ZIP entry for each "Ntry" element
-                                 * (a bank transfer), but per the specifications one bank can choose to
-                                 * return all the "Ntry" elements into one single ZIP entry, or even unzipped
-                                 * at all.
-                                 */
-                                response.orderData.unzipWithLambda {
-                                    logger.debug("C53 entry: ${it.second}")
-                                    val fileName = it.first
-                                    val camt53doc = XMLUtil.parseStringIntoDom(it.second)
-                                    transaction {
-                                        RawBankTransactionEntity.new {
-                                            bankAccount = getBankAccountFromIban(camt53doc.pickString("//*[local-name()='Stmt']/Acct/Id/IBAN"))
-                                            sourceFileName = fileName
-                                            unstructuredRemittanceInformation = camt53doc.pickString("//*[local-name()='Ntry']//*[local-name()='Ustrd']")
-                                            transactionType = camt53doc.pickString("//*[local-name()='Ntry']//*[local-name()='CdtDbtInd']")
-                                            currency = camt53doc.pickString("//*[local-name()='Ntry']//*[local-name()='Amt']/@Ccy")
-                                            amount = camt53doc.pickString("//*[local-name()='Ntry']//*[local-name()='Amt']")
-                                            status = camt53doc.pickString("//*[local-name()='Ntry']//*[local-name()='Sts']")
-                                            bookingDate = parseDashedDate(camt53doc.pickString("//*[local-name()='BookgDt']//*[local-name()='Dt']")).millis
-                                            nexusUser = extractNexusUser(userId)
-                                            counterpartIban = camt53doc.pickString("//*[local-name()='${if (this.transactionType == "DBIT") "CdtrAcct" else "DbtrAcct"}']//*[local-name()='IBAN']")
-                                            counterpartName = camt53doc.pickString("//*[local-name()='RltdPties']//*[local-name()='${if (this.transactionType == "DBIT") "Cdtr" else "Dbtr"}']//*[local-name()='Nm']")
-                                            counterpartBic = camt53doc.pickString("//*[local-name()='RltdAgts']//*[local-name()='BIC']")
-                                        }
-                                    }
-                                }
-                                call.respondText(
-                                    "C53 data persisted into the database (WIP).",
-                                    ContentType.Text.Plain,
-                                    HttpStatusCode.OK
-                                )
-                            }
-                            is EbicsDownloadBankErrorResult -> {
-                                call.respond(
-                                    HttpStatusCode.BadGateway,
-                                    EbicsErrorJson(
-                                        EbicsErrorDetailJson(
-                                            "bankError",
-                                            response.returnCode.errorCode
-                                        )
-                                    )
-                                )
-                            }
                         }
+                        else -> throw NexusError(
+                            HttpStatusCode.BadRequest,
+                            "Transport type '${body.transport.type}' not implemented"
+                        )
                     }
-                    else -> throw NexusError(
-                        HttpStatusCode.NotImplemented,
-                        "Bank transport ${body.transport} is not implemented"
+                } else {
+                    downloadAndPersistC5xEbics(
+                        "C53",
+                        client,
+                        userId,
+                        body.start,
+                        body.end,
+                        null
                     )
                 }
+                call.respondText("Collection performed")
                 return@post
             }
             /**

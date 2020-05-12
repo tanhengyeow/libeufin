@@ -1,5 +1,6 @@
 package tech.libeufin.nexus
 
+import com.sun.jdi.connect.Transport
 import tech.libeufin.util.*
 import java.lang.NullPointerException
 import java.time.LocalDate
@@ -137,15 +138,30 @@ data class Transactions(
     val transactions: MutableList<Transaction> = mutableListOf()
 )
 
+/** Specifies the transport to use.  */
+data class Transport(
+    /**
+     * Must match one of the types implemented by nexus:
+     * 'ebics', 'local', possibly 'fints' in the near future!
+     */
+    val type: String,
+    /**
+     * A mnemonic identifier given by the user to one
+     * transport instance.
+     */
+    val name: String
+)
+
 /** Request type of "POST /prepared-payments/submit" */
 data class SubmitPayment(
     val uuid: String,
-    val transport: String?
+    /** Policy to pick the default transport is still work in progress.  */
+    val transport: tech.libeufin.nexus.Transport?
 )
 
 /** Request type of "POST /collected-transactions" */
 data class CollectedTransaction(
-    val transport: String?,
+    val transport: tech.libeufin.nexus.Transport?,
     val start: String?,
     val end: String?
 )

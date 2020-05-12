@@ -572,7 +572,7 @@ fun main() {
                 logger.debug("Uploading PAIN.001: ${painDoc}")
                 doEbicsUploadTransaction(
                     client,
-                    getSubscriberDetailsInternal(subscriber),
+                    getSubscriberDetails(subscriber),
                     "CCT",
                     painDoc.toByteArray(Charsets.UTF_8),
                     EbicsStandardOrderParams()

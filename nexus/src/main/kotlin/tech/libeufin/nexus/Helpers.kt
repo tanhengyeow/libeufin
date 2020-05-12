@@ -1,5 +1,7 @@
 package tech.libeufin.nexus
 
+import io.ktor.application.ApplicationCall
+import io.ktor.client.HttpClient
 import io.ktor.http.HttpStatusCode
 import org.jetbrains.exposed.sql.and
 import org.jetbrains.exposed.sql.transactions.transaction
@@ -99,7 +101,7 @@ fun getBankAccountsFromNexusUserId(id: String): MutableList<BankAccountEntity> {
     return ret
 }
 
-fun getSubscriberDetailsInternal(subscriber: EbicsSubscriberEntity): EbicsClientSubscriberDetails {
+fun getSubscriberDetails(subscriber: EbicsSubscriberEntity): EbicsClientSubscriberDetails {
     var bankAuthPubValue: RSAPublicKey? = null
     if (subscriber.bankAuthenticationPublicKey != null) {
         bankAuthPubValue = CryptoUtil.loadRsaPublicKey(
@@ -127,7 +129,102 @@ fun getSubscriberDetailsInternal(subscriber: EbicsSubscriberEntity): EbicsClient
     )
 }
 
-fun getTransport()
+/**
+ * Retrieve Ebics subscriber details given a Transport
+ * object and handling the default case.
+ */
+fun getEbicsSubscriberDetails(userId: String, transportId: String?): EbicsClientSubscriberDetails {
+    val transport = transaction {
+        if (transportId == null) {
+            return@transaction EbicsSubscriberEntity.all().first()
+        }
+        return@transaction EbicsSubscriberEntity.findById(transportId)
+    }
+        ?: throw NexusError(
+            HttpStatusCode.NotFound,
+            "Could not find ANY Ebics transport for user $userId"
+        )
+    if (transport.nexusUser.id.value != userId) {
+        throw NexusError(
+            HttpStatusCode.Forbidden,
+            "No rights over transport $transportId"
+        )
+    }
+    // transport exists and belongs to caller.
+    return getSubscriberDetails(transport)
+}
+
+suspend fun downloadAndPersistC5xEbics(
+    historyType: String,
+    client: HttpClient,
+    userId: String,
+    start: String?, // dashed date YYYY-MM(01-12)-DD(01-31)
+    end: String?, // dashed date YYYY-MM(01-12)-DD(01-31)
+    transportId: String?
+) {
+    val subscriberDetails = getEbicsSubscriberDetails(userId, transportId)
+    val orderParamsJson = EbicsStandardOrderParamsJson(
+        EbicsDateRangeJson(start, end)
+    )
+    /** More types C52/C54 .. forthcoming */
+    if (historyType != "C53") throw NexusError(
+        HttpStatusCode.InternalServerError,
+        "Ebics query tried on unknown message $historyType"
+    )
+    val response = doEbicsDownloadTransaction(
+        client,
+        subscriberDetails,
+        historyType,
+        orderParamsJson.toOrderParams()
+    )
+    when (response) {
+        is EbicsDownloadSuccessResult -> {
+            response.orderData.unzipWithLambda {
+                logger.debug("Camt entry: ${it.second}")
+                val fileName = it.first
+                val camt53doc = XMLUtil.parseStringIntoDom(it.second)
+                transaction {
+                    RawBankTransactionEntity.new {
+                        bankAccount = getBankAccountFromIban(camt53doc.pickString("//*[local-name()='Stmt']/Acct/Id/IBAN"))
+                        sourceFileName = fileName
+                        unstructuredRemittanceInformation = camt53doc.pickString("//*[local-name()='Ntry']//*[local-name()='Ustrd']")
+                        transactionType = camt53doc.pickString("//*[local-name()='Ntry']//*[local-name()='CdtDbtInd']")
+                        currency = camt53doc.pickString("//*[local-name()='Ntry']//*[local-name()='Amt']/@Ccy")
+                        amount = camt53doc.pickString("//*[local-name()='Ntry']//*[local-name()='Amt']")
+                        status = camt53doc.pickString("//*[local-name()='Ntry']//*[local-name()='Sts']")
+                        bookingDate = parseDashedDate(camt53doc.pickString("//*[local-name()='BookgDt']//*[local-name()='Dt']")).millis
+                        nexusUser = extractNexusUser(userId)
+                        counterpartIban = camt53doc.pickString("//*[local-name()='${if (this.transactionType == "DBIT") "CdtrAcct" else "DbtrAcct"}']//*[local-name()='IBAN']")
+                        counterpartName = camt53doc.pickString("//*[local-name()='RltdPties']//*[local-name()='${if (this.transactionType == "DBIT") "Cdtr" else "Dbtr"}']//*[local-name()='Nm']")
+                        counterpartBic = camt53doc.pickString("//*[local-name()='RltdAgts']//*[local-name()='BIC']")
+                    }
+                }
+            }
+        }
+        is EbicsDownloadBankErrorResult -> {
+            throw NexusError(
+                HttpStatusCode.BadGateway,
+                response.returnCode.errorCode
+                )
+        }
+    }
+}
+
+suspend fun submitPaymentEbics(
+    client: HttpClient,
+    userId: String,
+    transportId: String?,
+    pain001document: String
+) {
+    logger.debug("Uploading PAIN.001: ${pain001document}")
+    doEbicsUploadTransaction(
+        client,
+        getEbicsSubscriberDetails(userId, transportId),
+        "CCT",
+        pain001document.toByteArray(Charsets.UTF_8),
+        EbicsStandardOrderParams()
+    )
+}
 
 
 /**
