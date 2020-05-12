@@ -113,7 +113,7 @@ class RawBankTransactionEntity(id: EntityID<Long>) : LongEntity(id) {
     var bankAccount by BankAccountEntity referencedOn RawBankTransactionsTable.bankAccount
 }
 /**
- * Represent a prepare payment.
+ * Represents a prepared payment.
  */
 object PreparedPaymentsTable : IdTable<String>() {
     /** the UUID representing this payment in the system */
