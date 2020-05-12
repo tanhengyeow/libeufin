@@ -50,6 +50,7 @@ import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 import org.slf4j.event.Level
 import tech.libeufin.util.*
+import tech.libeufin.util.ebics_h004.EbicsResponse
 import java.text.DateFormat
 import java.util.zip.InflaterInputStream
 import javax.crypto.EncryptedPrivateKeyInfo
@@ -57,6 +58,37 @@ import javax.sql.rowset.serial.SerialBlob
 
 data class NexusError(val statusCode: HttpStatusCode, val reason: String) : Exception()
 val logger: Logger = LoggerFactory.getLogger("tech.libeufin.nexus")
+
+suspend fun handleEbicsSendMSG(client: HttpClient, subscriber: EbicsClientSubscriberDetails, msg: String): String {
+    when (msg.toUpperCase()) {
+        "HIA" -> {
+            val request = makeEbicsHiaRequest(subscriber)
+            return client.postToBank(
+                subscriber.ebicsUrl,
+                request
+            )
+        }
+        "INI" -> {
+            val request = makeEbicsIniRequest(subscriber)
+            return client.postToBank(
+                subscriber.ebicsUrl,
+                request
+            )
+        }
+        "HPB" -> {
+            /** should NOT put bank's keys into any table.  */
+            val request = makeEbicsHpbRequest(subscriber)
+            return client.postToBank(
+                subscriber.ebicsUrl,
+                request
+            )
+        }
+        else -> throw NexusError(
+            HttpStatusCode.NotFound,
+            "Message $msg not found"
+        )
+    }
+}
 
 @ExperimentalIoApi
 @KtorExperimentalAPI
@@ -431,9 +463,24 @@ fun main() {
             }
             /**
              * Sends to the bank a message "MSG" according to the transport
-             * "transportName".  Does not alterate any DB table.
+             * "transportName".  Does not modify any DB table.
              */
-            post("/bank-transports/{transportName}/send{MSG}") {
+            post("/bank-transports/send{MSG}") {
+                val userId = authenticateRequest(call.request.headers["Authorization"])
+                val body = call.receive<Transport>()
+                when (body.type) {
+                    "ebics" -> {
+                        val response = handleEbicsSendMSG(
+                            client,
+                            getEbicsSubscriberDetails(userId, body.name),
+                            expectId(call.parameters["MSG"]))
+                        call.respondText(response)
+                    }
+                    else -> throw NexusError(
+                        HttpStatusCode.NotImplemented,
+                        "Transport '${body.type}' not implemented.  Use 'ebics'"
+                    )
+                }
                 return@post
             }
             /**
