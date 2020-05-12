@@ -117,7 +117,7 @@ class RawBankTransactionEntity(id: EntityID<Long>) : LongEntity(id) {
  */
 object PreparedPaymentsTable : IdTable<String>() {
     /** the UUID representing this payment in the system */
-    override val id = BankAccountsTable.varchar("id", ID_MAX_LENGTH).entityId().primaryKey()
+    override val id = varchar("id", ID_MAX_LENGTH).entityId().primaryKey()
     val paymentId = long("paymentId")
     val preparationDate = long("preparationDate")
     val submissionDate = long("submissionDate").nullable()
@@ -164,7 +164,7 @@ class PreparedPaymentEntity(id: EntityID<String>) : Entity<String>(id) {
  * This table holds triples of <iban, bic, holder name>.
  */
 object BankAccountsTable : IdTable<String>() {
-    override val id = varchar("id", ID_MAX_LENGTH).entityId().primaryKey()
+    override val id = varchar("id", ID_MAX_LENGTH).primaryKey().entityId()
     val accountHolder = text("accountHolder")
     val iban = text("iban")
     val bankCode = text("bankCode") 
@@ -208,7 +208,7 @@ class EbicsSubscriberEntity(id: EntityID<String>) : Entity<String>(id) {
 }
 
 object NexusUsersTable : IdTable<String>() {
-    override val id = varchar("id", ID_MAX_LENGTH).entityId()
+    override val id = varchar("id", ID_MAX_LENGTH).entityId().primaryKey()
     val password = blob("password").nullable()
 }
 
@@ -235,13 +235,13 @@ fun dbCreateTables() {
     transaction {
         addLogger(StdOutSqlLogger)
         SchemaUtils.create(
+            NexusUsersTable,
             PreparedPaymentsTable,
             EbicsSubscribersTable,
             BankAccountsTable,
             RawBankTransactionsTable,
             TalerIncomingPayments,
             TalerRequestedPayments,
-            NexusUsersTable,
             BankAccountMapsTable
          )
     }
