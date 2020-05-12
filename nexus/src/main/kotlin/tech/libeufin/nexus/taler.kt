@@ -395,7 +395,7 @@ class Taler(app: Route) {
          * payment was added as well.
          */
         app.post("/ebics/taler/{id}/crunch-raw-transactions") {
-            val id = expectId(call.parameters["id"])
+            val id = ensureNonNull(call.parameters["id"])
             // first find highest ID value of already processed rows.
             transaction {
                 val subscriberAccount = getBankAccountFromNexusUserId(id)

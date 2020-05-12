@@ -50,7 +50,6 @@ import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 import org.slf4j.event.Level
 import tech.libeufin.util.*
-import tech.libeufin.util.ebics_h004.EbicsResponse
 import java.text.DateFormat
 import java.util.zip.InflaterInputStream
 import javax.crypto.EncryptedPrivateKeyInfo
@@ -59,18 +58,25 @@ import javax.sql.rowset.serial.SerialBlob
 data class NexusError(val statusCode: HttpStatusCode, val reason: String) : Exception()
 val logger: Logger = LoggerFactory.getLogger("tech.libeufin.nexus")
 
-suspend fun handleEbicsSendMSG(client: HttpClient, subscriber: EbicsClientSubscriberDetails, msg: String): String {
-    when (msg.toUpperCase()) {
+suspend fun handleEbicsSendMSG(
+    httpClient: HttpClient,
+    userId: String,
+    transportId: String?,
+    msg: String,
+    sync: Boolean
+): String {
+    val subscriber = getEbicsSubscriberDetails(userId, transportId)
+    val response = when (msg.toUpperCase()) {
         "HIA" -> {
             val request = makeEbicsHiaRequest(subscriber)
-            return client.postToBank(
+            httpClient.postToBank(
                 subscriber.ebicsUrl,
                 request
             )
         }
         "INI" -> {
             val request = makeEbicsIniRequest(subscriber)
-            return client.postToBank(
+            httpClient.postToBank(
                 subscriber.ebicsUrl,
                 request
             )
@@ -78,20 +84,35 @@ suspend fun handleEbicsSendMSG(client: HttpClient, subscriber: EbicsClientSubscr
         "HPB" -> {
             /** should NOT put bank's keys into any table.  */
             val request = makeEbicsHpbRequest(subscriber)
-            return client.postToBank(
+            val response = httpClient.postToBank(
                 subscriber.ebicsUrl,
                 request
             )
+            if (sync) {
+                val parsedResponse = parseAndDecryptEbicsKeyManagementResponse(subscriber, response)
+                val orderData = parsedResponse.orderData ?: throw NexusError(
+                    HttpStatusCode.InternalServerError,
+                    "Cannot find data in a HPB response"
+                )
+                val hpbData = parseEbicsHpbOrder(orderData)
+                transaction {
+                    val transport = getEbicsTransport(userId, transportId)
+                    transport.bankAuthenticationPublicKey = SerialBlob(hpbData.authenticationPubKey.encoded)
+                    transport.bankEncryptionPublicKey = SerialBlob(hpbData.encryptionPubKey.encoded)
+                }
+            }
+            return response
         }
         "HEV" -> {
             val request = makeEbicsHEVRequest(subscriber)
-            return client.postToBank(subscriber.ebicsUrl, request)
+            httpClient.postToBank(subscriber.ebicsUrl, request)
         }
         else -> throw NexusError(
             HttpStatusCode.NotFound,
             "Message $msg not found"
         )
     }
+    return response
 }
 
 @ExperimentalIoApi
@@ -260,7 +281,7 @@ fun main() {
              */
             get("/bank-accounts/{accountid}/prepared-payments/{uuid}") {
                 val userId = authenticateRequest(call.request.headers["Authorization"])
-                val preparedPayment = getPreparedPayment(expectId(call.parameters["uuid"]))
+                val preparedPayment = getPreparedPayment(ensureNonNull(call.parameters["uuid"]))
                 if (preparedPayment.nexusUser.id.value != userId) throw NexusError(
                     HttpStatusCode.Forbidden,
                     "No rights over such payment"
@@ -285,7 +306,7 @@ fun main() {
              */
             post("/bank-accounts/{accountid}/prepared-payments") {
                 val userId = authenticateRequest(call.request.headers["Authorization"])
-                val bankAccount = getBankAccount(userId, expectId(call.parameters["accountid"]))
+                val bankAccount = getBankAccount(userId, ensureNonNull(call.parameters["accountid"]))
                 val body = call.receive<PreparedPaymentRequest>()
                 val amount = parseAmount(body.amount)
                 val paymentEntity = addPreparedPayment(
@@ -474,9 +495,12 @@ fun main() {
                 when (body.type) {
                     "ebics" -> {
                         val response = handleEbicsSendMSG(
-                            client,
-                            getEbicsSubscriberDetails(userId, body.name),
-                            expectId(call.parameters["MSG"]))
+                            httpClient = client,
+                            userId = userId,
+                            transportId = body.name,
+                            msg = ensureNonNull(call.parameters["MSG"]),
+                            sync = true
+                        )
                         call.respondText(response)
                     }
                     else -> throw NexusError(
@@ -491,6 +515,25 @@ fun main() {
              * "transportName".  DOES alterate DB tables.
              */
             post("/bank-transports/{transportName}/sync{MSG}") {
+                val userId = authenticateRequest(call.request.headers["Authorization"])
+                val body = call.receive<Transport>()
+                when (body.type) {
+                    "ebics" -> {
+                        val response = handleEbicsSendMSG(
+                            httpClient = client,
+                            userId = userId,
+                            transportId = body.name,
+                            msg = ensureNonNull(call.parameters["MSG"]),
+                            sync = true
+                            )
+                        call.respondText(response)
+                    }
+                    else -> throw NexusError(
+                        HttpStatusCode.NotImplemented,
+                        "Transport '${body.type}' not implemented.  Use 'ebics'"
+                    )
+                }
+
                 return@post
             }
 

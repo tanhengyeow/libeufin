@@ -1,6 +1,5 @@
 package tech.libeufin.nexus
 
-import io.ktor.application.ApplicationCall
 import io.ktor.client.HttpClient
 import io.ktor.http.HttpStatusCode
 import org.jetbrains.exposed.sql.and
@@ -101,7 +100,7 @@ fun getBankAccountsFromNexusUserId(id: String): MutableList<BankAccountEntity> {
     return ret
 }
 
-fun getSubscriberDetails(subscriber: EbicsSubscriberEntity): EbicsClientSubscriberDetails {
+fun getEbicsSubscriberDetailsInternal(subscriber: EbicsSubscriberEntity): EbicsClientSubscriberDetails {
     var bankAuthPubValue: RSAPublicKey? = null
     if (subscriber.bankAuthenticationPublicKey != null) {
         bankAuthPubValue = CryptoUtil.loadRsaPublicKey(
@@ -129,11 +128,7 @@ fun getSubscriberDetails(subscriber: EbicsSubscriberEntity): EbicsClientSubscrib
     )
 }
 
-/**
- * Retrieve Ebics subscriber details given a Transport
- * object and handling the default case.
- */
-fun getEbicsSubscriberDetails(userId: String, transportId: String?): EbicsClientSubscriberDetails {
+fun getEbicsTransport(userId: String, transportId: String?): EbicsSubscriberEntity {
     val transport = transaction {
         if (transportId == null) {
             return@transaction EbicsSubscriberEntity.all().first()
@@ -150,8 +145,17 @@ fun getEbicsSubscriberDetails(userId: String, transportId: String?): EbicsClient
             "No rights over transport $transportId"
         )
     }
+    return transport
+}
+
+/**
+ * Retrieve Ebics subscriber details given a Transport
+ * object and handling the default case.
+ */
+fun getEbicsSubscriberDetails(userId: String, transportId: String?): EbicsClientSubscriberDetails {
+    val transport = getEbicsTransport(userId, transportId)
     // transport exists and belongs to caller.
-    return getSubscriberDetails(transport)
+    return getEbicsSubscriberDetailsInternal(transport)
 }
 
 suspend fun downloadAndPersistC5xEbics(
@@ -394,8 +398,10 @@ fun addPreparedPayment(paymentData: Pain001Data, nexusUser: NexusUserEntity): Pr
     }
 }
 
-fun expectId(param: String?): String {
-    return param ?: throw NexusError(HttpStatusCode.BadRequest, "Bad ID given")
+fun ensureNonNull(param: String?): String {
+    return param ?: throw NexusError(
+        HttpStatusCode.BadRequest, "Bad ID given"
+    )
 }
 
 /* Needs a transaction{} block to be called */

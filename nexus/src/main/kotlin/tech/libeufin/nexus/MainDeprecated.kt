@@ -202,7 +202,7 @@ fun main() {
             }
             /** Make a new NEXUS user in the system */
             post("/users/{id}") {
-                val newUserId = expectId(call.parameters["id"])
+                val newUserId = ensureNonNull(call.parameters["id"])
                 val body = call.receive<NexusUserRequest>()
                 transaction {
                     NexusUserEntity.new(id = newUserId) {
@@ -224,7 +224,7 @@ fun main() {
             /** Show bank accounts associated with a given NEXUS user */
             get("/users/{id}/accounts") {
                 // this information is only avaiable *after* HTD or HKD has been called
-                val id = expectId(call.parameters["id"])
+                val id = ensureNonNull(call.parameters["id"])
                 val ret = BankAccountsInfoResponse()
                 transaction {
                     BankAccountMapEntity.find {
@@ -248,7 +248,7 @@ fun main() {
             }
             /** Show PREPARED payments */
             get("/users/{id}/payments") {
-                val nexusUserId = expectId(call.parameters["id"])
+                val nexusUserId = ensureNonNull(call.parameters["id"])
                 val ret = RawPayments()
                 transaction {
                     val nexusUser = extractNexusUser(nexusUserId)
@@ -345,7 +345,7 @@ fun main() {
             }
             post("/ebics/subscribers/{id}/restoreBackup") {
                 val body = call.receive<EbicsKeysBackupJson>()
-                val nexusId = expectId(call.parameters["id"])
+                val nexusId = ensureNonNull(call.parameters["id"])
                 val subscriber = transaction {
                     NexusUserEntity.findById(nexusId)
                 }
@@ -425,7 +425,7 @@ fun main() {
                 )
             }
             get("/ebics/subscribers/{id}/keyletter") {
-                val nexusUserId = expectId(call.parameters["id"])
+                val nexusUserId = ensureNonNull(call.parameters["id"])
                 var usernameLine = "TODO"
                 var recipientLine = "TODO"
                 val customerIdLine = "TODO"
@@ -572,7 +572,7 @@ fun main() {
                 logger.debug("Uploading PAIN.001: ${painDoc}")
                 doEbicsUploadTransaction(
                     client,
-                    getSubscriberDetails(subscriber),
+                    getEbicsSubscriberDetailsInternal(subscriber),
                     "CCT",
                     painDoc.toByteArray(Charsets.UTF_8),
                     EbicsStandardOrderParams()
@@ -651,7 +651,7 @@ fun main() {
                 return@post
             }
             post("/ebics/subscribers/{id}/fetch-payment-status") {
-                val id = expectId(call.parameters["id"])
+                val id = ensureNonNull(call.parameters["id"])
                 val paramsJson = call.receive<EbicsStandardOrderParamsJson>()
                 val orderParams = paramsJson.toOrderParams()
                 val subscriberData = getSubscriberDetailsFromNexusUserId(id)
@@ -677,7 +677,7 @@ fun main() {
                 return@post
             }
             post("/ebics/subscribers/{id}/collect-transactions-c53") {
-                val id = expectId(call.parameters["id"])
+                val id = ensureNonNull(call.parameters["id"])
                 val paramsJson = call.receive<EbicsStandardOrderParamsJson>()
                 val orderParams = paramsJson.toOrderParams()
                 val subscriberData = getSubscriberDetailsFromNexusUserId(id)
@@ -778,8 +778,8 @@ fun main() {
 
             // FIXME: some messages include a ZIPped payload.
             post("/ebics/subscribers/{id}/send{MSG}") {
-                val id = expectId(call.parameters["id"])
-                val MSG = expectId(call.parameters["MSG"])
+                val id = ensureNonNull(call.parameters["id"])
+                val MSG = ensureNonNull(call.parameters["MSG"])
                 val paramsJson = call.receive<EbicsStandardOrderParamsJson>()
                 val orderParams = paramsJson.toOrderParams()
                 println("$MSG order params: $orderParams")
@@ -808,7 +808,7 @@ fun main() {
                 return@post
             }
             get("/ebics/{id}/sendHEV") {
-                val id = expectId(call.parameters["id"])
+                val id = ensureNonNull(call.parameters["id"])
                 val subscriberData = getSubscriberDetailsFromNexusUserId(id)
                 val request = makeEbicsHEVRequest(subscriberData)
                 val response = client.postToBank(subscriberData.ebicsUrl, request)
@@ -825,7 +825,7 @@ fun main() {
                 return@get
             }
             post("/ebics/subscribers/{id}/sendINI") {
-                val id = expectId(call.parameters["id"])
+                val id = ensureNonNull(call.parameters["id"])
                 val subscriberData = getSubscriberDetailsFromNexusUserId(id)
                 val iniRequest = makeEbicsIniRequest(subscriberData)
                 val responseStr = client.postToBank(
@@ -844,7 +844,7 @@ fun main() {
             }
 
             post("/ebics/subscribers/{id}/sendHIA") {
-                val id = expectId(call.parameters["id"])
+                val id = ensureNonNull(call.parameters["id"])
                 val subscriberData = getSubscriberDetailsFromNexusUserId(id)
                 val hiaRequest = makeEbicsHiaRequest(subscriberData)
                 val responseStr = client.postToBank(
