@@ -83,6 +83,10 @@ suspend fun handleEbicsSendMSG(client: HttpClient, subscriber: EbicsClientSubscr
                 request
             )
         }
+        "HEV" -> {
+            val request = makeEbicsHEVRequest(subscriber)
+            return client.postToBank(subscriber.ebicsUrl, request)
+        }
         else -> throw NexusError(
             HttpStatusCode.NotFound,
             "Message $msg not found"
@@ -369,7 +373,6 @@ fun main() {
                                 amount = "${it.currency}:${it.amount}"
                             )
                         )
-
                     }
                 }
                 return@get
