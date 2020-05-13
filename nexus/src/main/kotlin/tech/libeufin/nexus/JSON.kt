@@ -69,7 +69,7 @@ data class EbicsSubscriber(
     val hostID: String,
     val partnerID: String,
     val userID: String,
-    val systemID: String? = null
+    val systemID: String?
 )
 
 data class RawPayments(
@@ -79,10 +79,10 @@ data class RawPayments(
 /*************************************************
  *  API types (used as requests/responses types) *
  *************************************************/
-data class BankTransport(
+data class BankTransport<T, S>(
     val transport: tech.libeufin.nexus.Transport,
-    val backup: Any?,
-    val data: Any?
+    val backup: T?,
+    val data: S?
 )
 
 /**
