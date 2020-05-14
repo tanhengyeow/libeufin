@@ -139,20 +139,18 @@ fun getEbicsSubscriberDetailsInternal(subscriber: EbicsSubscriberEntity): EbicsC
 fun getEbicsTransport(userId: String, transportId: String? = null): EbicsSubscriberEntity {
     val transport = transaction {
         if (transportId == null) {
-            return@transaction EbicsSubscriberEntity.all().first()
+            return@transaction EbicsSubscriberEntity.find {
+                EbicsSubscribersTable.nexusUser eq userId
+            }.firstOrNull()
         }
-        return@transaction EbicsSubscriberEntity.findById(transportId)
+        return@transaction EbicsSubscriberEntity.find{
+            EbicsSubscribersTable.id eq transportId and (EbicsSubscribersTable.nexusUser eq userId)
+        }.firstOrNull()
     }
         ?: throw NexusError(
             HttpStatusCode.NotFound,
             "Could not find ANY Ebics transport for user $userId"
         )
-    if (transport.nexusUser.id.value != userId) {
-        throw NexusError(
-            HttpStatusCode.Forbidden,
-            "No rights over transport $transportId"
-        )
-    }
     return transport
 }
 

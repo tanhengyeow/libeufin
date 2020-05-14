@@ -199,24 +199,32 @@ assertResponse(
     )
 )
 
+#2.a, upload keys to the bank (INI & HIA)
+assertResponse(
+    post(
+        "http://localhost:5001/bank-transports/sendINI",
+        json=dict(
+          type="ebics",
+          name="my-ebics"
+        ),
+        headers=dict(Authorization=USER_AUTHORIZATION_HEADER)
+    )
+)
+
+assertResponse(
+    post(
+        "http://localhost:5001/bank-transports/sendHIA",
+        json=dict(
+          type="ebics",
+          name="my-ebics"
+        ),
+        headers=dict(Authorization=USER_AUTHORIZATION_HEADER)
+    )
+)
+
 nexus.terminate()
 sandbox.terminate()
 exit(44)
-
-#2.a
-assertResponse(
-    post(
-        "http://localhost:5001/ebics/subscribers/{}/sendINI".format(USERNAME),
-        json=dict()
-    )
-)
-
-assertResponse(
-    post(
-        "http://localhost:5001/ebics/subscribers/{}/sendHIA".format(USERNAME),
-        json=dict()
-    )
-)
 
 #2.b
 assertResponse(
