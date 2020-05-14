@@ -268,7 +268,7 @@ resp = assertResponse(
 assert(len(resp.json().get("transactions")) == 0)
 
 #5.a, prepare a payment
-assertResponse(
+resp = assertResponse(
     post(
         "http://localhost:5001/bank-accounts/{}/prepared-payments".format(BANK_ACCOUNT_LABEL),
         json=dict(
@@ -281,15 +281,21 @@ assertResponse(
         headers=dict(Authorization=USER_AUTHORIZATION_HEADER)
     )
 )
+PREPARED_PAYMENT_UUID=resp.json().get("uuid")
+assert(PREPARED_PAYMENT_UUID != None)
+
+#5.b, submit prepared statement
+assertResponse(
+    post(
+        "http://localhost:5001/bank-accounts/prepared-payments/submit",
+        json=dict(uuid=PREPARED_PAYMENT_UUID),
+        headers=dict(Authorization=USER_AUTHORIZATION_HEADER)
+    )
+)
 
 nexus.terminate()
 sandbox.terminate()
 exit(44)
-
-#5.b
-assertResponse(
-    post("http://localhost:5001/ebics/execute-payments")
-)
 
 #6
 assertResponse(

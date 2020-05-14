@@ -280,19 +280,22 @@ fun main() {
             /**
              * Submit one particular payment at the bank.
              */
-            post("/bank-accounts/{accountid}/prepared-payments/submit") {
+            post("/bank-accounts/prepared-payments/submit") {
                 val userId = authenticateRequest(call.request.headers["Authorization"])
                 val body = call.receive<SubmitPayment>()
                 val preparedPayment = getPreparedPayment(body.uuid)
-                if (preparedPayment.nexusUser.id.value != userId) throw NexusError(
-                    HttpStatusCode.Forbidden,
-                    "No rights over such payment"
-                )
-                if (preparedPayment.submitted) {
-                    throw NexusError(
-                        HttpStatusCode.PreconditionFailed,
-                        "Payment ${body.uuid} was submitted already"
+                transaction {
+                    if (preparedPayment.nexusUser.id.value != userId) throw NexusError(
+                        HttpStatusCode.Forbidden,
+                        "No rights over such payment"
                     )
+                    if (preparedPayment.submitted) {
+                        throw NexusError(
+                            HttpStatusCode.PreconditionFailed,
+                            "Payment ${body.uuid} was submitted already"
+                        )
+                    }
+
                 }
                 val pain001document = createPain001document(preparedPayment)
                 if (body.transport != null) {
@@ -314,7 +317,9 @@ fun main() {
                         client, userId, null, pain001document
                     )
                 }
-                preparedPayment.submitted = true
+                transaction {
+                    preparedPayment.submitted = true
+                }
                 call.respondText("Payment ${body.uuid} submitted")
                 return@post
             }
