@@ -195,7 +195,10 @@ suspend fun downloadAndPersistC5xEbics(
                 val camt53doc = XMLUtil.parseStringIntoDom(it.second)
                 transaction {
                     RawBankTransactionEntity.new {
-                        bankAccount = getBankAccountFromIban(camt53doc.pickString("//*[local-name()='Stmt']/Acct/Id/IBAN"))
+                        bankAccount = getBankAccountFromIban(
+                            camt53doc.pickString(
+                                "//*[local-name()='Stmt']/*[local-name()='Acct']/*[local-name()='Id']/*[local-name()='IBAN']")
+                        )
                         sourceFileName = fileName
                         unstructuredRemittanceInformation = camt53doc.pickString("//*[local-name()='Ntry']//*[local-name()='Ustrd']")
                         transactionType = camt53doc.pickString("//*[local-name()='Ntry']//*[local-name()='CdtDbtInd']")

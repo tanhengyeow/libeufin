@@ -205,7 +205,7 @@ fun buildCamtString(type: Int, history: MutableList<RawPayment>): MutableList<St
                             element("Acct") {
                                 // mandatory account identifier
                                 element("Id/IBAN") {
-                                    text("Owner IBAN")
+                                    text(it.debitorIban)
                                 }
                                 element("Ccy") {
                                     text("EUR")

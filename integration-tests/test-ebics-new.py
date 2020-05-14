@@ -30,7 +30,8 @@ import base64
 # 4 Verify that history is empty.
 # 5 Issue a payment from Nexus
 #  -> (a) Prepare & (b) trigger CCT.
-# 6 Request history again, from Nexus to Bank.
+# 6 Request history after submitting the payment,
+#   from Nexus to Bank.
 # 7 Verify that previous payment shows up.
 
 # Nexus user details
@@ -246,7 +247,7 @@ assertResponse(
     )
 )
 
-#3, request history to Nexus
+#3, ask nexus to download history
 assertResponse(
     post(
         "http://localhost:5001/bank-accounts/collected-transactions",
@@ -293,24 +294,22 @@ assertResponse(
     )
 )
 
-nexus.terminate()
-sandbox.terminate()
-exit(44)
-
-#6
+#6, request history after payment submission
 assertResponse(
     post(
-        "http://localhost:5001/ebics/subscribers/{}/collect-transactions-c53".format(USERNAME),
-        json=dict()
+        "http://localhost:5001/bank-accounts/collected-transactions",
+        json=dict(),
+        headers=dict(Authorization=USER_AUTHORIZATION_HEADER)
     )
 )
 
 resp = assertResponse(
     get(
-        "http://localhost:5001/users/{}/history".format(USERNAME)
+        "http://localhost:5001/bank-accounts/{}/collected-transactions".format(BANK_ACCOUNT_LABEL),
+        headers=dict(Authorization=USER_AUTHORIZATION_HEADER)
     )
 )
-assert(len(resp.json().get("payments")) == 1)
+assert(len(resp.json().get("transactions")) == 1)
 
 nexus.terminate()
 sandbox.terminate()
