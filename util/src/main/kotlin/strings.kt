@@ -79,7 +79,7 @@ data class AmountWithCurrency(
 
 fun parseAmount(amount: String): AmountWithCurrency {
     val match = Regex("([A-Z]+):([0-9]+(\\.[0-9]+)?)").find(amount) ?: throw
-    UtilError(HttpStatusCode.BadRequest, "invalid payto URI ($amount)")
+    UtilError(HttpStatusCode.BadRequest, "invalid amount: $amount")
     val (currency, number) = match.destructured
     return AmountWithCurrency(currency, Amount(number))
 }

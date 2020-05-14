@@ -267,26 +267,24 @@ resp = assertResponse(
 )
 assert(len(resp.json().get("transactions")) == 0)
 
+#5.a, prepare a payment
+assertResponse(
+    post(
+        "http://localhost:5001/bank-accounts/{}/prepared-payments".format(BANK_ACCOUNT_LABEL),
+        json=dict(
+            iban="FR7630006000011234567890189",
+            bic="AGRIFRPP",
+            name="Jacques La Fayette",
+            subject="integration test",
+            amount="EUR:1"
+        ),
+        headers=dict(Authorization=USER_AUTHORIZATION_HEADER)
+    )
+)
+
 nexus.terminate()
 sandbox.terminate()
 exit(44)
-
-#5.a
-assertResponse(
-    post(
-        "http://localhost:5001/users/{}/prepare-payment".format(USERNAME),
-        json=dict(
-            creditorIban="FR7630006000011234567890189",
-            creditorBic="AGRIFRPP",
-            creditorName="Jacques La Fayette",
-            debitorIban=SUBSCRIBER_IBAN,
-            debitorBic=SUBSCRIBER_BIC,
-            debitorName=SUBSCRIBER_NAME,
-        subject="integration test",
-        sum=1
-        )
-    )
-)
 
 #5.b
 assertResponse(
