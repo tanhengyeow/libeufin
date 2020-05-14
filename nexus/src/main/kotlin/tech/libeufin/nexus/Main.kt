@@ -376,7 +376,7 @@ fun main() {
              * the basis of a transport subscriber (regardless of their
              * bank account details)
              */
-            post("/bank-accounts/{accountid}/collected-transactions") {
+            post("/bank-accounts/collected-transactions") {
                 val userId = authenticateRequest(call.request.headers["Authorization"])
                 val body = call.receive<CollectedTransaction>()
                 if (body.transport != null) {

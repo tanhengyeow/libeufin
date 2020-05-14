@@ -1,5 +1,6 @@
 package tech.libeufin.nexus
 
+import org.joda.time.DateTime
 import tech.libeufin.util.*
 import java.time.LocalDate
 
@@ -15,8 +16,8 @@ data class EbicsStandardOrderParamsJson(val dateRange: EbicsDateRangeJson?) {
     fun toOrderParams(): EbicsOrderParams {
         var dateRange: EbicsDateRange? = if (this.dateRange != null) {
             EbicsDateRange(
-                LocalDate.parse(this.dateRange.start),
-                LocalDate.parse(this.dateRange.end)
+                LocalDate.parse(this.dateRange.start ?: "1970-01-31"),
+                LocalDate.parse(this.dateRange.end ?: DateTime.now().toDashedDate())
             )
         } else {
             null
@@ -158,7 +159,7 @@ data class SubmitPayment(
 
 /** Request type of "POST /collected-transactions" */
 data class CollectedTransaction(
-    val transport: tech.libeufin.nexus.Transport?,
+    val transport: Transport?,
     val start: String?,
     val end: String?
 )

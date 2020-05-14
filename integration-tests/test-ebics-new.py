@@ -246,17 +246,21 @@ assertResponse(
     )
 )
 
-nexus.terminate()
-sandbox.terminate()
-exit(44)
-
 #3, request history to Nexus
 assertResponse(
     post(
-        "http://localhost:5001/ebics/subscribers/{}/collect-transactions-c53".format(USERNAME),
-        json=dict()
+        "http://localhost:5001/bank-accounts/collected-transactions",
+        json=dict(
+          type="ebics",
+          name="my-ebics"
+        ),
+        headers=dict(Authorization=USER_AUTHORIZATION_HEADER)
     )
 )
+
+nexus.terminate()
+sandbox.terminate()
+exit(44)
 
 #4
 resp = assertResponse(
