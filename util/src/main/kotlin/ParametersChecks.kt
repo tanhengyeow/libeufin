@@ -11,6 +11,13 @@ fun expectInt(param: String): Int {
     }
 }
 
+fun <T>expectNonNull(param: T?): T {
+    return param ?: throw UtilError(
+        HttpStatusCode.BadRequest,
+        "Non-null value expected."
+    )
+}
+
 fun expectLong(param: String): Long {
     return try {
         param.toLong()

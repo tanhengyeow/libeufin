@@ -31,9 +31,7 @@ class PainTest {
                 creditorBic = "CREDIT BIC"
                 creditorName = "CREDIT NAME"
                 paymentId = 1
-                msgId = 1
                 endToEndId = 1
-                date = DateTime.now().millis
                 nexusUser = NexusUserEntity.new(id = "mock") { }
             }
         }

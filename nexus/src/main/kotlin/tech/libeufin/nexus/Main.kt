@@ -19,6 +19,8 @@
 
 package tech.libeufin.nexus
 
+import com.google.gson.Gson
+import com.google.gson.JsonObject
 import io.ktor.application.ApplicationCallPipeline
 import io.ktor.application.call
 import io.ktor.application.install
@@ -404,88 +406,99 @@ fun main() {
             post("/bank-transports") {
                 val userId = authenticateRequest(call.request.headers["Authorization"])
                 // user exists and is authenticated.
-                val body = call.receive<BankTransport>()
-                logger.debug("Request body parsed")
-                when (body.backup) {
-                    is EbicsKeysBackupJson -> {
-                        logger.debug("Restoring a transport: ${body.transport.name}")
-                        val (authKey, encKey, sigKey) = try {
-                            Triple(
-                                CryptoUtil.decryptKey(
-                                    EncryptedPrivateKeyInfo(base64ToBytes(body.backup.authBlob)),
-                                    body.backup.passphrase
-                                ),
-                                CryptoUtil.decryptKey(
-                                    EncryptedPrivateKeyInfo(base64ToBytes(body.backup.encBlob)),
-                                    body.backup.passphrase
-                                ),
-                                CryptoUtil.decryptKey(
-                                    EncryptedPrivateKeyInfo(base64ToBytes(body.backup.sigBlob)),
-                                    body.backup.passphrase
+                val body = call.receive<JsonObject>()
+                val transport: Transport = getTransportFromJsonObject(body)
+                when (transport.type) {
+                    "ebics" -> {
+                        if (body.get("backup") != null) {
+                            val backup = Gson().fromJson(
+                                body.get("backup").asJsonObject,
+                                EbicsKeysBackupJson::class.java
+                            )
+                            val (authKey, encKey, sigKey) = try {
+                                Triple(
+                                    CryptoUtil.decryptKey(
+                                        EncryptedPrivateKeyInfo(base64ToBytes(backup.authBlob)),
+                                        backup.passphrase
+                                    ),
+                                    CryptoUtil.decryptKey(
+                                        EncryptedPrivateKeyInfo(base64ToBytes(backup.encBlob)),
+                                        backup.passphrase
+                                    ),
+                                    CryptoUtil.decryptKey(
+                                        EncryptedPrivateKeyInfo(base64ToBytes(backup.sigBlob)),
+                                        backup.passphrase
+                                    )
                                 )
-                            )
-                        } catch (e: Exception) {
-                            e.printStackTrace()
-                            logger.info("Restoring keys failed, probably due to wrong passphrase")
-                            throw NexusError(
-                                HttpStatusCode.BadRequest,
-                                "Bad backup given"
-                            )
-                        }
-                        logger.info("Restoring keys, creating new user: $userId")
-                        try {
-                            transaction {
-                                EbicsSubscriberEntity.new(body.transport.name) {
-                                    this.nexusUser = extractNexusUser(userId)
-                                    ebicsURL = body.backup.ebicsURL
-                                    hostID = body.backup.hostID
-                                    partnerID = body.backup.partnerID
-                                    userID = body.backup.userID
-                                    signaturePrivateKey = SerialBlob(sigKey.encoded)
-                                    encryptionPrivateKey = SerialBlob(encKey.encoded)
-                                    authenticationPrivateKey = SerialBlob(authKey.encoded)
-                                }
+                            } catch (e: Exception) {
+                                e.printStackTrace()
+                                logger.info("Restoring keys failed, probably due to wrong passphrase")
+                                throw NexusError(
+                                    HttpStatusCode.BadRequest,
+                                    "Bad backup given"
+                                )
                             }
-                        } catch (e: Exception) {
-                            print(e)
-                            call.respond(
-                                NexusErrorJson("Could not store the new account into database")
-                            )
+                            logger.info("Restoring keys, creating new user: $userId")
+                            try {
+                                transaction {
+                                    EbicsSubscriberEntity.new(transport.name) {
+                                        this.nexusUser = extractNexusUser(userId)
+                                        ebicsURL = backup.ebicsURL
+                                        hostID = backup.hostID
+                                        partnerID = backup.partnerID
+                                        userID = backup.userID
+                                        signaturePrivateKey = SerialBlob(sigKey.encoded)
+                                        encryptionPrivateKey = SerialBlob(encKey.encoded)
+                                        authenticationPrivateKey = SerialBlob(authKey.encoded)
+                                    }
+                                }
+                            } catch (e: Exception) {
+                                print(e)
+                                call.respond(
+                                    NexusErrorJson("Could not store the new account into database")
+                                )
+                                return@post
+                            }
+                            call.respondText("Backup restored")
+
                             return@post
                         }
-                        call.respondText("Backup restored")
-                        return@post
+                        if (body.get("data") != null) {
+                            val data = Gson().fromJson(
+                                body.get("data"),
+                                EbicsNewTransport::class.java
+                            )
+                            val pairA = CryptoUtil.generateRsaKeyPair(2048)
+                            val pairB = CryptoUtil.generateRsaKeyPair(2048)
+                            val pairC = CryptoUtil.generateRsaKeyPair(2048)
+                            transaction {
+                                EbicsSubscriberEntity.new(transport.name) {
+                                    nexusUser = extractNexusUser(userId)
+                                    ebicsURL = data.ebicsURL
+                                    hostID = data.hostID
+                                    partnerID = data.partnerID
+                                    userID = data.userID
+                                    systemID = data.systemID
+                                    signaturePrivateKey = SerialBlob(pairA.private.encoded)
+                                    encryptionPrivateKey = SerialBlob(pairB.private.encoded)
+                                    authenticationPrivateKey = SerialBlob(pairC.private.encoded)
+                                }
+                            }
+                            call.respondText("EBICS user successfully created")
+                            return@post
+                        }
+                        throw NexusError(
+                            HttpStatusCode.BadRequest,
+                            "Neither restore or new transport were specified."
+                        )
+                    }
+                    else -> {
+                        throw NexusError(
+                            HttpStatusCode.BadRequest,
+                            "Invalid transport type '${transport.type}'"
+                        )
                     }
                 }
-                when (body.data) {
-                    is EbicsNewTransport -> {
-                        logger.debug("Creating new transport: ${body.transport.name}")
-                        val pairA = CryptoUtil.generateRsaKeyPair(2048)
-                        val pairB = CryptoUtil.generateRsaKeyPair(2048)
-                        val pairC = CryptoUtil.generateRsaKeyPair(2048)
-                        transaction {
-                            EbicsSubscriberEntity.new(body.transport.name) {
-                                nexusUser = extractNexusUser(userId)
-                                ebicsURL = body.data.ebicsURL
-                                hostID = body.data.hostID
-                                partnerID = body.data.partnerID
-                                userID = body.data.userID
-                                systemID = body.data.systemID
-                                signaturePrivateKey = SerialBlob(pairA.private.encoded)
-                                encryptionPrivateKey = SerialBlob(pairB.private.encoded)
-                                authenticationPrivateKey = SerialBlob(pairC.private.encoded)
-                            }
-                        }
-                        call.respondText("EBICS user successfully created")
-                        return@post
-                    }
-                } // end of second 'when'.
-
-                call.respond(
-                    HttpStatusCode.BadRequest,
-                    "Neither backup nor new transport given in request"
-                )
-                return@post
             }
             /**
              * Sends to the bank a message "MSG" according to the transport

@@ -1,8 +1,6 @@
 package tech.libeufin.nexus
 
-import com.sun.jdi.connect.Transport
 import tech.libeufin.util.*
-import java.lang.NullPointerException
 import java.time.LocalDate
 
 data class EbicsBackupRequestJson(
@@ -79,10 +77,10 @@ data class RawPayments(
 /*************************************************
  *  API types (used as requests/responses types) *
  *************************************************/
-data class BankTransport<T, S>(
-    val transport: tech.libeufin.nexus.Transport,
-    val backup: T?,
-    val data: S?
+data class BankTransport(
+    val transport: Transport,
+    val backup: Any? = null,
+    val data: Any?
 )
 
 /**

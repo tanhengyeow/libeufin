@@ -1,5 +1,7 @@
 package tech.libeufin.nexus
 
+import com.google.gson.Gson
+import com.google.gson.JsonObject
 import io.ktor.client.HttpClient
 import io.ktor.http.HttpStatusCode
 import org.jetbrains.exposed.sql.and
@@ -58,6 +60,12 @@ fun extractFirstBic(bankCodes: List<EbicsTypes.AbstractBankCode>?): String? {
         }
     }
     return null
+}
+
+fun getTransportFromJsonObject(jo: JsonObject): Transport {
+    return Gson().fromJson(
+        expectNonNull(jo.get("transport")).asJsonObject, Transport::class.java
+    )
 }
 
 /**
@@ -128,7 +136,7 @@ fun getEbicsSubscriberDetailsInternal(subscriber: EbicsSubscriberEntity): EbicsC
     )
 }
 
-fun getEbicsTransport(userId: String, transportId: String?): EbicsSubscriberEntity {
+fun getEbicsTransport(userId: String, transportId: String? = null): EbicsSubscriberEntity {
     val transport = transaction {
         if (transportId == null) {
             return@transaction EbicsSubscriberEntity.all().first()
@@ -150,7 +158,7 @@ fun getEbicsTransport(userId: String, transportId: String?): EbicsSubscriberEnti
 
 /**
  * Retrieve Ebics subscriber details given a Transport
- * object and handling the default case.
+ * object and handling the default case (when this latter is null).
  */
 fun getEbicsSubscriberDetails(userId: String, transportId: String?): EbicsClientSubscriberDetails {
     val transport = getEbicsTransport(userId, transportId)
@@ -367,6 +375,15 @@ fun getPreparedPayment(uuid: String): PreparedPaymentEntity {
     } ?: throw NexusError(
         HttpStatusCode.NotFound,
         "Payment '$uuid' not found"
+    )
+}
+
+fun getNexusUser(id: String): NexusUserEntity {
+    return transaction {
+        NexusUserEntity.findById(id)
+    } ?: throw NexusError(
+        HttpStatusCode.NotFound,
+        "User '$id' not found"
     )
 }
 

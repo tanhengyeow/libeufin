@@ -2,15 +2,13 @@ package tech.libeufin.nexus
 
 import io.ktor.routing.RootRouteSelector
 import io.ktor.routing.Route
-import io.ktor.routing.RouteSelector
-import io.ktor.routing.RouteSelectorEvaluation
 import io.ktor.util.InternalAPI
-import org.junit.Before
+import org.junit.Ignore
 import org.junit.Test
-import tech.libeufin.nexus.Taler
 import tech.libeufin.util.Amount
 import java.math.BigDecimal
 
+/*
 class TalerTest {
 
     @InternalAPI
@@ -36,3 +34,5 @@ class TalerTest {
         assert(amount25.amount.compareTo(Amount("2.5")) == 0)
     }
 }
+
+ */

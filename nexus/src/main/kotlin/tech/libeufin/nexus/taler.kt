@@ -226,7 +226,7 @@ class Taler(app: Route) {
             val creditorObj = parsePayto(transferRequest.credit_account)
             val opaque_row_id = transaction {
                 val creditorData = parsePayto(transferRequest.credit_account)
-                val exchangeBankAccount = getBankAccountFromNexusUserId(exchangeId)
+                val exchangeBankAccount = getBankAccountsFromNexusUserId(exchangeId).first()
                 val nexusUser = extractNexusUser(exchangeId)
                 /** Checking the UID has the desired characteristics */
                 TalerRequestedPaymentEntity.find {
@@ -251,9 +251,7 @@ class Taler(app: Route) {
                         subject = transferRequest.wtid,
                         sum = amountObj.amount,
                         currency = amountObj.currency,
-                        debitorName = exchangeBankAccount.accountHolder,
-                        debitorBic = exchangeBankAccount.bankCode,
-                        debitorIban = exchangeBankAccount.iban
+                        debitorAccount = exchangeBankAccount.id.value
                     ),
                     nexusUser
                 )
@@ -264,11 +262,10 @@ class Taler(app: Route) {
                         transactionType = "DBIT"
                         currency = amountObj.currency
                         this.amount = amountObj.amount.toPlainString()
-                        debitorName = "Exchange Company"
-                        debitorIban = exchangeBankAccount.iban
-                        creditorName = creditorObj.name
-                        creditorIban = creditorObj.iban
                         counterpartBic = creditorObj.bic
+                        counterpartIban = creditorObj.iban
+                        counterpartName = creditorObj.name
+                        bankAccount = exchangeBankAccount
                         bookingDate = DateTime.now().millis
                         this.nexusUser = nexusUser
                         status = "BOOK"
@@ -312,21 +309,20 @@ class Taler(app: Route) {
             val debtor = parsePayto(addIncomingData.debit_account)
             val amount = parseAmount(addIncomingData.amount)
             val (bookingDate, opaque_row_id) = transaction {
-                val exchangeBankAccount = getBankAccountFromNexusUserId(exchangeId)
+                val exchangeBankAccount = getBankAccountsFromNexusUserId(exchangeId).first()
                 val rawPayment = RawBankTransactionEntity.new {
                     sourceFileName = "test"
                     unstructuredRemittanceInformation = addIncomingData.reserve_pub
                     transactionType = "CRDT"
                     currency = amount.currency
                     this.amount = amount.amount.toPlainString()
-                    creditorIban = exchangeBankAccount.iban
-                    creditorName = exchangeBankAccount.accountHolder
-                    debitorIban = debtor.iban
-                    debitorName = debtor.name
                     counterpartBic = debtor.bic
+                    counterpartName = debtor.name
+                    counterpartIban = debtor.iban
                     bookingDate = DateTime.now().millis
                     status = "BOOK"
                     nexusUser = extractNexusUser(exchangeId)
+                    bankAccount = exchangeBankAccount
                 }
                 /** This payment is "valid by default" and will be returned
                  * as soon as the exchange will ask for new payments.  */
@@ -355,30 +351,26 @@ class Taler(app: Route) {
          * places it into a further table.  Eventually, another routine will perform
          * all the prepared payments.  */
         app.post("/ebics/taler/{id}/accounts/{acctid}/refund-invalid-payments") {
+            val userId = authenticateRequest(call.request.headers["Authorization"])
+            val nexusUser = getNexusUser(userId)
+            val callerBankAccount = expectNonNull(call.parameters["acctid"])
             transaction {
-                val nexusUser = extractNexusUser(call.parameters["id"])
-                val acctid = expectAcctidTransaction(call.parameters["acctid"])
-                if (!subscriberHasRights(getEbicsSubscriberFromUser(nexusUser), acctid)) {
-                    throw NexusError(
-                        HttpStatusCode.Forbidden,
-                        "The requester can't drive such account (${acctid.id})"
-                    )
-                }
-                val requesterBankAccount = getBankAccountFromNexusUserId(nexusUser.id.value)
+                val bankAccount = getBankAccount(
+                    userId,
+                    callerBankAccount
+                )
                 TalerIncomingPaymentEntity.find {
                     TalerIncomingPayments.refunded eq false and (TalerIncomingPayments.valid eq false)
                 }.forEach {
                     addPreparedPayment(
                         Pain001Data(
-                            creditorName = it.payment.debitorName,
-                            creditorIban = it.payment.debitorIban,
+                            creditorName = it.payment.counterpartName,
+                            creditorIban = it.payment.counterpartIban,
                             creditorBic = it.payment.counterpartBic,
                             sum = calculateRefund(it.payment.amount),
                             subject = "Taler refund",
-                            debitorIban = requesterBankAccount.iban,
-                            debitorBic = requesterBankAccount.bankCode,
-                            debitorName = requesterBankAccount.accountHolder,
-                            currency = it.payment.currency
+                            currency = it.payment.currency,
+                            debitorAccount = callerBankAccount
                         ),
                         nexusUser
                     )
@@ -398,18 +390,22 @@ class Taler(app: Route) {
             val id = ensureNonNull(call.parameters["id"])
             // first find highest ID value of already processed rows.
             transaction {
-                val subscriberAccount = getBankAccountFromNexusUserId(id)
+                val subscriberAccount = getBankAccountsFromNexusUserId(id).first()
                 /**
                  * Search for fresh incoming payments in the raw table, and making pointers
-                 * from the Taler incoming payments table to the found fresh payments.
+                 * from the Taler incoming payments table to the found fresh (and valid!) payments.
                  */
                 val latestIncomingPaymentId: Long = TalerIncomingPaymentEntity.getLast()
                 RawBankTransactionEntity.find {
-                    /** select payments having the exchange as the credited party */
-                    RawBankTransactionsTable.creditorIban eq subscriberAccount.iban and
+                    /** Those with exchange bank account involved */
+                    RawBankTransactionsTable.bankAccount eq subscriberAccount.id.value and
+                            /** Those that are incoming */
+                            (RawBankTransactionsTable.transactionType eq "CRDT") and
+                            /** Those that are booked */
                             (RawBankTransactionsTable.status eq "BOOK") and
-                            /** avoid processing old payments from the raw table */
+                            /** Those that came later than the latest processed payment */
                             (RawBankTransactionsTable.id.greater(latestIncomingPaymentId))
+
                 }.forEach {
                     if (duplicatePayment(it)) {
                         logger.warn("Incomint payment already seen")
@@ -437,8 +433,12 @@ class Taler(app: Route) {
                  */
                 val latestOutgoingPaymentId = TalerRequestedPaymentEntity.getLast()
                 RawBankTransactionEntity.find {
+                    /** Those that came after the last processed payment */
                     RawBankTransactionsTable.id greater latestOutgoingPaymentId and
-                            ( RawBankTransactionsTable.debitorIban eq  subscriberAccount.iban)
+                            /** Those involving the exchange bank account */
+                            (RawBankTransactionsTable.bankAccount eq subscriberAccount.id.value) and
+                            /** Those that are outgoing */
+                            (RawBankTransactionsTable.transactionType eq "DBIT")
                 }.forEach {
                     if (paymentFailed(it)) {
                         logger.error("Bank didn't accept one payment from the exchange")
@@ -485,7 +485,7 @@ class Taler(app: Route) {
             val history = TalerOutgoingHistory()
             transaction {
                 /** Retrieve all the outgoing payments from the _clean Taler outgoing table_ */
-                val subscriberBankAccount = getBankAccountFromNexusUserId(subscriberId)
+                val subscriberBankAccount = getBankAccountsFromNexusUserId(subscriberId).first()
                 val reqPayments = TalerRequestedPaymentEntity.find {
                     TalerRequestedPayments.rawConfirmed.isNotNull() and startCmpOp
                 }.orderTaler(delta)
@@ -539,12 +539,12 @@ class Taler(app: Route) {
                         val nexusUser = extractNexusUser(exchangeId)
                         BankAccountMapEntity.new {
                             bankAccount = newBankAccount
-                            ebicsSubscriber = getEbicsSubscriberFromUser(nexusUser)
+                            ebicsSubscriber = getEbicsTransport(exchangeId)
                             this.nexusUser = nexusUser
                         }
                     }
                 }
-                val exchangeBankAccount = getBankAccountFromNexusUserId(exchangeId)
+                val exchangeBankAccount = getBankAccountsFromNexusUserId(exchangeId).first()
                 val orderedPayments = TalerIncomingPaymentEntity.find {
                     TalerIncomingPayments.valid eq true and startCmpOp
                 }.orderTaler(delta)
@@ -556,11 +556,15 @@ class Taler(app: Route) {
                                 row_id = it.id.value,
                                 amount = "${it.payment.currency}:${it.payment.amount}",
                                 reserve_pub = it.payment.unstructuredRemittanceInformation,
-                                debit_account = buildPaytoUri(
-                                    it.payment.debitorName, it.payment.debitorIban, it.payment.counterpartBic
-                                ),
                                 credit_account = buildPaytoUri(
-                                    it.payment.creditorName, it.payment.creditorIban, exchangeBankAccount.bankCode
+                                    it.payment.bankAccount.accountHolder,
+                                    it.payment.bankAccount.iban,
+                                    it.payment.bankAccount.bankCode
+                                ),
+                                debit_account = buildPaytoUri(
+                                    it.payment.counterpartName,
+                                    it.payment.counterpartIban,
+                                    it.payment.counterpartBic
                                 )
                             )
                         )
