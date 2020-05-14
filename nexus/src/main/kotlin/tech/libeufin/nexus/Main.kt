@@ -135,7 +135,7 @@ suspend fun handleEbicsSendMSG(
                                 }
                                 BankAccountMapEntity.new {
                                     ebicsSubscriber = getEbicsTransport(userId, transportId)
-                                    this.nexusUser = nexusUser
+                                    this.nexusUser = getNexusUser(userId)
                                     this.bankAccount = bankAccount
                                 }
                             }

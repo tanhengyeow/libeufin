@@ -237,8 +237,12 @@ assertResponse(
 #2.c, fetch bank account information
 assertResponse(
     post(
-        "http://localhost:5001/ebics/subscribers/{}/fetch-accounts".format(USERNAME),
-        json=dict()
+        "http://localhost:5001/bank-transports/syncHTD",
+        json=dict(
+          type="ebics",
+          name="my-ebics"
+        ),
+        headers=dict(Authorization=USER_AUTHORIZATION_HEADER)
     )
 )
 
@@ -246,7 +250,7 @@ nexus.terminate()
 sandbox.terminate()
 exit(44)
 
-#3
+#3, request history to Nexus
 assertResponse(
     post(
         "http://localhost:5001/ebics/subscribers/{}/collect-transactions-c53".format(USERNAME),
