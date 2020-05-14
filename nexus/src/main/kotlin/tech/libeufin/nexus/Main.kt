@@ -414,15 +414,17 @@ fun main() {
              */
             get("/bank-accounts/{accountid}/collected-transactions") {
                 val userId = authenticateRequest(call.request.headers["Authorization"])
+                val bankAccount = expectNonNull(call.parameters["accountid"])
                 val start = call.request.queryParameters["start"]
                 val end = call.request.queryParameters["end"]
                 val ret = Transactions()
                 transaction {
                     RawBankTransactionEntity.find {
                         RawBankTransactionsTable.nexusUser eq userId and
+                                (RawBankTransactionsTable.bankAccount eq bankAccount) and
                                 RawBankTransactionsTable.bookingDate.between(
-                                    parseDashedDate(start ?: "1970-01-01"),
-                                    parseDashedDate(end ?: DateTime.now().toDashedDate())
+                                    parseDashedDate(start ?: "1970-01-01").millis,
+                                    parseDashedDate(end ?: DateTime.now().toDashedDate()).millis
                                 )
                     }.forEach {
                         ret.transactions.add(
@@ -438,6 +440,7 @@ fun main() {
                         )
                     }
                 }
+                call.respond(ret)
                 return@get
             }
             /**

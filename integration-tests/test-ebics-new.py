@@ -258,17 +258,18 @@ assertResponse(
     )
 )
 
+#4, make sure history is empty
+resp = assertResponse(
+    get(
+        "http://localhost:5001/bank-accounts/{}/collected-transactions".format(BANK_ACCOUNT_LABEL),
+        headers=dict(Authorization=USER_AUTHORIZATION_HEADER)
+    )
+)
+assert(len(resp.json().get("transactions")) == 0)
+
 nexus.terminate()
 sandbox.terminate()
 exit(44)
-
-#4
-resp = assertResponse(
-    get(
-        "http://localhost:5001/users/{}/history".format(USERNAME)
-    )
-)
-assert(len(resp.json().get("payments")) == 0)
 
 #5.a
 assertResponse(
