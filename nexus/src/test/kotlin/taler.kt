@@ -3,12 +3,11 @@ package tech.libeufin.nexus
 import io.ktor.routing.RootRouteSelector
 import io.ktor.routing.Route
 import io.ktor.util.InternalAPI
-import org.junit.Ignore
 import org.junit.Test
 import tech.libeufin.util.Amount
 import java.math.BigDecimal
+import tech.libeufin.util.parseAmount
 
-/*
 class TalerTest {
 
     @InternalAPI
@@ -26,13 +25,11 @@ class TalerTest {
     @InternalAPI
     @Test
     fun amountParserTest() {
-        val amount = taler.parseAmount("EUR:1")
+        val amount = parseAmount("EUR:1")
         assert(amount.currency == "EUR" && amount.amount.equals(BigDecimal(1)))
-        val amount299 = taler.parseAmount("EUR:2.99")
+        val amount299 = parseAmount("EUR:2.99")
         assert(amount299.amount.compareTo(Amount("2.99")) == 0)
-        val amount25 = taler.parseAmount("EUR:2.5")
+        val amount25 = parseAmount("EUR:2.5")
         assert(amount25.amount.compareTo(Amount("2.5")) == 0)
     }
 }
-
- */
