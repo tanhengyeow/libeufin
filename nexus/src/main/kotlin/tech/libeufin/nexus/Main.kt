@@ -52,6 +52,7 @@ import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 import org.slf4j.event.Level
 import tech.libeufin.util.*
+import tech.libeufin.util.ebics_h004.HTDResponseOrderData
 import java.text.DateFormat
 import java.util.zip.InflaterInputStream
 import javax.crypto.EncryptedPrivateKeyInfo
@@ -104,6 +105,45 @@ suspend fun handleEbicsSendMSG(
                 }
             }
             return response
+        }
+        "HTD" -> {
+            val response = doEbicsDownloadTransaction(
+                httpClient, subscriber, "HTD", EbicsStandardOrderParams()
+            )
+            when (response) {
+                is EbicsDownloadBankErrorResult -> {
+                    throw NexusError(
+                        HttpStatusCode.BadGateway,
+                        response.returnCode.errorCode
+                    )
+                }
+                is EbicsDownloadSuccessResult -> {
+                    val payload = XMLUtil.convertStringToJaxb<HTDResponseOrderData>(
+                        response.orderData.toString(Charsets.UTF_8)
+                    )
+                    if (sync) {
+                        transaction {
+                            payload.value.partnerInfo.accountInfoList?.forEach {
+                                val bankAccount = BankAccountEntity.new(id = it.id) {
+                                    accountHolder = it.accountHolder ?: "NOT-GIVEN"
+                                    iban = extractFirstIban(it.accountNumberList)
+                                        ?: throw NexusError(HttpStatusCode.NotFound, reason = "bank gave no IBAN")
+                                    bankCode = extractFirstBic(it.bankCodeList) ?: throw NexusError(
+                                        HttpStatusCode.NotFound,
+                                        reason = "bank gave no BIC"
+                                    )
+                                }
+                                BankAccountMapEntity.new {
+                                    ebicsSubscriber = getEbicsTransport(userId, transportId)
+                                    this.nexusUser = nexusUser
+                                    this.bankAccount = bankAccount
+                                }
+                            }
+                        }
+                    }
+                    response.orderData.toString(Charsets.UTF_8)
+                }
+            }
         }
         "HEV" -> {
             val request = makeEbicsHEVRequest(subscriber)
@@ -529,7 +569,7 @@ fun main() {
              * Sends the bank a message "MSG" according to the transport
              * "transportName".  DOES alterate DB tables.
              */
-            post("/bank-transports/{transportName}/sync{MSG}") {
+            post("/bank-transports/sync{MSG}") {
                 val userId = authenticateRequest(call.request.headers["Authorization"])
                 val body = call.receive<Transport>()
                 when (body.type) {

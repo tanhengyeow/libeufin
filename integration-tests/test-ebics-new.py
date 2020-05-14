@@ -222,25 +222,29 @@ assertResponse(
     )
 )
 
-nexus.terminate()
-sandbox.terminate()
-exit(44)
-
-#2.b
+#2.b, download keys from the bank (HPB)
 assertResponse(
     post(
-        "http://localhost:5001/ebics/subscribers/{}/sync".format(USERNAME),
-        json=dict()
+        "http://localhost:5001/bank-transports/syncHPB",
+        json=dict(
+          type="ebics",
+          name="my-ebics"
+        ),
+        headers=dict(Authorization=USER_AUTHORIZATION_HEADER)
     )
 )
 
-#2.c
+#2.c, fetch bank account information
 assertResponse(
     post(
         "http://localhost:5001/ebics/subscribers/{}/fetch-accounts".format(USERNAME),
         json=dict()
     )
 )
+
+nexus.terminate()
+sandbox.terminate()
+exit(44)
 
 #3
 assertResponse(
