@@ -10,5 +10,5 @@ data class RawPayment(
     val debitorIban: String,
     val amount: String,
     val subject: String,
-    val date: String
+    val date: String?
 )

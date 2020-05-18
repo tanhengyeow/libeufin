@@ -47,6 +47,7 @@ import org.slf4j.event.Level
 import org.w3c.dom.Document
 import tech.libeufin.util.Amount
 import tech.libeufin.util.CryptoUtil
+import tech.libeufin.util.RawPayment
 import java.lang.ArithmeticException
 import java.math.BigDecimal
 import java.security.interfaces.RSAPublicKey
@@ -144,6 +145,17 @@ fun main() {
         routing {
             get("/") {
                 call.respondText("Hello Sandbox!\n", ContentType.Text.Plain)
+            }
+            /**
+             * Adds a new payment to the book.
+             */
+            post("/admin/payments") {
+                val body = call.receive<RawPayment>()
+                transaction {
+
+                }
+                call.respondText("Payment created")
+                return@post
             }
             /**
              * Associates a new bank account with an existing Ebics subscriber.

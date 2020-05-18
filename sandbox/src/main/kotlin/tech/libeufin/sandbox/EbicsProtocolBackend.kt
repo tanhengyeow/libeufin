@@ -413,9 +413,12 @@ private fun constructCamtResponse(
         Pair(DateTime(dateRange.start.toGregorianCalendar().time), DateTime(dateRange.end.toGregorianCalendar().time))
     } else Pair(DateTime(0), DateTime.now())
     val history = mutableListOf<RawPayment>()
+    val bankAccount = getBankAccountFromSubscriber(subscriber)
     transaction {
         PaymentEntity.find {
-            PaymentsTable.ebicsSubscriber eq subscriber.id.value
+            PaymentsTable.creditorIban eq bankAccount.iban or
+                    (PaymentsTable.debitorIban eq bankAccount.iban) and
+                    (PaymentsTable.date.between(start.millis, end.millis))
         }.forEach {
             history.add(
                 RawPayment(
@@ -443,7 +446,7 @@ private fun handleEbicsPTK(requestContext: RequestContext): ByteArray {
 /**
  * Process a payment request in the pain.001 format.
  */
-private fun handleCct(paymentRequest: String, ebicsSubscriber: EbicsSubscriberEntity) {
+private fun handleCct(paymentRequest: String) {
     /**
      * NOTE: this function is ONLY required to store some details
      * to put then in the camt report.  IBANs / amount / subject / names?
@@ -460,7 +463,6 @@ private fun handleCct(paymentRequest: String, ebicsSubscriber: EbicsSubscriberEn
             this.debitorIban = debitorIban
             this.subject = subject
             this.amount = amount
-            this.ebicsSubscriber = ebicsSubscriber
             this.date = DateTime.now().millis
         }
     }
@@ -701,7 +703,6 @@ private fun makePartnerInfo(subscriber: EbicsSubscriberEntity): EbicsTypes.Partn
 }
 
 private fun handleEbicsHtd(requestContext: RequestContext): ByteArray {
-    val bankAccount = getBankAccountFromSubscriber(requestContext.subscriber)
     val htd = HTDResponseOrderData().apply {
         this.partnerInfo = makePartnerInfo(requestContext.subscriber)
         this.userInfo = EbicsTypes.UserInfo().apply {
@@ -717,7 +718,6 @@ private fun handleEbicsHtd(requestContext: RequestContext): ByteArray {
             )
         }
     }
-
     val str = XMLUtil.convertJaxbToString(htd)
     return str.toByteArray()
 }
@@ -901,7 +901,7 @@ private fun handleEbicsUploadTransactionTransmission(requestContext: RequestCont
 
         if (getOrderTypeFromTransactionId(requestTransactionID) == "CCT") {
             logger.debug("Attempting a payment.")
-            handleCct(unzippedData.toString(Charsets.UTF_8), requestContext.subscriber)
+            handleCct(unzippedData.toString(Charsets.UTF_8))
         }
         return EbicsResponse.createForUploadTransferPhase(
             requestTransactionID,
