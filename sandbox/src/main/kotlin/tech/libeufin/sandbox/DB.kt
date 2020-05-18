@@ -239,7 +239,7 @@ class PaymentEntity(id: EntityID<Int>) : IntEntity(id) {
     var creditorIban by PaymentsTable.creditorIban
     var debitorIban by PaymentsTable.debitorIban
     var subject by PaymentsTable.subject
-    var amount by PaymentsTable.amount
+    var amount by PaymentsTable.amount /** in the CURRENCY:X.Y format */
     var date by PaymentsTable.date /** Date when the payment was persisted in this system.  */
 }
 

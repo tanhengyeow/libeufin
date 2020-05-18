@@ -152,7 +152,12 @@ fun main() {
             post("/admin/payments") {
                 val body = call.receive<RawPayment>()
                 transaction {
-
+                   PaymentEntity.new {
+                       creditorIban = body.creditorIban
+                       debitorIban = body.debitorIban
+                       subject = body.subject
+                       amount = body.amount
+                   }
                 }
                 call.respondText("Payment created")
                 return@post
