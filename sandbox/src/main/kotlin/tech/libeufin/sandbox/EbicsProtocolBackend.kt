@@ -143,9 +143,10 @@ private suspend fun ApplicationCall.respondEbicsKeyManagement(
 }
 
 /**
- * Returns a list of camt strings, representing each one payment
- * accounted in the history.  It is up to the caller to then construct
- * the final ZIP file to return in the response.
+ * Returns a list of camt strings.  Note: each element in the
+ * list accounts for only one payment in the history.  In other
+ * words, the camt constructor does creates always only one "Ntry"
+ * node.
  */
 fun buildCamtString(type: Int, history: MutableList<RawPayment>): MutableList<String> {
     /**
@@ -164,7 +165,6 @@ fun buildCamtString(type: Int, history: MutableList<RawPayment>): MutableList<St
     history.forEach {
         val dashedDate = DateTime.parse(it.date).toDashedDate()
         val zonedDateTime = DateTime.now().toZonedString()
-        logger.debug("Dashed date for CAMT: $dashedDate")
         ret.add(
             constructXml(indent = true) {
                 root("Document") {
@@ -270,36 +270,72 @@ fun buildCamtString(type: Int, history: MutableList<RawPayment>): MutableList<St
                                     text(dashedDate)
                                 }
                             }
-                            /**
-                             * NOTE: instead of looping here, please emulate GLS behaviour of
-                             * creating ONE ZIP entry per CAMT document.  */
-                            history.forEach {
-                                element("Ntry") {
-                                    element("Amt") {
+
+                            element("Ntry") {
+                                element("Amt") {
+                                    attribute("Ccy", "EUR")
+                                    text(it.amount)
+                                }
+                                element("CdtDbtInd") {
+                                    text("DBIT")
+                                }
+                                element("Sts") {
+                                    /* Status of the entry (see 2.4.2.15.5 from the ISO20022 reference document.)
+                                        * From the original text:
+                                        * "Status of an entry on the books of the account servicer" */
+                                    text("BOOK")
+                                }
+                                element("BookgDt/Dt") {
+                                    text(dashedDate)
+                                } // date of the booking
+                                element("ValDt/Dt") {
+                                    text(dashedDate)
+                                } // date of assets' actual (un)availability
+                                element("AcctSvcrRef") {
+                                    text("0")
+                                }
+                                element("BkTxCd") {
+                                    /*  "Set of elements used to fully identify the type of underlying
+                                     *   transaction resulting in an entry".  */
+                                    element("Domn") {
+                                        element("Cd") {
+                                            text("PMNT")
+                                        }
+                                        element("Fmly") {
+                                            element("Cd") {
+                                                text("ICDT")
+                                            }
+                                            element("SubFmlyCd") {
+                                                text("ESCT")
+                                            }
+                                        }
+                                    }
+                                    element("Prtry") {
+                                        element("Cd") {
+                                            text("0")
+                                        }
+                                        element("Issr") {
+                                            text("XY")
+                                        }
+                                    }
+                                }
+                                element("NtryDtls/TxDtls") {
+                                    element("Refs") {
+                                        element("MsgId") {
+                                            text("0")
+                                        }
+                                        element("PmtInfId") {
+                                            text("0")
+                                        }
+                                        element("EndToEndId") {
+                                            text("NOTPROVIDED")
+                                        }
+                                    }
+                                    element("AmtDtls/TxAmt/Amt") {
                                         attribute("Ccy", "EUR")
                                         text(it.amount)
                                     }
-                                    element("CdtDbtInd") {
-                                        text("DBIT")
-                                    }
-                                    element("Sts") {
-                                        /* Status of the entry (see 2.4.2.15.5 from the ISO20022 reference document.)
-                                         * From the original text:
-                                         * "Status of an entry on the books of the account servicer" */
-                                        text("BOOK")
-                                    }
-                                    element("BookgDt/Dt") {
-                                        text(dashedDate)
-                                    } // date of the booking
-                                    element("ValDt/Dt") {
-                                        text(dashedDate)
-                                    } // date of assets' actual (un)availability
-                                    element("AcctSvcrRef") {
-                                        text("0")
-                                    }
                                     element("BkTxCd") {
-                                        /*  "Set of elements used to fully identify the type of underlying
-                                         *   transaction resulting in an entry".  */
                                         element("Domn") {
                                             element("Cd") {
                                                 text("PMNT")
@@ -319,46 +355,6 @@ fun buildCamtString(type: Int, history: MutableList<RawPayment>): MutableList<St
                                             }
                                             element("Issr") {
                                                 text("XY")
-                                            }
-                                        }
-                                    }
-                                    element("NtryDtls/TxDtls") {
-                                        element("Refs") {
-                                            element("MsgId") {
-                                                text("0")
-                                            }
-                                            element("PmtInfId") {
-                                                text("0")
-                                            }
-                                            element("EndToEndId") {
-                                                text("NOTPROVIDED")
-                                            }
-                                        }
-                                        element("AmtDtls/TxAmt/Amt") {
-                                            attribute("Ccy", "EUR")
-                                            text(it.amount)
-                                        }
-                                        element("BkTxCd") {
-                                            element("Domn") {
-                                                element("Cd") {
-                                                    text("PMNT")
-                                                }
-                                                element("Fmly") {
-                                                    element("Cd") {
-                                                        text("ICDT")
-                                                    }
-                                                    element("SubFmlyCd") {
-                                                        text("ESCT")
-                                                    }
-                                                }
-                                            }
-                                            element("Prtry") {
-                                                element("Cd") {
-                                                    text("0")
-                                                }
-                                                element("Issr") {
-                                                    text("XY")
-                                                }
                                             }
                                         }
                                         element("RltdPties") {
@@ -408,6 +404,7 @@ private fun constructCamtResponse(
     header: EbicsRequest.Header,
     subscriber: EbicsSubscriberEntity
 ): MutableList<String> {
+
     val dateRange = (header.static.orderDetails?.orderParams as EbicsRequest.StandardOrderParams).dateRange
     val (start: DateTime, end: DateTime) = if (dateRange != null) {
         Pair(DateTime(dateRange.start.toGregorianCalendar().time), DateTime(dateRange.end.toGregorianCalendar().time))
