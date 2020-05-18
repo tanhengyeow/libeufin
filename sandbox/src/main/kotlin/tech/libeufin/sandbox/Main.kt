@@ -61,7 +61,10 @@ class UnacceptableFractional(badNumber: BigDecimal) : Exception(
 )
 val LOGGER: Logger = LoggerFactory.getLogger("tech.libeufin.sandbox")
 
-data class SandboxError(val statusCode: HttpStatusCode, val reason: String) : java.lang.Exception()
+data class SandboxError(
+    val statusCode: HttpStatusCode,
+    val reason: String
+) : java.lang.Exception()
 
 fun findEbicsSubscriber(partnerID: String, userID: String, systemID: String?): EbicsSubscriberEntity? {
     return if (systemID == null) {
@@ -142,9 +145,10 @@ fun main() {
             get("/") {
                 call.respondText("Hello Sandbox!\n", ContentType.Text.Plain)
             }
-
-            /** EBICS ADMIN ENDPOINTS */
-            post("/admin/ebics-subscriber/bank-account") {
+            /**
+             * Associates a new bank account with an existing Ebics subscriber.
+             */
+            post("/admin/ebics/bank-accounts") {
                 val body = call.receive<BankAccountRequest>()
                 transaction {
                     val subscriber = getEbicsSubscriberFromDetails(
@@ -165,8 +169,10 @@ fun main() {
                 )
                 return@post
             }
-
-            post("/admin/ebics-subscriber") {
+            /**
+             * Creates a new Ebics subscriber.
+             */
+            post("/admin/ebics/subscribers") {
                 val body = call.receive<EbicsSubscriberElement>()
                 transaction {
                     EbicsSubscriberEntity.new {
@@ -184,7 +190,10 @@ fun main() {
                 )
                 return@post
             }
-            get("/admin/ebics-subscribers") {
+            /**
+             * Shows a Ebics subscriber's details.
+             */
+            get("/admin/ebics/subscribers") {
                 var ret = AdminGetSubscribers()
                 transaction {
                     EbicsSubscriberEntity.all().forEach {
@@ -200,7 +209,9 @@ fun main() {
                 call.respond(ret)
                 return@get
             }
-            /* Show details about ONE Ebics host */
+            /**
+             * Shows details about ONE Ebics host
+             */
             get("/ebics/hosts/{id}") {
                 val resp = transaction {
                     val host = EbicsHostEntity.find { EbicsHostsTable.hostID eq call.parameters["id"]!! }.firstOrNull()
@@ -216,7 +227,9 @@ fun main() {
                 )
                 else call.respond(resp)
             }
-            /** Create a new EBICS host. */
+            /**
+             * Creates a new EBICS host.
+             */
             post("/admin/ebics-host") {
                 val req = call.receive<EbicsHostCreateRequest>()
                 val pairA = CryptoUtil.generateRsaKeyPair(2048)
@@ -240,15 +253,18 @@ fun main() {
                 )
                 return@post
             }
-            /* Show ONLY names of all the Ebics hosts */
+            /**
+             * Show ONLY names of all the Ebics hosts
+             */
             get("/ebics/hosts") {
                 val ebicsHosts = transaction {
                     EbicsHostEntity.all().map { it.hostId }
                 }
                 call.respond(EbicsHostsResponse(ebicsHosts))
             }
-
-            /** MAIN EBICS handler. */
+            /**
+             * Serves all the Ebics requests.
+             */
             post("/ebicsweb") {
                 call.ebicsweb()
             }

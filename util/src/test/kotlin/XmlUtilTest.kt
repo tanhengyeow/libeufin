@@ -176,4 +176,9 @@ class XmlUtilTest {
         val key = CryptoUtil.loadRsaPublicKey(keyBytes)
         assertTrue(XMLUtil.verifyEbicsDocument(doc, key))
     }
+
+    @Test
+    fun marshalling() {
+        XMLUtil.convertJaxbToString(Any())
+    }
 }
