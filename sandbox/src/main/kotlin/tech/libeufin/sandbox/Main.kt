@@ -191,7 +191,7 @@ fun main() {
                 return@post
             }
             /**
-             * Shows a Ebics subscriber's details.
+             * Shows all the Ebics subscribers' details.
              */
             get("/admin/ebics/subscribers") {
                 var ret = AdminGetSubscribers()
@@ -210,27 +210,9 @@ fun main() {
                 return@get
             }
             /**
-             * Shows details about ONE Ebics host
-             */
-            get("/ebics/hosts/{id}") {
-                val resp = transaction {
-                    val host = EbicsHostEntity.find { EbicsHostsTable.hostID eq call.parameters["id"]!! }.firstOrNull()
-                    if (host == null) null
-                    else EbicsHostResponse(
-                        host.hostId,
-                        host.ebicsVersion
-                    )
-                }
-                if (resp == null) call.respond(
-                    HttpStatusCode.NotFound,
-                    SandboxError(HttpStatusCode.NotFound,"host not found")
-                )
-                else call.respond(resp)
-            }
-            /**
              * Creates a new EBICS host.
              */
-            post("/admin/ebics-host") {
+            post("/admin/ebics/host") {
                 val req = call.receive<EbicsHostCreateRequest>()
                 val pairA = CryptoUtil.generateRsaKeyPair(2048)
                 val pairB = CryptoUtil.generateRsaKeyPair(2048)
@@ -254,9 +236,9 @@ fun main() {
                 return@post
             }
             /**
-             * Show ONLY names of all the Ebics hosts
+             * Show the names of all the Ebics hosts
              */
-            get("/ebics/hosts") {
+            get("/admin/ebics/hosts") {
                 val ebicsHosts = transaction {
                     EbicsHostEntity.all().map { it.hostId }
                 }
@@ -268,7 +250,6 @@ fun main() {
             post("/ebicsweb") {
                 call.ebicsweb()
             }
-
         }
     }
     LOGGER.info("Up and running")
