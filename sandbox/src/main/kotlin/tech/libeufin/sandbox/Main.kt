@@ -181,9 +181,7 @@ fun main() {
                         label = body.label
                     }
                 }
-                call.respondText(
-                    "Bank account created, and associated to the subscriber"
-                )
+                call.respondText("Bank account created")
                 return@post
             }
             /**

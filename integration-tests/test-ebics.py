@@ -120,7 +120,7 @@ for i in range(10):
 #0.a
 assertResponse(
     post(
-        "http://localhost:5000/admin/ebics-host",
+        "http://localhost:5000/admin/ebics/host",
         json=dict(
             hostID=HOST_ID,
         ebicsVersion=EBICS_VERSION
@@ -131,7 +131,7 @@ assertResponse(
 #0.b
 assertResponse(
     post(
-        "http://localhost:5000/admin/ebics-subscriber",
+        "http://localhost:5000/admin/ebics/subscribers",
         json=dict(
             hostID=HOST_ID,
         partnerID=PARTNER_ID,
@@ -143,7 +143,7 @@ assertResponse(
 #0.c
 assertResponse(
     post(
-        "http://localhost:5000/admin/ebics-subscriber/bank-account",
+        "http://localhost:5000/admin/ebics/bank-accounts",
         json=dict(
             subscriber=dict(
                 hostID=HOST_ID,

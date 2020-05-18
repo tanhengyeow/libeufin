@@ -201,7 +201,6 @@ fun buildCamtString(type: Int, history: MutableList<RawPayment>): MutableList<St
                             element("CreDtTm") {
                                 text(zonedDateTime)
                             }
-
                             element("Acct") {
                                 // mandatory account identifier
                                 element("Id/IBAN") {
@@ -408,14 +407,16 @@ private fun constructCamtResponse(
     val dateRange = (header.static.orderDetails?.orderParams as EbicsRequest.StandardOrderParams).dateRange
     val (start: DateTime, end: DateTime) = if (dateRange != null) {
         Pair(DateTime(dateRange.start.toGregorianCalendar().time), DateTime(dateRange.end.toGregorianCalendar().time))
-    } else Pair(DateTime(0), DateTime.now())
+    } else Pair(parseDashedDate("1970-01-01"), DateTime.now())
     val history = mutableListOf<RawPayment>()
     val bankAccount = getBankAccountFromSubscriber(subscriber)
     transaction {
         PaymentEntity.find {
             PaymentsTable.creditorIban eq bankAccount.iban or
-                    (PaymentsTable.debitorIban eq bankAccount.iban) and
-                    (PaymentsTable.date.between(start.millis, end.millis))
+                    (PaymentsTable.debitorIban eq bankAccount.iban) /**
+                     FIXME!
+                     and (PaymentsTable.date.between(start.millis, end.millis))
+                     */
         }.forEach {
             history.add(
                 RawPayment(
