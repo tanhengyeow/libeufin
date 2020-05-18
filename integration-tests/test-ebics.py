@@ -55,6 +55,12 @@ SUBSCRIBER_BIC="BUKBGB22"
 SUBSCRIBER_NAME="Oliver Smith"
 BANK_ACCOUNT_LABEL="savings"
 
+def fail(msg):
+    print(msg)
+    nexus.terminate()
+    sandbox.terminate()
+    exit(1)
+
 def checkPorts(ports):
     for i in ports:
         s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -266,7 +272,8 @@ resp = assertResponse(
         headers=dict(Authorization=USER_AUTHORIZATION_HEADER)
     )
 )
-assert(len(resp.json().get("transactions")) == 0)
+if len(resp.json().get("transactions")) != 0:
+    fail("unexpected number of transactions")
 
 #5.a, prepare a payment
 resp = assertResponse(
@@ -283,7 +290,8 @@ resp = assertResponse(
     )
 )
 PREPARED_PAYMENT_UUID=resp.json().get("uuid")
-assert(PREPARED_PAYMENT_UUID != None)
+if PREPARED_PAYMENT_UUID == None:
+    fail("Payment UUID not received")
 
 #5.b, submit prepared statement
 assertResponse(
@@ -309,7 +317,9 @@ resp = assertResponse(
         headers=dict(Authorization=USER_AUTHORIZATION_HEADER)
     )
 )
-assert(len(resp.json().get("transactions")) == 1)
+
+if len(resp.json().get("transactions")) != 1:
+    fail("Unexpected number of transactions; should be 1")
 
 nexus.terminate()
 sandbox.terminate()
