@@ -11,7 +11,6 @@ import tech.libeufin.util.Amount
 import tech.libeufin.util.CryptoUtil
 import tech.libeufin.util.EbicsClientSubscriberDetails
 import tech.libeufin.util.base64ToBytes
-import javax.sql.rowset.serial.SerialBlob
 import java.util.Random
 import tech.libeufin.util.ebics_h004.EbicsTypes
 import java.security.interfaces.RSAPublicKey
@@ -440,7 +439,7 @@ fun extractNexusUser(param: String?): NexusUserEntity {
  * and returns a pair made of username and hashed (sha256) password.  The hashed value
  * will then be compared with the one kept into the database.
  */
-fun extractUserAndHashedPassword(authorizationHeader: String): Pair<String, ByteArray> {
+fun extractUserAndHashedPassword(authorizationHeader: String): Pair<String, String> {
     logger.debug("Authenticating: $authorizationHeader")
     val (username, password) = try {
         val split = authorizationHeader.split(" ")
@@ -452,7 +451,7 @@ fun extractUserAndHashedPassword(authorizationHeader: String): Pair<String, Byte
             "invalid Authorization:-header received"
         )
     }
-    return Pair(username, CryptoUtil.hashStringSHA256(password))
+    return Pair(username, password)
 }
 
 /**
@@ -466,13 +465,20 @@ fun authenticateRequest(authorization: String?): String {
     val headerLine = if (authorization == null) throw NexusError(
         HttpStatusCode.BadRequest, "Authentication:-header line not found"
     ) else authorization
-    val subscriber = transaction {
-        val (user, pass) = extractUserAndHashedPassword(headerLine)
-        NexusUserEntity.find {
-            NexusUsersTable.id eq user and (NexusUsersTable.password eq SerialBlob(pass))
+    val nexusUserId = transaction {
+        val (username, password) = extractUserAndHashedPassword(headerLine)
+        val user = NexusUserEntity.find {
+            NexusUsersTable.id eq username
         }.firstOrNull()
-    } ?: throw NexusError(HttpStatusCode.Forbidden, "Wrong password")
-    return subscriber.id.value
+        if (user == null) {
+            throw NexusError(HttpStatusCode.Unauthorized, "Unknown user")
+        }
+        if (!CryptoUtil.checkpw(password, user.passwordHash)) {
+            throw NexusError(HttpStatusCode.Forbidden, "Wrong password")
+        }
+        return@transaction user.id.value
+    }
+    return nexusUserId
 }
 
 fun authenticateAdminRequest(authorization: String?): String {

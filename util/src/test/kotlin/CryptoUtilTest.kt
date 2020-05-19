@@ -160,5 +160,11 @@ class CryptoUtilTest {
         val expectedEncoding = "C9P6YRG"
         assert(Base32Crockford.decode(expectedEncoding).toString(Charsets.UTF_8) == "blob")
     }
+
+    @Test
+    fun passwordHashing() {
+        val x = CryptoUtil.hashpw("myinsecurepw")
+        assertTrue(CryptoUtil.checkpw("myinsecurepw", x))
+    }
 }
 

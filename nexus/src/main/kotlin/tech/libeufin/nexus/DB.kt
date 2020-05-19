@@ -140,6 +140,7 @@ object PreparedPaymentsTable : IdTable<String>() {
     /** never really used, but it makes sure the user always exists  */
     val nexusUser = reference("nexusUser", NexusUsersTable)
 }
+
 class PreparedPaymentEntity(id: EntityID<String>) : Entity<String>(id) {
     companion object : EntityClass<String, PreparedPaymentEntity>(PreparedPaymentsTable)
     var paymentId by PreparedPaymentsTable.paymentId
@@ -209,12 +210,12 @@ class EbicsSubscriberEntity(id: EntityID<String>) : Entity<String>(id) {
 
 object NexusUsersTable : IdTable<String>() {
     override val id = varchar("id", ID_MAX_LENGTH).entityId().primaryKey()
-    val password = blob("password").nullable()
+    val passwordHash = text("password")
 }
 
 class NexusUserEntity(id: EntityID<String>) : Entity<String>(id) {
     companion object : EntityClass<String, NexusUserEntity>(NexusUsersTable)
-    var password by NexusUsersTable.password
+    var passwordHash by NexusUsersTable.passwordHash
 }
 
 object BankAccountMapsTable : IntIdTable() {

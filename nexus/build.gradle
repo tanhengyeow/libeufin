@@ -68,6 +68,8 @@ dependencies {
     implementation 'org.apache.santuario:xmlsec:2.1.4'
     implementation group: 'org.apache.commons', name: 'commons-compress', version: '1.20'
 
+    implementation("com.github.ajalt:clikt:2.7.0")
+
     testImplementation group: 'junit', name: 'junit', version: '4.12'
 }
 
@@ -85,4 +87,8 @@ jar {
     manifest {
         attributes "Main-Class": "tech.libeufin.nexus.MainKt"
     }
+}
+
+run {
+    standardInput = System.in
 }

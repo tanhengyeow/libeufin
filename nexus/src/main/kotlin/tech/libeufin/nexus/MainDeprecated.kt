@@ -206,7 +206,7 @@ fun main() {
                 val body = call.receive<NexusUserRequest>()
                 transaction {
                     NexusUserEntity.new(id = newUserId) {
-                        password = if (body.password != null) {
+                        passwordHash = if (body.password != null) {
                             SerialBlob(CryptoUtil.hashStringSHA256(body.password))
                         } else {
                             logger.debug("No password set for $newUserId")

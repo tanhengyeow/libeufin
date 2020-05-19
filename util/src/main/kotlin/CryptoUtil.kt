@@ -300,4 +300,23 @@ object CryptoUtil {
     fun hashStringSHA256(input: String): ByteArray {
         return MessageDigest.getInstance("SHA-256").digest(input.toByteArray(Charsets.UTF_8))
     }
+
+    fun hashpw(pw: String): String {
+        val pwh = bytesToBase64(CryptoUtil.hashStringSHA256(pw))
+        return "sha256\$$pwh"
+    }
+
+    fun checkpw(pw: String, storedPwHash: String): Boolean {
+        val idx = storedPwHash.indexOf("\$")
+        if (idx <= 0) {
+            throw Exception("bad password hash")
+        }
+        val algo = storedPwHash.substring(0, idx)
+        if (algo != "sha256") {
+            throw Exception("unsupported hash algo")
+        }
+        val rest = storedPwHash.substring(idx + 1)
+        val pwh = bytesToBase64(CryptoUtil.hashStringSHA256(pw))
+        return pwh == rest
+    }
 }

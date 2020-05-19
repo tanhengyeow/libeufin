@@ -19,6 +19,11 @@
 
 package tech.libeufin.nexus
 
+import com.github.ajalt.clikt.core.CliktCommand
+import com.github.ajalt.clikt.core.subcommands
+import com.github.ajalt.clikt.parameters.arguments.argument
+import com.github.ajalt.clikt.parameters.options.option
+import com.github.ajalt.clikt.parameters.options.prompt
 import com.google.gson.Gson
 import com.google.gson.JsonObject
 import io.ktor.application.ApplicationCallPipeline
@@ -52,6 +57,7 @@ import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 import org.slf4j.event.Level
 import tech.libeufin.util.*
+import tech.libeufin.util.CryptoUtil.hashpw
 import tech.libeufin.util.ebics_h004.HTDResponseOrderData
 import java.text.DateFormat
 import java.util.zip.InflaterInputStream
@@ -157,9 +163,44 @@ suspend fun handleEbicsSendMSG(
     return response
 }
 
+class NexusCommand: CliktCommand() {
+    override fun run() = Unit
+}
+
+class Serve: CliktCommand("Run nexus HTTP server") {
+    override fun run() {
+        serverMain()
+    }
+}
+
+class Superuser: CliktCommand("Add superuser or change pw") {
+    val username by argument()
+    val password by option().prompt(requireConfirmation = true, hideInput = true)
+    override fun run() {
+        dbCreateTables()
+        transaction {
+            val hashedPw = hashpw(password)
+            val user = NexusUserEntity.findById(username)
+            if (user == null) {
+                NexusUserEntity.new(username) {
+                    this.passwordHash = hashedPw
+                }
+            } else {
+                user.passwordHash = hashedPw
+            }
+        }
+    }
+}
+
+fun main(args: Array<String>) {
+    NexusCommand()
+        .subcommands(Serve(), Superuser())
+        .main(args)
+}
+
 @ExperimentalIoApi
 @KtorExperimentalAPI
-fun main() {
+fun serverMain() {
     dbCreateTables()
     val client = HttpClient() {
         expectSuccess = false // this way, it does not throw exceptions on != 200 responses.
@@ -249,7 +290,7 @@ fun main() {
                 )
                 transaction {
                     NexusUserEntity.new(body.username) {
-                        password = SerialBlob(CryptoUtil.hashStringSHA256(body.password))
+                        passwordHash = hashpw(body.password)
                     }
                 }
                 call.respondText(
