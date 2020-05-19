@@ -34,31 +34,37 @@ import base64
 # 7 Verify that previous payment shows up.
 
 # Nexus user details
-USERNAME="person"
-PASSWORD="y"
-USER_AUTHORIZATION_HEADER = "basic {}".format(base64.b64encode(b"person:y").decode("utf-8"))
+USERNAME = "person"
+PASSWORD = "y"
+USER_AUTHORIZATION_HEADER = "basic {}".format(
+    base64.b64encode(b"person:y").decode("utf-8")
+)
 
 # Admin authentication
-ADMIN_AUTHORIZATION_HEADER = "basic {}".format(base64.b64encode(b"admin:x").decode("utf-8"))
+ADMIN_AUTHORIZATION_HEADER = "basic {}".format(
+    base64.b64encode(b"admin:x").decode("utf-8")
+)
 
 # EBICS details
-EBICS_URL="http://localhost:5000/ebicsweb"
-HOST_ID="HOST01"
-PARTNER_ID="PARTNER1"
-USER_ID="USER1"
+EBICS_URL = "http://localhost:5000/ebicsweb"
+HOST_ID = "HOST01"
+PARTNER_ID = "PARTNER1"
+USER_ID = "USER1"
 EBICS_VERSION = "H004"
 
 # Subscriber's bank account
-SUBSCRIBER_IBAN="GB33BUKB20201555555555"
-SUBSCRIBER_BIC="BUKBGB22"
-SUBSCRIBER_NAME="Oliver Smith"
-BANK_ACCOUNT_LABEL="savings"
+SUBSCRIBER_IBAN = "GB33BUKB20201555555555"
+SUBSCRIBER_BIC = "BUKBGB22"
+SUBSCRIBER_NAME = "Oliver Smith"
+BANK_ACCOUNT_LABEL = "savings"
+
 
 def fail(msg):
     print(msg)
     nexus.terminate()
     sandbox.terminate()
     exit(1)
+
 
 def checkPorts(ports):
     for i in ports:
@@ -69,6 +75,7 @@ def checkPorts(ports):
         except:
             print("Port {} is not available".format(i))
             exit(77)
+
 
 def assertResponse(response):
     if response.status_code != 200:
@@ -82,20 +89,27 @@ def assertResponse(response):
     # Allows for finer grained checks.
     return response
 
-#-1 Clean databases and start services.
+
+# -1 Clean databases and start services.
 os.chdir("..")
-assert(0 == call(["rm", "-f", "sandbox/libeufin-sandbox.sqlite3"]))
-assert(0 == call(["rm", "-f", "nexus/libeufin-nexus.sqlite3"]))
+assert 0 == call(["rm", "-f", "sandbox/libeufin-sandbox.sqlite3"])
+assert 0 == call(["rm", "-f", "nexus/libeufin-nexus.sqlite3"])
 DEVNULL = open(os.devnull, "w")
 
-assert(0 == call(["./gradlew", "nexus:run", "--console=plain", "--args=superuser admin --password x"]))
+assert 0 == call(
+    ["./gradlew", "nexus:run", "--console=plain", "--args=superuser admin --password x"]
+)
 
 # Start nexus
 checkPorts([5001])
-nexus = Popen(["./gradlew", "nexus:run", "--console=plain", "--args=serve"], stdout=PIPE, stderr=PIPE)
+nexus = Popen(
+    ["./gradlew", "nexus:run", "--console=plain", "--args=serve"],
+    stdout=PIPE,
+    stderr=PIPE,
+)
 for i in range(10):
     try:
-      get("http://localhost:5001/")
+        get("http://localhost:5001/")
     except:
         if i == 9:
             nexus.terminate()
@@ -111,7 +125,7 @@ checkPorts([5000])
 sandbox = Popen(["./gradlew", "sandbox:run"], stdout=PIPE, stderr=PIPE)
 for i in range(10):
     try:
-      get("http://localhost:5000/")
+        get("http://localhost:5000/")
     except:
         if i == 9:
             nexus.terminate()
@@ -124,189 +138,160 @@ for i in range(10):
         continue
     break
 
-#0.a
+# 0.a
 assertResponse(
     post(
         "http://localhost:5000/admin/ebics/host",
-        json=dict(
-            hostID=HOST_ID,
-        ebicsVersion=EBICS_VERSION
-        )
+        json=dict(hostID=HOST_ID, ebicsVersion=EBICS_VERSION),
     )
 )
 
-#0.b
+# 0.b
 assertResponse(
     post(
         "http://localhost:5000/admin/ebics/subscribers",
-        json=dict(
-            hostID=HOST_ID,
-        partnerID=PARTNER_ID,
-        userID=USER_ID
-        )
+        json=dict(hostID=HOST_ID, partnerID=PARTNER_ID, userID=USER_ID),
     )
 )
 
-#0.c
+# 0.c
 assertResponse(
     post(
         "http://localhost:5000/admin/ebics/bank-accounts",
         json=dict(
-            subscriber=dict(
-                hostID=HOST_ID,
-                partnerID=PARTNER_ID,
-                userID=USER_ID
-        ),
+            subscriber=dict(hostID=HOST_ID, partnerID=PARTNER_ID, userID=USER_ID),
             iban=SUBSCRIBER_IBAN,
             bic=SUBSCRIBER_BIC,
             name=SUBSCRIBER_NAME,
-        label=BANK_ACCOUNT_LABEL
-        )
+            label=BANK_ACCOUNT_LABEL,
+        ),
     )
 )
 
-#1.a, make a new nexus user.
+# 1.a, make a new nexus user.
 
 assertResponse(
     post(
         "http://localhost:5001/users",
         headers=dict(Authorization=ADMIN_AUTHORIZATION_HEADER),
-        json=dict(
-        username=USERNAME,
-        password=PASSWORD
-        )
+        json=dict(username=USERNAME, password=PASSWORD),
     )
 )
 
-#1.b, make a ebics transport for the new user.
+# 1.b, make a ebics transport for the new user.
 assertResponse(
     post(
         "http://localhost:5001/bank-transports",
         json=dict(
-            transport=dict(
-                name="my-ebics",
-                type="ebics"
-            ),
+            transport=dict(name="my-ebics", type="ebics"),
             data=dict(
-                ebicsURL=EBICS_URL,
-                hostID=HOST_ID,
-                partnerID=PARTNER_ID,
-                userID=USER_ID
-            )
+                ebicsURL=EBICS_URL, hostID=HOST_ID, partnerID=PARTNER_ID, userID=USER_ID
+            ),
         ),
-        headers=dict(Authorization=USER_AUTHORIZATION_HEADER)
+        headers=dict(Authorization=USER_AUTHORIZATION_HEADER),
     )
 )
 
-#2.a, upload keys to the bank (INI & HIA)
+# 2.a, upload keys to the bank (INI & HIA)
 assertResponse(
     post(
         "http://localhost:5001/bank-transports/sendINI",
-        json=dict(
-          type="ebics",
-          name="my-ebics"
-        ),
-        headers=dict(Authorization=USER_AUTHORIZATION_HEADER)
+        json=dict(type="ebics", name="my-ebics"),
+        headers=dict(Authorization=USER_AUTHORIZATION_HEADER),
     )
 )
 
 assertResponse(
     post(
         "http://localhost:5001/bank-transports/sendHIA",
-        json=dict(
-          type="ebics",
-          name="my-ebics"
-        ),
-        headers=dict(Authorization=USER_AUTHORIZATION_HEADER)
+        json=dict(type="ebics", name="my-ebics"),
+        headers=dict(Authorization=USER_AUTHORIZATION_HEADER),
     )
 )
 
-#2.b, download keys from the bank (HPB)
+# 2.b, download keys from the bank (HPB)
 assertResponse(
     post(
         "http://localhost:5001/bank-transports/syncHPB",
-        json=dict(
-          type="ebics",
-          name="my-ebics"
-        ),
-        headers=dict(Authorization=USER_AUTHORIZATION_HEADER)
+        json=dict(type="ebics", name="my-ebics"),
+        headers=dict(Authorization=USER_AUTHORIZATION_HEADER),
     )
 )
 
-#2.c, fetch bank account information
+# 2.c, fetch bank account information
 assertResponse(
     post(
         "http://localhost:5001/bank-transports/syncHTD",
-        json=dict(
-          type="ebics",
-          name="my-ebics"
-        ),
-        headers=dict(Authorization=USER_AUTHORIZATION_HEADER)
+        json=dict(type="ebics", name="my-ebics"),
+        headers=dict(Authorization=USER_AUTHORIZATION_HEADER),
     )
 )
 
-#3, ask nexus to download history
+# 3, ask nexus to download history
 assertResponse(
     post(
         "http://localhost:5001/bank-accounts/collected-transactions",
-        json=dict(
-          type="ebics",
-          name="my-ebics"
-        ),
-        headers=dict(Authorization=USER_AUTHORIZATION_HEADER)
+        json=dict(type="ebics", name="my-ebics"),
+        headers=dict(Authorization=USER_AUTHORIZATION_HEADER),
     )
 )
 
-#4, make sure history is empty
+# 4, make sure history is empty
 resp = assertResponse(
     get(
-        "http://localhost:5001/bank-accounts/{}/collected-transactions".format(BANK_ACCOUNT_LABEL),
-        headers=dict(Authorization=USER_AUTHORIZATION_HEADER)
+        "http://localhost:5001/bank-accounts/{}/collected-transactions".format(
+            BANK_ACCOUNT_LABEL
+        ),
+        headers=dict(Authorization=USER_AUTHORIZATION_HEADER),
     )
 )
 if len(resp.json().get("transactions")) != 0:
     fail("unexpected number of transactions")
 
-#5.a, prepare a payment
+# 5.a, prepare a payment
 resp = assertResponse(
     post(
-        "http://localhost:5001/bank-accounts/{}/prepared-payments".format(BANK_ACCOUNT_LABEL),
+        "http://localhost:5001/bank-accounts/{}/prepared-payments".format(
+            BANK_ACCOUNT_LABEL
+        ),
         json=dict(
             iban="FR7630006000011234567890189",
             bic="AGRIFRPP",
             name="Jacques La Fayette",
             subject="integration test",
-            amount="EUR:1"
+            amount="EUR:1",
         ),
-        headers=dict(Authorization=USER_AUTHORIZATION_HEADER)
+        headers=dict(Authorization=USER_AUTHORIZATION_HEADER),
     )
 )
-PREPARED_PAYMENT_UUID=resp.json().get("uuid")
+PREPARED_PAYMENT_UUID = resp.json().get("uuid")
 if PREPARED_PAYMENT_UUID == None:
     fail("Payment UUID not received")
 
-#5.b, submit prepared statement
+# 5.b, submit prepared statement
 assertResponse(
     post(
         "http://localhost:5001/bank-accounts/prepared-payments/submit",
         json=dict(uuid=PREPARED_PAYMENT_UUID),
-        headers=dict(Authorization=USER_AUTHORIZATION_HEADER)
+        headers=dict(Authorization=USER_AUTHORIZATION_HEADER),
     )
 )
 
-#6, request history after payment submission
+# 6, request history after payment submission
 assertResponse(
     post(
         "http://localhost:5001/bank-accounts/collected-transactions",
         json=dict(),
-        headers=dict(Authorization=USER_AUTHORIZATION_HEADER)
+        headers=dict(Authorization=USER_AUTHORIZATION_HEADER),
     )
 )
 
 resp = assertResponse(
     get(
-        "http://localhost:5001/bank-accounts/{}/collected-transactions".format(BANK_ACCOUNT_LABEL),
-        headers=dict(Authorization=USER_AUTHORIZATION_HEADER)
+        "http://localhost:5001/bank-accounts/{}/collected-transactions".format(
+            BANK_ACCOUNT_LABEL
+        ),
+        headers=dict(Authorization=USER_AUTHORIZATION_HEADER),
     )
 )
 
