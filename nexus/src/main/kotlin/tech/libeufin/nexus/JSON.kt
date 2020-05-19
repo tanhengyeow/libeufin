@@ -190,6 +190,15 @@ data class User(
     val password: String
 )
 
+data class UserInfo(
+    val username: String,
+    val superuser: Boolean
+)
+
+data class UsersResponse(
+    val users: List<UserInfo>
+)
+
 /** Response (list's element) type of "GET /bank-accounts" */
 data class BankAccount(
     var holder: String,

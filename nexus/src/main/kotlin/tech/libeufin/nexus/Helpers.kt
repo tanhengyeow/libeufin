@@ -7,18 +7,14 @@ import io.ktor.http.HttpStatusCode
 import org.jetbrains.exposed.sql.and
 import org.jetbrains.exposed.sql.transactions.transaction
 import org.joda.time.DateTime
-import tech.libeufin.util.Amount
-import tech.libeufin.util.CryptoUtil
-import tech.libeufin.util.EbicsClientSubscriberDetails
-import tech.libeufin.util.base64ToBytes
-import java.util.Random
+import tech.libeufin.util.*
 import tech.libeufin.util.ebics_h004.EbicsTypes
 import java.security.interfaces.RSAPublicKey
-import tech.libeufin.util.*
-import java.time.format.DateTimeFormatter
-import java.time.ZonedDateTime
 import java.time.Instant
 import java.time.ZoneId
+import java.time.ZonedDateTime
+import java.time.format.DateTimeFormatter
+import java.util.*
 
 fun isProduction(): Boolean {
     return System.getenv("NEXUS_PRODUCTION") != null
@@ -75,8 +71,8 @@ fun getBankAccount(userId: String, accountId: String): BankAccountEntity {
         val bankAccountMap = BankAccountMapEntity.find {
             BankAccountMapsTable.nexusUser eq userId
         }.firstOrNull() ?: throw NexusError(
-        HttpStatusCode.NotFound,
-        "Bank account '$accountId' not found"
+            HttpStatusCode.NotFound,
+            "Bank account '$accountId' not found"
         )
         bankAccountMap.bankAccount
     }
@@ -142,7 +138,7 @@ fun getEbicsTransport(userId: String, transportId: String? = null): EbicsSubscri
                 EbicsSubscribersTable.nexusUser eq userId
             }.firstOrNull()
         }
-        return@transaction EbicsSubscriberEntity.find{
+        return@transaction EbicsSubscriberEntity.find {
             EbicsSubscribersTable.id eq transportId and (EbicsSubscribersTable.nexusUser eq userId)
         }.firstOrNull()
     }
@@ -196,18 +192,23 @@ suspend fun downloadAndPersistC5xEbics(
                     RawBankTransactionEntity.new {
                         bankAccount = getBankAccountFromIban(
                             camt53doc.pickString(
-                                "//*[local-name()='Stmt']/*[local-name()='Acct']/*[local-name()='Id']/*[local-name()='IBAN']")
+                                "//*[local-name()='Stmt']/*[local-name()='Acct']/*[local-name()='Id']/*[local-name()='IBAN']"
+                            )
                         )
                         sourceFileName = fileName
-                        unstructuredRemittanceInformation = camt53doc.pickString("//*[local-name()='Ntry']//*[local-name()='Ustrd']")
+                        unstructuredRemittanceInformation =
+                            camt53doc.pickString("//*[local-name()='Ntry']//*[local-name()='Ustrd']")
                         transactionType = camt53doc.pickString("//*[local-name()='Ntry']//*[local-name()='CdtDbtInd']")
                         currency = camt53doc.pickString("//*[local-name()='Ntry']//*[local-name()='Amt']/@Ccy")
                         amount = camt53doc.pickString("//*[local-name()='Ntry']//*[local-name()='Amt']")
                         status = camt53doc.pickString("//*[local-name()='Ntry']//*[local-name()='Sts']")
-                        bookingDate = parseDashedDate(camt53doc.pickString("//*[local-name()='BookgDt']//*[local-name()='Dt']")).millis
+                        bookingDate =
+                            parseDashedDate(camt53doc.pickString("//*[local-name()='BookgDt']//*[local-name()='Dt']")).millis
                         nexusUser = extractNexusUser(userId)
-                        counterpartIban = camt53doc.pickString("//*[local-name()='${if (this.transactionType == "DBIT") "CdtrAcct" else "DbtrAcct"}']//*[local-name()='IBAN']")
-                        counterpartName = camt53doc.pickString("//*[local-name()='RltdPties']//*[local-name()='${if (this.transactionType == "DBIT") "Cdtr" else "Dbtr"}']//*[local-name()='Nm']")
+                        counterpartIban =
+                            camt53doc.pickString("//*[local-name()='${if (this.transactionType == "DBIT") "CdtrAcct" else "DbtrAcct"}']//*[local-name()='IBAN']")
+                        counterpartName =
+                            camt53doc.pickString("//*[local-name()='RltdPties']//*[local-name()='${if (this.transactionType == "DBIT") "Cdtr" else "Dbtr"}']//*[local-name()='Nm']")
                         counterpartBic = camt53doc.pickString("//*[local-name()='RltdAgts']//*[local-name()='BIC']")
                     }
                 }
@@ -217,7 +218,7 @@ suspend fun downloadAndPersistC5xEbics(
             throw NexusError(
                 HttpStatusCode.BadGateway,
                 response.returnCode.errorCode
-                )
+            )
         }
     }
 }
@@ -426,7 +427,7 @@ fun extractNexusUser(param: String?): NexusUserEntity {
     if (param == null) {
         throw NexusError(HttpStatusCode.BadRequest, "Null Id given")
     }
-    return transaction{
+    return transaction {
         NexusUserEntity.findById(param) ?: throw NexusError(
             HttpStatusCode.NotFound,
             "Subscriber: $param not found"
@@ -461,34 +462,23 @@ fun extractUserAndHashedPassword(authorizationHeader: String): Pair<String, Stri
  * @param authorization the Authorization:-header line.
  * @return user id
  */
-fun authenticateRequest(authorization: String?): String {
+fun authenticateRequest(authorization: String?): NexusUserEntity {
     val headerLine = if (authorization == null) throw NexusError(
         HttpStatusCode.BadRequest, "Authentication:-header line not found"
     ) else authorization
-    val nexusUserId = transaction {
-        val (username, password) = extractUserAndHashedPassword(headerLine)
-        val user = NexusUserEntity.find {
-            NexusUsersTable.id eq username
-        }.firstOrNull()
-        if (user == null) {
-            throw NexusError(HttpStatusCode.Unauthorized, "Unknown user")
-        }
-        if (!CryptoUtil.checkpw(password, user.passwordHash)) {
-            throw NexusError(HttpStatusCode.Forbidden, "Wrong password")
-        }
-        return@transaction user.id.value
+    val (username, password) = extractUserAndHashedPassword(headerLine)
+    val user = NexusUserEntity.find {
+        NexusUsersTable.id eq username
+    }.firstOrNull()
+    if (user == null) {
+        throw NexusError(HttpStatusCode.Unauthorized, "Unknown user")
     }
-    return nexusUserId
+    if (!CryptoUtil.checkpw(password, user.passwordHash)) {
+        throw NexusError(HttpStatusCode.Forbidden, "Wrong password")
+    }
+    return user
 }
 
-fun authenticateAdminRequest(authorization: String?): String {
-    val userId = authenticateRequest(authorization)
-    if (!userId.equals("admin")) throw NexusError(
-        HttpStatusCode.Forbidden,
-        "Not the 'admin' user"
-    )
-    return userId
-}
 
 /**
  * Check if the subscriber has the right to use the (claimed) bank account.

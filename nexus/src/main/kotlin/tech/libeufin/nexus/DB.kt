@@ -211,11 +211,13 @@ class EbicsSubscriberEntity(id: EntityID<String>) : Entity<String>(id) {
 object NexusUsersTable : IdTable<String>() {
     override val id = varchar("id", ID_MAX_LENGTH).entityId().primaryKey()
     val passwordHash = text("password")
+    val superuser = bool("superuser")
 }
 
 class NexusUserEntity(id: EntityID<String>) : Entity<String>(id) {
     companion object : EntityClass<String, NexusUserEntity>(NexusUsersTable)
     var passwordHash by NexusUsersTable.passwordHash
+    var superuser by NexusUsersTable.superuser
 }
 
 object BankAccountMapsTable : IntIdTable() {

@@ -220,7 +220,7 @@ class Taler(app: Route) {
             return@get
         }
         app.post("/taler/transfer") {
-            val exchangeId = authenticateRequest(call.request.headers["Authorization"])
+            val exchangeId = transaction { authenticateRequest(call.request.headers["Authorization"]).id.value }
             val transferRequest = call.receive<TalerTransferRequest>()
             val amountObj = parseAmount(transferRequest.amount)
             val creditorObj = parsePayto(transferRequest.credit_account)
@@ -304,7 +304,7 @@ class Taler(app: Route) {
         }
         /** Test-API that creates one new payment addressed to the exchange.  */
         app.post("/taler/admin/add-incoming") {
-            val exchangeId = authenticateRequest(call.request.headers["Authorization"])
+            val exchangeId = transaction { authenticateRequest(call.request.headers["Authorization"]).id.value }
             val addIncomingData = call.receive<TalerAdminAddIncoming>()
             val debtor = parsePayto(addIncomingData.debit_account)
             val amount = parseAmount(addIncomingData.amount)
@@ -351,7 +351,7 @@ class Taler(app: Route) {
          * places it into a further table.  Eventually, another routine will perform
          * all the prepared payments.  */
         app.post("/ebics/taler/{id}/accounts/{acctid}/refund-invalid-payments") {
-            val userId = authenticateRequest(call.request.headers["Authorization"])
+            val userId = transaction { authenticateRequest(call.request.headers["Authorization"]).id.value }
             val nexusUser = getNexusUser(userId)
             val callerBankAccount = expectNonNull(call.parameters["acctid"])
             transaction {
@@ -477,7 +477,7 @@ class Taler(app: Route) {
          */
         app.get("/taler/history/outgoing") {
             /* sanitize URL arguments */
-            val subscriberId = authenticateRequest(call.request.headers["Authorization"])
+            val subscriberId = transaction { authenticateRequest(call.request.headers["Authorization"]).id.value }
             val delta: Int = expectInt(call.expectUrlParameter("delta"))
             val start: Long = handleStartArgument(call.request.queryParameters["start"], delta)
             val startCmpOp = getComparisonOperator(delta, start, TalerRequestedPayments)
@@ -514,7 +514,7 @@ class Taler(app: Route) {
         }
         /** Responds only with the valid incoming payments */
         app.get("/taler/history/incoming") {
-            val exchangeId = authenticateRequest(call.request.headers["Authorization"])
+            val exchangeId = transaction { authenticateRequest(call.request.headers["Authorization"]).id.value }
             val delta: Int = expectInt(call.expectUrlParameter("delta"))
             val start: Long = handleStartArgument(call.request.queryParameters["start"], delta)
             val history = TalerIncomingHistory()

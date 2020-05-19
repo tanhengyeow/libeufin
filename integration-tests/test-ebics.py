@@ -5,7 +5,6 @@ from subprocess import call, Popen, PIPE
 from time import sleep
 import os
 import socket
-import sqlite3
 import hashlib
 import base64
 
@@ -89,9 +88,11 @@ assert(0 == call(["rm", "-f", "sandbox/libeufin-sandbox.sqlite3"]))
 assert(0 == call(["rm", "-f", "nexus/libeufin-nexus.sqlite3"]))
 DEVNULL = open(os.devnull, "w")
 
+assert(0 == call(["./gradlew", "nexus:run", "--console=plain", "--args=superuser admin --password x"]))
+
 # Start nexus
 checkPorts([5001])
-nexus = Popen(["./gradlew", "nexus:run"], stdout=PIPE, stderr=PIPE)
+nexus = Popen(["./gradlew", "nexus:run", "--console=plain", "--args=serve"], stdout=PIPE, stderr=PIPE)
 for i in range(10):
     try:
       get("http://localhost:5001/")
@@ -165,15 +166,6 @@ assertResponse(
 )
 
 #1.a, make a new nexus user.
-
-# "Create" the admin user first.
-dbconn = sqlite3.connect("nexus/libeufin-nexus.sqlite3")
-dbconn.execute(
-    "INSERT INTO NexusUsers (id, password) VALUES (?, ?)",
-    ("admin", sqlite3.Binary(hashlib.sha256(b"x").digest()))
-)
-dbconn.commit()
-dbconn.close()
 
 assertResponse(
     post(

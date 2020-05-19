@@ -10,7 +10,6 @@ import tech.libeufin.util.ebics_hev.SystemReturnCodeType
 import tech.libeufin.util.ebics_s001.SignatureTypes
 import tech.libeufin.util.CryptoUtil
 import tech.libeufin.util.XMLUtil
-import tech.libeufin.util.ebics_h004.*
 import javax.xml.datatype.DatatypeFactory
 import kotlin.test.assertNotNull
 import kotlin.test.assertTrue

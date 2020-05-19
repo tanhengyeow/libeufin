@@ -20,6 +20,7 @@
 package tech.libeufin.nexus
 
 import com.github.ajalt.clikt.core.CliktCommand
+import com.github.ajalt.clikt.core.ProgramResult
 import com.github.ajalt.clikt.core.subcommands
 import com.github.ajalt.clikt.parameters.arguments.argument
 import com.github.ajalt.clikt.parameters.options.option
@@ -174,8 +175,8 @@ class Serve: CliktCommand("Run nexus HTTP server") {
 }
 
 class Superuser: CliktCommand("Add superuser or change pw") {
-    val username by argument()
-    val password by option().prompt(requireConfirmation = true, hideInput = true)
+    private val username by argument()
+    private val password by option().prompt(requireConfirmation = true, hideInput = true)
     override fun run() {
         dbCreateTables()
         transaction {
@@ -184,8 +185,13 @@ class Superuser: CliktCommand("Add superuser or change pw") {
             if (user == null) {
                 NexusUserEntity.new(username) {
                     this.passwordHash = hashedPw
+                    this.superuser = true
                 }
             } else {
+                if (!user.superuser) {
+                    println("Can only change password for superuser with this command.")
+                    throw ProgramResult(1)
+                }
                 user.passwordHash = hashedPw
             }
         }
@@ -267,30 +273,42 @@ fun serverMain() {
              * Shows information about the requesting user.
              */
             get("/user") {
-                val userId = authenticateRequest(call.request.headers["Authorization"])
                 val ret = transaction {
-                    NexusUserEntity.findById(userId)
+                    val currentUser = authenticateRequest(call.request.headers["Authorization"])
                     UserResponse(
-                        username = userId,
-                        superuser = userId.equals("admin")
+                        username = currentUser.id.value,
+                        superuser = currentUser.superuser
                     )
                 }
                 call.respond(HttpStatusCode.OK, ret)
                 return@get
             }
+
+            get("/users") {
+                val users = transaction {
+                    transaction {
+                        NexusUserEntity.all().map {
+                            UserInfo(it.id.value, it.superuser)
+                        }
+                    }
+                }
+                val usersResp = UsersResponse(users)
+                call.respond(HttpStatusCode.OK, usersResp)
+                return@get
+            }
             /**
-             * Add a new ordinary user in the system (requires "admin" privileges)
+             * Add a new ordinary user in the system (requires superuser privileges)
              */
             post("/users") {
-                authenticateAdminRequest(call.request.headers["Authorization"])
                 val body = call.receive<User>()
-                if (body.username.equals("admin")) throw NexusError(
-                    HttpStatusCode.Forbidden,
-                    "'admin' is a reserved username"
-                )
                 transaction {
+                    val currentUser = authenticateRequest(call.request.headers["Authorization"])
+                    if (!currentUser.superuser) {
+                        throw NexusError(HttpStatusCode.Forbidden, "only superuser can do that")
+                    }
                     NexusUserEntity.new(body.username) {
                         passwordHash = hashpw(body.password)
+                        superuser = false
                     }
                 }
                 call.respondText(
@@ -304,7 +322,7 @@ fun serverMain() {
              * Shows the bank accounts belonging to the requesting user.
              */
             get("/bank-accounts") {
-                val userId = authenticateRequest(call.request.headers["Authorization"])
+                val userId = transaction { authenticateRequest(call.request.headers["Authorization"]).id.value }
                 val bankAccounts = BankAccounts()
                 getBankAccountsFromNexusUserId(userId).forEach {
                     bankAccounts.accounts.add(
@@ -322,7 +340,7 @@ fun serverMain() {
              * Submit one particular payment at the bank.
              */
             post("/bank-accounts/prepared-payments/submit") {
-                val userId = authenticateRequest(call.request.headers["Authorization"])
+                val userId = transaction { authenticateRequest(call.request.headers["Authorization"]).id.value }
                 val body = call.receive<SubmitPayment>()
                 val preparedPayment = getPreparedPayment(body.uuid)
                 transaction {
@@ -368,7 +386,7 @@ fun serverMain() {
              * Shows information about one particular prepared payment.
              */
             get("/bank-accounts/{accountid}/prepared-payments/{uuid}") {
-                val userId = authenticateRequest(call.request.headers["Authorization"])
+                val userId = transaction { authenticateRequest(call.request.headers["Authorization"]).id.value }
                 val preparedPayment = getPreparedPayment(ensureNonNull(call.parameters["uuid"]))
                 if (preparedPayment.nexusUser.id.value != userId) throw NexusError(
                     HttpStatusCode.Forbidden,
@@ -393,7 +411,7 @@ fun serverMain() {
              * Adds a new prepared payment.
              */
             post("/bank-accounts/{accountid}/prepared-payments") {
-                val userId = authenticateRequest(call.request.headers["Authorization"])
+                val userId = transaction { authenticateRequest(call.request.headers["Authorization"]).id.value }
                 val bankAccount = getBankAccount(userId, ensureNonNull(call.parameters["accountid"]))
                 val body = call.receive<PreparedPaymentRequest>()
                 val amount = parseAmount(body.amount)
@@ -423,7 +441,7 @@ fun serverMain() {
              * bank account details)
              */
             post("/bank-accounts/collected-transactions") {
-                val userId = authenticateRequest(call.request.headers["Authorization"])
+                val userId = transaction { authenticateRequest(call.request.headers["Authorization"]).id.value }
                 val body = call.receive<CollectedTransaction>()
                 if (body.transport != null) {
                     when (body.transport.type) {
@@ -459,7 +477,7 @@ fun serverMain() {
              * Asks list of transactions ALREADY downloaded from the bank.
              */
             get("/bank-accounts/{accountid}/collected-transactions") {
-                val userId = authenticateRequest(call.request.headers["Authorization"])
+                val userId = transaction { authenticateRequest(call.request.headers["Authorization"]).id.value }
                 val bankAccount = expectNonNull(call.parameters["accountid"])
                 val start = call.request.queryParameters["start"]
                 val end = call.request.queryParameters["end"]
@@ -493,7 +511,7 @@ fun serverMain() {
              * Adds a new bank transport.
              */
             post("/bank-transports") {
-                val userId = authenticateRequest(call.request.headers["Authorization"])
+                val userId = transaction { authenticateRequest(call.request.headers["Authorization"]).id.value }
                 // user exists and is authenticated.
                 val body = call.receive<JsonObject>()
                 val transport: Transport = getTransportFromJsonObject(body)
@@ -594,7 +612,7 @@ fun serverMain() {
              * "transportName".  Does not modify any DB table.
              */
             post("/bank-transports/send{MSG}") {
-                val userId = authenticateRequest(call.request.headers["Authorization"])
+                val userId = transaction { authenticateRequest(call.request.headers["Authorization"]).id.value }
                 val body = call.receive<Transport>()
                 when (body.type) {
                     "ebics" -> {
@@ -619,7 +637,7 @@ fun serverMain() {
              * "transportName".  DOES alterate DB tables.
              */
             post("/bank-transports/sync{MSG}") {
-                val userId = authenticateRequest(call.request.headers["Authorization"])
+                val userId = transaction { authenticateRequest(call.request.headers["Authorization"]).id.value }
                 val body = call.receive<Transport>()
                 when (body.type) {
                     "ebics" -> {
