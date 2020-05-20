@@ -60,6 +60,9 @@ import com.fasterxml.jackson.databind.exc.MismatchedInputException
 import com.fasterxml.jackson.module.kotlin.KotlinModule
 import com.fasterxml.jackson.module.kotlin.MissingKotlinParameterException
 import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
+import java.time.Instant
+import java.time.LocalDate
+import java.time.LocalDateTime
 
 class CustomerNotFound(id: String?) : Exception("Customer ${id} not found")
 class BadInputData(inputData: String?) : Exception("Customer provided invalid input data: ${inputData}")
@@ -168,6 +171,7 @@ fun main() {
                        debitorIban = body.debitorIban
                        subject = body.subject
                        amount = body.amount
+                       date = Instant.now().toEpochMilli()
                    }
                 }
                 call.respondText("Payment created")

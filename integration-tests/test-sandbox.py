@@ -46,7 +46,6 @@ def assertResponse(response):
         # stdout/stderr from both services is A LOT of text.
         # Confusing to dump all that to console.
         print("Check nexus.log and sandbox.log, probably under /tmp")
-        nexus.terminate()
         sandbox.terminate()
         exit(1)
     # Allows for finer grained checks.
@@ -105,5 +104,19 @@ assertResponse(
         ),
     )
 )
+
+# Generate a few payments related to such account.
+assertResponse(
+    post(
+        "http://localhost:5000/admin/payments",
+        json=dict(
+            creditorIban="ES9121000418450200051332",
+            debitorIban="GB33BUKB20201555555555",
+            amount="EUR:0.99",
+            subject="test service"
+        )
+    )
+)
+
 sandbox.terminate()
 print("Test passed!")
