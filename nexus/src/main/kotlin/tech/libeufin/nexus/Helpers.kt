@@ -1,7 +1,8 @@
 package tech.libeufin.nexus
 
-import com.google.gson.Gson
-import com.google.gson.JsonObject
+import com.fasterxml.jackson.databind.JsonNode
+import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
+import com.fasterxml.jackson.module.kotlin.treeToValue
 import io.ktor.client.HttpClient
 import io.ktor.http.HttpStatusCode
 import org.jetbrains.exposed.sql.and
@@ -57,10 +58,8 @@ fun extractFirstBic(bankCodes: List<EbicsTypes.AbstractBankCode>?): String? {
     return null
 }
 
-fun getTransportFromJsonObject(jo: JsonObject): Transport {
-    return Gson().fromJson(
-        expectNonNull(jo.get("transport")).asJsonObject, Transport::class.java
-    )
+fun getTransportFromJsonObject(jo: JsonNode): Transport {
+    return jacksonObjectMapper().treeToValue(jo.get("transport"), Transport::class.java)
 }
 
 /**

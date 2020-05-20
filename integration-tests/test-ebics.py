@@ -231,7 +231,7 @@ assertResponse(
 assertResponse(
     post(
         "http://localhost:5001/bank-accounts/collected-transactions",
-        json=dict(type="ebics", name="my-ebics"),
+        json=dict(transport=dict(type="ebics", name="my-ebics")),
         headers=dict(Authorization=USER_AUTHORIZATION_HEADER),
     )
 )

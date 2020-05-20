@@ -19,22 +19,25 @@
 
 package tech.libeufin.nexus
 
+import com.fasterxml.jackson.core.util.DefaultIndenter
+import com.fasterxml.jackson.core.util.DefaultPrettyPrinter
+import com.fasterxml.jackson.databind.JsonNode
+import com.fasterxml.jackson.databind.SerializationFeature
+import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
 import com.github.ajalt.clikt.core.CliktCommand
 import com.github.ajalt.clikt.core.ProgramResult
 import com.github.ajalt.clikt.core.subcommands
 import com.github.ajalt.clikt.parameters.arguments.argument
 import com.github.ajalt.clikt.parameters.options.option
 import com.github.ajalt.clikt.parameters.options.prompt
-import com.google.gson.Gson
-import com.google.gson.JsonObject
 import io.ktor.application.ApplicationCallPipeline
 import io.ktor.application.call
 import io.ktor.application.install
 import io.ktor.client.HttpClient
 import io.ktor.features.*
-import io.ktor.gson.gson
 import io.ktor.http.ContentType
 import io.ktor.http.HttpStatusCode
+import io.ktor.jackson.jackson
 import io.ktor.request.ApplicationReceivePipeline
 import io.ktor.request.ApplicationReceiveRequest
 import io.ktor.request.receive
@@ -218,9 +221,13 @@ fun serverMain() {
             this.logger = tech.libeufin.nexus.logger
         }
         install(ContentNegotiation) {
-            gson {
-                setDateFormat(DateFormat.LONG)
-                setPrettyPrinting()
+            jackson {
+                enable(SerializationFeature.INDENT_OUTPUT)
+                setDefaultPrettyPrinter(DefaultPrettyPrinter().apply {
+                    indentArraysWith(DefaultPrettyPrinter.FixedSpaceIndenter.instance)
+                    indentObjectsWith(DefaultIndenter("  ", "\n"))
+                })
+                //registerModule(JavaTimeModule())
             }
         }
         install(StatusPages) {
@@ -516,15 +523,12 @@ fun serverMain() {
             post("/bank-transports") {
                 val userId = transaction { authenticateRequest(call.request.headers["Authorization"]).id.value }
                 // user exists and is authenticated.
-                val body = call.receive<JsonObject>()
+                val body = call.receive<JsonNode>()
                 val transport: Transport = getTransportFromJsonObject(body)
                 when (transport.type) {
                     "ebics" -> {
                         if (body.get("backup") != null) {
-                            val backup = Gson().fromJson(
-                                body.get("backup").asJsonObject,
-                                EbicsKeysBackupJson::class.java
-                            )
+                            val backup = jacksonObjectMapper().treeToValue(body,EbicsKeysBackupJson::class.java)
                             val (authKey, encKey, sigKey) = try {
                                 Triple(
                                     CryptoUtil.decryptKey(
@@ -574,10 +578,7 @@ fun serverMain() {
                             return@post
                         }
                         if (body.get("data") != null) {
-                            val data = Gson().fromJson(
-                                body.get("data"),
-                                EbicsNewTransport::class.java
-                            )
+                            val data = jacksonObjectMapper().treeToValue((body.get("data")), EbicsNewTransport::class.java)
                             val pairA = CryptoUtil.generateRsaKeyPair(2048)
                             val pairB = CryptoUtil.generateRsaKeyPair(2048)
                             val pairC = CryptoUtil.generateRsaKeyPair(2048)
