@@ -47,10 +47,10 @@ import io.ktor.routing.routing
 import io.ktor.server.engine.embeddedServer
 import io.ktor.server.netty.Netty
 import io.ktor.util.KtorExperimentalAPI
-import kotlinx.coroutines.io.ByteReadChannel
-import kotlinx.coroutines.io.jvm.javaio.toByteReadChannel
-import kotlinx.coroutines.io.jvm.javaio.toInputStream
-import kotlinx.io.core.ExperimentalIoApi
+import io.ktor.utils.io.ByteReadChannel
+import io.ktor.utils.io.core.ExperimentalIoApi
+import io.ktor.utils.io.jvm.javaio.toByteReadChannel
+import io.ktor.utils.io.jvm.javaio.toInputStream
 import org.jetbrains.exposed.sql.and
 import org.jetbrains.exposed.sql.transactions.transaction
 import org.joda.time.DateTime
@@ -317,6 +317,9 @@ fun serverMain() {
                     HttpStatusCode.OK
                 )
                 return@post
+            }
+            get("/bank-connection-protocols")  {
+                return@get
             }
             /**
              * Shows the bank accounts belonging to the requesting user.
