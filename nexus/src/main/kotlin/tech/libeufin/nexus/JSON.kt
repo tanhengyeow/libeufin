@@ -1,5 +1,6 @@
 package tech.libeufin.nexus
 
+import com.fasterxml.jackson.annotation.JsonAutoDetect
 import org.joda.time.DateTime
 import tech.libeufin.util.*
 import java.time.LocalDate
@@ -162,6 +163,10 @@ data class CollectedTransaction(
     val transport: Transport?,
     val start: String?,
     val end: String?
+)
+
+data class BankProtocolsResponse(
+    val protocols: List<String>
 )
 
 /** Request type of "POST /prepared-payments" */

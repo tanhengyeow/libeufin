@@ -23,6 +23,9 @@ import com.fasterxml.jackson.core.util.DefaultIndenter
 import com.fasterxml.jackson.core.util.DefaultPrettyPrinter
 import com.fasterxml.jackson.databind.JsonNode
 import com.fasterxml.jackson.databind.SerializationFeature
+import com.fasterxml.jackson.databind.exc.MismatchedInputException
+import com.fasterxml.jackson.module.kotlin.KotlinModule
+import com.fasterxml.jackson.module.kotlin.MissingKotlinParameterException
 import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
 import com.github.ajalt.clikt.core.CliktCommand
 import com.github.ajalt.clikt.core.ProgramResult
@@ -30,11 +33,14 @@ import com.github.ajalt.clikt.core.subcommands
 import com.github.ajalt.clikt.parameters.arguments.argument
 import com.github.ajalt.clikt.parameters.options.option
 import com.github.ajalt.clikt.parameters.options.prompt
+import io.ktor.application.ApplicationCall
 import io.ktor.application.ApplicationCallPipeline
 import io.ktor.application.call
 import io.ktor.application.install
 import io.ktor.client.HttpClient
-import io.ktor.features.*
+import io.ktor.features.CallLogging
+import io.ktor.features.ContentNegotiation
+import io.ktor.features.StatusPages
 import io.ktor.http.ContentType
 import io.ktor.http.HttpStatusCode
 import io.ktor.jackson.jackson
@@ -63,12 +69,12 @@ import org.slf4j.event.Level
 import tech.libeufin.util.*
 import tech.libeufin.util.CryptoUtil.hashpw
 import tech.libeufin.util.ebics_h004.HTDResponseOrderData
-import java.text.DateFormat
 import java.util.zip.InflaterInputStream
 import javax.crypto.EncryptedPrivateKeyInfo
 import javax.sql.rowset.serial.SerialBlob
 
 data class NexusError(val statusCode: HttpStatusCode, val reason: String) : Exception()
+
 val logger: Logger = LoggerFactory.getLogger("tech.libeufin.nexus")
 
 suspend fun handleEbicsSendMSG(
@@ -167,17 +173,17 @@ suspend fun handleEbicsSendMSG(
     return response
 }
 
-class NexusCommand: CliktCommand() {
+class NexusCommand : CliktCommand() {
     override fun run() = Unit
 }
 
-class Serve: CliktCommand("Run nexus HTTP server") {
+class Serve : CliktCommand("Run nexus HTTP server") {
     override fun run() {
         serverMain()
     }
 }
 
-class Superuser: CliktCommand("Add superuser or change pw") {
+class Superuser : CliktCommand("Add superuser or change pw") {
     private val username by argument()
     private val password by option().prompt(requireConfirmation = true, hideInput = true)
     override fun run() {
@@ -207,6 +213,16 @@ fun main(args: Array<String>) {
         .main(args)
 }
 
+suspend inline fun <reified T : Any>ApplicationCall.receiveJson(): T {
+    try {
+        return this.receive<T>();
+    } catch (e: MissingKotlinParameterException) {
+        throw NexusError(HttpStatusCode.BadRequest, "Missing value for ${e.pathReference}")
+    } catch (e: MismatchedInputException) {
+        throw NexusError(HttpStatusCode.BadRequest, "Invalid value for ${e.pathReference}")
+    }
+}
+
 @ExperimentalIoApi
 @KtorExperimentalAPI
 fun serverMain() {
@@ -227,6 +243,7 @@ fun serverMain() {
                     indentArraysWith(DefaultPrettyPrinter.FixedSpaceIndenter.instance)
                     indentObjectsWith(DefaultIndenter("  ", "\n"))
                 })
+                registerModule(KotlinModule(nullisSameAsDefault = true))
                 //registerModule(JavaTimeModule())
             }
         }
@@ -307,7 +324,7 @@ fun serverMain() {
              * Add a new ordinary user in the system (requires superuser privileges)
              */
             post("/users") {
-                val body = call.receive<User>()
+                val body = call.receiveJson<User>()
                 transaction {
                     val currentUser = authenticateRequest(call.request.headers["Authorization"])
                     if (!currentUser.superuser) {
@@ -325,7 +342,8 @@ fun serverMain() {
                 )
                 return@post
             }
-            get("/bank-connection-protocols")  {
+            get("/bank-connection-protocols") {
+                call.respond(HttpStatusCode.OK, BankProtocolsResponse(listOf("ebics", "loopback")))
                 return@get
             }
             /**
@@ -528,7 +546,7 @@ fun serverMain() {
                 when (transport.type) {
                     "ebics" -> {
                         if (body.get("backup") != null) {
-                            val backup = jacksonObjectMapper().treeToValue(body,EbicsKeysBackupJson::class.java)
+                            val backup = jacksonObjectMapper().treeToValue(body, EbicsKeysBackupJson::class.java)
                             val (authKey, encKey, sigKey) = try {
                                 Triple(
                                     CryptoUtil.decryptKey(
@@ -578,7 +596,8 @@ fun serverMain() {
                             return@post
                         }
                         if (body.get("data") != null) {
-                            val data = jacksonObjectMapper().treeToValue((body.get("data")), EbicsNewTransport::class.java)
+                            val data =
+                                jacksonObjectMapper().treeToValue((body.get("data")), EbicsNewTransport::class.java)
                             val pairA = CryptoUtil.generateRsaKeyPair(2048)
                             val pairB = CryptoUtil.generateRsaKeyPair(2048)
                             val pairC = CryptoUtil.generateRsaKeyPair(2048)
@@ -651,7 +670,7 @@ fun serverMain() {
                             transportId = body.name,
                             msg = ensureNonNull(call.parameters["MSG"]),
                             sync = true
-                            )
+                        )
                         call.respondText(response)
                     }
                     else -> throw NexusError(
