@@ -19,8 +19,7 @@
 
 package tech.libeufin.sandbox
 
-import io.ktor.http.HttpStatusCode
-import java.lang.Exception
+import tech.libeufin.util.RawPayment
 
 /**
  * Used to show the list of Ebics hosts that exist
@@ -43,6 +42,14 @@ data class EbicsHostCreateRequest(
     val hostID: String,
     val ebicsVersion: String
 )
+
+/**
+ * List type that show all the payments existing in the system.
+ */
+data class PaymentsResponse(
+    val payments: MutableList<RawPayment> = mutableListOf()
+)
+
 
 /**
  * Used to create AND show one Ebics subscriber in the system.

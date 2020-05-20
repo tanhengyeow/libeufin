@@ -60,6 +60,7 @@ import com.fasterxml.jackson.databind.exc.MismatchedInputException
 import com.fasterxml.jackson.module.kotlin.KotlinModule
 import com.fasterxml.jackson.module.kotlin.MissingKotlinParameterException
 import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
+import io.ktor.http.toHttpDateString
 import java.time.Instant
 import java.time.LocalDate
 import java.time.LocalDateTime
@@ -160,6 +161,25 @@ fun main() {
             get("/") {
                 call.respondText("Hello Sandbox!\n", ContentType.Text.Plain)
             }
+            get("/admin/payments") {
+                val ret = PaymentsResponse()
+                transaction {
+                    PaymentEntity.all().forEach {
+                        ret.payments.add(
+                            RawPayment(
+                                creditorIban = it.creditorIban,
+                                debitorIban = it.debitorIban,
+                                subject = it.subject,
+                                date = it.date.toHttpDateString(),
+                                amount = it.amount
+                            )
+                        )
+                    }
+                }
+                call.respond(ret)
+                return@get
+            }
+
             /**
              * Adds a new payment to the book.
              */

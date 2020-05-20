@@ -106,17 +106,24 @@ assertResponse(
 )
 
 # Generate a few payments related to such account.
-assertResponse(
-    post(
-        "http://localhost:5000/admin/payments",
-        json=dict(
-            creditorIban="ES9121000418450200051332",
-            debitorIban="GB33BUKB20201555555555",
-            amount="EUR:0.99",
-            subject="test service"
+for i in range(1, 3):
+    assertResponse(
+        post(
+            "http://localhost:5000/admin/payments",
+            json=dict(
+                creditorIban="ES9121000418450200051332",
+                debitorIban="GB33BUKB20201555555555",
+                amount="EUR:0.99",
+                subject="test service #{}".format(i)
+            )
         )
     )
+
+resp = assertResponse(
+    get("http://localhost:5000/admin/payments")
 )
 
+print(resp.text)
+
 sandbox.terminate()
-print("Test passed!")
+print("\nTest passed!")
