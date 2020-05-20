@@ -55,9 +55,7 @@ import io.ktor.routing.post
 import io.ktor.routing.routing
 import io.ktor.server.engine.embeddedServer
 import io.ktor.server.netty.Netty
-import io.ktor.util.KtorExperimentalAPI
 import io.ktor.utils.io.ByteReadChannel
-import io.ktor.utils.io.core.ExperimentalIoApi
 import io.ktor.utils.io.jvm.javaio.toByteReadChannel
 import io.ktor.utils.io.jvm.javaio.toInputStream
 import org.jetbrains.exposed.sql.and
@@ -69,109 +67,15 @@ import org.slf4j.event.Level
 import tech.libeufin.util.*
 import tech.libeufin.util.CryptoUtil.hashpw
 import tech.libeufin.util.ebics_h004.HTDResponseOrderData
+import java.util.*
 import java.util.zip.InflaterInputStream
 import javax.crypto.EncryptedPrivateKeyInfo
 import javax.sql.rowset.serial.SerialBlob
 
-data class NexusError(val statusCode: HttpStatusCode, val reason: String) : Exception()
+data class NexusError(val statusCode: HttpStatusCode, val reason: String) :
+    Exception("${reason} (HTTP status $statusCode)")
 
 val logger: Logger = LoggerFactory.getLogger("tech.libeufin.nexus")
-
-suspend fun handleEbicsSendMSG(
-    httpClient: HttpClient,
-    userId: String,
-    transportId: String?,
-    msg: String,
-    sync: Boolean
-): String {
-    val subscriber = getEbicsSubscriberDetails(userId, transportId)
-    val response = when (msg.toUpperCase()) {
-        "HIA" -> {
-            val request = makeEbicsHiaRequest(subscriber)
-            httpClient.postToBank(
-                subscriber.ebicsUrl,
-                request
-            )
-        }
-        "INI" -> {
-            val request = makeEbicsIniRequest(subscriber)
-            httpClient.postToBank(
-                subscriber.ebicsUrl,
-                request
-            )
-        }
-        "HPB" -> {
-            /** should NOT put bank's keys into any table.  */
-            val request = makeEbicsHpbRequest(subscriber)
-            val response = httpClient.postToBank(
-                subscriber.ebicsUrl,
-                request
-            )
-            if (sync) {
-                val parsedResponse = parseAndDecryptEbicsKeyManagementResponse(subscriber, response)
-                val orderData = parsedResponse.orderData ?: throw NexusError(
-                    HttpStatusCode.InternalServerError,
-                    "Cannot find data in a HPB response"
-                )
-                val hpbData = parseEbicsHpbOrder(orderData)
-                transaction {
-                    val transport = getEbicsTransport(userId, transportId)
-                    transport.bankAuthenticationPublicKey = SerialBlob(hpbData.authenticationPubKey.encoded)
-                    transport.bankEncryptionPublicKey = SerialBlob(hpbData.encryptionPubKey.encoded)
-                }
-            }
-            return response
-        }
-        "HTD" -> {
-            val response = doEbicsDownloadTransaction(
-                httpClient, subscriber, "HTD", EbicsStandardOrderParams()
-            )
-            when (response) {
-                is EbicsDownloadBankErrorResult -> {
-                    throw NexusError(
-                        HttpStatusCode.BadGateway,
-                        response.returnCode.errorCode
-                    )
-                }
-                is EbicsDownloadSuccessResult -> {
-                    val payload = XMLUtil.convertStringToJaxb<HTDResponseOrderData>(
-                        response.orderData.toString(Charsets.UTF_8)
-                    )
-                    if (sync) {
-                        transaction {
-                            payload.value.partnerInfo.accountInfoList?.forEach {
-                                val bankAccount = BankAccountEntity.new(id = it.id) {
-                                    accountHolder = it.accountHolder ?: "NOT-GIVEN"
-                                    iban = extractFirstIban(it.accountNumberList)
-                                        ?: throw NexusError(HttpStatusCode.NotFound, reason = "bank gave no IBAN")
-                                    bankCode = extractFirstBic(it.bankCodeList) ?: throw NexusError(
-                                        HttpStatusCode.NotFound,
-                                        reason = "bank gave no BIC"
-                                    )
-                                }
-                                BankAccountMapEntity.new {
-                                    ebicsSubscriber = getEbicsTransport(userId, transportId)
-                                    this.nexusUser = getNexusUser(userId)
-                                    this.bankAccount = bankAccount
-                                }
-                            }
-                        }
-                    }
-                    response.orderData.toString(Charsets.UTF_8)
-                }
-            }
-        }
-        "HEV" -> {
-            val request = makeEbicsHEVRequest(subscriber)
-            httpClient.postToBank(subscriber.ebicsUrl, request)
-        }
-        else -> throw NexusError(
-            HttpStatusCode.NotFound,
-            "Message $msg not found"
-        )
-    }
-    return response
-}
 
 class NexusCommand : CliktCommand() {
     override fun run() = Unit
@@ -214,7 +118,7 @@ fun main(args: Array<String>) {
         .main(args)
 }
 
-suspend inline fun <reified T : Any>ApplicationCall.receiveJson(): T {
+suspend inline fun <reified T : Any> ApplicationCall.receiveJson(): T {
     try {
         return this.receive<T>();
     } catch (e: MissingKotlinParameterException) {
@@ -224,8 +128,93 @@ suspend inline fun <reified T : Any>ApplicationCall.receiveJson(): T {
     }
 }
 
-@ExperimentalIoApi
-@KtorExperimentalAPI
+fun createEbicsBankConnection(bankConnectionName: String, user: NexusUserEntity, body: JsonNode) {
+    val bankConn = NexusBankConnectionEntity.new(bankConnectionName) {
+        owner = user
+        type = "ebics"
+    }
+    if (body.get("backup") != null) {
+        val backup = jacksonObjectMapper().treeToValue(body, EbicsKeysBackupJson::class.java)
+        val (authKey, encKey, sigKey) = try {
+            Triple(
+                CryptoUtil.decryptKey(
+                    EncryptedPrivateKeyInfo(base64ToBytes(backup.authBlob)),
+                    backup.passphrase
+                ),
+                CryptoUtil.decryptKey(
+                    EncryptedPrivateKeyInfo(base64ToBytes(backup.encBlob)),
+                    backup.passphrase
+                ),
+                CryptoUtil.decryptKey(
+                    EncryptedPrivateKeyInfo(base64ToBytes(backup.sigBlob)),
+                    backup.passphrase
+                )
+            )
+        } catch (e: Exception) {
+            e.printStackTrace()
+            logger.info("Restoring keys failed, probably due to wrong passphrase")
+            throw NexusError(
+                HttpStatusCode.BadRequest,
+                "Bad backup given"
+            )
+        }
+        try {
+            EbicsSubscriberEntity.new() {
+                ebicsURL = backup.ebicsURL
+                hostID = backup.hostID
+                partnerID = backup.partnerID
+                userID = backup.userID
+                signaturePrivateKey = SerialBlob(sigKey.encoded)
+                encryptionPrivateKey = SerialBlob(encKey.encoded)
+                authenticationPrivateKey = SerialBlob(authKey.encoded)
+                nexusBankConnection = bankConn
+            }
+        } catch (e: Exception) {
+            throw NexusError(
+                HttpStatusCode.BadRequest,
+                "exception: $e"
+            )
+        }
+        return
+    }
+    if (body.get("data") != null) {
+        val data =
+            jacksonObjectMapper().treeToValue((body.get("data")), EbicsNewTransport::class.java)
+        val pairA = CryptoUtil.generateRsaKeyPair(2048)
+        val pairB = CryptoUtil.generateRsaKeyPair(2048)
+        val pairC = CryptoUtil.generateRsaKeyPair(2048)
+        EbicsSubscriberEntity.new() {
+            ebicsURL = data.ebicsURL
+            hostID = data.hostID
+            partnerID = data.partnerID
+            userID = data.userID
+            systemID = data.systemID
+            signaturePrivateKey = SerialBlob(pairA.private.encoded)
+            encryptionPrivateKey = SerialBlob(pairB.private.encoded)
+            authenticationPrivateKey = SerialBlob(pairC.private.encoded)
+            nexusBankConnection = bankConn
+        }
+        return
+    }
+    throw NexusError(
+        HttpStatusCode.BadRequest,
+        "Neither restore or new transport were specified."
+    )
+}
+
+fun requireBankConnection(call: ApplicationCall, parameterKey: String): NexusBankConnectionEntity {
+    val name = call.parameters[parameterKey]
+    if (name == null) {
+        throw NexusError(HttpStatusCode.InternalServerError, "no parameter for bank connection")
+    }
+    val conn = NexusBankConnectionEntity.findById(name)
+    if (conn == null) {
+        throw NexusError(HttpStatusCode.NotFound, "bank connection '$name' not found")
+    }
+    return conn
+}
+
+
 fun serverMain() {
     dbCreateTables()
     val client = HttpClient() {
@@ -237,6 +226,7 @@ fun serverMain() {
             this.level = Level.DEBUG
             this.logger = tech.libeufin.nexus.logger
         }
+
         install(ContentNegotiation) {
             jackson {
                 enable(SerializationFeature.INDENT_OUTPUT)
@@ -248,6 +238,7 @@ fun serverMain() {
                 //registerModule(JavaTimeModule())
             }
         }
+
         install(StatusPages) {
             exception<NexusError> { cause ->
                 logger.error("Exception while handling '${call.request.uri}'", cause)
@@ -282,6 +273,10 @@ fun serverMain() {
                 return@intercept finish()
             }
         }
+
+        /**
+         * Allow request body compression.  Needed by Taler.
+         */
         receivePipeline.intercept(ApplicationReceivePipeline.Before) {
             if (this.context.request.headers["Content-Encoding"] == "deflate") {
                 logger.debug("About to inflate received data")
@@ -293,13 +288,14 @@ fun serverMain() {
             proceed()
             return@intercept
         }
+
         routing {
             /**
              * Shows information about the requesting user.
              */
             get("/user") {
                 val ret = transaction {
-                    val currentUser = authenticateRequest(call.request.headers["Authorization"])
+                    val currentUser = authenticateRequest(call.request)
                     UserResponse(
                         username = currentUser.id.value,
                         superuser = currentUser.superuser
@@ -321,13 +317,14 @@ fun serverMain() {
                 call.respond(HttpStatusCode.OK, usersResp)
                 return@get
             }
+
             /**
              * Add a new ordinary user in the system (requires superuser privileges)
              */
             post("/users") {
                 val body = call.receiveJson<User>()
                 transaction {
-                    val currentUser = authenticateRequest(call.request.headers["Authorization"])
+                    val currentUser = authenticateRequest(call.request)
                     if (!currentUser.superuser) {
                         throw NexusError(HttpStatusCode.Forbidden, "only superuser can do that")
                     }
@@ -343,95 +340,112 @@ fun serverMain() {
                 )
                 return@post
             }
+
             get("/bank-connection-protocols") {
                 call.respond(HttpStatusCode.OK, BankProtocolsResponse(listOf("ebics", "loopback")))
                 return@get
             }
+
+            post("/bank-connection-protocols/ebics/test-host") {
+                val r = call.receiveJson<EbicsHostTestRequest>()
+                val qr = doEbicsHostVersionQuery(client, r.ebicsBaseUrl, r.ebicsHostId)
+                call.respond(HttpStatusCode.OK, qr)
+                return@post
+            }
+
             /**
              * Shows the bank accounts belonging to the requesting user.
              */
             get("/bank-accounts") {
-                val userId = transaction { authenticateRequest(call.request.headers["Authorization"]).id.value }
                 val bankAccounts = BankAccounts()
-                getBankAccountsFromNexusUserId(userId).forEach {
-                    bankAccounts.accounts.add(
-                        BankAccount(
-                            holder = it.accountHolder,
-                            iban = it.iban,
-                            bic = it.bankCode,
-                            account = it.id.value
-                        )
-                    )
+                transaction {
+                    authenticateRequest(call.request)
+                    // FIXME(dold): Only return accounts the user has at least read access to?
+                    BankAccountEntity.all().forEach {
+                        bankAccounts.accounts.add(BankAccount(it.accountHolder, it.iban, it.bankCode, it.id.value))
+                    }
                 }
+                call.respond(bankAccounts)
                 return@get
             }
+
             /**
-             * Submit one particular payment at the bank.
+             * Submit one particular payment to the bank.
              */
-            post("/bank-accounts/prepared-payments/submit") {
-                val userId = transaction { authenticateRequest(call.request.headers["Authorization"]).id.value }
-                val body = call.receive<SubmitPayment>()
-                val preparedPayment = getPreparedPayment(body.uuid)
-                transaction {
-                    if (preparedPayment.nexusUser.id.value != userId) throw NexusError(
-                        HttpStatusCode.Forbidden,
-                        "No rights over such payment"
-                    )
+            post("/bank-accounts/{accountid}/prepared-payments/{uuid}/submit") {
+                val uuid = ensureNonNull(call.parameters["uuid"])
+                val accountId = ensureNonNull(call.parameters["accountid"])
+                val res = transaction {
+                    val user = authenticateRequest(call.request)
+                    val preparedPayment = getPreparedPayment(uuid)
                     if (preparedPayment.submitted) {
                         throw NexusError(
                             HttpStatusCode.PreconditionFailed,
-                            "Payment ${body.uuid} was submitted already"
+                            "Payment ${uuid} was submitted already"
                         )
                     }
-
+                    val bankAccount = BankAccountEntity.findById(accountId)
+                    if (bankAccount == null) {
+                        throw NexusError(HttpStatusCode.NotFound, "unknown bank account")
+                    }
+                    val defaultBankConnection = bankAccount.defaultBankConnection
+                    if (defaultBankConnection == null) {
+                        throw NexusError(HttpStatusCode.NotFound, "needs a default connection")
+                    }
+                    val subscriberDetails = getEbicsSubscriberDetails(user.id.value, defaultBankConnection.id.value);
+                    return@transaction object {
+                        val pain001document = createPain001document(preparedPayment)
+                        val bankConnectionType = defaultBankConnection.type
+                        val subscriberDetails = subscriberDetails
+                    }
                 }
-                val pain001document = createPain001document(preparedPayment)
-                if (body.transport != null) {
-                    // type and name aren't null
-                    when (body.transport.type) {
-                        "ebics" -> {
-                            submitPaymentEbics(
-                                client, userId, body.transport.name, pain001document
-                            )
-                        }
-                        else -> throw NexusError(
-                            HttpStatusCode.NotFound,
-                            "Transport type '${body.transport.type}' not implemented"
+                // type and name aren't null
+                when (res.bankConnectionType) {
+                    "ebics" -> {
+                        logger.debug("Uploading PAIN.001: ${res.pain001document}")
+                        doEbicsUploadTransaction(
+                            client,
+                            res.subscriberDetails,
+                            "CCT",
+                            res.pain001document.toByteArray(Charsets.UTF_8),
+                            EbicsStandardOrderParams()
                         )
                     }
-                } else {
-                    // default to ebics and "first" transport from user
-                    submitPaymentEbics(
-                        client, userId, null, pain001document
+                    else -> throw NexusError(
+                        HttpStatusCode.NotFound,
+                        "Transport type '${res.bankConnectionType}' not implemented"
                     )
                 }
                 transaction {
+                    val preparedPayment = getPreparedPayment(uuid)
                     preparedPayment.submitted = true
                 }
-                call.respondText("Payment ${body.uuid} submitted")
+                call.respondText("Payment ${uuid} submitted")
                 return@post
             }
+
             /**
              * Shows information about one particular prepared payment.
              */
             get("/bank-accounts/{accountid}/prepared-payments/{uuid}") {
-                val userId = transaction { authenticateRequest(call.request.headers["Authorization"]).id.value }
-                val preparedPayment = getPreparedPayment(ensureNonNull(call.parameters["uuid"]))
-                if (preparedPayment.nexusUser.id.value != userId) throw NexusError(
-                    HttpStatusCode.Forbidden,
-                    "No rights over such payment"
-                )
+                val res = transaction {
+                    val user = authenticateRequest(call.request)
+                    val preparedPayment = getPreparedPayment(ensureNonNull(call.parameters["uuid"]))
+                    return@transaction object {
+                        val preparedPayment = preparedPayment
+                    }
+                }
                 call.respond(
                     PaymentStatus(
-                        uuid = preparedPayment.id.value,
-                        submitted = preparedPayment.submitted,
-                        creditorName = preparedPayment.creditorName,
-                        creditorBic = preparedPayment.creditorBic,
-                        creditorIban = preparedPayment.creditorIban,
-                        amount = "${preparedPayment.sum}:${preparedPayment.currency}",
-                        subject = preparedPayment.subject,
-                        submissionDate = DateTime(preparedPayment.submissionDate).toDashedDate(),
-                        preparationDate = DateTime(preparedPayment.preparationDate).toDashedDate()
+                        uuid = res.preparedPayment.id.value,
+                        submitted = res.preparedPayment.submitted,
+                        creditorName = res.preparedPayment.creditorName,
+                        creditorBic = res.preparedPayment.creditorBic,
+                        creditorIban = res.preparedPayment.creditorIban,
+                        amount = "${res.preparedPayment.sum}:${res.preparedPayment.currency}",
+                        subject = res.preparedPayment.subject,
+                        submissionDate = DateTime(res.preparedPayment.submissionDate).toDashedDate(),
+                        preparationDate = DateTime(res.preparedPayment.preparationDate).toDashedDate()
                     )
                 )
                 return@get
@@ -440,78 +454,104 @@ fun serverMain() {
              * Adds a new prepared payment.
              */
             post("/bank-accounts/{accountid}/prepared-payments") {
-                val userId = transaction { authenticateRequest(call.request.headers["Authorization"]).id.value }
-                val bankAccount = getBankAccount(userId, ensureNonNull(call.parameters["accountid"]))
                 val body = call.receive<PreparedPaymentRequest>()
-                val amount = parseAmount(body.amount)
-                val paymentEntity = addPreparedPayment(
-                    Pain001Data(
-                        creditorIban = body.iban,
-                        creditorBic = body.bic,
-                        creditorName = body.name,
-                        debitorAccount = bankAccount.id.value,
-                        sum = amount.amount,
-                        currency = amount.currency,
-                        subject = body.subject
-                    ),
-                    extractNexusUser(userId)
-                )
+                val accountId = ensureNonNull(call.parameters["accountid"])
+                val res = transaction {
+                    authenticateRequest(call.request)
+                    val bankAccount = BankAccountEntity.findById(accountId)
+                    if (bankAccount == null) {
+                        throw NexusError(HttpStatusCode.NotFound, "unknown bank account")
+                    }
+                    val amount = parseAmount(body.amount)
+                    val paymentEntity = addPreparedPayment(
+                        Pain001Data(
+                            creditorIban = body.iban,
+                            creditorBic = body.bic,
+                            creditorName = body.name,
+                            debitorAccount = bankAccount.id.value,
+                            sum = amount.amount,
+                            currency = amount.currency,
+                            subject = body.subject
+                        ),
+                        bankAccount
+                    )
+                    return@transaction object {
+                        val uuid = paymentEntity.id.value
+                    }
+                }
                 call.respond(
                     HttpStatusCode.OK,
-                    PreparedPaymentResponse(uuid = paymentEntity.id.value)
+                    PreparedPaymentResponse(uuid = res.uuid)
                 )
                 return@post
             }
+
             /**
              * Downloads new transactions from the bank.
-             *
-             * NOTE: 'accountid' is not used.  Transaction are asked on
-             * the basis of a transport subscriber (regardless of their
-             * bank account details)
              */
-            post("/bank-accounts/collected-transactions") {
-                val userId = transaction { authenticateRequest(call.request.headers["Authorization"]).id.value }
-                val body = call.receive<CollectedTransaction>()
-                if (body.transport != null) {
-                    when (body.transport.type) {
-                        "ebics" -> {
-                            downloadAndPersistC5xEbics(
-                                "C53",
-                                client,
-                                userId,
-                                body.start,
-                                body.end,
-                                body.transport.name
-                            )
-                        }
-                        else -> throw NexusError(
-                            HttpStatusCode.BadRequest,
-                            "Transport type '${body.transport.type}' not implemented"
+            post("/bank-accounts/{accountid}/fetch-transactions") {
+                val accountid = call.parameters["accountid"]
+                if (accountid == null) {
+                    throw NexusError(
+                        HttpStatusCode.BadRequest,
+                        "Account id missing"
+                    )
+                }
+                val res = transaction {
+                    val user = authenticateRequest(call.request)
+                    val acct = BankAccountEntity.findById(accountid)
+                    if (acct == null) {
+                        throw NexusError(
+                            HttpStatusCode.NotFound,
+                            "Account not found"
                         )
                     }
-                } else {
-                    downloadAndPersistC5xEbics(
-                        "C53",
-                        client,
-                        userId,
-                        body.start,
-                        body.end,
-                        null
+                    val conn = acct.defaultBankConnection
+                    if (conn == null) {
+                        throw NexusError(
+                            HttpStatusCode.BadRequest,
+                            "No default bank connection (explicit connection not yet supported)"
+                        )
+                    }
+                    val subscriberDetails = getEbicsSubscriberDetails(user.id.value, conn.id.value)
+                    return@transaction object {
+                        val connectionType = conn.type
+                        val connectionName = conn.id.value
+                        val userId = user.id.value
+                        val subscriberDetails = subscriberDetails
+                    }
+                }
+                val body = call.receive<CollectedTransaction>()
+                when (res.connectionType) {
+                    "ebics" -> {
+                        downloadAndPersistC5xEbics(
+                            "C53",
+                            client,
+                            res.userId,
+                            body.start,
+                            body.end,
+                            res.subscriberDetails
+                        )
+                    }
+                    else -> throw NexusError(
+                        HttpStatusCode.BadRequest,
+                        "Connection type '${res.connectionType}' not implemented"
                     )
                 }
                 call.respondText("Collection performed")
                 return@post
             }
+
             /**
              * Asks list of transactions ALREADY downloaded from the bank.
              */
-            get("/bank-accounts/{accountid}/collected-transactions") {
-                val userId = transaction { authenticateRequest(call.request.headers["Authorization"]).id.value }
+            get("/bank-accounts/{accountid}/transactions") {
                 val bankAccount = expectNonNull(call.parameters["accountid"])
                 val start = call.request.queryParameters["start"]
                 val end = call.request.queryParameters["end"]
                 val ret = Transactions()
                 transaction {
+                    val userId = transaction { authenticateRequest(call.request).id.value }
                     RawBankTransactionEntity.find {
                         RawBankTransactionsTable.nexusUser eq userId and
                                 (RawBankTransactionsTable.bankAccount eq bankAccount) and
@@ -536,151 +576,180 @@ fun serverMain() {
                 call.respond(ret)
                 return@get
             }
+
             /**
              * Adds a new bank transport.
              */
-            post("/bank-transports") {
-                val userId = transaction { authenticateRequest(call.request.headers["Authorization"]).id.value }
+            post("/bank-connections") {
                 // user exists and is authenticated.
                 val body = call.receive<JsonNode>()
-                val transport: Transport = getTransportFromJsonObject(body)
-                when (transport.type) {
-                    "ebics" -> {
-                        if (body.get("backup") != null) {
-                            val backup = jacksonObjectMapper().treeToValue(body, EbicsKeysBackupJson::class.java)
-                            val (authKey, encKey, sigKey) = try {
-                                Triple(
-                                    CryptoUtil.decryptKey(
-                                        EncryptedPrivateKeyInfo(base64ToBytes(backup.authBlob)),
-                                        backup.passphrase
-                                    ),
-                                    CryptoUtil.decryptKey(
-                                        EncryptedPrivateKeyInfo(base64ToBytes(backup.encBlob)),
-                                        backup.passphrase
-                                    ),
-                                    CryptoUtil.decryptKey(
-                                        EncryptedPrivateKeyInfo(base64ToBytes(backup.sigBlob)),
-                                        backup.passphrase
-                                    )
-                                )
-                            } catch (e: Exception) {
-                                e.printStackTrace()
-                                logger.info("Restoring keys failed, probably due to wrong passphrase")
-                                throw NexusError(
-                                    HttpStatusCode.BadRequest,
-                                    "Bad backup given"
-                                )
-                            }
-                            logger.info("Restoring keys, creating new user: $userId")
-                            try {
-                                transaction {
-                                    EbicsSubscriberEntity.new(transport.name) {
-                                        this.nexusUser = extractNexusUser(userId)
-                                        ebicsURL = backup.ebicsURL
-                                        hostID = backup.hostID
-                                        partnerID = backup.partnerID
-                                        userID = backup.userID
-                                        signaturePrivateKey = SerialBlob(sigKey.encoded)
-                                        encryptionPrivateKey = SerialBlob(encKey.encoded)
-                                        authenticationPrivateKey = SerialBlob(authKey.encoded)
-                                    }
-                                }
-                            } catch (e: Exception) {
-                                print(e)
-                                call.respond(
-                                    NexusErrorJson("Could not store the new account into database")
-                                )
-                                return@post
-                            }
-                            call.respondText("Backup restored")
+                val bankConnectionName = body.get("name").textValue()
+                val bankConnectionType = body.get("type").textValue()
+                transaction {
+                    val user = authenticateRequest(call.request)
+                    when (bankConnectionType) {
+                        "ebics" -> {
+                            createEbicsBankConnection(bankConnectionName, user, body)
+                        }
+                        else -> {
+                            throw NexusError(
+                                HttpStatusCode.BadRequest,
+                                "Invalid bank connection type '${bankConnectionType}'"
+                            )
+                        }
+                    }
+                }
+                call.respond(object {})
+            }
 
-                            return@post
-                        }
-                        if (body.get("data") != null) {
-                            val data =
-                                jacksonObjectMapper().treeToValue((body.get("data")), EbicsNewTransport::class.java)
-                            val pairA = CryptoUtil.generateRsaKeyPair(2048)
-                            val pairB = CryptoUtil.generateRsaKeyPair(2048)
-                            val pairC = CryptoUtil.generateRsaKeyPair(2048)
-                            transaction {
-                                EbicsSubscriberEntity.new(transport.name) {
-                                    nexusUser = extractNexusUser(userId)
-                                    ebicsURL = data.ebicsURL
-                                    hostID = data.hostID
-                                    partnerID = data.partnerID
-                                    userID = data.userID
-                                    systemID = data.systemID
-                                    signaturePrivateKey = SerialBlob(pairA.private.encoded)
-                                    encryptionPrivateKey = SerialBlob(pairB.private.encoded)
-                                    authenticationPrivateKey = SerialBlob(pairC.private.encoded)
+            get("/bank-connections") {
+                val connList = mutableListOf<BankConnectionInfo>()
+                transaction {
+                    NexusBankConnectionEntity.all().forEach {
+                        connList.add(BankConnectionInfo(it.id.value, it.type))
+                    }
+                }
+                call.respond(BankConnectionsList(connList))
+            }
+
+            post("/bank-connections/{connid}/connect") {
+                throw NotImplementedError()
+            }
+
+            post("/bank-connections/{connid}/ebics/send-ini") {
+                val subscriber = transaction {
+                    val user = authenticateRequest(call.request)
+                    val conn = requireBankConnection(call, "connid")
+                    if (conn.type != "ebics") {
+                        throw NexusError(
+                            HttpStatusCode.BadRequest,
+                            "bank connection is not of type 'ebics' (but '${conn.type}')"
+                        )
+                    }
+                    getEbicsSubscriberDetails(user.id.value, conn.id.value)
+                }
+                val resp = doEbicsIniRequest(client, subscriber)
+                call.respond(resp)
+            }
+
+            post("/bank-connections/{connid}/ebics/send-hia") {
+                val subscriber = transaction {
+                    val user = authenticateRequest(call.request)
+                    val conn = requireBankConnection(call, "connid")
+                    if (conn.type != "ebics") {
+                        throw NexusError(HttpStatusCode.BadRequest, "bank connection is not of type 'ebics'")
+                    }
+                    getEbicsSubscriberDetails(user.id.value, conn.id.value)
+                }
+                val resp = doEbicsHiaRequest(client, subscriber)
+                call.respond(resp)
+            }
+
+            post("/bank-connections/{connid}/ebics/send-hpb") {
+                val subscriberDetails = transaction {
+                    val user = authenticateRequest(call.request)
+                    val conn = requireBankConnection(call, "connid")
+                    if (conn.type != "ebics") {
+                        throw NexusError(HttpStatusCode.BadRequest, "bank connection is not of type 'ebics'")
+                    }
+                    getEbicsSubscriberDetails(user.id.value, conn.id.value)
+                }
+                val hpbData = doEbicsHpbRequest(client, subscriberDetails)
+                transaction {
+                    val conn = requireBankConnection(call, "connid")
+                    val subscriber =
+                        EbicsSubscriberEntity.find { EbicsSubscribersTable.nexusBankConnection eq conn.id }.first()
+                    subscriber.bankAuthenticationPublicKey = SerialBlob(hpbData.authenticationPubKey.encoded)
+                    subscriber.bankEncryptionPublicKey = SerialBlob(hpbData.encryptionPubKey.encoded)
+                }
+                call.respond(object { })
+            }
+
+            /**
+             * Directly import accounts.  Used for testing.
+             */
+            post("/bank-connections/{connid}/ebics/import-accounts") {
+                val subscriberDetails = transaction {
+                    val user = authenticateRequest(call.request)
+                    val conn = requireBankConnection(call, "connid")
+                    if (conn.type != "ebics") {
+                        throw NexusError(HttpStatusCode.BadRequest, "bank connection is not of type 'ebics'")
+                    }
+                    getEbicsSubscriberDetails(user.id.value, conn.id.value)
+                }
+                val response = doEbicsDownloadTransaction(
+                    client, subscriberDetails, "HTD", EbicsStandardOrderParams()
+                )
+                when (response) {
+                    is EbicsDownloadBankErrorResult -> {
+                        throw NexusError(
+                            HttpStatusCode.BadGateway,
+                            response.returnCode.errorCode
+                        )
+                    }
+                    is EbicsDownloadSuccessResult -> {
+                        val payload = XMLUtil.convertStringToJaxb<HTDResponseOrderData>(
+                            response.orderData.toString(Charsets.UTF_8)
+                        )
+                        transaction {
+                            val conn = requireBankConnection(call, "connid")
+                            payload.value.partnerInfo.accountInfoList?.forEach {
+                                val bankAccount = BankAccountEntity.new(id = it.id) {
+                                    accountHolder = it.accountHolder ?: "NOT-GIVEN"
+                                    iban = extractFirstIban(it.accountNumberList)
+                                        ?: throw NexusError(HttpStatusCode.NotFound, reason = "bank gave no IBAN")
+                                    bankCode = extractFirstBic(it.bankCodeList) ?: throw NexusError(
+                                        HttpStatusCode.NotFound,
+                                        reason = "bank gave no BIC"
+                                    )
+                                    defaultBankConnection = conn
                                 }
                             }
-                            call.respondText("EBICS user successfully created")
-                            return@post
                         }
-                        throw NexusError(
-                            HttpStatusCode.BadRequest,
-                            "Neither restore or new transport were specified."
+                        response.orderData.toString(Charsets.UTF_8)
+                    }
+                }
+                call.respond(object { })
+            }
+
+            post("/bank-connections/{connid}/ebics/download/{msgtype}") {
+                val orderType = requireNotNull(call.parameters["msgtype"]).toUpperCase(Locale.ROOT)
+                if (orderType.length != 3) {
+                    throw NexusError(HttpStatusCode.BadRequest, "ebics order type must be three characters")
+                }
+                val paramsJson = call.receive<EbicsStandardOrderParamsJson>()
+                val orderParams = paramsJson.toOrderParams()
+                val subscriberDetails = transaction {
+                    val user = authenticateRequest(call.request)
+                    val conn = requireBankConnection(call, "connid")
+                    if (conn.type != "ebics") {
+                        throw NexusError(HttpStatusCode.BadRequest, "bank connection is not of type 'ebics'")
+                    }
+                    getEbicsSubscriberDetails(user.id.value, conn.id.value)
+                }
+                val response = doEbicsDownloadTransaction(
+                    client,
+                    subscriberDetails,
+                    orderType,
+                    orderParams
+                )
+                when (response) {
+                    is EbicsDownloadSuccessResult -> {
+                        call.respondText(
+                            response.orderData.toString(Charsets.UTF_8),
+                            ContentType.Text.Plain,
+                            HttpStatusCode.OK
                         )
                     }
-                    else -> {
-                        throw NexusError(
-                            HttpStatusCode.BadRequest,
-                            "Invalid transport type '${transport.type}'"
+                    is EbicsDownloadBankErrorResult -> {
+                        call.respond(
+                            HttpStatusCode.BadGateway,
+                            EbicsErrorJson(EbicsErrorDetailJson("bankError", response.returnCode.errorCode))
                         )
                     }
                 }
             }
-            /**
-             * Sends to the bank a message "MSG" according to the transport
-             * "transportName".  Does not modify any DB table.
-             */
-            post("/bank-transports/send{MSG}") {
-                val userId = transaction { authenticateRequest(call.request.headers["Authorization"]).id.value }
-                val body = call.receive<Transport>()
-                when (body.type) {
-                    "ebics" -> {
-                        val response = handleEbicsSendMSG(
-                            httpClient = client,
-                            userId = userId,
-                            transportId = body.name,
-                            msg = ensureNonNull(call.parameters["MSG"]),
-                            sync = true
-                        )
-                        call.respondText(response)
-                    }
-                    else -> throw NexusError(
-                        HttpStatusCode.NotImplemented,
-                        "Transport '${body.type}' not implemented.  Use 'ebics'"
-                    )
-                }
-                return@post
-            }
-            /**
-             * Sends the bank a message "MSG" according to the transport
-             * "transportName".  DOES alterate DB tables.
-             */
-            post("/bank-transports/sync{MSG}") {
-                val userId = transaction { authenticateRequest(call.request.headers["Authorization"]).id.value }
-                val body = call.receive<Transport>()
-                when (body.type) {
-                    "ebics" -> {
-                        val response = handleEbicsSendMSG(
-                            httpClient = client,
-                            userId = userId,
-                            transportId = body.name,
-                            msg = ensureNonNull(call.parameters["MSG"]),
-                            sync = true
-                        )
-                        call.respondText(response)
-                    }
-                    else -> throw NexusError(
-                        HttpStatusCode.NotImplemented,
-                        "Transport '${body.type}' not implemented.  Use 'ebics'"
-                    )
-                }
-                return@post
-            }
+
             /**
              * Hello endpoint.
              */

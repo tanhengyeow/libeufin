@@ -8,10 +8,6 @@ import org.jetbrains.exposed.sql.StdOutSqlLogger
 import org.jetbrains.exposed.sql.addLogger
 import org.jetbrains.exposed.sql.transactions.TransactionManager
 import org.jetbrains.exposed.sql.transactions.transaction
-import tech.libeufin.nexus.EbicsSubscribersTable.entityId
-import tech.libeufin.nexus.EbicsSubscribersTable.primaryKey
-import tech.libeufin.nexus.NexusUsersTable.entityId
-import tech.libeufin.nexus.NexusUsersTable.primaryKey
 import tech.libeufin.util.amount
 import java.sql.Connection
 
@@ -152,9 +148,6 @@ object PreparedPaymentsTable : IdTable<String>() {
      * this state can be reached when the payment gets listed in a CRZ
      * response OR when the payment doesn't show up in a C52/C53 response */
     val invalid = bool("invalid").default(false)
-
-    /** never really used, but it makes sure the user always exists  */
-    val nexusUser = reference("nexusUser", NexusUsersTable)
 }
 
 class PreparedPaymentEntity(id: EntityID<String>) : Entity<String>(id) {
@@ -175,7 +168,6 @@ class PreparedPaymentEntity(id: EntityID<String>) : Entity<String>(id) {
     var creditorName by PreparedPaymentsTable.creditorName
     var submitted by PreparedPaymentsTable.submitted
     var invalid by PreparedPaymentsTable.invalid
-    var nexusUser by NexusUserEntity referencedOn PreparedPaymentsTable.nexusUser
 }
 
 /**
@@ -186,6 +178,7 @@ object BankAccountsTable : IdTable<String>() {
     val accountHolder = text("accountHolder")
     val iban = text("iban")
     val bankCode = text("bankCode")
+    val defaultBankConnection = reference("defaultBankConnection", NexusBankConnectionsTable).nullable()
 }
 
 class BankAccountEntity(id: EntityID<String>) : Entity<String>(id) {
@@ -194,10 +187,10 @@ class BankAccountEntity(id: EntityID<String>) : Entity<String>(id) {
     var accountHolder by BankAccountsTable.accountHolder
     var iban by BankAccountsTable.iban
     var bankCode by BankAccountsTable.bankCode
+    var defaultBankConnection by NexusBankConnectionEntity optionalReferencedOn BankAccountsTable.defaultBankConnection
 }
 
-object EbicsSubscribersTable : IdTable<String>() {
-    override val id = varchar("id", ID_MAX_LENGTH).entityId().primaryKey()
+object EbicsSubscribersTable : IntIdTable() {
     val ebicsURL = text("ebicsURL")
     val hostID = text("hostID")
     val partnerID = text("partnerID")
@@ -208,11 +201,11 @@ object EbicsSubscribersTable : IdTable<String>() {
     val authenticationPrivateKey = blob("authenticationPrivateKey")
     val bankEncryptionPublicKey = blob("bankEncryptionPublicKey").nullable()
     val bankAuthenticationPublicKey = blob("bankAuthenticationPublicKey").nullable()
-    var nexusUser = reference("nexusUser", NexusUsersTable)
+    val nexusBankConnection = reference("nexusBankConnection", NexusBankConnectionsTable)
 }
 
-class EbicsSubscriberEntity(id: EntityID<String>) : Entity<String>(id) {
-    companion object : EntityClass<String, EbicsSubscriberEntity>(EbicsSubscribersTable)
+class EbicsSubscriberEntity(id: EntityID<Int>) : IntEntity(id) {
+    companion object : IntEntityClass<EbicsSubscriberEntity>(EbicsSubscribersTable)
 
     var ebicsURL by EbicsSubscribersTable.ebicsURL
     var hostID by EbicsSubscribersTable.hostID
@@ -224,7 +217,7 @@ class EbicsSubscriberEntity(id: EntityID<String>) : Entity<String>(id) {
     var authenticationPrivateKey by EbicsSubscribersTable.authenticationPrivateKey
     var bankEncryptionPublicKey by EbicsSubscribersTable.bankEncryptionPublicKey
     var bankAuthenticationPublicKey by EbicsSubscribersTable.bankAuthenticationPublicKey
-    var nexusUser by NexusUserEntity referencedOn EbicsSubscribersTable.nexusUser
+    var nexusBankConnection by NexusBankConnectionEntity referencedOn  EbicsSubscribersTable.nexusBankConnection
 }
 
 object NexusUsersTable : IdTable<String>() {
@@ -240,23 +233,16 @@ class NexusUserEntity(id: EntityID<String>) : Entity<String>(id) {
     var superuser by NexusUsersTable.superuser
 }
 
-object BankAccountMapsTable : IntIdTable() {
-    val ebicsSubscriber = reference("ebicsSubscriber", EbicsSubscribersTable)
-    val bankAccount = reference("bankAccount", BankAccountsTable)
-    val nexusUser = reference("nexusUser", NexusUsersTable)
-}
-
-class BankAccountMapEntity(id: EntityID<Int>) : IntEntity(id) {
-    companion object : IntEntityClass<BankAccountMapEntity>(BankAccountMapsTable)
-
-    var ebicsSubscriber by EbicsSubscriberEntity referencedOn BankAccountMapsTable.ebicsSubscriber
-    var bankAccount by BankAccountEntity referencedOn BankAccountMapsTable.bankAccount
-    var nexusUser by NexusUserEntity referencedOn BankAccountMapsTable.nexusUser
-}
-
 object NexusBankConnectionsTable : IdTable<String>() {
-    override val id = EbicsSubscribersTable.text("id").entityId().primaryKey()
-    
+    override val id = NexusBankConnectionsTable.text("id").entityId().primaryKey()
+    val type = text("type")
+    val owner = reference("user", NexusUsersTable)
+}
+
+class NexusBankConnectionEntity(id: EntityID<String>) : Entity<String>(id) {
+    companion object : EntityClass<String, NexusBankConnectionEntity>(NexusBankConnectionsTable)
+    var type by NexusBankConnectionsTable.type
+    var owner by NexusUserEntity referencedOn NexusBankConnectionsTable.owner
 }
 
 fun dbCreateTables() {
@@ -272,7 +258,7 @@ fun dbCreateTables() {
             RawBankTransactionsTable,
             TalerIncomingPayments,
             TalerRequestedPayments,
-            BankAccountMapsTable
+            NexusBankConnectionsTable
         )
     }
 }

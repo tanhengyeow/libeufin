@@ -80,9 +80,23 @@ data class RawPayments(
  *  API types (used as requests/responses types) *
  *************************************************/
 data class BankTransport(
-    val transport: Transport,
+    val transport: String,
     val backup: Any? = null,
     val data: Any?
+)
+
+data class BankConnectionInfo(
+    val name: String,
+    val type: String
+)
+
+data class BankConnectionsList(
+    val bankConnections: List<BankConnectionInfo>
+)
+
+data class EbicsHostTestRequest(
+    val ebicsBaseUrl: String,
+    val ebicsHostId: String
 )
 
 /**
@@ -137,30 +151,9 @@ data class Transactions(
     val transactions: MutableList<Transaction> = mutableListOf()
 )
 
-/** Specifies the transport to use.  */
-data class Transport(
-    /**
-     * Must match one of the types implemented by nexus:
-     * 'ebics', 'local', possibly 'fints' in the near future!
-     */
-    val type: String,
-    /**
-     * A mnemonic identifier given by the user to one
-     * transport instance.
-     */
-    val name: String
-)
-
-/** Request type of "POST /prepared-payments/submit" */
-data class SubmitPayment(
-    val uuid: String,
-    /** Policy to pick the default transport is still work in progress.  */
-    val transport: tech.libeufin.nexus.Transport?
-)
-
 /** Request type of "POST /collected-transactions" */
 data class CollectedTransaction(
-    val transport: Transport?,
+    val transport: String?,
     val start: String?,
     val end: String?
 )

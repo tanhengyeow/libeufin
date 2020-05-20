@@ -1,10 +1,9 @@
 package tech.libeufin.nexus
 
-import com.fasterxml.jackson.databind.JsonNode
-import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
-import com.fasterxml.jackson.module.kotlin.treeToValue
+import io.ktor.application.ApplicationCall
 import io.ktor.client.HttpClient
 import io.ktor.http.HttpStatusCode
+import io.ktor.request.ApplicationRequest
 import org.jetbrains.exposed.sql.and
 import org.jetbrains.exposed.sql.transactions.transaction
 import org.joda.time.DateTime
@@ -58,49 +57,6 @@ fun extractFirstBic(bankCodes: List<EbicsTypes.AbstractBankCode>?): String? {
     return null
 }
 
-fun getTransportFromJsonObject(jo: JsonNode): Transport {
-    return jacksonObjectMapper().treeToValue(jo.get("transport"), Transport::class.java)
-}
-
-/**
- * Retrieve bank account details, only if user owns it.
- */
-fun getBankAccount(userId: String, accountId: String): BankAccountEntity {
-    return transaction {
-        val bankAccountMap = BankAccountMapEntity.find {
-            BankAccountMapsTable.nexusUser eq userId
-        }.firstOrNull() ?: throw NexusError(
-            HttpStatusCode.NotFound,
-            "Bank account '$accountId' not found"
-        )
-        bankAccountMap.bankAccount
-    }
-}
-
-/**
- * Given a nexus user id, returns the _list_ of bank accounts associated to it.
- *
- * @param id the subscriber id
- * @return the (non-empty) list of bank accounts associated with this user.
- */
-fun getBankAccountsFromNexusUserId(id: String): MutableList<BankAccountEntity> {
-    logger.debug("Looking up bank account of user '$id'")
-    val ret = mutableListOf<BankAccountEntity>()
-    transaction {
-        BankAccountMapEntity.find {
-            BankAccountMapsTable.nexusUser eq id
-        }.forEach {
-            ret.add(it.bankAccount)
-        }
-    }
-    if (ret.isEmpty()) {
-        throw NexusError(
-            HttpStatusCode.NotFound,
-            "Such user '$id' does not have any bank account associated"
-        )
-    }
-    return ret
-}
 
 fun getEbicsSubscriberDetailsInternal(subscriber: EbicsSubscriberEntity): EbicsClientSubscriberDetails {
     var bankAuthPubValue: RSAPublicKey? = null
@@ -130,32 +86,18 @@ fun getEbicsSubscriberDetailsInternal(subscriber: EbicsSubscriberEntity): EbicsC
     )
 }
 
-fun getEbicsTransport(userId: String, transportId: String? = null): EbicsSubscriberEntity {
-    val transport = transaction {
-        if (transportId == null) {
-            return@transaction EbicsSubscriberEntity.find {
-                EbicsSubscribersTable.nexusUser eq userId
-            }.firstOrNull()
-        }
-        return@transaction EbicsSubscriberEntity.find {
-            EbicsSubscribersTable.id eq transportId and (EbicsSubscribersTable.nexusUser eq userId)
-        }.firstOrNull()
-    }
-        ?: throw NexusError(
-            HttpStatusCode.NotFound,
-            "Could not find ANY Ebics transport for user $userId"
-        )
-    return transport
-}
-
 /**
  * Retrieve Ebics subscriber details given a Transport
  * object and handling the default case (when this latter is null).
  */
-fun getEbicsSubscriberDetails(userId: String, transportId: String?): EbicsClientSubscriberDetails {
-    val transport = getEbicsTransport(userId, transportId)
+fun getEbicsSubscriberDetails(userId: String, transportId: String): EbicsClientSubscriberDetails {
+    val transport = NexusBankConnectionEntity.findById(transportId)
+    if (transport == null) {
+        throw NexusError(HttpStatusCode.NotFound, "transport not found")
+    }
+    val subscriber = EbicsSubscriberEntity.find { EbicsSubscribersTable.nexusBankConnection eq transport.id }.first()
     // transport exists and belongs to caller.
-    return getEbicsSubscriberDetailsInternal(transport)
+    return getEbicsSubscriberDetailsInternal(subscriber)
 }
 
 suspend fun downloadAndPersistC5xEbics(
@@ -164,9 +106,8 @@ suspend fun downloadAndPersistC5xEbics(
     userId: String,
     start: String?, // dashed date YYYY-MM(01-12)-DD(01-31)
     end: String?, // dashed date YYYY-MM(01-12)-DD(01-31)
-    transportId: String?
+    subscriberDetails: EbicsClientSubscriberDetails
 ) {
-    val subscriberDetails = getEbicsSubscriberDetails(userId, transportId)
     val orderParamsJson = EbicsStandardOrderParamsJson(
         EbicsDateRangeJson(start, end)
     )
@@ -188,6 +129,10 @@ suspend fun downloadAndPersistC5xEbics(
                 val fileName = it.first
                 val camt53doc = XMLUtil.parseStringIntoDom(it.second)
                 transaction {
+                    val user = NexusUserEntity.findById(userId)
+                    if (user == null) {
+                        throw NexusError(HttpStatusCode.NotFound, "user not found")
+                    }
                     RawBankTransactionEntity.new {
                         bankAccount = getBankAccountFromIban(
                             camt53doc.pickString(
@@ -203,7 +148,7 @@ suspend fun downloadAndPersistC5xEbics(
                         status = camt53doc.pickString("//*[local-name()='Ntry']//*[local-name()='Sts']")
                         bookingDate =
                             parseDashedDate(camt53doc.pickString("//*[local-name()='BookgDt']//*[local-name()='Dt']")).millis
-                        nexusUser = extractNexusUser(userId)
+                        nexusUser = user
                         counterpartIban =
                             camt53doc.pickString("//*[local-name()='${if (this.transactionType == "DBIT") "CdtrAcct" else "DbtrAcct"}']//*[local-name()='IBAN']")
                         counterpartName =
@@ -220,22 +165,6 @@ suspend fun downloadAndPersistC5xEbics(
             )
         }
     }
-}
-
-suspend fun submitPaymentEbics(
-    client: HttpClient,
-    userId: String,
-    transportId: String?,
-    pain001document: String
-) {
-    logger.debug("Uploading PAIN.001: ${pain001document}")
-    doEbicsUploadTransaction(
-        client,
-        getEbicsSubscriberDetails(userId, transportId),
-        "CCT",
-        pain001document.toByteArray(Charsets.UTF_8),
-        EbicsStandardOrderParams()
-    )
 }
 
 
@@ -394,10 +323,9 @@ fun getNexusUser(id: String): NexusUserEntity {
  * it will be the account whose money will pay the wire transfer being defined
  * by this pain document.
  */
-fun addPreparedPayment(paymentData: Pain001Data, nexusUser: NexusUserEntity): PreparedPaymentEntity {
+fun addPreparedPayment(paymentData: Pain001Data, debitorAccount: BankAccountEntity): PreparedPaymentEntity {
     val randomId = Random().nextLong()
     return transaction {
-        val debitorAccount = getBankAccount(nexusUser.id.value, paymentData.debitorAccount)
         PreparedPaymentEntity.new(randomId.toString()) {
             subject = paymentData.subject
             sum = paymentData.sum
@@ -410,7 +338,6 @@ fun addPreparedPayment(paymentData: Pain001Data, nexusUser: NexusUserEntity): Pr
             preparationDate = DateTime.now().millis
             paymentId = randomId
             endToEndId = randomId
-            this.nexusUser = nexusUser
         }
     }
 }
@@ -421,25 +348,12 @@ fun ensureNonNull(param: String?): String {
     )
 }
 
-/* Needs a transaction{} block to be called */
-fun extractNexusUser(param: String?): NexusUserEntity {
-    if (param == null) {
-        throw NexusError(HttpStatusCode.BadRequest, "Null Id given")
-    }
-    return transaction {
-        NexusUserEntity.findById(param) ?: throw NexusError(
-            HttpStatusCode.NotFound,
-            "Subscriber: $param not found"
-        )
-    }
-}
-
 /**
  * This helper function parses a Authorization:-header line, decode the credentials
  * and returns a pair made of username and hashed (sha256) password.  The hashed value
  * will then be compared with the one kept into the database.
  */
-fun extractUserAndHashedPassword(authorizationHeader: String): Pair<String, String> {
+fun extractUserAndPassword(authorizationHeader: String): Pair<String, String> {
     logger.debug("Authenticating: $authorizationHeader")
     val (username, password) = try {
         val split = authorizationHeader.split(" ")
@@ -461,11 +375,12 @@ fun extractUserAndHashedPassword(authorizationHeader: String): Pair<String, Stri
  * @param authorization the Authorization:-header line.
  * @return user id
  */
-fun authenticateRequest(authorization: String?): NexusUserEntity {
+fun authenticateRequest(request: ApplicationRequest): NexusUserEntity {
+    val authorization = request.headers["Authorization"]
     val headerLine = if (authorization == null) throw NexusError(
         HttpStatusCode.BadRequest, "Authentication:-header line not found"
     ) else authorization
-    val (username, password) = extractUserAndHashedPassword(headerLine)
+    val (username, password) = extractUserAndPassword(headerLine)
     val user = NexusUserEntity.find {
         NexusUsersTable.id eq username
     }.firstOrNull()
@@ -478,22 +393,6 @@ fun authenticateRequest(authorization: String?): NexusUserEntity {
     return user
 }
 
-
-/**
- * Check if the subscriber has the right to use the (claimed) bank account.
- * @param subscriber id of the EBICS subscriber to check
- * @param bankAccount id of the claimed bank account
- * @return true if the subscriber can use the bank account.
- */
-fun subscriberHasRights(subscriber: EbicsSubscriberEntity, bankAccount: BankAccountEntity): Boolean {
-    val row = transaction {
-        BankAccountMapEntity.find {
-            BankAccountMapsTable.bankAccount eq bankAccount.id and
-                    (BankAccountMapsTable.ebicsSubscriber eq subscriber.id)
-        }.firstOrNull()
-    }
-    return row != null
-}
 
 fun getBankAccountFromIban(iban: String): BankAccountEntity {
     return transaction {
@@ -508,12 +407,6 @@ fun getBankAccountFromIban(iban: String): BankAccountEntity {
 
 /** Check if the nexus user is allowed to use the claimed bank account.  */
 fun userHasRights(nexusUser: NexusUserEntity, iban: String): Boolean {
-    val row = transaction {
-        val bankAccount = getBankAccountFromIban(iban)
-        BankAccountMapEntity.find {
-            BankAccountMapsTable.bankAccount eq bankAccount.id and
-                    (BankAccountMapsTable.nexusUser eq nexusUser.id)
-        }.firstOrNull()
-    }
-    return row != null
+    // FIXME: implement permissions
+    return true
 }

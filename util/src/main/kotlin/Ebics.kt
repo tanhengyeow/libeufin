@@ -488,6 +488,14 @@ fun makeEbicsHEVRequest(subscriberDetails: EbicsClientSubscriberDetails): String
     return XMLUtil.convertDomToString(doc)
 }
 
+fun makeEbicsHEVRequestRaw(hostID: String): String {
+    val req = HEVRequest().apply {
+        hostId = hostId
+    }
+    val doc = XMLUtil.convertJaxbToDocument(req)
+    return XMLUtil.convertDomToString(doc)
+}
+
 fun parseEbicsHEVResponse(respStr: String): EbicsHevDetails {
     val resp = try {
         XMLUtil.convertStringToJaxb<HEVResponse>(respStr)

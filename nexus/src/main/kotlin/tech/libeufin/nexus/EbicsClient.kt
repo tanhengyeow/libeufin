@@ -1,3 +1,6 @@
+/**
+ * High-level interface for the EBICS protocol.
+ */
 package tech.libeufin.nexus
 
 import io.ktor.client.HttpClient
@@ -6,7 +9,7 @@ import io.ktor.http.HttpStatusCode
 import tech.libeufin.util.*
 import java.util.*
 
-suspend inline fun HttpClient.postToBank(url: String, body: String): String {
+private suspend inline fun HttpClient.postToBank(url: String, body: String): String {
     logger.debug("Posting: $body")
     val response: String = try {
         this.post<String>(
@@ -58,7 +61,10 @@ suspend fun doEbicsDownloadTransaction(
             // Success, nothing to do!
         }
         else -> {
-            throw NexusError(HttpStatusCode.InternalServerError, "unexpected return code ${initResponse.technicalReturnCode}")
+            throw NexusError(
+                HttpStatusCode.InternalServerError,
+                "unexpected return code ${initResponse.technicalReturnCode}"
+            )
         }
     }
 
@@ -73,13 +79,19 @@ suspend fun doEbicsDownloadTransaction(
     }
 
     val transactionID =
-        initResponse.transactionID ?: throw NexusError(HttpStatusCode.InternalServerError, "initial response must contain transaction ID")
+        initResponse.transactionID ?: throw NexusError(
+            HttpStatusCode.InternalServerError,
+            "initial response must contain transaction ID"
+        )
 
     val encryptionInfo = initResponse.dataEncryptionInfo
         ?: throw NexusError(HttpStatusCode.InternalServerError, "initial response did not contain encryption info")
 
     val initOrderDataEncChunk = initResponse.orderDataEncChunk
-        ?: throw NexusError(HttpStatusCode.InternalServerError,"initial response for download transaction does not contain data transfer")
+        ?: throw NexusError(
+            HttpStatusCode.InternalServerError,
+            "initial response for download transaction does not contain data transfer"
+        )
 
     payloadChunks.add(initOrderDataEncChunk)
 
@@ -97,7 +109,7 @@ suspend fun doEbicsDownloadTransaction(
         EbicsReturnCode.EBICS_DOWNLOAD_POSTPROCESS_DONE -> {
         }
         else -> {
-            throw NexusError(HttpStatusCode.InternalServerError,"unexpected return code")
+            throw NexusError(HttpStatusCode.InternalServerError, "unexpected return code")
         }
     }
     return EbicsDownloadSuccessResult(respPayload)
@@ -124,7 +136,10 @@ suspend fun doEbicsUploadTransaction(
     }
 
     val transactionID =
-        initResponse.transactionID ?: throw NexusError(HttpStatusCode.InternalServerError,"init response must have transaction ID")
+        initResponse.transactionID ?: throw NexusError(
+            HttpStatusCode.InternalServerError,
+            "init response must have transaction ID"
+        )
 
     logger.debug("INIT phase passed!")
     /* now send actual payload */
@@ -147,7 +162,58 @@ suspend fun doEbicsUploadTransaction(
         EbicsReturnCode.EBICS_OK -> {
         }
         else -> {
-            throw NexusError(HttpStatusCode.InternalServerError,"unexpected return code")
+            throw NexusError(HttpStatusCode.InternalServerError, "unexpected return code")
         }
     }
+}
+
+suspend fun doEbicsHostVersionQuery(client: HttpClient, ebicsBaseUrl: String, ebicsHostId: String): EbicsHevDetails {
+    val ebicsHevRequest = makeEbicsHEVRequestRaw(ebicsHostId)
+    val resp = client.postToBank(ebicsBaseUrl, ebicsHevRequest)
+    val versionDetails = parseEbicsHEVResponse(resp)
+    return versionDetails
+}
+
+suspend fun doEbicsIniRequest(
+    client: HttpClient,
+    subscriberDetails: EbicsClientSubscriberDetails
+): EbicsKeyManagementResponseContent {
+    val request = makeEbicsIniRequest(subscriberDetails)
+    val respStr = client.postToBank(
+        subscriberDetails.ebicsUrl,
+        request
+    )
+    val resp = parseAndDecryptEbicsKeyManagementResponse(subscriberDetails, respStr)
+    return resp
+}
+
+suspend fun doEbicsHiaRequest(
+    client: HttpClient,
+    subscriberDetails: EbicsClientSubscriberDetails
+): EbicsKeyManagementResponseContent {
+    val request = makeEbicsHiaRequest(subscriberDetails)
+    val respStr = client.postToBank(
+        subscriberDetails.ebicsUrl,
+        request
+    )
+    val resp = parseAndDecryptEbicsKeyManagementResponse(subscriberDetails, respStr)
+    return resp
+}
+
+
+suspend fun doEbicsHpbRequest(
+    client: HttpClient,
+    subscriberDetails: EbicsClientSubscriberDetails
+): HpbResponseData {
+    val request = makeEbicsHpbRequest(subscriberDetails)
+    val respStr = client.postToBank(
+        subscriberDetails.ebicsUrl,
+        request
+    )
+    val parsedResponse = parseAndDecryptEbicsKeyManagementResponse(subscriberDetails, respStr)
+    val orderData = parsedResponse.orderData ?: throw NexusError(
+        HttpStatusCode.InternalServerError,
+        "Cannot find data in a HPB response"
+    )
+    return parseEbicsHpbOrder(orderData)
 }

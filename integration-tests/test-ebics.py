@@ -19,7 +19,7 @@ import base64
 #  -> (a) Make a Nexus user, (b) make a EBICS subscriber
 #     associated to that user
 #
-# 2 Prepare the Ebics transport for the nexus user.
+# 2 Prepare the Ebics bank connection for the nexus user.
 #  -> (a) Upload keys from Nexus to the Bank (INI & HIA),
 #     (b) Download key from the Bank (HPB) to the Nexus,
 #     and (c) Fetch the bank account owned by that subscriber
@@ -178,12 +178,15 @@ assertResponse(
     )
 )
 
-# 1.b, make a ebics transport for the new user.
+print("creating bank connection")
+
+# 1.b, make a ebics bank connection for the new user.
 assertResponse(
     post(
-        "http://localhost:5001/bank-transports",
+        "http://localhost:5001/bank-connections",
         json=dict(
-            transport=dict(name="my-ebics", type="ebics"),
+            name="my-ebics",
+            type="ebics",
             data=dict(
                 ebicsURL=EBICS_URL, hostID=HOST_ID, partnerID=PARTNER_ID, userID=USER_ID
             ),
@@ -192,19 +195,21 @@ assertResponse(
     )
 )
 
+print("sending ini")
+
 # 2.a, upload keys to the bank (INI & HIA)
 assertResponse(
     post(
-        "http://localhost:5001/bank-transports/sendINI",
-        json=dict(type="ebics", name="my-ebics"),
+        "http://localhost:5001/bank-connections/my-ebics/ebics/send-ini",
+        json=dict(),
         headers=dict(Authorization=USER_AUTHORIZATION_HEADER),
     )
 )
 
 assertResponse(
     post(
-        "http://localhost:5001/bank-transports/sendHIA",
-        json=dict(type="ebics", name="my-ebics"),
+        "http://localhost:5001/bank-connections/my-ebics/ebics/send-hia",
+        json=dict(),
         headers=dict(Authorization=USER_AUTHORIZATION_HEADER),
     )
 )
@@ -212,8 +217,8 @@ assertResponse(
 # 2.b, download keys from the bank (HPB)
 assertResponse(
     post(
-        "http://localhost:5001/bank-transports/syncHPB",
-        json=dict(type="ebics", name="my-ebics"),
+        "http://localhost:5001/bank-connections/my-ebics/ebics/send-hpb",
+        json=dict(),
         headers=dict(Authorization=USER_AUTHORIZATION_HEADER),
     )
 )
@@ -221,8 +226,8 @@ assertResponse(
 # 2.c, fetch bank account information
 assertResponse(
     post(
-        "http://localhost:5001/bank-transports/syncHTD",
-        json=dict(type="ebics", name="my-ebics"),
+        "http://localhost:5001/bank-connections/my-ebics/ebics/import-accounts",
+        json=dict(),
         headers=dict(Authorization=USER_AUTHORIZATION_HEADER),
     )
 )
@@ -230,8 +235,8 @@ assertResponse(
 # 3, ask nexus to download history
 assertResponse(
     post(
-        "http://localhost:5001/bank-accounts/collected-transactions",
-        json=dict(transport=dict(type="ebics", name="my-ebics")),
+        f"http://localhost:5001/bank-accounts/{BANK_ACCOUNT_LABEL}/fetch-transactions",
+        json=dict(),
         headers=dict(Authorization=USER_AUTHORIZATION_HEADER),
     )
 )
@@ -239,9 +244,7 @@ assertResponse(
 # 4, make sure history is empty
 resp = assertResponse(
     get(
-        "http://localhost:5001/bank-accounts/{}/collected-transactions".format(
-            BANK_ACCOUNT_LABEL
-        ),
+        f"http://localhost:5001/bank-accounts/{BANK_ACCOUNT_LABEL}/transactions",
         headers=dict(Authorization=USER_AUTHORIZATION_HEADER),
     )
 )
@@ -271,8 +274,8 @@ if PREPARED_PAYMENT_UUID == None:
 # 5.b, submit prepared statement
 assertResponse(
     post(
-        "http://localhost:5001/bank-accounts/prepared-payments/submit",
-        json=dict(uuid=PREPARED_PAYMENT_UUID),
+        f"http://localhost:5001/bank-accounts/{BANK_ACCOUNT_LABEL}/prepared-payments/{PREPARED_PAYMENT_UUID}/submit",
+        json=dict(),
         headers=dict(Authorization=USER_AUTHORIZATION_HEADER),
     )
 )
@@ -280,7 +283,7 @@ assertResponse(
 # 6, request history after payment submission
 assertResponse(
     post(
-        "http://localhost:5001/bank-accounts/collected-transactions",
+        f"http://localhost:5001/bank-accounts/{BANK_ACCOUNT_LABEL}/fetch-transactions",
         json=dict(),
         headers=dict(Authorization=USER_AUTHORIZATION_HEADER),
     )
@@ -288,9 +291,7 @@ assertResponse(
 
 resp = assertResponse(
     get(
-        "http://localhost:5001/bank-accounts/{}/collected-transactions".format(
-            BANK_ACCOUNT_LABEL
-        ),
+        f"http://localhost:5001/bank-accounts/{BANK_ACCOUNT_LABEL}/transactions",
         headers=dict(Authorization=USER_AUTHORIZATION_HEADER),
     )
 )
