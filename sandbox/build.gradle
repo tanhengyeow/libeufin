@@ -9,7 +9,6 @@ targetCompatibility = "11"
 version '1.0-snapshot'
 
 compileKotlin {
-
     kotlinOptions {
         jvmTarget = "11"
     }
@@ -25,12 +24,11 @@ sourceSets {
     main.java.srcDirs = ['src/main/java', 'src/main/kotlin']
 }
 
+def ktor_version = "1.3.2"
+
 dependencies {
     implementation "org.jetbrains.kotlin:kotlin-stdlib-jdk8"
-    implementation "io.ktor:ktor-gson:1.1.5"
-    implementation group: 'io.ktor', name: 'ktor-gson', version: '0.9.0'
     implementation "org.jetbrains.exposed:exposed:0.17.6"
-    implementation "io.ktor:ktor-server-netty:1.2.4"
     implementation "ch.qos.logback:logback-classic:1.2.3"
     implementation group: 'javax.xml.bind', name: 'jaxb-api', version: '2.3.1'
     implementation "javax.xml.bind:jaxb-api:2.3.0"
@@ -42,9 +40,14 @@ dependencies {
     implementation group: 'org.xerial', name: 'sqlite-jdbc', version: '3.28.0'
     implementation group: 'org.apache.commons', name: 'commons-compress', version: '1.20'
 
-    testImplementation group: 'junit', name: 'junit', version: '4.12'
+    implementation "io.ktor:ktor-server-core:$ktor_version"
+    implementation "io.ktor:ktor-client-apache:$ktor_version"
+    implementation "io.ktor:ktor-server-netty:$ktor_version"
+    implementation "io.ktor:ktor-jackson:$ktor_version"
+
     testImplementation 'org.jetbrains.kotlin:kotlin-test-junit:1.3.50'
     testImplementation 'org.jetbrains.kotlin:kotlin-test:1.3.50'
+    testImplementation group: "junit", name: "junit", version: "4.12"
 
     implementation project(":util")
 }
