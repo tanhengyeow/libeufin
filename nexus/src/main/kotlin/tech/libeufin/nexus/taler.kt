@@ -1,6 +1,6 @@
 package tech.libeufin.nexus
 
-import com.google.gson.Gson
+import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
 import io.ktor.application.call
 import io.ktor.content.TextContent
 import io.ktor.http.ContentType
@@ -186,7 +186,7 @@ class Taler(app: Route) {
      * string (what this function does), and use the simpler respondText method.
      */
     private fun customConverter(body: Any): String {
-        return Gson().toJson(body)
+        return jacksonObjectMapper().writeValueAsString(body)
     }
 
     /**
