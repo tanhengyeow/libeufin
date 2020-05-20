@@ -461,7 +461,10 @@ private fun handleCct(paymentRequest: String) {
             this.debitorIban = debitorIban
             this.subject = subject
             this.amount = amount
-            this.date = DateTime.now().millis
+            /** For now, the date discards any
+             * information about hours and minor units of time.
+             */
+            this.date = parseDashedDate(DateTime.now().toDashedDate()).millis
         }
     }
 }

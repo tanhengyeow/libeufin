@@ -183,6 +183,7 @@ class Serve : CliktCommand("Run nexus HTTP server") {
     }
 }
 
+
 class Superuser : CliktCommand("Add superuser or change pw") {
     private val username by argument()
     private val password by option().prompt(requireConfirmation = true, hideInput = true)
