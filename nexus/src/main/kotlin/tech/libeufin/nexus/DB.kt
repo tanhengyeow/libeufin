@@ -91,7 +91,6 @@ class TalerIncomingPaymentEntity(id: EntityID<Long>) : LongEntity(id) {
  * CAMT message.
  */
 object RawBankTransactionsTable : LongIdTable() {
-    val nexusUser = reference("nexusUser", NexusUsersTable)
     val unstructuredRemittanceInformation = text("unstructuredRemittanceInformation")
     val transactionType = text("transactionType") /* DBIT or CRDT */
     val currency = text("currency")
@@ -115,7 +114,6 @@ class RawBankTransactionEntity(id: EntityID<Long>) : LongEntity(id) {
     var counterpartBic by RawBankTransactionsTable.counterpartBic
     var counterpartName by RawBankTransactionsTable.counterpartName
     var bookingDate by RawBankTransactionsTable.bookingDate
-    var nexusUser by NexusUserEntity referencedOn RawBankTransactionsTable.nexusUser
     var status by RawBankTransactionsTable.status
     var bankAccount by BankAccountEntity referencedOn RawBankTransactionsTable.bankAccount
 }

@@ -104,20 +104,16 @@ fun getEbicsSubscriberDetails(userId: String, transportId: String): EbicsClientS
 
 // FIXME(dold):  This should put stuff under *fixed* bank account, not some we find via the IBAN.
 fun processCamtMessage(
-    userId: String,
+    bankAccountId: String,
     camt53doc: Document
 ) {
     transaction {
-        val user = NexusUserEntity.findById(userId)
-        if (user == null) {
+        val acct = BankAccountEntity.findById(bankAccountId)
+        if (acct == null) {
             throw NexusError(HttpStatusCode.NotFound, "user not found")
         }
         RawBankTransactionEntity.new {
-            bankAccount = getBankAccountFromIban(
-                camt53doc.pickString(
-                    "//*[local-name()='Stmt']/*[local-name()='Acct']/*[local-name()='Id']/*[local-name()='IBAN']"
-                )
-            )
+            bankAccount = acct
             unstructuredRemittanceInformation =
                 camt53doc.pickString("//*[local-name()='Ntry']//*[local-name()='Ustrd']")
             transactionType = camt53doc.pickString("//*[local-name()='Ntry']//*[local-name()='CdtDbtInd']")
@@ -126,7 +122,6 @@ fun processCamtMessage(
             status = camt53doc.pickString("//*[local-name()='Ntry']//*[local-name()='Sts']")
             bookingDate =
                 parseDashedDate(camt53doc.pickString("//*[local-name()='BookgDt']//*[local-name()='Dt']")).millis
-            nexusUser = user
             counterpartIban =
                 camt53doc.pickString("//*[local-name()='${if (this.transactionType == "DBIT") "CdtrAcct" else "DbtrAcct"}']//*[local-name()='IBAN']")
             counterpartName =
@@ -139,7 +134,8 @@ fun processCamtMessage(
 suspend fun downloadAndPersistC5xEbics(
     historyType: String,
     client: HttpClient,
-    userId: String,
+    bankAccountId: String,
+    bankConnectionId: String,
     start: String?, // dashed date YYYY-MM(01-12)-DD(01-31)
     end: String?, // dashed date YYYY-MM(01-12)-DD(01-31)
     subscriberDetails: EbicsClientSubscriberDetails
@@ -163,7 +159,7 @@ suspend fun downloadAndPersistC5xEbics(
             response.orderData.unzipWithLambda {
                 logger.debug("Camt entry: ${it.second}")
                 val camt53doc = XMLUtil.parseStringIntoDom(it.second)
-                processCamtMessage(userId, camt53doc)
+                processCamtMessage(bankAccountId, camt53doc)
             }
         }
         is EbicsDownloadBankErrorResult -> {
@@ -399,22 +395,4 @@ fun authenticateRequest(request: ApplicationRequest): NexusUserEntity {
         throw NexusError(HttpStatusCode.Forbidden, "Wrong password")
     }
     return user
-}
-
-
-fun getBankAccountFromIban(iban: String): BankAccountEntity {
-    return transaction {
-        BankAccountEntity.find {
-            BankAccountsTable.iban eq iban
-        }.firstOrNull() ?: throw NexusError(
-            HttpStatusCode.NotFound,
-            "Bank account with IBAN '$iban' not found"
-        )
-    }
-}
-
-/** Check if the nexus user is allowed to use the claimed bank account.  */
-fun userHasRights(nexusUser: NexusUserEntity, iban: String): Boolean {
-    // FIXME: implement permissions
-    return true
 }

@@ -534,7 +534,8 @@ fun serverMain() {
                         downloadAndPersistC5xEbics(
                             "C53",
                             client,
-                            res.userId,
+                            accountid,
+                            res.connectionName,
                             body.start,
                             body.end,
                             res.subscriberDetails
@@ -560,8 +561,7 @@ fun serverMain() {
                 transaction {
                     val userId = transaction { authenticateRequest(call.request).id.value }
                     RawBankTransactionEntity.find {
-                        RawBankTransactionsTable.nexusUser eq userId and
-                                (RawBankTransactionsTable.bankAccount eq bankAccount) and
+                        (RawBankTransactionsTable.bankAccount eq bankAccount) and
                                 RawBankTransactionsTable.bookingDate.between(
                                     parseDashedDate(start ?: "1970-01-01").millis,
                                     parseDashedDate(end ?: DateTime.now().toDashedDate()).millis
