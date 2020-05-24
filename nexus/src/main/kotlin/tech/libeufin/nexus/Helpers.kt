@@ -3,6 +3,7 @@ package tech.libeufin.nexus
 import io.ktor.client.HttpClient
 import io.ktor.http.HttpStatusCode
 import io.ktor.request.ApplicationRequest
+import org.jetbrains.exposed.sql.SortOrder
 import org.jetbrains.exposed.sql.and
 import org.jetbrains.exposed.sql.transactions.transaction
 import org.joda.time.DateTime
@@ -15,6 +16,7 @@ import java.time.ZoneId
 import java.time.ZonedDateTime
 import java.time.format.DateTimeFormatter
 import java.util.*
+import javax.sql.rowset.serial.SerialBlob
 
 fun isProduction(): Boolean {
     return System.getenv("NEXUS_PRODUCTION") != null
@@ -102,13 +104,12 @@ fun getEbicsSubscriberDetails(userId: String, transportId: String): EbicsClientS
     return getEbicsSubscriberDetailsInternal(subscriber)
 }
 
-// FIXME(dold):  This should put stuff under *fixed* bank account, not some we find via the IBAN.
 fun processCamtMessage(
     bankAccountId: String,
     camt53doc: Document
 ) {
     transaction {
-        val acct = BankAccountEntity.findById(bankAccountId)
+        val acct = NexusBankAccountEntity.findById(bankAccountId)
         if (acct == null) {
             throw NexusError(HttpStatusCode.NotFound, "user not found")
         }
@@ -131,10 +132,44 @@ fun processCamtMessage(
     }
 }
 
-suspend fun downloadAndPersistC5xEbics(
+/**
+ * Create new transactions for an account based on bank messages it
+ * did not see before.
+ */
+fun ingestBankMessagesIntoAccount(
+    bankConnectionId: String,
+    bankAccountId: String
+) {
+    transaction {
+        val conn = NexusBankConnectionEntity.findById(bankConnectionId)
+        if (conn == null) {
+            throw NexusError(HttpStatusCode.InternalServerError, "connection not found")
+        }
+        val acct = NexusBankAccountEntity.findById(bankAccountId)
+        if (acct == null) {
+            throw NexusError(HttpStatusCode.InternalServerError, "account not found")
+        }
+        var lastId = acct.highestSeenBankMessageId
+        NexusBankMessageEntity.find {
+            (NexusBankMessagesTable.bankConnection eq conn.id) and
+                (NexusBankMessagesTable.id greater acct.highestSeenBankMessageId)
+        }.orderBy(Pair(NexusBankMessagesTable.id, SortOrder.ASC)).forEach {
+            // FIXME: check if it's CAMT first!
+            val doc = XMLUtil.parseStringIntoDom(it.message.toByteArray().toString(Charsets.UTF_8))
+            processCamtMessage(bankAccountId, doc)
+            lastId = it.id.value
+        }
+        acct.highestSeenBankMessageId = lastId
+    }
+
+}
+
+/**
+ * Fetch EBICS C5x and store it locally, but do not update bank accounts.
+ */
+suspend fun fetchEbicsC5x(
     historyType: String,
     client: HttpClient,
-    bankAccountId: String,
     bankConnectionId: String,
     start: String?, // dashed date YYYY-MM(01-12)-DD(01-31)
     end: String?, // dashed date YYYY-MM(01-12)-DD(01-31)
@@ -159,7 +194,23 @@ suspend fun downloadAndPersistC5xEbics(
             response.orderData.unzipWithLambda {
                 logger.debug("Camt entry: ${it.second}")
                 val camt53doc = XMLUtil.parseStringIntoDom(it.second)
-                processCamtMessage(bankAccountId, camt53doc)
+                val msgId = camt53doc.pickStringWithRootNs("/*[1]/*[1]/root:GrpHdr/root:MsgId")
+                logger.info("msg id $msgId")
+                transaction {
+                    val conn = NexusBankConnectionEntity.findById(bankConnectionId)
+                    if (conn == null) {
+                        throw NexusError(HttpStatusCode.InternalServerError, "bank connection missing")
+                    }
+                    val oldMsg = NexusBankMessageEntity.find { NexusBankMessagesTable.messageId eq msgId }.firstOrNull()
+                    if (oldMsg == null) {
+                        NexusBankMessageEntity.new {
+                            this.bankConnection = conn
+                            this.code = "C53"
+                            this.messageId = msgId
+                            this.message = SerialBlob(it.second.toByteArray(Charsets.UTF_8))
+                        }
+                    }
+                }
             }
         }
         is EbicsDownloadBankErrorResult -> {
@@ -191,9 +242,9 @@ fun createPain001document(paymentData: PreparedPaymentEntity): String {
      * PAIN id types.
      */
     val debitorBankAccountLabel = transaction {
-        val debitorBankAcount = BankAccountEntity.find {
-            BankAccountsTable.iban eq paymentData.debitorIban and
-                    (BankAccountsTable.bankCode eq paymentData.debitorBic)
+        val debitorBankAcount = NexusBankAccountEntity.find {
+            NexusBankAccountsTable.iban eq paymentData.debitorIban and
+                    (NexusBankAccountsTable.bankCode eq paymentData.debitorBic)
         }.firstOrNull() ?: throw NexusError(
             HttpStatusCode.NotFound,
             "Please download bank accounts details first (HTD)"
@@ -327,7 +378,7 @@ fun getNexusUser(id: String): NexusUserEntity {
  * it will be the account whose money will pay the wire transfer being defined
  * by this pain document.
  */
-fun addPreparedPayment(paymentData: Pain001Data, debitorAccount: BankAccountEntity): PreparedPaymentEntity {
+fun addPreparedPayment(paymentData: Pain001Data, debitorAccount: NexusBankAccountEntity): PreparedPaymentEntity {
     val randomId = Random().nextLong()
     return transaction {
         PreparedPaymentEntity.new(randomId.toString()) {

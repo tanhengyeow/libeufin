@@ -420,11 +420,37 @@ class XMLUtil private constructor() {
             if (ret.isEmpty()) {
                 throw EbicsProtocolError(HttpStatusCode.NotFound, "Unsuccessful XPath query string: $query")
             }
-            return ret as String
+            return ret
         }
     }
 }
 
 fun Document.pickString(xpath: String): String {
     return XMLUtil.getStringFromXpath(this, xpath)
+}
+
+fun Document.pickStringWithRootNs(xpathQuery: String): String {
+    val doc = this
+    val xpath = XPathFactory.newInstance().newXPath()
+    xpath.namespaceContext = object : NamespaceContext {
+        override fun getNamespaceURI(p0: String?): String {
+            return when (p0) {
+                "root" -> doc.documentElement.namespaceURI
+                else -> throw IllegalArgumentException()
+            }
+        }
+
+        override fun getPrefix(p0: String?): String {
+            throw UnsupportedOperationException()
+        }
+
+        override fun getPrefixes(p0: String?): MutableIterator<String> {
+            throw UnsupportedOperationException()
+        }
+    }
+    val ret = xpath.evaluate(xpathQuery, this, XPathConstants.STRING) as String
+    if (ret.isEmpty()) {
+        throw EbicsProtocolError(HttpStatusCode.NotFound, "Unsuccessful XPath query string: $xpathQuery")
+    }
+    return ret
 }

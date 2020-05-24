@@ -243,6 +243,15 @@ data class BankAccounts(
     var accounts: MutableList<BankAccount> = mutableListOf()
 )
 
+data class BankMessageList(
+    val bankMessages: MutableList<BankMessageInfo> = mutableListOf()
+)
+
+data class BankMessageInfo(
+    val messageId: String,
+    val code: String,
+    val length: Long
+)
 
 /**********************************************************************
  * Convenience types (ONLY used to gather data together in one place) *

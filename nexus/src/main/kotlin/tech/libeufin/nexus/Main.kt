@@ -368,7 +368,7 @@ fun serverMain() {
                 transaction {
                     authenticateRequest(call.request)
                     // FIXME(dold): Only return accounts the user has at least read access to?
-                    BankAccountEntity.all().forEach {
+                    NexusBankAccountEntity.all().forEach {
                         bankAccounts.accounts.add(BankAccount(it.accountHolder, it.iban, it.bankCode, it.id.value))
                     }
                 }
@@ -391,7 +391,7 @@ fun serverMain() {
                             "Payment ${uuid} was submitted already"
                         )
                     }
-                    val bankAccount = BankAccountEntity.findById(accountId)
+                    val bankAccount = NexusBankAccountEntity.findById(accountId)
                     if (bankAccount == null) {
                         throw NexusError(HttpStatusCode.NotFound, "unknown bank account")
                     }
@@ -465,7 +465,7 @@ fun serverMain() {
                 val accountId = ensureNonNull(call.parameters["accountid"])
                 val res = transaction {
                     authenticateRequest(call.request)
-                    val bankAccount = BankAccountEntity.findById(accountId)
+                    val bankAccount = NexusBankAccountEntity.findById(accountId)
                     if (bankAccount == null) {
                         throw NexusError(HttpStatusCode.NotFound, "unknown bank account")
                     }
@@ -506,7 +506,7 @@ fun serverMain() {
                 }
                 val res = transaction {
                     val user = authenticateRequest(call.request)
-                    val acct = BankAccountEntity.findById(accountid)
+                    val acct = NexusBankAccountEntity.findById(accountid)
                     if (acct == null) {
                         throw NexusError(
                             HttpStatusCode.NotFound,
@@ -531,15 +531,8 @@ fun serverMain() {
                 val body = call.receive<CollectedTransaction>()
                 when (res.connectionType) {
                     "ebics" -> {
-                        downloadAndPersistC5xEbics(
-                            "C53",
-                            client,
-                            accountid,
-                            res.connectionName,
-                            body.start,
-                            body.end,
-                            res.subscriberDetails
-                        )
+                        fetchEbicsC5x("C53",client, res.connectionName, body.start, body.end, res.subscriberDetails)
+                        ingestBankMessagesIntoAccount(res.connectionName, accountid)
                     }
                     else -> throw NexusError(
                         HttpStatusCode.BadRequest,
@@ -769,21 +762,34 @@ fun serverMain() {
                 call.respond(object {})
             }
 
-            post("/bank-connections/{connid}/ebics/fetch-c52") {
-                val paramsJson = call.receiveOrNull<EbicsStandardOrderParamsJson>()
-                val orderParams = if (paramsJson == null) {
-                    EbicsStandardOrderParams()
-                } else {
-                    paramsJson.toOrderParams()
+            get("/bank-connections/{connid}/messages") {
+                val ret = transaction {
+                    val list = BankMessageList()
+                    val conn = requireBankConnection(call, "connid")
+                    NexusBankMessageEntity.find { NexusBankMessagesTable.bankConnection eq conn.id }.map {
+                        list.bankMessages.add(BankMessageInfo(it.messageId, it.code, it.message.length()))
+                    }
+                    list
                 }
-                val subscriberDetails = transaction {
+                call.respond(ret)
+            }
+
+            post("/bank-connections/{connid}/ebics/fetch-c53") {
+                val paramsJson = call.receiveOrNull<EbicsDateRangeJson>()
+                val ret = transaction {
                     val user = authenticateRequest(call.request)
                     val conn = requireBankConnection(call, "connid")
                     if (conn.type != "ebics") {
                         throw NexusError(HttpStatusCode.BadRequest, "bank connection is not of type 'ebics'")
                     }
-                    getEbicsSubscriberDetails(user.id.value, conn.id.value)
+                    object {
+                        val subscriber = getEbicsSubscriberDetails(user.id.value, conn.id.value)
+                        val connId = conn.id.value
+                    }
+
                 }
+                fetchEbicsC5x("C53", client, ret.connId, paramsJson?.start, paramsJson?.end, ret.subscriber)
+                call.respond(object {})
             }
 
             post("/bank-connections/{connid}/ebics/send-ini") {
@@ -877,7 +883,7 @@ fun serverMain() {
                         transaction {
                             val conn = requireBankConnection(call, "connid")
                             payload.value.partnerInfo.accountInfoList?.forEach {
-                                val bankAccount = BankAccountEntity.new(id = it.id) {
+                                val bankAccount = NexusBankAccountEntity.new(id = it.id) {
                                     accountHolder = it.accountHolder ?: "NOT-GIVEN"
                                     iban = extractFirstIban(it.accountNumberList)
                                         ?: throw NexusError(HttpStatusCode.NotFound, reason = "bank gave no IBAN")
@@ -886,6 +892,7 @@ fun serverMain() {
                                         reason = "bank gave no BIC"
                                     )
                                     defaultBankConnection = conn
+                                    highestSeenBankMessageId = 0
                                 }
                             }
                         }

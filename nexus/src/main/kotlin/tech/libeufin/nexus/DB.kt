@@ -87,6 +87,26 @@ class TalerIncomingPaymentEntity(id: EntityID<Long>) : LongEntity(id) {
 }
 
 /**
+ * Table that stores all messages we receive from the bank.
+ */
+object NexusBankMessagesTable : IntIdTable() {
+    val bankConnection = reference("bankConnection", NexusBankConnectionsTable)
+    // Unique identifier for the message within the bank connection
+    val messageId = text("messageId")
+    val code = text("code")
+    val message = blob("message")
+}
+
+class NexusBankMessageEntity(id: EntityID<Int>) : IntEntity(id) {
+    companion object : IntEntityClass<NexusBankMessageEntity>(NexusBankMessagesTable)
+
+    var bankConnection by NexusBankConnectionEntity referencedOn NexusBankMessagesTable.bankConnection
+    var messageId by NexusBankMessagesTable.messageId
+    var code by NexusBankMessagesTable.code
+    var message by NexusBankMessagesTable.message
+}
+
+/**
  * This table contains history "elements" as returned by the bank from a
  * CAMT message.
  */
@@ -100,7 +120,7 @@ object RawBankTransactionsTable : LongIdTable() {
     val counterpartName = text("counterpartName")
     val bookingDate = long("bookingDate")
     val status = text("status") // BOOK or other.
-    val bankAccount = reference("bankAccount", BankAccountsTable)
+    val bankAccount = reference("bankAccount", NexusBankAccountsTable)
 }
 
 class RawBankTransactionEntity(id: EntityID<Long>) : LongEntity(id) {
@@ -115,7 +135,7 @@ class RawBankTransactionEntity(id: EntityID<Long>) : LongEntity(id) {
     var counterpartName by RawBankTransactionsTable.counterpartName
     var bookingDate by RawBankTransactionsTable.bookingDate
     var status by RawBankTransactionsTable.status
-    var bankAccount by BankAccountEntity referencedOn RawBankTransactionsTable.bankAccount
+    var bankAccount by NexusBankAccountEntity referencedOn RawBankTransactionsTable.bankAccount
 }
 
 /**
@@ -170,21 +190,24 @@ class PreparedPaymentEntity(id: EntityID<String>) : Entity<String>(id) {
 /**
  * This table holds triples of <iban, bic, holder name>.
  */
-object BankAccountsTable : IdTable<String>() {
+object NexusBankAccountsTable : IdTable<String>() {
     override val id = varchar("id", ID_MAX_LENGTH).primaryKey().entityId()
     val accountHolder = text("accountHolder")
     val iban = text("iban")
     val bankCode = text("bankCode")
     val defaultBankConnection = reference("defaultBankConnection", NexusBankConnectionsTable).nullable()
+    // Highest bank message ID that this bank account is aware of.
+    val highestSeenBankMessageId = integer("")
 }
 
-class BankAccountEntity(id: EntityID<String>) : Entity<String>(id) {
-    companion object : EntityClass<String, BankAccountEntity>(BankAccountsTable)
+class NexusBankAccountEntity(id: EntityID<String>) : Entity<String>(id) {
+    companion object : EntityClass<String, NexusBankAccountEntity>(NexusBankAccountsTable)
 
-    var accountHolder by BankAccountsTable.accountHolder
-    var iban by BankAccountsTable.iban
-    var bankCode by BankAccountsTable.bankCode
-    var defaultBankConnection by NexusBankConnectionEntity optionalReferencedOn BankAccountsTable.defaultBankConnection
+    var accountHolder by NexusBankAccountsTable.accountHolder
+    var iban by NexusBankAccountsTable.iban
+    var bankCode by NexusBankAccountsTable.bankCode
+    var defaultBankConnection by NexusBankConnectionEntity optionalReferencedOn NexusBankAccountsTable.defaultBankConnection
+    var highestSeenBankMessageId by NexusBankAccountsTable.highestSeenBankMessageId
 }
 
 object EbicsSubscribersTable : IntIdTable() {
@@ -255,11 +278,12 @@ fun dbCreateTables() {
             NexusUsersTable,
             PreparedPaymentsTable,
             EbicsSubscribersTable,
-            BankAccountsTable,
+            NexusBankAccountsTable,
             RawBankTransactionsTable,
             TalerIncomingPayments,
             TalerRequestedPayments,
-            NexusBankConnectionsTable
+            NexusBankConnectionsTable,
+            NexusBankMessagesTable
         )
     }
 }
