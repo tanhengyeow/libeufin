@@ -592,29 +592,31 @@ fun serverMain() {
                     val user = authenticateRequest(call.request)
                     when (body) {
                         is CreateBankConnectionFromBackupRequestJson -> {
-                            createEbicsBankConnectionFromBackup(body.name, user, body.passphrase, body.data)
+                            val type = body.data.get("type")
+                            if (type == null || !type.isTextual()) {
+                                throw NexusError(HttpStatusCode.BadRequest, "backup needs type")
+                            }
+                            when (type.textValue()) {
+                                "ebics" -> {
+                                    createEbicsBankConnectionFromBackup(body.name, user, body.passphrase, body.data)
+                                }
+                                else -> {
+                                    throw NexusError(HttpStatusCode.BadRequest, "backup type not supported")
+                                }
+                            }
                         }
                         is CreateBankConnectionFromNewRequestJson -> {
-                            createEbicsBankConnection(body.name, user, body.data)
+                            when (body.type) {
+                                "ebics" -> {
+                                    createEbicsBankConnection(body.name, user, body.data)
+                                }
+                                else -> {
+                                    throw NexusError(HttpStatusCode.BadRequest, "connection type not supported")
+                                }
+                            }
                         }
                     }
                 }
-//                val bankConnectionName = body.name
-//                val bankConnectionType = body.get("type").textValue()
-//                transaction {
-//                    val user = authenticateRequest(call.request)
-//                    when (bankConnectionType) {
-//                        "ebics" -> {
-//                            createEbicsBankConnection(bankConnectionName, user, body)
-//                        }
-//                        else -> {
-//                            throw NexusError(
-//                                HttpStatusCode.BadRequest,
-//                                "Invalid bank connection type '${bankConnectionType}'"
-//                            )
-//                        }
-//                    }
-//                }
                 call.respond(object {})
             }
 
