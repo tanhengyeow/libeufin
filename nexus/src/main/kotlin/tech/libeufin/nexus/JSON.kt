@@ -109,6 +109,8 @@ data class EbicsHostTestRequest(
  * the client must provide the passphrase.
  */
 data class EbicsKeysBackupJson(
+    // Always "ebics"
+    val type: String,
     val userID: String,
     val partnerID: String,
     val hostID: String,

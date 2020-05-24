@@ -44,10 +44,7 @@ import io.ktor.features.StatusPages
 import io.ktor.http.ContentType
 import io.ktor.http.HttpStatusCode
 import io.ktor.jackson.jackson
-import io.ktor.request.ApplicationReceivePipeline
-import io.ktor.request.ApplicationReceiveRequest
-import io.ktor.request.receive
-import io.ktor.request.uri
+import io.ktor.request.*
 import io.ktor.response.respond
 import io.ktor.response.respondText
 import io.ktor.routing.get
@@ -630,6 +627,10 @@ fun serverMain() {
                 call.respond(BankConnectionsList(connList))
             }
 
+            post("/bank-connections/{connid}/backup") {
+                throw NotImplementedError()
+            }
+
             post("/bank-connections/{connid}/connect") {
                 throw NotImplementedError()
             }
@@ -735,8 +736,12 @@ fun serverMain() {
                 if (orderType.length != 3) {
                     throw NexusError(HttpStatusCode.BadRequest, "ebics order type must be three characters")
                 }
-                val paramsJson = call.receive<EbicsStandardOrderParamsJson>()
-                val orderParams = paramsJson.toOrderParams()
+                val paramsJson = call.receiveOrNull<EbicsStandardOrderParamsJson>()
+                val orderParams = if (paramsJson == null) {
+                    EbicsStandardOrderParams()
+                } else {
+                    paramsJson.toOrderParams()
+                }
                 val subscriberDetails = transaction {
                     val user = authenticateRequest(call.request)
                     val conn = requireBankConnection(call, "connid")
