@@ -22,6 +22,7 @@ package tech.libeufin.nexus
 import com.fasterxml.jackson.core.util.DefaultIndenter
 import com.fasterxml.jackson.core.util.DefaultPrettyPrinter
 import com.fasterxml.jackson.databind.JsonNode
+import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.databind.SerializationFeature
 import com.fasterxml.jackson.databind.exc.MismatchedInputException
 import com.fasterxml.jackson.module.kotlin.KotlinModule
@@ -627,7 +628,33 @@ fun serverMain() {
                 call.respond(BankConnectionsList(connList))
             }
 
-            post("/bank-connections/{connid}/backup") {
+            get("/bank-connections/{connid}") {
+                val resp = transaction {
+                    val user = authenticateRequest(call.request)
+                    val conn = requireBankConnection(call, "connid")
+                    if (conn.type != "ebics") {
+                        throw NexusError(
+                            HttpStatusCode.BadRequest,
+                            "bank connection is not of type 'ebics' (but '${conn.type}')"
+                        )
+                    }
+                    val ebicsSubscriber = getEbicsSubscriberDetails(user.id.value, conn.id.value)
+                    val mapper = ObjectMapper()
+                    val details = mapper.createObjectNode()
+                    details.put("ebicsUrl", ebicsSubscriber.ebicsUrl)
+                    details.put("ebicsHostId", ebicsSubscriber.hostId)
+                    details.put("partnerId", ebicsSubscriber.partnerId)
+                    details.put("userId", ebicsSubscriber.userId)
+                    val node = mapper.createObjectNode()
+                    node.put("type", conn.type)
+                    node.put("owner", conn.owner.id.value)
+                    node.set<JsonNode>("details", details)
+                    node
+                }
+                call.respond(resp)
+            }
+
+            post("/bank-connections/{connid}/export-backup") {
                 throw NotImplementedError()
             }
 
@@ -661,6 +688,19 @@ fun serverMain() {
                     getEbicsSubscriberDetails(user.id.value, conn.id.value)
                 }
                 val resp = doEbicsHiaRequest(client, subscriber)
+                call.respond(resp)
+            }
+
+            post("/bank-connections/{connid}/ebics/send-hev") {
+                val subscriber = transaction {
+                    val user = authenticateRequest(call.request)
+                    val conn = requireBankConnection(call, "connid")
+                    if (conn.type != "ebics") {
+                        throw NexusError(HttpStatusCode.BadRequest, "bank connection is not of type 'ebics'")
+                    }
+                    getEbicsSubscriberDetails(user.id.value, conn.id.value)
+                }
+                val resp = doEbicsHostVersionQuery(client, subscriber.ebicsUrl, subscriber.hostId)
                 call.respond(resp)
             }
 

@@ -237,8 +237,14 @@ fun createEbicsRequestForDownloadInitialization(
         subscriberDetails.hostId,
         getNonce(128),
         DatatypeFactory.newInstance().newXMLGregorianCalendar(GregorianCalendar()),
-        subscriberDetails.bankEncPub ?: throw UtilError(HttpStatusCode.BadRequest, "Invalid subscriber state 'bankEncPub' missing, please send HPB first"),
-        subscriberDetails.bankAuthPub ?: throw UtilError(HttpStatusCode.BadRequest, "Invalid subscriber state 'bankAuthPub' missing, please send HPB first"),
+        subscriberDetails.bankEncPub ?: throw UtilError(
+            HttpStatusCode.BadRequest,
+            "Invalid subscriber state 'bankEncPub' missing, please send HPB first"
+        ),
+        subscriberDetails.bankAuthPub ?: throw UtilError(
+            HttpStatusCode.BadRequest,
+            "Invalid subscriber state 'bankAuthPub' missing, please send HPB first"
+        ),
         orderType,
         makeOrderParams(orderParams)
     )
@@ -296,13 +302,14 @@ enum class EbicsReturnCode(val errorCode: String) {
     EBICS_DOWNLOAD_POSTPROCESS_DONE("011000"),
     EBICS_DOWNLOAD_POSTPROCESS_SKIPPED("011001"),
     EBICS_TX_SEGMENT_NUMBER_UNDERRUN("011101"),
+    EBICS_INVALID_USER_OR_USER_STATE("091002"),
     EBICS_NO_DOWNLOAD_DATA_AVAILABLE("090005");
 
     companion object {
         fun lookup(errorCode: String): EbicsReturnCode {
             for (x in values()) {
                 if (x.errorCode == errorCode) {
-                    return x;
+                    return x
                 }
             }
             throw UtilError(HttpStatusCode.InternalServerError, "Unknown EBICS status code: $errorCode")
@@ -395,7 +402,10 @@ fun parseAndValidateEbicsResponse(
 
     if (!XMLUtil.verifyEbicsDocument(
             responseDocument,
-            subscriberDetails.bankAuthPub ?: throw UtilError(HttpStatusCode.BadRequest, "Invalid subscriber state: bankAuthPub missing, please send HPB first")
+            subscriberDetails.bankAuthPub ?: throw UtilError(
+                HttpStatusCode.BadRequest,
+                "Invalid subscriber state: bankAuthPub missing, please send HPB first"
+            )
         )
     ) {
         throw UtilError(HttpStatusCode.InternalServerError, "Bank's signature validation failed")
@@ -442,7 +452,7 @@ fun getDecryptionKey(subscriberDetails: EbicsClientSubscriberDetails, pubDigest:
     if (pubDigest.contentEquals(encPubDigest)) {
         return subscriberDetails.customerEncPriv
     }
-    throw UtilError(HttpStatusCode.NotFound,"Could not find customer's public key")
+    throw UtilError(HttpStatusCode.NotFound, "Could not find customer's public key")
 }
 
 /**
@@ -489,8 +499,9 @@ fun makeEbicsHEVRequest(subscriberDetails: EbicsClientSubscriberDetails): String
 }
 
 fun makeEbicsHEVRequestRaw(hostID: String): String {
+    val h = hostID
     val req = HEVRequest().apply {
-        hostId = hostId
+        hostId = h
     }
     val doc = XMLUtil.convertJaxbToDocument(req)
     return XMLUtil.convertDomToString(doc)
