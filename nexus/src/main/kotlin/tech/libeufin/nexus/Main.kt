@@ -120,7 +120,7 @@ fun main(args: Array<String>) {
 
 suspend inline fun <reified T : Any> ApplicationCall.receiveJson(): T {
     try {
-        return this.receive<T>();
+        return this.receive<T>()
     } catch (e: MissingKotlinParameterException) {
         throw NexusError(HttpStatusCode.BadRequest, "Missing value for ${e.pathReference}")
     } catch (e: MismatchedInputException) {
@@ -128,78 +128,83 @@ suspend inline fun <reified T : Any> ApplicationCall.receiveJson(): T {
     }
 }
 
-fun createEbicsBankConnection(bankConnectionName: String, user: NexusUserEntity, body: JsonNode) {
+fun createEbicsBankConnectionFromBackup(
+    bankConnectionName: String,
+    user: NexusUserEntity,
+    passphrase: String?,
+    backup: JsonNode
+) {
+    if (passphrase === null) {
+        throw NexusError(HttpStatusCode.BadRequest, "EBICS backup needs passphrase")
+    }
     val bankConn = NexusBankConnectionEntity.new(bankConnectionName) {
         owner = user
         type = "ebics"
     }
-    if (body.get("backup") != null) {
-        val backup = jacksonObjectMapper().treeToValue(body, EbicsKeysBackupJson::class.java)
-        val (authKey, encKey, sigKey) = try {
-            Triple(
-                CryptoUtil.decryptKey(
-                    EncryptedPrivateKeyInfo(base64ToBytes(backup.authBlob)),
-                    backup.passphrase
-                ),
-                CryptoUtil.decryptKey(
-                    EncryptedPrivateKeyInfo(base64ToBytes(backup.encBlob)),
-                    backup.passphrase
-                ),
-                CryptoUtil.decryptKey(
-                    EncryptedPrivateKeyInfo(base64ToBytes(backup.sigBlob)),
-                    backup.passphrase
-                )
+    val ebicsBackup = jacksonObjectMapper().treeToValue(backup, EbicsKeysBackupJson::class.java)
+    val (authKey, encKey, sigKey) = try {
+        Triple(
+            CryptoUtil.decryptKey(
+                EncryptedPrivateKeyInfo(base64ToBytes(ebicsBackup.authBlob)),
+                passphrase
+            ),
+            CryptoUtil.decryptKey(
+                EncryptedPrivateKeyInfo(base64ToBytes(ebicsBackup.encBlob)),
+                passphrase
+            ),
+            CryptoUtil.decryptKey(
+                EncryptedPrivateKeyInfo(base64ToBytes(ebicsBackup.sigBlob)),
+                passphrase
             )
-        } catch (e: Exception) {
-            e.printStackTrace()
-            logger.info("Restoring keys failed, probably due to wrong passphrase")
-            throw NexusError(
-                HttpStatusCode.BadRequest,
-                "Bad backup given"
-            )
-        }
-        try {
-            EbicsSubscriberEntity.new() {
-                ebicsURL = backup.ebicsURL
-                hostID = backup.hostID
-                partnerID = backup.partnerID
-                userID = backup.userID
-                signaturePrivateKey = SerialBlob(sigKey.encoded)
-                encryptionPrivateKey = SerialBlob(encKey.encoded)
-                authenticationPrivateKey = SerialBlob(authKey.encoded)
-                nexusBankConnection = bankConn
-            }
-        } catch (e: Exception) {
-            throw NexusError(
-                HttpStatusCode.BadRequest,
-                "exception: $e"
-            )
-        }
-        return
+        )
+    } catch (e: Exception) {
+        e.printStackTrace()
+        logger.info("Restoring keys failed, probably due to wrong passphrase")
+        throw NexusError(
+            HttpStatusCode.BadRequest,
+            "Bad backup given"
+        )
     }
-    if (body.get("data") != null) {
-        val data =
-            jacksonObjectMapper().treeToValue((body.get("data")), EbicsNewTransport::class.java)
-        val pairA = CryptoUtil.generateRsaKeyPair(2048)
-        val pairB = CryptoUtil.generateRsaKeyPair(2048)
-        val pairC = CryptoUtil.generateRsaKeyPair(2048)
-        EbicsSubscriberEntity.new() {
-            ebicsURL = data.ebicsURL
-            hostID = data.hostID
-            partnerID = data.partnerID
-            userID = data.userID
-            systemID = data.systemID
-            signaturePrivateKey = SerialBlob(pairA.private.encoded)
-            encryptionPrivateKey = SerialBlob(pairB.private.encoded)
-            authenticationPrivateKey = SerialBlob(pairC.private.encoded)
+    try {
+        EbicsSubscriberEntity.new {
+            ebicsURL = ebicsBackup.ebicsURL
+            hostID = ebicsBackup.hostID
+            partnerID = ebicsBackup.partnerID
+            userID = ebicsBackup.userID
+            signaturePrivateKey = SerialBlob(sigKey.encoded)
+            encryptionPrivateKey = SerialBlob(encKey.encoded)
+            authenticationPrivateKey = SerialBlob(authKey.encoded)
             nexusBankConnection = bankConn
         }
-        return
+    } catch (e: Exception) {
+        throw NexusError(
+            HttpStatusCode.BadRequest,
+            "exception: $e"
+        )
     }
-    throw NexusError(
-        HttpStatusCode.BadRequest,
-        "Neither restore or new transport were specified."
-    )
+    return
+}
+
+fun createEbicsBankConnection(bankConnectionName: String, user: NexusUserEntity, data: JsonNode) {
+    val bankConn = NexusBankConnectionEntity.new(bankConnectionName) {
+        owner = user
+        type = "ebics"
+    }
+    val data = jacksonObjectMapper().treeToValue(data, EbicsNewTransport::class.java)
+    val pairA = CryptoUtil.generateRsaKeyPair(2048)
+    val pairB = CryptoUtil.generateRsaKeyPair(2048)
+    val pairC = CryptoUtil.generateRsaKeyPair(2048)
+    EbicsSubscriberEntity.new {
+        ebicsURL = data.ebicsURL
+        hostID = data.hostID
+        partnerID = data.partnerID
+        userID = data.userID
+        systemID = data.systemID
+        signaturePrivateKey = SerialBlob(pairA.private.encoded)
+        encryptionPrivateKey = SerialBlob(pairB.private.encoded)
+        authenticationPrivateKey = SerialBlob(pairC.private.encoded)
+        nexusBankConnection = bankConn
+    }
 }
 
 fun requireBankConnection(call: ApplicationCall, parameterKey: String): NexusBankConnectionEntity {
@@ -217,7 +222,7 @@ fun requireBankConnection(call: ApplicationCall, parameterKey: String): NexusBan
 
 fun serverMain() {
     dbCreateTables()
-    val client = HttpClient() {
+    val client = HttpClient {
         expectSuccess = false // this way, it does not throw exceptions on != 200 responses.
     }
     val server = embeddedServer(Netty, port = 5001) {
@@ -392,7 +397,7 @@ fun serverMain() {
                     if (defaultBankConnection == null) {
                         throw NexusError(HttpStatusCode.NotFound, "needs a default connection")
                     }
-                    val subscriberDetails = getEbicsSubscriberDetails(user.id.value, defaultBankConnection.id.value);
+                    val subscriberDetails = getEbicsSubscriberDetails(user.id.value, defaultBankConnection.id.value)
                     return@transaction object {
                         val pain001document = createPain001document(preparedPayment)
                         val bankConnectionType = defaultBankConnection.type
@@ -582,23 +587,34 @@ fun serverMain() {
              */
             post("/bank-connections") {
                 // user exists and is authenticated.
-                val body = call.receive<JsonNode>()
-                val bankConnectionName = body.get("name").textValue()
-                val bankConnectionType = body.get("type").textValue()
+                val body = call.receive<CreateBankConnectionRequestJson>()
                 transaction {
                     val user = authenticateRequest(call.request)
-                    when (bankConnectionType) {
-                        "ebics" -> {
-                            createEbicsBankConnection(bankConnectionName, user, body)
+                    when (body) {
+                        is CreateBankConnectionFromBackupRequestJson -> {
+                            createEbicsBankConnectionFromBackup(body.name, user, body.passphrase, body.data)
                         }
-                        else -> {
-                            throw NexusError(
-                                HttpStatusCode.BadRequest,
-                                "Invalid bank connection type '${bankConnectionType}'"
-                            )
+                        is CreateBankConnectionFromNewRequestJson -> {
+                            createEbicsBankConnection(body.name, user, body.data)
                         }
                     }
                 }
+//                val bankConnectionName = body.name
+//                val bankConnectionType = body.get("type").textValue()
+//                transaction {
+//                    val user = authenticateRequest(call.request)
+//                    when (bankConnectionType) {
+//                        "ebics" -> {
+//                            createEbicsBankConnection(bankConnectionName, user, body)
+//                        }
+//                        else -> {
+//                            throw NexusError(
+//                                HttpStatusCode.BadRequest,
+//                                "Invalid bank connection type '${bankConnectionType}'"
+//                            )
+//                        }
+//                    }
+//                }
                 call.respond(object {})
             }
 
@@ -662,7 +678,7 @@ fun serverMain() {
                     subscriber.bankAuthenticationPublicKey = SerialBlob(hpbData.authenticationPubKey.encoded)
                     subscriber.bankEncryptionPublicKey = SerialBlob(hpbData.encryptionPubKey.encoded)
                 }
-                call.respond(object { })
+                call.respond(object {})
             }
 
             /**
@@ -709,7 +725,7 @@ fun serverMain() {
                         response.orderData.toString(Charsets.UTF_8)
                     }
                 }
-                call.respond(object { })
+                call.respond(object {})
             }
 
             post("/bank-connections/{connid}/ebics/download/{msgtype}") {

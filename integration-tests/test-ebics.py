@@ -186,6 +186,7 @@ assertResponse(
         "http://localhost:5001/bank-connections",
         json=dict(
             name="my-ebics",
+            source="new",
             type="ebics",
             data=dict(
                 ebicsURL=EBICS_URL, hostID=HOST_ID, partnerID=PARTNER_ID, userID=USER_ID

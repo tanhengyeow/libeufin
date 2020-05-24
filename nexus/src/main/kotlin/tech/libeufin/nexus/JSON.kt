@@ -1,6 +1,10 @@
 package tech.libeufin.nexus
 
 import com.fasterxml.jackson.annotation.JsonAutoDetect
+import com.fasterxml.jackson.annotation.JsonSubTypes
+import com.fasterxml.jackson.annotation.JsonTypeInfo
+import com.fasterxml.jackson.annotation.JsonTypeName
+import com.fasterxml.jackson.databind.JsonNode
 import org.joda.time.DateTime
 import tech.libeufin.util.*
 import java.time.LocalDate
@@ -111,9 +115,36 @@ data class EbicsKeysBackupJson(
     val ebicsURL: String,
     val authBlob: String,
     val encBlob: String,
-    val sigBlob: String,
-    val passphrase: String
+    val sigBlob: String
 )
+
+
+@JsonTypeInfo(
+    use = JsonTypeInfo.Id.NAME,
+    include = JsonTypeInfo.As.PROPERTY,
+    property = "source"
+)
+@JsonSubTypes(
+    JsonSubTypes.Type(value = CreateBankConnectionFromBackupRequestJson::class, name = "backup"),
+    JsonSubTypes.Type(value = CreateBankConnectionFromNewRequestJson::class, name = "new")
+)
+abstract class CreateBankConnectionRequestJson(
+    val name: String
+)
+
+@JsonTypeName("backup")
+class CreateBankConnectionFromBackupRequestJson(
+    name: String,
+    val passphrase: String?,
+    val data: JsonNode
+) : CreateBankConnectionRequestJson(name)
+
+@JsonTypeName("new")
+class CreateBankConnectionFromNewRequestJson(
+    name: String,
+    val type: String,
+    val data: JsonNode
+) : CreateBankConnectionRequestJson(name)
 
 data class EbicsNewTransport(
     val userID: String,
