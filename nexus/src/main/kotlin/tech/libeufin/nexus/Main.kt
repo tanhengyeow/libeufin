@@ -591,7 +591,7 @@ fun serverMain() {
                     when (body) {
                         is CreateBankConnectionFromBackupRequestJson -> {
                             val type = body.data.get("type")
-                            if (type == null || !type.isTextual()) {
+                            if (type == null || !type.isTextual) {
                                 throw NexusError(HttpStatusCode.BadRequest, "backup needs type")
                             }
                             when (type.textValue()) {
@@ -655,7 +655,52 @@ fun serverMain() {
             }
 
             post("/bank-connections/{connid}/export-backup") {
-                throw NotImplementedError()
+                val body = call.receive<EbicsBackupRequestJson>()
+                val response = transaction {
+                    val user = authenticateRequest(call.request)
+                    val conn = requireBankConnection(call, "connid")
+                    when (conn.type) {
+                        "ebics" -> {
+                            val subscriber = getEbicsSubscriberDetails(user.id.value, conn.id.value)
+                            EbicsKeysBackupJson(
+                                type = "ebics",
+                                userID = subscriber.userId,
+                                hostID = subscriber.hostId,
+                                partnerID = subscriber.partnerId,
+                                ebicsURL = subscriber.ebicsUrl,
+                                authBlob = bytesToBase64(
+                                    CryptoUtil.encryptKey(
+                                        subscriber.customerAuthPriv.encoded,
+                                        body.passphrase
+                                    )
+                                ),
+                                encBlob = bytesToBase64(
+                                    CryptoUtil.encryptKey(
+                                        subscriber.customerEncPriv.encoded,
+                                        body.passphrase
+                                    )
+                                ),
+                                sigBlob = bytesToBase64(
+                                    CryptoUtil.encryptKey(
+                                        subscriber.customerSignPriv.encoded,
+                                        body.passphrase
+                                    )
+                                )
+                            )
+                        }
+                        else -> {
+                            throw NexusError(
+                                HttpStatusCode.BadRequest,
+                                "bank connection is not of type 'ebics' (but '${conn.type}')"
+                            )
+                        }
+                    }
+                }
+                call.response.headers.append("Content-Disposition", "attachment")
+                call.respond(
+                    HttpStatusCode.OK,
+                    response
+                )
             }
 
             post("/bank-connections/{connid}/connect") {
