@@ -1,6 +1,5 @@
 package tech.libeufin.nexus
 
-import io.ktor.application.ApplicationCall
 import io.ktor.client.HttpClient
 import io.ktor.http.HttpStatusCode
 import io.ktor.request.ApplicationRequest
@@ -82,7 +81,9 @@ fun getEbicsSubscriberDetailsInternal(subscriber: EbicsSubscriberEntity): EbicsC
 
         customerSignPriv = CryptoUtil.loadRsaPrivateKey(subscriber.signaturePrivateKey.toByteArray()),
         customerAuthPriv = CryptoUtil.loadRsaPrivateKey(subscriber.authenticationPrivateKey.toByteArray()),
-        customerEncPriv = CryptoUtil.loadRsaPrivateKey(subscriber.encryptionPrivateKey.toByteArray())
+        customerEncPriv = CryptoUtil.loadRsaPrivateKey(subscriber.encryptionPrivateKey.toByteArray()),
+        ebicsIniState = subscriber.ebicsIniState,
+        ebicsHiaState = subscriber.ebicsHiaState
     )
 }
 

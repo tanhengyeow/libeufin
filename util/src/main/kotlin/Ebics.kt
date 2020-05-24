@@ -38,7 +38,8 @@ import java.util.*
 import java.util.zip.DeflaterInputStream
 import javax.xml.datatype.DatatypeFactory
 
-data class UtilError(val statusCode: HttpStatusCode, val reason: String) : Exception()
+data class EbicsProtocolError(val statusCode: HttpStatusCode, val reason: String) : Exception(reason)
+
 data class EbicsDateRange(val start: LocalDate, val end: LocalDate)
 
 sealed class EbicsOrderParams
@@ -50,6 +51,10 @@ data class EbicsStandardOrderParams(
 data class EbicsGenericOrderParams(
     val params: Map<String, String> = mapOf()
 ) : EbicsOrderParams()
+
+enum class EbicsInitState {
+    SENT, NOT_SENT, UNKNOWN
+}
 
 /**
  * This class is a mere container that keeps data found
@@ -66,7 +71,9 @@ data class EbicsClientSubscriberDetails(
     val hostId: String,
     val customerEncPriv: RSAPrivateCrtKey,
     val customerAuthPriv: RSAPrivateCrtKey,
-    val customerSignPriv: RSAPrivateCrtKey
+    val customerSignPriv: RSAPrivateCrtKey,
+    val ebicsIniState: EbicsInitState,
+    val ebicsHiaState: EbicsInitState
 )
 
 /**
@@ -237,11 +244,11 @@ fun createEbicsRequestForDownloadInitialization(
         subscriberDetails.hostId,
         getNonce(128),
         DatatypeFactory.newInstance().newXMLGregorianCalendar(GregorianCalendar()),
-        subscriberDetails.bankEncPub ?: throw UtilError(
+        subscriberDetails.bankEncPub ?: throw EbicsProtocolError(
             HttpStatusCode.BadRequest,
             "Invalid subscriber state 'bankEncPub' missing, please send HPB first"
         ),
-        subscriberDetails.bankAuthPub ?: throw UtilError(
+        subscriberDetails.bankAuthPub ?: throw EbicsProtocolError(
             HttpStatusCode.BadRequest,
             "Invalid subscriber state 'bankAuthPub' missing, please send HPB first"
         ),
@@ -312,7 +319,7 @@ enum class EbicsReturnCode(val errorCode: String) {
                     return x
                 }
             }
-            throw UtilError(HttpStatusCode.InternalServerError, "Unknown EBICS status code: $errorCode")
+            throw EbicsProtocolError(HttpStatusCode.InternalServerError, "Unknown EBICS status code: $errorCode")
         }
     }
 }
@@ -338,14 +345,14 @@ fun parseAndDecryptEbicsKeyManagementResponse(
     val resp = try {
         XMLUtil.convertStringToJaxb<EbicsKeyManagementResponse>(responseStr)
     } catch (e: Exception) {
-        throw UtilError(HttpStatusCode.InternalServerError, "Invalid XML received from bank")
+        throw EbicsProtocolError(HttpStatusCode.InternalServerError, "Invalid XML received from bank")
     }
     val retCode = EbicsReturnCode.lookup(resp.value.header.mutable.returnCode)
 
     val daeXml = resp.value.body.dataTransfer?.dataEncryptionInfo
     val orderData = if (daeXml != null) {
         val dae = DataEncryptionInfo(daeXml.transactionKey, daeXml.encryptionPubKeyDigest.value)
-        val encOrderData = resp.value.body.dataTransfer?.orderData?.value ?: throw UtilError(
+        val encOrderData = resp.value.body.dataTransfer?.orderData?.value ?: throw EbicsProtocolError(
             HttpStatusCode.InternalServerError, "Invalid XML/orderData received from bank"
         )
         decryptAndDecompressResponse(subscriberDetails, dae, listOf(encOrderData))
@@ -371,7 +378,7 @@ fun parseEbicsHpbOrder(orderDataRaw: ByteArray): HpbResponseData {
     val resp = try {
         XMLUtil.convertStringToJaxb<HPBResponseOrderData>(orderDataRaw.toString(Charsets.UTF_8))
     } catch (e: Exception) {
-        throw UtilError(HttpStatusCode.InternalServerError, "Invalid XML (as HPB response) received from bank")
+        throw EbicsProtocolError(HttpStatusCode.InternalServerError, "Invalid XML (as HPB response) received from bank")
     }
     val encPubKey = CryptoUtil.loadRsaPublicKeyFromComponents(
         resp.value.encryptionPubKeyInfo.pubKeyValue.rsaKeyValue.modulus,
@@ -397,23 +404,23 @@ fun parseAndValidateEbicsResponse(
     val responseDocument = try {
         XMLUtil.parseStringIntoDom(responseStr)
     } catch (e: Exception) {
-        throw UtilError(HttpStatusCode.InternalServerError, "Invalid XML (as EbicsResponse) received from bank")
+        throw EbicsProtocolError(HttpStatusCode.InternalServerError, "Invalid XML (as EbicsResponse) received from bank")
     }
 
     if (!XMLUtil.verifyEbicsDocument(
             responseDocument,
-            subscriberDetails.bankAuthPub ?: throw UtilError(
+            subscriberDetails.bankAuthPub ?: throw EbicsProtocolError(
                 HttpStatusCode.BadRequest,
                 "Invalid subscriber state: bankAuthPub missing, please send HPB first"
             )
         )
     ) {
-        throw UtilError(HttpStatusCode.InternalServerError, "Bank's signature validation failed")
+        throw EbicsProtocolError(HttpStatusCode.InternalServerError, "Bank's signature validation failed")
     }
     val resp = try {
         XMLUtil.convertStringToJaxb<EbicsResponse>(responseStr)
     } catch (e: Exception) {
-        throw UtilError(HttpStatusCode.InternalServerError, "Could not transform string-response from bank into JAXB")
+        throw EbicsProtocolError(HttpStatusCode.InternalServerError, "Could not transform string-response from bank into JAXB")
     }
 
     val bankReturnCodeStr = resp.value.body.returnCode.value
@@ -452,7 +459,7 @@ fun getDecryptionKey(subscriberDetails: EbicsClientSubscriberDetails, pubDigest:
     if (pubDigest.contentEquals(encPubDigest)) {
         return subscriberDetails.customerEncPriv
     }
-    throw UtilError(HttpStatusCode.NotFound, "Could not find customer's public key")
+    throw EbicsProtocolError(HttpStatusCode.NotFound, "Could not find customer's public key")
 }
 
 /**
@@ -512,7 +519,7 @@ fun parseEbicsHEVResponse(respStr: String): EbicsHevDetails {
         XMLUtil.convertStringToJaxb<HEVResponse>(respStr)
     } catch (e: Exception) {
         logger.error("Exception while parsing HEV response", e)
-        throw UtilError(HttpStatusCode.InternalServerError, "Invalid HEV received from bank")
+        throw EbicsProtocolError(HttpStatusCode.InternalServerError, "Invalid HEV received from bank")
     }
     val versions = resp.value.versionNumber.map { versionNumber ->
         EbicsVersionSpec(versionNumber.protocolVersion, versionNumber.value)

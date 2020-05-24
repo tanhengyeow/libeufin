@@ -8,6 +8,7 @@ import org.jetbrains.exposed.sql.StdOutSqlLogger
 import org.jetbrains.exposed.sql.addLogger
 import org.jetbrains.exposed.sql.transactions.TransactionManager
 import org.jetbrains.exposed.sql.transactions.transaction
+import tech.libeufin.util.EbicsInitState
 import tech.libeufin.util.amount
 import java.sql.Connection
 
@@ -202,6 +203,8 @@ object EbicsSubscribersTable : IntIdTable() {
     val bankEncryptionPublicKey = blob("bankEncryptionPublicKey").nullable()
     val bankAuthenticationPublicKey = blob("bankAuthenticationPublicKey").nullable()
     val nexusBankConnection = reference("nexusBankConnection", NexusBankConnectionsTable)
+    val ebicsIniState = enumerationByName("ebicsIniState", 16, EbicsInitState::class)
+    val ebicsHiaState = enumerationByName("ebicsHiaState", 16, EbicsInitState::class)
 }
 
 class EbicsSubscriberEntity(id: EntityID<Int>) : IntEntity(id) {
@@ -218,6 +221,8 @@ class EbicsSubscriberEntity(id: EntityID<Int>) : IntEntity(id) {
     var bankEncryptionPublicKey by EbicsSubscribersTable.bankEncryptionPublicKey
     var bankAuthenticationPublicKey by EbicsSubscribersTable.bankAuthenticationPublicKey
     var nexusBankConnection by NexusBankConnectionEntity referencedOn  EbicsSubscribersTable.nexusBankConnection
+    var ebicsIniState by EbicsSubscribersTable.ebicsIniState
+    var ebicsHiaState by EbicsSubscribersTable.ebicsHiaState
 }
 
 object NexusUsersTable : IdTable<String>() {

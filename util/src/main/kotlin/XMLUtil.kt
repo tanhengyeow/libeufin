@@ -38,7 +38,6 @@ import java.io.*
 import java.security.PrivateKey
 import java.security.PublicKey
 import java.security.interfaces.RSAPrivateCrtKey
-import javax.print.DocFlavor
 import javax.xml.XMLConstants
 import javax.xml.bind.JAXBContext
 import javax.xml.bind.JAXBElement
@@ -411,7 +410,7 @@ class XMLUtil private constructor() {
         fun getNodeFromXpath(doc: Document, query: String): Node {
             val xpath = XPathFactory.newInstance().newXPath()
             val ret = xpath.evaluate(query, doc, XPathConstants.NODE)
-                ?: throw UtilError(HttpStatusCode.NotFound, "Unsuccessful XPath query string: $query")
+                ?: throw EbicsProtocolError(HttpStatusCode.NotFound, "Unsuccessful XPath query string: $query")
             return ret as Node
         }
 
@@ -419,7 +418,7 @@ class XMLUtil private constructor() {
             val xpath = XPathFactory.newInstance().newXPath()
             val ret = xpath.evaluate(query, doc, XPathConstants.STRING) as String
             if (ret.isEmpty()) {
-                throw UtilError(HttpStatusCode.NotFound, "Unsuccessful XPath query string: $query")
+                throw EbicsProtocolError(HttpStatusCode.NotFound, "Unsuccessful XPath query string: $query")
             }
             return ret as String
         }

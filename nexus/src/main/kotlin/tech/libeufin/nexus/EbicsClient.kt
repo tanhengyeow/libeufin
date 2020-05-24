@@ -51,7 +51,7 @@ suspend fun doEbicsDownloadTransaction(
 
     // Initialization phase
     val initDownloadRequestStr = createEbicsRequestForDownloadInitialization(subscriberDetails, orderType, orderParams)
-    val payloadChunks = LinkedList<String>();
+    val payloadChunks = LinkedList<String>()
     val initResponseStr = client.postToBank(subscriberDetails.ebicsUrl, initDownloadRequestStr)
 
     val initResponse = parseAndValidateEbicsResponse(subscriberDetails, initResponseStr)
@@ -211,8 +211,8 @@ suspend fun doEbicsHpbRequest(
         request
     )
     val parsedResponse = parseAndDecryptEbicsKeyManagementResponse(subscriberDetails, respStr)
-    val orderData = parsedResponse.orderData ?: throw NexusError(
-        HttpStatusCode.InternalServerError,
+    val orderData = parsedResponse.orderData ?: throw EbicsProtocolError(
+        HttpStatusCode.BadGateway,
         "Cannot find data in a HPB response"
     )
     return parseEbicsHpbOrder(orderData)

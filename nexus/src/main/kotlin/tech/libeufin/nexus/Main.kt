@@ -173,6 +173,8 @@ fun createEbicsBankConnectionFromBackup(
             encryptionPrivateKey = SerialBlob(encKey.encoded)
             authenticationPrivateKey = SerialBlob(authKey.encoded)
             nexusBankConnection = bankConn
+            ebicsIniState = EbicsInitState.UNKNOWN
+            ebicsHiaState = EbicsInitState.UNKNOWN
         }
     } catch (e: Exception) {
         throw NexusError(
@@ -188,20 +190,22 @@ fun createEbicsBankConnection(bankConnectionName: String, user: NexusUserEntity,
         owner = user
         type = "ebics"
     }
-    val data = jacksonObjectMapper().treeToValue(data, EbicsNewTransport::class.java)
+    val newTransportData = jacksonObjectMapper().treeToValue(data, EbicsNewTransport::class.java)
     val pairA = CryptoUtil.generateRsaKeyPair(2048)
     val pairB = CryptoUtil.generateRsaKeyPair(2048)
     val pairC = CryptoUtil.generateRsaKeyPair(2048)
     EbicsSubscriberEntity.new {
-        ebicsURL = data.ebicsURL
-        hostID = data.hostID
-        partnerID = data.partnerID
-        userID = data.userID
-        systemID = data.systemID
+        ebicsURL = newTransportData.ebicsURL
+        hostID = newTransportData.hostID
+        partnerID = newTransportData.partnerID
+        userID = newTransportData.userID
+        systemID = newTransportData.systemID
         signaturePrivateKey = SerialBlob(pairA.private.encoded)
         encryptionPrivateKey = SerialBlob(pairB.private.encoded)
         authenticationPrivateKey = SerialBlob(pairC.private.encoded)
         nexusBankConnection = bankConn
+        ebicsIniState = EbicsInitState.NOT_SENT
+        ebicsHiaState = EbicsInitState.NOT_SENT
     }
 }
 
@@ -251,7 +255,7 @@ fun serverMain() {
                     cause.statusCode
                 )
             }
-            exception<UtilError> { cause ->
+            exception<EbicsProtocolError> { cause ->
                 logger.error("Exception while handling '${call.request.uri}'", cause)
                 call.respondText(
                     cause.reason,
@@ -704,7 +708,65 @@ fun serverMain() {
             }
 
             post("/bank-connections/{connid}/connect") {
-                throw NotImplementedError()
+                val subscriber = transaction {
+                    val user = authenticateRequest(call.request)
+                    val conn = requireBankConnection(call, "connid")
+                    if (conn.type != "ebics") {
+                        throw NexusError(
+                            HttpStatusCode.BadRequest,
+                            "bank connection is not of type 'ebics' (but '${conn.type}')"
+                        )
+                    }
+                    getEbicsSubscriberDetails(user.id.value, conn.id.value)
+                }
+                if (subscriber.bankAuthPub != null && subscriber.bankEncPub != null) {
+                    call.respond(object {
+                        val ready = true
+                    })
+                    return@post
+                }
+
+                val iniDone = when (subscriber.ebicsIniState) {
+                    EbicsInitState.NOT_SENT, EbicsInitState.UNKNOWN -> {
+                        val iniResp = doEbicsIniRequest(client, subscriber)
+                        iniResp.bankReturnCode == EbicsReturnCode.EBICS_OK && iniResp.technicalReturnCode == EbicsReturnCode.EBICS_OK
+                    }
+                    else -> {
+                        false
+                    }
+                }
+                val hiaDone = when (subscriber.ebicsHiaState) {
+                    EbicsInitState.NOT_SENT, EbicsInitState.UNKNOWN -> {
+                        val hiaResp = doEbicsHiaRequest(client, subscriber)
+                        hiaResp.bankReturnCode == EbicsReturnCode.EBICS_OK && hiaResp.technicalReturnCode == EbicsReturnCode.EBICS_OK
+                    }
+                    else -> {
+                        false
+                    }
+                }
+
+                val hpbData = try {
+                    doEbicsHpbRequest(client, subscriber)
+                } catch (e: EbicsProtocolError) {
+                    logger.warn("failed hpb request", e)
+                    null
+                }
+                transaction {
+                    val conn = requireBankConnection(call, "connid")
+                    val subscriberEntity =
+                        EbicsSubscriberEntity.find { EbicsSubscribersTable.nexusBankConnection eq conn.id }.first()
+                    if (iniDone) {
+                        subscriberEntity.ebicsIniState = EbicsInitState.SENT
+                    }
+                    if (hiaDone) {
+                        subscriberEntity.ebicsHiaState = EbicsInitState.SENT
+                    }
+                    if (hpbData != null) {
+                        subscriberEntity.bankAuthenticationPublicKey = SerialBlob(hpbData.authenticationPubKey.encoded)
+                        subscriberEntity.bankEncryptionPublicKey = SerialBlob(hpbData.encryptionPubKey.encoded)
+                    }
+                }
+                call.respond(object {})
             }
 
             post("/bank-connections/{connid}/ebics/send-ini") {

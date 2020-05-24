@@ -7,12 +7,12 @@ fun expectInt(param: String): Int {
     return try {
         param.toInt()
     } catch (e: Exception) {
-        throw UtilError(HttpStatusCode.BadRequest,"'$param' is not Int")
+        throw EbicsProtocolError(HttpStatusCode.BadRequest,"'$param' is not Int")
     }
 }
 
 fun <T>expectNonNull(param: T?): T {
-    return param ?: throw UtilError(
+    return param ?: throw EbicsProtocolError(
         HttpStatusCode.BadRequest,
         "Non-null value expected."
     )
@@ -22,7 +22,7 @@ fun expectLong(param: String): Long {
     return try {
         param.toLong()
     } catch (e: Exception) {
-        throw UtilError(HttpStatusCode.BadRequest,"'$param' is not Long")
+        throw EbicsProtocolError(HttpStatusCode.BadRequest,"'$param' is not Long")
     }
 }
 
@@ -36,5 +36,5 @@ fun expectLong(param: String?): Long? {
 
 fun ApplicationCall.expectUrlParameter(name: String): String {
     return this.request.queryParameters[name]
-        ?: throw UtilError(HttpStatusCode.BadRequest, "Parameter '$name' not provided in URI")
+        ?: throw EbicsProtocolError(HttpStatusCode.BadRequest, "Parameter '$name' not provided in URI")
 }
