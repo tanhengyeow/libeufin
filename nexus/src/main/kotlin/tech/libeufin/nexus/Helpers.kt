@@ -6,6 +6,7 @@ import io.ktor.request.ApplicationRequest
 import org.jetbrains.exposed.sql.and
 import org.jetbrains.exposed.sql.transactions.transaction
 import org.joda.time.DateTime
+import org.w3c.dom.Document
 import tech.libeufin.util.*
 import tech.libeufin.util.ebics_h004.EbicsTypes
 import java.security.interfaces.RSAPublicKey
@@ -101,6 +102,40 @@ fun getEbicsSubscriberDetails(userId: String, transportId: String): EbicsClientS
     return getEbicsSubscriberDetailsInternal(subscriber)
 }
 
+// FIXME(dold):  This should put stuff under *fixed* bank account, not some we find via the IBAN.
+fun processCamtMessage(
+    userId: String,
+    camt53doc: Document
+) {
+    transaction {
+        val user = NexusUserEntity.findById(userId)
+        if (user == null) {
+            throw NexusError(HttpStatusCode.NotFound, "user not found")
+        }
+        RawBankTransactionEntity.new {
+            bankAccount = getBankAccountFromIban(
+                camt53doc.pickString(
+                    "//*[local-name()='Stmt']/*[local-name()='Acct']/*[local-name()='Id']/*[local-name()='IBAN']"
+                )
+            )
+            unstructuredRemittanceInformation =
+                camt53doc.pickString("//*[local-name()='Ntry']//*[local-name()='Ustrd']")
+            transactionType = camt53doc.pickString("//*[local-name()='Ntry']//*[local-name()='CdtDbtInd']")
+            currency = camt53doc.pickString("//*[local-name()='Ntry']//*[local-name()='Amt']/@Ccy")
+            amount = camt53doc.pickString("//*[local-name()='Ntry']//*[local-name()='Amt']")
+            status = camt53doc.pickString("//*[local-name()='Ntry']//*[local-name()='Sts']")
+            bookingDate =
+                parseDashedDate(camt53doc.pickString("//*[local-name()='BookgDt']//*[local-name()='Dt']")).millis
+            nexusUser = user
+            counterpartIban =
+                camt53doc.pickString("//*[local-name()='${if (this.transactionType == "DBIT") "CdtrAcct" else "DbtrAcct"}']//*[local-name()='IBAN']")
+            counterpartName =
+                camt53doc.pickString("//*[local-name()='RltdPties']//*[local-name()='${if (this.transactionType == "DBIT") "Cdtr" else "Dbtr"}']//*[local-name()='Nm']")
+            counterpartBic = camt53doc.pickString("//*[local-name()='RltdAgts']//*[local-name()='BIC']")
+        }
+    }
+}
+
 suspend fun downloadAndPersistC5xEbics(
     historyType: String,
     client: HttpClient,
@@ -127,36 +162,8 @@ suspend fun downloadAndPersistC5xEbics(
         is EbicsDownloadSuccessResult -> {
             response.orderData.unzipWithLambda {
                 logger.debug("Camt entry: ${it.second}")
-                val fileName = it.first
                 val camt53doc = XMLUtil.parseStringIntoDom(it.second)
-                transaction {
-                    val user = NexusUserEntity.findById(userId)
-                    if (user == null) {
-                        throw NexusError(HttpStatusCode.NotFound, "user not found")
-                    }
-                    RawBankTransactionEntity.new {
-                        bankAccount = getBankAccountFromIban(
-                            camt53doc.pickString(
-                                "//*[local-name()='Stmt']/*[local-name()='Acct']/*[local-name()='Id']/*[local-name()='IBAN']"
-                            )
-                        )
-                        sourceFileName = fileName
-                        unstructuredRemittanceInformation =
-                            camt53doc.pickString("//*[local-name()='Ntry']//*[local-name()='Ustrd']")
-                        transactionType = camt53doc.pickString("//*[local-name()='Ntry']//*[local-name()='CdtDbtInd']")
-                        currency = camt53doc.pickString("//*[local-name()='Ntry']//*[local-name()='Amt']/@Ccy")
-                        amount = camt53doc.pickString("//*[local-name()='Ntry']//*[local-name()='Amt']")
-                        status = camt53doc.pickString("//*[local-name()='Ntry']//*[local-name()='Sts']")
-                        bookingDate =
-                            parseDashedDate(camt53doc.pickString("//*[local-name()='BookgDt']//*[local-name()='Dt']")).millis
-                        nexusUser = user
-                        counterpartIban =
-                            camt53doc.pickString("//*[local-name()='${if (this.transactionType == "DBIT") "CdtrAcct" else "DbtrAcct"}']//*[local-name()='IBAN']")
-                        counterpartName =
-                            camt53doc.pickString("//*[local-name()='RltdPties']//*[local-name()='${if (this.transactionType == "DBIT") "Cdtr" else "Dbtr"}']//*[local-name()='Nm']")
-                        counterpartBic = camt53doc.pickString("//*[local-name()='RltdAgts']//*[local-name()='BIC']")
-                    }
-                }
+                processCamtMessage(userId, camt53doc)
             }
         }
         is EbicsDownloadBankErrorResult -> {

@@ -92,7 +92,6 @@ class TalerIncomingPaymentEntity(id: EntityID<Long>) : LongEntity(id) {
  */
 object RawBankTransactionsTable : LongIdTable() {
     val nexusUser = reference("nexusUser", NexusUsersTable)
-    val sourceFileName = text("sourceFileName") /* ZIP entry's name */
     val unstructuredRemittanceInformation = text("unstructuredRemittanceInformation")
     val transactionType = text("transactionType") /* DBIT or CRDT */
     val currency = text("currency")
@@ -108,7 +107,6 @@ object RawBankTransactionsTable : LongIdTable() {
 class RawBankTransactionEntity(id: EntityID<Long>) : LongEntity(id) {
     companion object : LongEntityClass<RawBankTransactionEntity>(RawBankTransactionsTable)
 
-    var sourceFileName by RawBankTransactionsTable.sourceFileName
     var unstructuredRemittanceInformation by RawBankTransactionsTable.unstructuredRemittanceInformation
     var transactionType by RawBankTransactionsTable.transactionType
     var currency by RawBankTransactionsTable.currency
