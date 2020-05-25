@@ -6,7 +6,6 @@ import io.ktor.request.ApplicationRequest
 import org.jetbrains.exposed.sql.SortOrder
 import org.jetbrains.exposed.sql.and
 import org.jetbrains.exposed.sql.transactions.transaction
-import org.joda.time.DateTime
 import org.w3c.dom.Document
 import tech.libeufin.util.*
 import tech.libeufin.util.ebics_h004.EbicsTypes
@@ -306,7 +305,7 @@ fun createPain001document(paymentData: PreparedPaymentEntity): String {
                         val dateMillis = transaction {
                             paymentData.preparationDate
                         }
-                        text(DateTime(dateMillis).toString("Y-MM-dd"))
+                        text(importDateFromMillis(dateMillis).toDashedDate())
                     }
                     element("Dbtr/Nm") {
                         text(debitorBankAccountLabel)
@@ -392,7 +391,7 @@ fun addPreparedPayment(paymentData: Pain001Data, debitorAccount: NexusBankAccoun
             creditorName = paymentData.creditorName
             creditorBic = paymentData.creditorBic
             creditorIban = paymentData.creditorIban
-            preparationDate = DateTime.now().millis
+            preparationDate = Instant.now().toEpochMilli()
             paymentId = randomId
             endToEndId = randomId
         }
