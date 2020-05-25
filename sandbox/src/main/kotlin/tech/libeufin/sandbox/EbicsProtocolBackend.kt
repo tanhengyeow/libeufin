@@ -51,11 +51,11 @@ import javax.sql.rowset.serial.SerialBlob
 import javax.xml.datatype.DatatypeFactory
 import org.apache.commons.compress.utils.IOUtils
 import org.jetbrains.exposed.sql.SqlExpressionBuilder.eq
-import org.joda.time.DateTime
-import org.joda.time.Instant
 import java.io.BufferedInputStream
 import java.io.ByteArrayInputStream
 import java.nio.charset.Charset
+import java.time.Instant
+import java.time.LocalDateTime
 import java.time.ZoneId
 import java.time.ZonedDateTime
 import java.time.format.DateTimeFormatter
@@ -163,8 +163,8 @@ fun buildCamtString(type: Int, history: MutableList<RawPayment>): MutableList<St
      */
     val ret = mutableListOf<String>()
     history.forEach {
-        val dashedDate = DateTime.parse(it.date).toDashedDate()
-        val zonedDateTime = DateTime.now().toZonedString()
+        val dashedDate = expectNonNull(it.date)
+        val zonedDateTime = LocalDateTime.now().toZonedString()
         ret.add(
             constructXml(indent = true) {
                 root("Document") {
@@ -405,9 +405,12 @@ private fun constructCamtResponse(
 ): MutableList<String> {
 
     val dateRange = (header.static.orderDetails?.orderParams as EbicsRequest.StandardOrderParams).dateRange
-    val (start: DateTime, end: DateTime) = if (dateRange != null) {
-        Pair(DateTime(dateRange.start.toGregorianCalendar().time), DateTime(dateRange.end.toGregorianCalendar().time))
-    } else Pair(parseDashedDate("1970-01-01"), DateTime.now())
+    val (start: LocalDateTime, end: LocalDateTime) = if (dateRange != null) {
+        Pair(
+            importDateFromMillis(dateRange.start.toGregorianCalendar().timeInMillis),
+            importDateFromMillis(dateRange.end.toGregorianCalendar().timeInMillis)
+        )
+    } else Pair(parseDashedDate("1970-01-01"), LocalDateTime.now())
     val history = mutableListOf<RawPayment>()
     val bankAccount = getBankAccountFromSubscriber(subscriber)
     transaction {
@@ -423,7 +426,7 @@ private fun constructCamtResponse(
                     subject = it.subject,
                     creditorIban = it.creditorIban,
                     debitorIban = it.debitorIban,
-                    date = DateTime(it.date).toDashedDate(),
+                    date = importDateFromMillis(it.date).toDashedDate(),
                     amount = it.amount
                 )
             )
@@ -464,7 +467,7 @@ private fun handleCct(paymentRequest: String) {
             /** For now, the date discards any
              * information about hours and minor units of time.
              */
-            this.date = parseDashedDate(DateTime.now().toDashedDate()).millis
+            this.date = Instant.now().toEpochMilli()
         }
     }
 }

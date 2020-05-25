@@ -1,23 +1,31 @@
 package tech.libeufin.util
 
-import org.joda.time.DateTime
-import org.joda.time.format.DateTimeFormat
-import java.time.ZoneId
-import java.time.ZonedDateTime
+import java.time.*
 import java.time.format.DateTimeFormatter
 
-fun DateTime.toZonedString(): String {
+fun LocalDateTime.toZonedString(): String {
     val dateFormatter = DateTimeFormatter.ISO_OFFSET_DATE_TIME
-    val instant = java.time.Instant.ofEpochMilli(this.millis)
-    val zoned = ZonedDateTime.ofInstant(instant, ZoneId.systemDefault())
-    return dateFormatter.format(zoned)
+    return dateFormatter.format(this.atZone(ZoneId.systemDefault()))
 }
 
-fun DateTime.toDashedDate(): String {
-    return this.toString("y-MM-d")
+fun LocalDateTime.toDashedDate(): String {
+    val dtf = DateTimeFormatter.ISO_LOCAL_DATE
+    return dtf.format(this)
 }
 
-fun parseDashedDate(date: String): DateTime {
-    logger.debug("Parsing date: $date")
-    return DateTime.parse(date, DateTimeFormat.forPattern("y-M-d"))
+fun parseDashedDate(date: String): LocalDateTime {
+    val dtf = DateTimeFormatter.ISO_LOCAL_DATE
+    return LocalDateTime.from(LocalDate.parse(date, dtf))
+}
+
+fun importDateFromMillis(millis: Long): LocalDateTime {
+    return LocalDateTime.ofInstant(
+        Instant.ofEpochMilli(millis),
+        ZoneId.systemDefault()
+    )
+}
+
+fun LocalDateTime.millis(): Long {
+    val instant = Instant.from(this)
+    return instant.toEpochMilli()
 }

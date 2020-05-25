@@ -58,7 +58,6 @@ import io.ktor.utils.io.jvm.javaio.toByteReadChannel
 import io.ktor.utils.io.jvm.javaio.toInputStream
 import org.jetbrains.exposed.sql.and
 import org.jetbrains.exposed.sql.transactions.transaction
-import org.joda.time.DateTime
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 import org.slf4j.event.Level
@@ -69,6 +68,7 @@ import java.util.*
 import java.util.zip.InflaterInputStream
 import javax.crypto.EncryptedPrivateKeyInfo
 import javax.sql.rowset.serial.SerialBlob
+import java.time.LocalDateTime
 
 data class NexusError(val statusCode: HttpStatusCode, val reason: String) :
     Exception("${reason} (HTTP status $statusCode)")
@@ -442,6 +442,7 @@ fun serverMain() {
                         val preparedPayment = preparedPayment
                     }
                 }
+                val sd = res.preparedPayment.submissionDate
                 call.respond(
                     PaymentStatus(
                         uuid = res.preparedPayment.id.value,
@@ -451,8 +452,10 @@ fun serverMain() {
                         creditorIban = res.preparedPayment.creditorIban,
                         amount = "${res.preparedPayment.sum}:${res.preparedPayment.currency}",
                         subject = res.preparedPayment.subject,
-                        submissionDate = DateTime(res.preparedPayment.submissionDate).toDashedDate(),
-                        preparationDate = DateTime(res.preparedPayment.preparationDate).toDashedDate()
+                        submissionDate = if (sd != null) {
+                            importDateFromMillis(sd).toDashedDate()
+                        } else null,
+                        preparationDate = importDateFromMillis(res.preparedPayment.preparationDate).toDashedDate()
                     )
                 )
                 return@get
@@ -556,8 +559,8 @@ fun serverMain() {
                     RawBankTransactionEntity.find {
                         (RawBankTransactionsTable.bankAccount eq bankAccount) and
                                 RawBankTransactionsTable.bookingDate.between(
-                                    parseDashedDate(start ?: "1970-01-01").millis,
-                                    parseDashedDate(end ?: DateTime.now().toDashedDate()).millis
+                                    parseDashedDate(start ?: "1970-01-01").millis(),
+                                    parseDashedDate(end ?: LocalDateTime.now().toDashedDate()).millis()
                                 )
                     }.forEach {
                         ret.transactions.add(
@@ -566,7 +569,7 @@ fun serverMain() {
                                 counterpartBic = it.counterpartBic,
                                 counterpartIban = it.counterpartIban,
                                 counterpartName = it.counterpartName,
-                                date = DateTime(it.bookingDate).toDashedDate(),
+                                date = importDateFromMillis(it.bookingDate).toDashedDate(),
                                 subject = it.unstructuredRemittanceInformation,
                                 amount = "${it.currency}:${it.amount}"
                             )

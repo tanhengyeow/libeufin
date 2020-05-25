@@ -5,9 +5,9 @@ import com.fasterxml.jackson.annotation.JsonSubTypes
 import com.fasterxml.jackson.annotation.JsonTypeInfo
 import com.fasterxml.jackson.annotation.JsonTypeName
 import com.fasterxml.jackson.databind.JsonNode
-import org.joda.time.DateTime
 import tech.libeufin.util.*
 import java.time.LocalDate
+import java.time.LocalDateTime
 
 data class EbicsBackupRequestJson(
     val passphrase: String
@@ -22,7 +22,7 @@ data class EbicsStandardOrderParamsJson(val dateRange: EbicsDateRangeJson?) {
         var dateRange: EbicsDateRange? = if (this.dateRange != null) {
             EbicsDateRange(
                 LocalDate.parse(this.dateRange.start ?: "1970-01-31"),
-                LocalDate.parse(this.dateRange.end ?: DateTime.now().toDashedDate())
+                LocalDate.parse(this.dateRange.end ?: LocalDateTime.now().toDashedDate())
             )
         } else {
             null
@@ -165,7 +165,7 @@ data class PaymentStatus(
     val creditorName: String,
     val amount: String,
     val subject: String,
-    val submissionDate: String,
+    val submissionDate: String?,
     val preparationDate: String
 )
 

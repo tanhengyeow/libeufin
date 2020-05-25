@@ -113,6 +113,9 @@ fun processCamtMessage(
         if (acct == null) {
             throw NexusError(HttpStatusCode.NotFound, "user not found")
         }
+        val bookingDate = parseDashedDate(
+            camt53doc.pickString("//*[local-name()='BookgDt']//*[local-name()='Dt']")
+        )
         RawBankTransactionEntity.new {
             bankAccount = acct
             unstructuredRemittanceInformation =
@@ -121,8 +124,7 @@ fun processCamtMessage(
             currency = camt53doc.pickString("//*[local-name()='Ntry']//*[local-name()='Amt']/@Ccy")
             amount = camt53doc.pickString("//*[local-name()='Ntry']//*[local-name()='Amt']")
             status = camt53doc.pickString("//*[local-name()='Ntry']//*[local-name()='Sts']")
-            bookingDate =
-                parseDashedDate(camt53doc.pickString("//*[local-name()='BookgDt']//*[local-name()='Dt']")).millis
+            this.bookingDate = bookingDate.millis()
             counterpartIban =
                 camt53doc.pickString("//*[local-name()='${if (this.transactionType == "DBIT") "CdtrAcct" else "DbtrAcct"}']//*[local-name()='IBAN']")
             counterpartName =
