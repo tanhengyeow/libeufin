@@ -24,7 +24,6 @@ BANK_ACCOUNT_LABEL = "savings"
 
 def fail(msg):
     print(msg)
-    nexus.terminate()
     sandbox.terminate()
     exit(1)
 
@@ -45,7 +44,7 @@ def assertResponse(response):
         print("Test failed on URL: {}".format(response.url))
         # stdout/stderr from both services is A LOT of text.
         # Confusing to dump all that to console.
-        print("Check nexus.log and sandbox.log, probably under /tmp")
+        print("Check sandbox.log, probably under /tmp")
         sandbox.terminate()
         exit(1)
     # Allows for finer grained checks.
@@ -65,9 +64,7 @@ for i in range(10):
         get("http://localhost:5000/")
     except:
         if i == 9:
-            nexus.terminate()
             sandbox.terminate()
-            stdout, stderr = nexus.communicate()
             print("Sandbox timed out")
             print("{}\n{}".format(stdout.decode(), stderr.decode()))
             exit(77)
