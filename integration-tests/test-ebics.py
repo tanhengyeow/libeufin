@@ -196,7 +196,7 @@ assertResponse(
     )
 )
 
-print("sending ini")
+print("sending ini & hia")
 
 # 2.a, upload keys to the bank (INI & HIA)
 assertResponse(
