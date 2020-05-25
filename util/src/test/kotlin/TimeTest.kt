@@ -1,6 +1,7 @@
 import org.junit.Test
 import java.time.*
 import java.time.format.DateTimeFormatter
+import java.time.temporal.TemporalAccessor
 
 class TimeTest {
     @Test
@@ -25,9 +26,19 @@ class TimeTest {
             val dtf = DateTimeFormatter.ISO_OFFSET_DATE_TIME
             return dtf.format(dateTime)
         }
-        val str = formatDashed(LocalDateTime.now())     
+        val str = formatDashed(LocalDateTime.now())
         println(str)
         val str0 = formatZonedWithOffset(LocalDateTime.now().atZone(ZoneId.systemDefault()))
         println(str0)
+    }
+
+    @Test
+    fun parseDashedDate() {
+        fun parse(dashedDate: String): LocalDate {
+            val dtf = DateTimeFormatter.ISO_LOCAL_DATE
+            return LocalDate.parse(dashedDate, dtf)
+        }
+        val ret = parse("1970-01-01")
+        println(ret.toString())
     }
 }
