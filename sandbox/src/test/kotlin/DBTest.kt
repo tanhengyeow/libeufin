@@ -4,13 +4,12 @@ import org.jetbrains.exposed.sql.StdOutSqlLogger
 import org.jetbrains.exposed.sql.addLogger
 import org.jetbrains.exposed.sql.transactions.TransactionManager
 import org.jetbrains.exposed.sql.transactions.transaction
-import org.joda.time.DateTime
 import org.junit.Test
 import tech.libeufin.sandbox.PaymentEntity
 import tech.libeufin.sandbox.PaymentsTable
 import tech.libeufin.util.parseDashedDate
 import java.sql.Connection
-
+import java.time.Instant
 
 class DBTest {
     @Test
@@ -29,7 +28,7 @@ class DBTest {
                 debitorIban = "spends"
                 subject = "deal"
                 amount = "EUR:1"
-                date = DateTime.now().millis
+                date = Instant.now().toEpochMilli()
             }
         }
         val result = transaction {
