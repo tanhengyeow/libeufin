@@ -15,7 +15,8 @@ fun LocalDateTime.toDashedDate(): String {
 
 fun parseDashedDate(date: String): LocalDateTime {
     val dtf = DateTimeFormatter.ISO_LOCAL_DATE
-    return LocalDateTime.from(LocalDate.parse(date, dtf))
+    val asDate = LocalDate.from(LocalDate.parse(date, dtf))
+    return asDate.atStartOfDay()
 }
 
 fun importDateFromMillis(millis: Long): LocalDateTime {
@@ -26,6 +27,6 @@ fun importDateFromMillis(millis: Long): LocalDateTime {
 }
 
 fun LocalDateTime.millis(): Long {
-    val instant = Instant.from(this)
+    val instant = Instant.from(this.atZone(ZoneId.systemDefault()))
     return instant.toEpochMilli()
 }

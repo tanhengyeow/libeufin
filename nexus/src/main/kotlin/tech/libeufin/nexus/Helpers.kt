@@ -11,6 +11,7 @@ import tech.libeufin.util.*
 import tech.libeufin.util.ebics_h004.EbicsTypes
 import java.security.interfaces.RSAPublicKey
 import java.time.Instant
+import java.time.LocalDateTime
 import java.time.ZoneId
 import java.time.ZonedDateTime
 import java.time.format.DateTimeFormatter
@@ -123,7 +124,7 @@ fun processCamtMessage(
             currency = camt53doc.pickString("//*[local-name()='Ntry']//*[local-name()='Amt']/@Ccy")
             amount = camt53doc.pickString("//*[local-name()='Ntry']//*[local-name()='Amt']")
             status = camt53doc.pickString("//*[local-name()='Ntry']//*[local-name()='Sts']")
-            this.bookingDate = bookingDate.millis()
+            this.bookingDate = LocalDateTime.from(bookingDate).millis()
             counterpartIban =
                 camt53doc.pickString("//*[local-name()='${if (this.transactionType == "DBIT") "CdtrAcct" else "DbtrAcct"}']//*[local-name()='IBAN']")
             counterpartName =
@@ -441,7 +442,7 @@ fun authenticateRequest(request: ApplicationRequest): NexusUserEntity {
         NexusUsersTable.id eq username
     }.firstOrNull()
     if (user == null) {
-        throw NexusError(HttpStatusCode.Unauthorized, "Unknown user")
+        throw NexusError(HttpStatusCode.Unauthorized, "Unknown user '$username'")
     }
     if (!CryptoUtil.checkpw(password, user.passwordHash)) {
         throw NexusError(HttpStatusCode.Forbidden, "Wrong password")
