@@ -269,8 +269,8 @@ class NexusBankConnectionEntity(id: EntityID<String>) : Entity<String>(id) {
     var owner by NexusUserEntity referencedOn NexusBankConnectionsTable.owner
 }
 
-fun dbCreateTables() {
-    Database.connect("jdbc:sqlite:libeufin-nexus.sqlite3", "org.sqlite.JDBC")
+fun dbCreateTables(dbName: String) {
+    Database.connect("jdbc:sqlite:${dbName}", "org.sqlite.JDBC")
     TransactionManager.manager.defaultIsolationLevel = Connection.TRANSACTION_SERIALIZABLE
     transaction {
         addLogger(StdOutSqlLogger)

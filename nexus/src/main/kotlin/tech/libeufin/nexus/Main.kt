@@ -32,6 +32,8 @@ import com.github.ajalt.clikt.core.CliktCommand
 import com.github.ajalt.clikt.core.ProgramResult
 import com.github.ajalt.clikt.core.subcommands
 import com.github.ajalt.clikt.parameters.arguments.argument
+import com.github.ajalt.clikt.parameters.arguments.default
+import com.github.ajalt.clikt.parameters.options.default
 import com.github.ajalt.clikt.parameters.options.option
 import com.github.ajalt.clikt.parameters.options.prompt
 import io.ktor.application.ApplicationCall
@@ -80,17 +82,18 @@ class NexusCommand : CliktCommand() {
 }
 
 class Serve : CliktCommand("Run nexus HTTP server") {
+    private val dbName by option().default("libeufin-nexus.sqlite3")
     override fun run() {
-        serverMain()
+        serverMain(dbName)
     }
 }
 
-
 class Superuser : CliktCommand("Add superuser or change pw") {
+    private val dbName by option().default("libeufin-nexus.sqlite3")
     private val username by argument()
     private val password by option().prompt(requireConfirmation = true, hideInput = true)
     override fun run() {
-        dbCreateTables()
+        dbCreateTables(dbName)
         transaction {
             val hashedPw = hashpw(password)
             val user = NexusUserEntity.findById(username)
@@ -221,9 +224,8 @@ fun requireBankConnection(call: ApplicationCall, parameterKey: String): NexusBan
     return conn
 }
 
-
-fun serverMain() {
-    dbCreateTables()
+fun serverMain(dbName: String) {
+    dbCreateTables(dbName)
     val client = HttpClient {
         expectSuccess = false // this way, it does not throw exceptions on != 200 responses.
     }
