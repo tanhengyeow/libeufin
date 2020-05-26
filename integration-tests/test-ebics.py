@@ -58,6 +58,8 @@ SUBSCRIBER_BIC = "BUKBGB22"
 SUBSCRIBER_NAME = "Oliver Smith"
 BANK_ACCOUNT_LABEL = "savings"
 
+# Databases
+NEXUS_DB="test-nexus.sqlite3"
 
 def fail(msg):
     print(msg)
@@ -93,17 +95,17 @@ def assertResponse(response):
 # -1 Clean databases and start services.
 os.chdir("..")
 assert 0 == call(["rm", "-f", "sandbox/libeufin-sandbox.sqlite3"])
-assert 0 == call(["rm", "-f", "nexus/libeufin-nexus.sqlite3"])
+assert 0 == call(["rm", "-f", "nexus/{}".format(NEXUS_DB)])
 DEVNULL = open(os.devnull, "w")
 
 assert 0 == call(
-    ["./gradlew", "nexus:run", "--console=plain", "--args=superuser admin --password x"]
+    ["./gradlew", "nexus:run", "--console=plain", "--args=superuser admin --password x --db-name={}".format(NEXUS_DB)]
 )
 
 # Start nexus
 checkPorts([5001])
 nexus = Popen(
-    ["./gradlew", "nexus:run", "--console=plain", "--args=serve"],
+    ["./gradlew", "nexus:run", "--console=plain", "--args=serve --db-name={}".format(NEXUS_DB)],
     stdout=PIPE,
     stderr=PIPE,
 )
