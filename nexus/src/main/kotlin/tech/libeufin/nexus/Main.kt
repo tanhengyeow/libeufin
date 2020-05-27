@@ -480,7 +480,6 @@ fun serverMain(dbName: String) {
                             creditorIban = body.iban,
                             creditorBic = body.bic,
                             creditorName = body.name,
-                            debitorAccount = bankAccount.id.value,
                             sum = amount.amount,
                             currency = amount.currency,
                             subject = body.subject

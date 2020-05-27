@@ -224,7 +224,6 @@ suspend fun fetchEbicsC5x(
     }
 }
 
-
 /**
  * Create a PAIN.001 XML document according to the input data.
  * Needs to be called within a transaction block.
