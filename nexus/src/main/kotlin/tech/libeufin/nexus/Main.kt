@@ -948,9 +948,6 @@ fun serverMain(dbName: String) {
             post("/facades") {
                 val body = call.receive<FacadeInfo>()
                 val user = authenticateRequest(call.request)
-                if (user.id.value != body.creator) throw NexusError(
-                    HttpStatusCode.BadRequest, "Facade creator != authenticated user"
-                )
                 transaction {
                     FacadeEntity.new(body.name) {
                         type = body.type
@@ -964,6 +961,7 @@ fun serverMain(dbName: String) {
                 call.respondText("Facade created")
                 return@post
             }
+
             route("/facades/{fcid}") {
                 route("taler") {
                     talerFacadeRoutes(this)
