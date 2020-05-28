@@ -280,7 +280,7 @@ object FacadesTable : IdTable<String>() {
     val bankAccountsWrite = text("bankAccountsWrite")
     val bankConnectionsRead = text("bankConnectionsRead")
     val bankConnectionsWrite = text("bankConnectionsWrite")
-    val config = reference("config", TalerFacadeConfigsTable)
+    val config = reference("config", TalerFacadeConfigsTable) // see #6266
 }
 
 class FacadeEntity(id: EntityID<String>) : Entity<String>(id) {
