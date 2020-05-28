@@ -446,8 +446,19 @@ suspend fun historyIncoming(call: ApplicationCall): Unit {
 }
 
 fun talerFacadeRoutes(route: Route) {
-    route.post("/transfer") {}
-    route.post("/admin/add-incoming") {}
-    route.get("/history/outgoing") {}
-    route.get("/history/incoming") {}
+    route.post("/transfer") {
+        talerTransfer(call)
+        return@post
+    }
+    route.post("/admin/add-incoming") {
+        talerAddIncoming(call)
+        return@post
+    }
+    route.get("/history/outgoing") {
+        return@get
+    }
+    route.get("/history/incoming") {
+        historyIncoming(call)
+        return@get
+    }
 }
