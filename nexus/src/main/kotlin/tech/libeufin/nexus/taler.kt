@@ -408,6 +408,43 @@ fun ingestTransactions() {
     }
 }
 
+suspend fun historyOutgoing(call: ApplicationCall): Unit {
+    /* sanitize URL arguments */
+    val subscriberId = authenticateRequest(call.request)
+    val delta: Int = expectInt(call.expectUrlParameter("delta"))
+    val start: Long = handleStartArgument(call.request.queryParameters["start"], delta)
+    val startCmpOp = getComparisonOperator(delta, start, TalerRequestedPayments)
+    /* retrieve database elements */
+    val history = TalerOutgoingHistory()
+    transaction {
+        /** Retrieve all the outgoing payments from the _clean Taler outgoing table_ */
+        val subscriberBankAccount = NexusBankAccountEntity.new { /* FIXME; exchange should communicate this value */ }
+        val reqPayments = TalerRequestedPaymentEntity.find {
+            TalerRequestedPayments.rawConfirmed.isNotNull() and startCmpOp
+        }.orderTaler(delta)
+        if (reqPayments.isNotEmpty()) {
+            reqPayments.subList(0, min(abs(delta), reqPayments.size)).forEach {
+                history.outgoing_transactions.add(
+                    TalerOutgoingBankTransaction(
+                        row_id = it.id.value,
+                        amount = it.amount,
+                        wtid = it.wtid,
+                        date = GnunetTimestamp(it.rawConfirmed?.bookingDate?.div(1000) ?: throw NexusError(
+                            HttpStatusCode.InternalServerError, "Null value met after check, VERY strange.")),
+                        credit_account = it.creditAccount,
+                        debit_account = buildPaytoUri(subscriberBankAccount.iban, subscriberBankAccount.bankCode),
+                        exchange_base_url = "FIXME-to-request-along-subscriber-registration"
+                    )
+                )
+            }
+        }
+    }
+    call.respond(
+        HttpStatusCode.OK,
+        TextContent(customConverter(history), ContentType.Application.Json)
+    )
+}
+
 // /taler/history/incoming
 suspend fun historyIncoming(call: ApplicationCall): Unit {
     val exchangeUser = authenticateRequest(call.request)
@@ -455,6 +492,7 @@ fun talerFacadeRoutes(route: Route) {
         return@post
     }
     route.get("/history/outgoing") {
+        historyOutgoing(call)
         return@get
     }
     route.get("/history/incoming") {
