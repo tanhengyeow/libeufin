@@ -374,7 +374,7 @@ class Taler(app: Route) {
          * that will soon be refunded.)  Recently, the examination of raw OUTGOING
          * payment was added as well.
          */
-        app.post("/ebics/taler/{id}/crunch-raw-transactions") {
+        app.post("/{fcid}/taler/{id}/crunch-raw-transactions") {
             val id = ensureNonNull(call.parameters["id"])
             // first find highest ID value of already processed rows.
             transaction {
@@ -463,7 +463,7 @@ class Taler(app: Route) {
          * merchants but possibly to refund invalid incoming payments.  A payment is
          * counted only if was once confirmed by the bank.
          */
-        app.get("/taler/history/outgoing") {
+        app.get("/{fcid}/taler/history/outgoing") {
             /* sanitize URL arguments */
             val subscriberId = authenticateRequest(call.request)
             val delta: Int = expectInt(call.expectUrlParameter("delta"))
@@ -501,7 +501,7 @@ class Taler(app: Route) {
             return@get
         }
         /** Responds only with the valid incoming payments */
-        app.get("/taler/history/incoming") {
+        app.get("/{fcid}/taler/history/incoming") {
             val exchangeUser = authenticateRequest(call.request)
             val delta: Int = expectInt(call.expectUrlParameter("delta"))
             val start: Long = handleStartArgument(call.request.queryParameters["start"], delta)

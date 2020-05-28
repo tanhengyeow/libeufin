@@ -280,7 +280,7 @@ object FacadesTable : IdTable<String>() {
     val bankAccountsWrite = text("bankAccountsWrite")
     val bankConnectionsRead = text("bankConnectionsRead")
     val bankConnectionsWrite = text("bankConnectionsWrite")
-    val config = blob("config").nullable() /* what's the best format to store Any? */
+    val config = reference("config", TalerFacadeConfigsTable)
 }
 
 class FacadeEntity(id: EntityID<String>) : Entity<String>(id) {
@@ -295,6 +295,22 @@ class FacadeEntity(id: EntityID<String>) : Entity<String>(id) {
     var config by FacadesTable.config
 }
 
+object TalerFacadeConfigsTable : IntIdTable() {
+    val bankAccount = text("bankAccount")
+    val bankConnection = text("bankConnection")
+    /* "statement", "report", "notification" */
+    val reserveTransferLevel = text("reserveTransferLevel")
+    val intervalIncrement = text("intervalIncrement")
+}
+
+class TalerFacadeConfigEntity(id: EntityID<Int>) : IntEntity(id) {
+    companion object : IntEntityClass<TalerFacadeConfigEntity>(TalerFacadeConfigsTable)
+    var bankAccount by TalerFacadeConfigsTable.bankAccount
+    var bankConnection by TalerFacadeConfigsTable.bankConnection
+    /* "statement", "report", "notification" */
+    var reserveTransferLevel by TalerFacadeConfigsTable.reserveTransferLevel
+    var intervalIncrement by TalerFacadeConfigsTable.intervalIncrement
+}
 
 fun dbCreateTables(dbName: String) {
     Database.connect("jdbc:sqlite:${dbName}", "org.sqlite.JDBC")
