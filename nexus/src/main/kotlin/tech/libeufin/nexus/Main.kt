@@ -964,6 +964,11 @@ fun serverMain(dbName: String) {
                 call.respondText("Facade created")
                 return@post
             }
+            route("/facades/{fcid}") {
+                route("taler") {
+                    talerFacadeRoutes(this)
+                }
+            }
             /**
              * Hello endpoint.
              */

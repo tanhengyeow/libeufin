@@ -12,6 +12,7 @@ import io.ktor.response.respondText
 import io.ktor.routing.Route
 import io.ktor.routing.get
 import io.ktor.routing.post
+import org.apache.http.client.methods.RequestBuilder.post
 import org.jetbrains.exposed.dao.Entity
 import org.jetbrains.exposed.dao.IdTable
 import org.jetbrains.exposed.sql.*
@@ -212,6 +213,7 @@ fun paymentFailed(entry: RawBankTransactionEntity): Boolean {
     return false
 }
 
+// /taler/transfer
 suspend fun talerTransfer(call: ApplicationCall): Unit {
     val exchangeUser = authenticateRequest(call.request)
     val transferRequest = call.receive<TalerTransferRequest>()
@@ -290,6 +292,7 @@ suspend fun talerTransfer(call: ApplicationCall): Unit {
     )
 }
 
+// /taler/admin/add-incoming
 suspend fun talerAddIncoming(call: ApplicationCall): Unit {
     val exchangeUser = authenticateRequest(call.request)
     val addIncomingData = call.receive<TalerAdminAddIncoming>()
@@ -405,6 +408,7 @@ fun ingestTransactions() {
     }
 }
 
+// /taler/history/incoming
 suspend fun historyIncoming(call: ApplicationCall): Unit {
     val exchangeUser = authenticateRequest(call.request)
     val delta: Int = expectInt(call.expectUrlParameter("delta"))
@@ -439,4 +443,11 @@ suspend fun historyIncoming(call: ApplicationCall): Unit {
         }
     }
     return call.respond(TextContent(customConverter(history), ContentType.Application.Json))
+}
+
+fun talerFacadeRoutes(route: Route) {
+    route.post("/transfer") {}
+    route.post("/admin/add-incoming") {}
+    route.get("/history/outgoing") {}
+    route.get("/history/incoming") {}
 }
