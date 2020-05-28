@@ -952,10 +952,12 @@ fun serverMain(dbName: String) {
                     FacadeEntity.new(body.name) {
                         type = body.type
                         creator = user
-                        bankAccountsRead = body.bankAccountsRead.joinToString("|")
-                        bankAccountsWrite = body.bankAccountsWrite.joinToString("|")
-                        bankConnectionsRead = body.bankConnectionsRead.joinToString("|")
-                        bankConnectionsWrite = body.bankConnectionsWrite.joinToString("|")
+                        config = TalerFacadeConfigEntity.new {
+                            bankAccount = body.config.bankAccount
+                            bankConnection = body.config.bankConnection
+                            intervalIncrement = body.config.intervalIncremental
+                            reserveTransferLevel = body.config.reserveTransferLevel
+                        }
                     }
                 }
                 call.respondText("Facade created")

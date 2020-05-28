@@ -267,7 +267,7 @@ data class FacadeInfo(
 data class TalerWireGatewayFacadeConfig(
     val bankAccount: String,
     val bankConnection: String,
-    val reserveTransferLevel: MutableList<String> = mutableListOf(),
+    val reserveTransferLevel: String,
     val intervalIncremental: String
 )
 

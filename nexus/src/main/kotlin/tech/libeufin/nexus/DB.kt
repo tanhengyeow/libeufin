@@ -276,10 +276,6 @@ object FacadesTable : IdTable<String>() {
     val name = text("name")
     val type = text("type")
     val creator = reference("creator", NexusUsersTable)
-    val bankAccountsRead = text("bankAccountsRead")
-    val bankAccountsWrite = text("bankAccountsWrite")
-    val bankConnectionsRead = text("bankConnectionsRead")
-    val bankConnectionsWrite = text("bankConnectionsWrite")
     val config = reference("config", TalerFacadeConfigsTable) // see #6266
 }
 
@@ -288,11 +284,7 @@ class FacadeEntity(id: EntityID<String>) : Entity<String>(id) {
     var name by FacadesTable.name
     var type by FacadesTable.type
     var creator by NexusUserEntity referencedOn FacadesTable.creator
-    var bankAccountsRead by FacadesTable.bankAccountsRead
-    var bankAccountsWrite by FacadesTable.bankAccountsWrite
-    var bankConnectionsRead by FacadesTable.bankConnectionsRead
-    var bankConnectionsWrite by FacadesTable.bankConnectionsWrite
-    var config by FacadesTable.config
+    var config by TalerFacadeConfigEntity referencedOn FacadesTable.config
 }
 
 object TalerFacadeConfigsTable : IntIdTable() {
