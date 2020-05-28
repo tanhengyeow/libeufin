@@ -50,9 +50,7 @@ import io.ktor.jackson.jackson
 import io.ktor.request.*
 import io.ktor.response.respond
 import io.ktor.response.respondText
-import io.ktor.routing.get
-import io.ktor.routing.post
-import io.ktor.routing.routing
+import io.ktor.routing.*
 import io.ktor.server.engine.embeddedServer
 import io.ktor.server.netty.Netty
 import io.ktor.utils.io.ByteReadChannel
