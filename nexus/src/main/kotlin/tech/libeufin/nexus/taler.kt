@@ -220,7 +220,7 @@ class Taler(app: Route) {
             call.respondText("Taler Gateway Hello\n", ContentType.Text.Plain, HttpStatusCode.OK)
             return@get
         }
-        app.post("/taler/transfer") {
+        app.post("/{fcid}/taler/transfer") {
             val exchangeUser = authenticateRequest(call.request)
             val transferRequest = call.receive<TalerTransferRequest>()
             val amountObj = parseAmount(transferRequest.amount)
@@ -299,7 +299,7 @@ class Taler(app: Route) {
             return@post
         }
         /** Test-API that creates one new payment addressed to the exchange.  */
-        app.post("/taler/admin/add-incoming") {
+        app.post("/{fcid}/taler/admin/add-incoming") {
             val exchangeUser = authenticateRequest(call.request)
             val addIncomingData = call.receive<TalerAdminAddIncoming>()
             val debtor = parsePayto(addIncomingData.debit_account)
@@ -339,42 +339,13 @@ class Taler(app: Route) {
             return@post
         }
 
-        /** This endpoint triggers the refunding of invalid payments.  'Refunding'
-         * in this context means that nexus _prepares_ the payment instruction and
-         * places it into a further table.  Eventually, another routine will perform
-         * all the prepared payments.  */
-        app.post("/ebics/taler/{id}/accounts/{acctid}/refund-invalid-payments") {
-            val exchangeUser = authenticateRequest(call.request)
-            val callerBankAccount = ensureNonNull(call.parameters["acctid"])
-            transaction {
-                val bankAccount = NexusBankAccountEntity.findById(callerBankAccount)
-                TalerIncomingPaymentEntity.find {
-                    TalerIncomingPayments.refunded eq false and (TalerIncomingPayments.valid eq false)
-                }.forEach {
-                    addPreparedPayment(
-                        Pain001Data(
-                            creditorName = it.payment.counterpartName,
-                            creditorIban = it.payment.counterpartIban,
-                            creditorBic = it.payment.counterpartBic,
-                            sum = calculateRefund(it.payment.amount),
-                            subject = "Taler refund",
-                            currency = it.payment.currency
-                        ),
-                        NexusBankAccountEntity.new { /* FIXME; exchange should communicate this value */ }
-                    )
-                    it.refunded = true
-                }
-            }
-            return@post
-        }
-
         /** This endpoint triggers the examination of raw incoming payments aimed
          * at separating the good payments (those that will lead to a new reserve
          * being created), from the invalid payments (those with a invalid subject
          * that will soon be refunded.)  Recently, the examination of raw OUTGOING
          * payment was added as well.
          */
-        app.post("/{fcid}/taler/{id}/crunch-raw-transactions") {
+        app.post("/{fcid}/taler/crunch-raw-transactions") {
             val id = ensureNonNull(call.parameters["id"])
             // first find highest ID value of already processed rows.
             transaction {
