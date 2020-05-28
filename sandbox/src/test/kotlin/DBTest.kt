@@ -7,9 +7,11 @@ import org.jetbrains.exposed.sql.transactions.transaction
 import org.junit.Test
 import tech.libeufin.sandbox.PaymentEntity
 import tech.libeufin.sandbox.PaymentsTable
+import tech.libeufin.util.millis
 import tech.libeufin.util.parseDashedDate
 import java.sql.Connection
 import java.time.Instant
+import java.time.LocalDateTime
 
 class DBTest {
     @Test
@@ -37,8 +39,8 @@ class DBTest {
                 PaymentsTable.date.between(
                     parseDashedDate(
                         "1970-01-01"
-                    ).millis,
-                    DateTime.now().millis
+                    ).millis(),
+                    LocalDateTime.now().millis()
                 )
             }.firstOrNull()
         }
