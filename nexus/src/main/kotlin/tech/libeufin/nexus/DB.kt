@@ -280,7 +280,7 @@ object FacadesTable : IdTable<String>() {
     val bankAccountsWrite = text("bankAccountsWrite")
     val bankConnectionsRead = text("bankConnectionsRead")
     val bankConnectionsWrite = text("bankConnectionsWrite")
-    val config = blob("config")
+    val config = blob("config").nullable() /* what's the best format to store Any? */
 }
 
 class FacadeEntity(id: EntityID<String>) : Entity<String>(id) {

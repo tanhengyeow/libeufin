@@ -949,14 +949,23 @@ fun serverMain(dbName: String) {
             }
             post("/facades") {
                 val body = call.receive<FacadeInfo>()
-                /**
-                 * db work here.
-                 */
-
+                val user = authenticateRequest(call.request)
+                if (user.id.value != body.creator) throw NexusError(
+                    HttpStatusCode.BadRequest, "Facade creator != authenticated user"
+                )
+                transaction {
+                    FacadeEntity.new(body.name) {
+                        type = body.type
+                        creator = user
+                        bankAccountsRead = body.bankAccountsRead.joinToString("|")
+                        bankAccountsWrite = body.bankAccountsWrite.joinToString("|")
+                        bankConnectionsRead = body.bankConnectionsRead.joinToString("|")
+                        bankConnectionsWrite = body.bankConnectionsWrite.joinToString("|")
+                    }
+                }
                 call.respondText("Facade created")
                 return@post
             }
-
             /**
              * Hello endpoint.
              */
