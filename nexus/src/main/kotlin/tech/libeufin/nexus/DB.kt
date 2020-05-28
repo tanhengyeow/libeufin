@@ -272,8 +272,7 @@ class NexusBankConnectionEntity(id: EntityID<String>) : Entity<String>(id) {
 }
 
 object FacadesTable : IdTable<String>() {
-    override val id = NexusBankConnectionsTable.text("id").entityId().primaryKey()
-    val name = text("name")
+    override val id = FacadesTable.text("id").entityId().primaryKey()
     val type = text("type")
     val creator = reference("creator", NexusUsersTable)
     val config = reference("config", TalerFacadeConfigsTable) // see #6266
@@ -281,7 +280,6 @@ object FacadesTable : IdTable<String>() {
 
 class FacadeEntity(id: EntityID<String>) : Entity<String>(id) {
     companion object : EntityClass<String, FacadeEntity>(FacadesTable)
-    var name by FacadesTable.name
     var type by FacadesTable.type
     var creator by NexusUserEntity referencedOn FacadesTable.creator
     var config by TalerFacadeConfigEntity referencedOn FacadesTable.config
@@ -318,7 +316,8 @@ fun dbCreateTables(dbName: String) {
             TalerIncomingPayments,
             TalerRequestedPayments,
             NexusBankConnectionsTable,
-            NexusBankMessagesTable
+            NexusBankMessagesTable,
+            FacadesTable
         )
     }
 }

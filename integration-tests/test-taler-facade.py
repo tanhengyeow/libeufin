@@ -57,6 +57,7 @@ SUBSCRIBER_IBAN = "GB33BUKB20201555555555"
 SUBSCRIBER_BIC = "BUKBGB22"
 SUBSCRIBER_NAME = "Oliver Smith"
 BANK_ACCOUNT_LABEL = "savings"
+BANK_CONNECTION_LABEL = "my-ebics"
 
 # Databases
 NEXUS_DB="test-nexus.sqlite3"
@@ -187,7 +188,7 @@ assertResponse(
     post(
         "http://localhost:5001/bank-connections",
         json=dict(
-            name="my-ebics",
+            name=BANK_CONNECTION_LABEL,
             source="new",
             type="ebics",
             data=dict(
@@ -202,7 +203,7 @@ print("connecting")
 
 assertResponse(
     post(
-        "http://localhost:5001/bank-connections/my-ebics/connect",
+        "http://localhost:5001/bank-connections/{}/connect".format(BANK_CONNECTION_LABEL),
         json=dict(),
         headers=dict(Authorization=USER_AUTHORIZATION_HEADER),
     )
@@ -212,8 +213,27 @@ assertResponse(
 # 2.c, fetch bank account information
 assertResponse(
     post(
-        "http://localhost:5001/bank-connections/my-ebics/ebics/import-accounts",
+        "http://localhost:5001/bank-connections/{}/ebics/import-accounts".format(BANK_CONNECTION_LABEL),
         json=dict(),
+        headers=dict(Authorization=USER_AUTHORIZATION_HEADER),
+    )
+)
+
+# 3, create new facade
+assertResponse(
+    post(
+        "http://localhost:5001/facades",
+        json=dict(
+            name="my-facade",
+            type="taler-wire-gateway",
+            creator=USERNAME,
+            config=dict(
+                bankAccount=BANK_ACCOUNT_LABEL,
+                bankConnection=BANK_CONNECTION_LABEL,
+                reserveTransferLevel="UNUSED",
+                intervalIncremental="UNUSED"
+            )
+        ),
         headers=dict(Authorization=USER_AUTHORIZATION_HEADER),
     )
 )

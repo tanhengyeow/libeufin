@@ -257,10 +257,10 @@ data class FacadeInfo(
     val name: String,
     val type: String,
     val creator: String,
-    val bankAccountsRead: MutableList<String> = mutableListOf(),
-    val bankAccountsWrite: MutableList<String> = mutableListOf(),
-    val bankConnectionsRead: MutableList<String> = mutableListOf(),
-    val bankConnectionsWrite: MutableList<String> = mutableListOf(),
+    val bankAccountsRead: MutableList<String>? = mutableListOf(),
+    val bankAccountsWrite: MutableList<String>? = mutableListOf(),
+    val bankConnectionsRead: MutableList<String>? = mutableListOf(),
+    val bankConnectionsWrite: MutableList<String>? = mutableListOf(),
     val config: TalerWireGatewayFacadeConfig /* To be abstracted to Any! */
 )
 

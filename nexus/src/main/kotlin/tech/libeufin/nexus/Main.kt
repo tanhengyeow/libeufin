@@ -947,8 +947,8 @@ fun serverMain(dbName: String) {
             }
             post("/facades") {
                 val body = call.receive<FacadeInfo>()
-                val user = authenticateRequest(call.request)
                 transaction {
+                    val user = authenticateRequest(call.request)
                     FacadeEntity.new(body.name) {
                         type = body.type
                         creator = user
