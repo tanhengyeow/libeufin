@@ -8,6 +8,8 @@ import org.jetbrains.exposed.sql.StdOutSqlLogger
 import org.jetbrains.exposed.sql.addLogger
 import org.jetbrains.exposed.sql.transactions.TransactionManager
 import org.jetbrains.exposed.sql.transactions.transaction
+import tech.libeufin.nexus.NexusBankConnectionsTable.entityId
+import tech.libeufin.nexus.NexusBankConnectionsTable.primaryKey
 import tech.libeufin.util.EbicsInitState
 import tech.libeufin.util.amount
 import java.sql.Connection
@@ -268,6 +270,31 @@ class NexusBankConnectionEntity(id: EntityID<String>) : Entity<String>(id) {
     var type by NexusBankConnectionsTable.type
     var owner by NexusUserEntity referencedOn NexusBankConnectionsTable.owner
 }
+
+object FacadesTable : IdTable<String>() {
+    override val id = NexusBankConnectionsTable.text("id").entityId().primaryKey()
+    val name = text("name")
+    val type = text("type")
+    val creator = reference("creator", NexusUsersTable)
+    val bankAccountsRead = text("bankAccountsRead")
+    val bankAccountsWrite = text("bankAccountsWrite")
+    val bankConnectionsRead = text("bankConnectionsRead")
+    val bankConnectionsWrite = text("bankConnectionsWrite")
+    val config = blob("config")
+}
+
+class FacadeEntity(id: EntityID<String>) : Entity<String>(id) {
+    companion object : EntityClass<String, FacadeEntity>(FacadesTable)
+    var name by FacadesTable.name
+    var type by FacadesTable.type
+    var creator by NexusUserEntity referencedOn FacadesTable.creator
+    var bankAccountsRead by FacadesTable.bankAccountsRead
+    var bankAccountsWrite by FacadesTable.bankAccountsWrite
+    var bankConnectionsRead by FacadesTable.bankConnectionsRead
+    var bankConnectionsWrite by FacadesTable.bankConnectionsWrite
+    var config by FacadesTable.config
+}
+
 
 fun dbCreateTables(dbName: String) {
     Database.connect("jdbc:sqlite:${dbName}", "org.sqlite.JDBC")

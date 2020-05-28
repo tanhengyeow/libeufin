@@ -947,6 +947,15 @@ fun serverMain(dbName: String) {
                     }
                 }
             }
+            post("/facades") {
+                val body = call.receive<FacadeInfo>()
+                /**
+                 * db work here.
+                 */
+
+                call.respondText("Facade created")
+                return@post
+            }
 
             /**
              * Hello endpoint.

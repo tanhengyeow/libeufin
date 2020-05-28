@@ -253,6 +253,17 @@ data class BankMessageInfo(
     val length: Long
 )
 
+data class FacadeInfo(
+    val name: String,
+    val type: String,
+    val creator: String,
+    val bankAccountsRead: MutableList<String> = mutableListOf(),
+    val bankAccountsWrite: MutableList<String> = mutableListOf(),
+    val bankConnectionsRead: MutableList<String> = mutableListOf(),
+    val bankConnectionsWrite: MutableList<String> = mutableListOf(),
+    val config: Any
+)
+
 /**********************************************************************
  * Convenience types (ONLY used to gather data together in one place) *
  **********************************************************************/
@@ -265,8 +276,5 @@ data class Pain001Data(
     val currency: String,
     val subject: String
 )
-
-
-
 
 
