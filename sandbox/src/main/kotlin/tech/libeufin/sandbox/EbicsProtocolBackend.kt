@@ -164,7 +164,9 @@ fun buildCamtString(type: Int, history: MutableList<RawPayment>): MutableList<St
     val ret = mutableListOf<String>()
     history.forEach {
         val dashedDate = expectNonNull(it.date)
-        val zonedDateTime = LocalDateTime.now().toZonedString()
+        val now = LocalDateTime.now()
+        val zonedDateTime = now.toZonedString()
+
         ret.add(
             constructXml(indent = true) {
                 root("Document") {
@@ -174,7 +176,7 @@ fun buildCamtString(type: Int, history: MutableList<RawPayment>): MutableList<St
                     element("BkToCstmrStmt") {
                         element("GrpHdr") {
                             element("MsgId") {
-                                text("0")
+                                text("sandbox-${now.millis()}")
                             }
                             element("CreDtTm") {
                                 text(zonedDateTime)
