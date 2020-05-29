@@ -64,6 +64,7 @@ import org.slf4j.event.Level
 import tech.libeufin.util.*
 import tech.libeufin.util.CryptoUtil.hashpw
 import tech.libeufin.util.ebics_h004.HTDResponseOrderData
+import java.net.URLEncoder
 import java.util.*
 import java.util.zip.InflaterInputStream
 import javax.crypto.EncryptedPrivateKeyInfo
@@ -374,6 +375,23 @@ fun serverMain(dbName: String) {
                 }
                 call.respond(bankAccounts)
                 return@get
+            }
+
+            get("/bank-accounts/{accountid}") {
+                val accountId = ensureNonNull(call.parameters["accountid"])
+                val res = transaction {
+                    val user = authenticateRequest(call.request)
+                    val bankAccount = NexusBankAccountEntity.findById(accountId)
+                    if (bankAccount == null) {
+                        throw NexusError(HttpStatusCode.NotFound, "unknown bank account")
+                    }
+                    val holderEnc = URLEncoder.encode(bankAccount.accountHolder, "UTF-8")
+                    return@transaction object {
+                        val defaultBankConnection = bankAccount.defaultBankConnection?.id?.value
+                        val accountPaytoUri = "payto://iban/${bankAccount.iban}?receiver-name=$holderEnc"
+                    }
+                }
+                call.respond(res)
             }
 
             /**
