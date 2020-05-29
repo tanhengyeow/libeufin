@@ -56,6 +56,8 @@ import io.ktor.server.netty.Netty
 import io.ktor.utils.io.ByteReadChannel
 import io.ktor.utils.io.jvm.javaio.toByteReadChannel
 import io.ktor.utils.io.jvm.javaio.toInputStream
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.time.delay
 import org.jetbrains.exposed.sql.and
 import org.jetbrains.exposed.sql.transactions.transaction
 import org.slf4j.Logger
@@ -66,6 +68,7 @@ import tech.libeufin.util.CryptoUtil.hashpw
 import tech.libeufin.util.ebics_h004.HTDResponseOrderData
 import java.lang.NumberFormatException
 import java.net.URLEncoder
+import java.time.Duration
 import java.util.*
 import java.util.zip.InflaterInputStream
 import javax.crypto.EncryptedPrivateKeyInfo
@@ -240,18 +243,29 @@ fun ApplicationRequest.hasBody(): Boolean {
     return false
 }
 
+
+suspend fun schedulePeriodicWork() {
+    while (true) {
+        delay(Duration.ofSeconds(1))
+        // download TWG C52
+        // ingest TWG new histories
+        logger.debug("I am scheduled")
+    }
+}
+
 fun serverMain(dbName: String) {
     dbCreateTables(dbName)
     val client = HttpClient {
         expectSuccess = false // this way, it does not throw exceptions on != 200 responses.
     }
     val server = embeddedServer(Netty, port = 5001) {
-
+        launch {
+            schedulePeriodicWork()
+        }
         install(CallLogging) {
             this.level = Level.DEBUG
             this.logger = tech.libeufin.nexus.logger
         }
-
         install(ContentNegotiation) {
             jackson {
                 enable(SerializationFeature.INDENT_OUTPUT)
