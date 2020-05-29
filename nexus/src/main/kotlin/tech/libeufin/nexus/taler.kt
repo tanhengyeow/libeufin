@@ -518,4 +518,8 @@ fun talerFacadeRoutes(route: Route) {
         historyIncoming(call)
         return@get
     }
+    route.get("/taler") {
+        call.respondText("Hello Taler")
+        return@get
+    }
 }
