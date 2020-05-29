@@ -242,8 +242,6 @@ fun ApplicationRequest.hasBody(): Boolean {
     }
     return false
 }
-
-
 suspend fun schedulePeriodicWork() {
     while (true) {
         delay(Duration.ofSeconds(1))
@@ -251,6 +249,7 @@ suspend fun schedulePeriodicWork() {
         // ingest TWG new histories
         logger.debug("I am scheduled")
         downloadFacadesTransactions()
+        ingestTalerTransactions()
     }
 }
 

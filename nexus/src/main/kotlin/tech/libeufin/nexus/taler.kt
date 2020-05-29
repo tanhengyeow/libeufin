@@ -213,13 +213,23 @@ fun paymentFailed(entry: RawBankTransactionEntity): Boolean {
     return false
 }
 
+fun getFacadeBankAccount(nexusUser: NexusUserEntity): NexusBankAccountEntity {
+    val facade = FacadeEntity.find { FacadesTable.creator eq nexusUser.id.value }.firstOrNull() ?: throw NexusError(
+        HttpStatusCode.NotFound, "Could not find any facade from ${nexusUser.id.value}"
+    )
+    val bankAccount = NexusBankAccountEntity.findById(facade.config.bankAccount) ?: throw NexusError(
+        HttpStatusCode.NotFound, "Could not find any bank account named ${facade.config.bankAccount}"
+    )
+    return bankAccount
+}
+
 // /taler/transfer
 suspend fun talerTransfer(call: ApplicationCall): Unit {
-    val exchangeUser = authenticateRequest(call.request)
     val transferRequest = call.receive<TalerTransferRequest>()
     val amountObj = parseAmount(transferRequest.amount)
     val creditorObj = parsePayto(transferRequest.credit_account)
     val opaque_row_id = transaction {
+        val exchangeUser = authenticateRequest(call.request)
         val creditorData = parsePayto(transferRequest.credit_account)
         /** Checking the UID has the desired characteristics */
         TalerRequestedPaymentEntity.find {
@@ -236,6 +246,7 @@ suspend fun talerTransfer(call: ApplicationCall): Unit {
                 )
             }
         }
+        val exchangeBankAccount = getFacadeBankAccount(exchangeUser)
         val pain001 = addPreparedPayment(
             Pain001Data(
                 creditorIban = creditorData.iban,
@@ -245,7 +256,7 @@ suspend fun talerTransfer(call: ApplicationCall): Unit {
                 sum = amountObj.amount,
                 currency = amountObj.currency
             ),
-            NexusBankAccountEntity.new { /* FIXME; exchange should communicate this value */ }
+            exchangeBankAccount
         )
         val rawEbics = if (!isProduction()) {
             RawBankTransactionEntity.new {
@@ -256,12 +267,11 @@ suspend fun talerTransfer(call: ApplicationCall): Unit {
                 counterpartBic = creditorObj.bic
                 counterpartIban = creditorObj.iban
                 counterpartName = creditorObj.name
-                bankAccount = NexusBankAccountEntity.new { /* FIXME; exchange should communicate this value */ }
+                bankAccount = exchangeBankAccount
                 bookingDate = DateTime.now().millis
                 status = "BOOK"
             }
         } else null
-
         val row = TalerRequestedPaymentEntity.new {
             preparedPayment = pain001 // not really used/needed, just here to silence warnings
             exchangeBaseUrl = transferRequest.exchange_base_url
@@ -271,7 +281,6 @@ suspend fun talerTransfer(call: ApplicationCall): Unit {
             creditAccount = transferRequest.credit_account
             rawConfirmed = rawEbics
         }
-
         row.id.value
     }
     return call.respond(
@@ -294,11 +303,11 @@ suspend fun talerTransfer(call: ApplicationCall): Unit {
 
 // /taler/admin/add-incoming
 suspend fun talerAddIncoming(call: ApplicationCall): Unit {
-    val exchangeUser = authenticateRequest(call.request)
     val addIncomingData = call.receive<TalerAdminAddIncoming>()
     val debtor = parsePayto(addIncomingData.debit_account)
     val amount = parseAmount(addIncomingData.amount)
     val (bookingDate, opaque_row_id) = transaction {
+        val exchangeUser = authenticateRequest(call.request)
         val rawPayment = RawBankTransactionEntity.new {
             unstructuredRemittanceInformation = addIncomingData.reserve_pub
             transactionType = "CRDT"
@@ -309,7 +318,7 @@ suspend fun talerAddIncoming(call: ApplicationCall): Unit {
             counterpartIban = debtor.iban
             bookingDate = DateTime.now().millis
             status = "BOOK"
-            bankAccount = NexusBankAccountEntity.new { /* FIXME; exchange should communicate this value */ }
+            bankAccount = getFacadeBankAccount(exchangeUser)
         }
         /** This payment is "valid by default" and will be returned
          * as soon as the exchange will ask for new payments.  */
@@ -332,13 +341,16 @@ suspend fun talerAddIncoming(call: ApplicationCall): Unit {
     )
 }
 
-fun ingestTransactions() {
-    transaction {
-        val subscriberAccount = NexusBankAccountEntity.new { /* FIXME; exchange should communicate this value */ }
-        /**
-         * Search for fresh incoming payments in the raw table, and making pointers
-         * from the Taler incoming payments table to the found fresh (and valid!) payments.
-         */
+/**
+ * Crawls the database to find ALL the users that have a Taler
+ * facade and process their histories respecting the TWG policy.
+ * The two main tasks it does are: (1) marking as invalid those
+ * payments with bad subject line, and (2) see if previously requested
+ * payments got booked as outgoing payments (and mark them accordingly
+ * in the local table).
+ */
+fun ingestTalerTransactions() {
+    fun ingestIncoming(subscriberAccount: NexusBankAccountEntity) {
         val latestIncomingPaymentId: Long = TalerIncomingPaymentEntity.getLast()
         RawBankTransactionEntity.find {
             /** Those with exchange bank account involved */
@@ -349,14 +361,14 @@ fun ingestTransactions() {
                     (RawBankTransactionsTable.status eq "BOOK") and
                     /** Those that came later than the latest processed payment */
                     (RawBankTransactionsTable.id.greater(latestIncomingPaymentId))
-                }.forEach {
-                    if (duplicatePayment(it)) {
-                        logger.warn("Incoming payment already seen")
-                        throw NexusError(
-                            HttpStatusCode.InternalServerError,
-                            "Incoming payment already seen"
-                        )
-                    }
+        }.forEach {
+            if (duplicatePayment(it)) {
+                logger.warn("Incoming payment already seen")
+                throw NexusError(
+                    HttpStatusCode.InternalServerError,
+                    "Incoming payment already seen"
+                )
+            }
             if (CryptoUtil.checkValidEddsaPublicKey(it.unstructuredRemittanceInformation)) {
                 TalerIncomingPaymentEntity.new {
                     payment = it
@@ -369,11 +381,9 @@ fun ingestTransactions() {
                 }
             }
         }
-        /**
-         * Search for fresh OUTGOING transactions acknowledged by the bank.  As well
-         * searching only for BOOKed transactions, even though status changes should
-         * be really unexpected here.
-         */
+
+    }
+    fun ingestOutgoing(subscriberAccount: NexusBankAccountEntity) {
         val latestOutgoingPaymentId = TalerRequestedPaymentEntity.getLast()
         RawBankTransactionEntity.find {
             /** Those that came after the last processed payment */
@@ -406,19 +416,28 @@ fun ingestTransactions() {
             talerRequested.rawConfirmed = it
         }
     }
+
+    transaction {
+        FacadeEntity.find {
+            FacadesTable.type eq "taler-wire-gateway"
+        }.forEach {
+            val subscriberAccount = getFacadeBankAccount(it.creator)
+            ingestIncoming(subscriberAccount)
+            ingestOutgoing(subscriberAccount)
+        }
+    }
 }
 
 suspend fun historyOutgoing(call: ApplicationCall): Unit {
-    /* sanitize URL arguments */
-    val subscriberId = authenticateRequest(call.request)
     val delta: Int = expectInt(call.expectUrlParameter("delta"))
     val start: Long = handleStartArgument(call.request.queryParameters["start"], delta)
     val startCmpOp = getComparisonOperator(delta, start, TalerRequestedPayments)
     /* retrieve database elements */
     val history = TalerOutgoingHistory()
     transaction {
+        val user = authenticateRequest(call.request)
         /** Retrieve all the outgoing payments from the _clean Taler outgoing table_ */
-        val subscriberBankAccount = NexusBankAccountEntity.new { /* FIXME; exchange should communicate this value */ }
+        val subscriberBankAccount = getFacadeBankAccount(user)
         val reqPayments = TalerRequestedPaymentEntity.find {
             TalerRequestedPayments.rawConfirmed.isNotNull() and startCmpOp
         }.orderTaler(delta)
