@@ -250,6 +250,21 @@ suspend fun schedulePeriodicWork() {
         // download TWG C52
         // ingest TWG new histories
         logger.debug("I am scheduled")
+        downloadFacadesTransactions()
+    }
+}
+
+/** Crawls all the facades, and requests history for each of its creators. */
+suspend fun downloadFacadesTransactions() {
+    transaction {
+        FacadeEntity.all()
+    }.forEach {
+        fetchTransactionsInternal(
+            HttpClient(),
+            it.creator,
+            it.config.bankAccount,
+            CollectedTransaction(null, null, null)
+        )
     }
 }
 
