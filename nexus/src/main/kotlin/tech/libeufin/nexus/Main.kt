@@ -253,6 +253,54 @@ suspend fun schedulePeriodicWork() {
     }
 }
 
+suspend fun fetchTransactionsInternal(
+    client: HttpClient,
+    user: NexusUserEntity,
+    accountid: String,
+    ct: CollectedTransaction
+) {
+    val res = transaction {
+        val acct = NexusBankAccountEntity.findById(accountid)
+        if (acct == null) {
+            throw NexusError(
+                HttpStatusCode.NotFound,
+                "Account not found"
+            )
+        }
+        val conn = acct.defaultBankConnection
+        if (conn == null) {
+            throw NexusError(
+                HttpStatusCode.BadRequest,
+                "No default bank connection (explicit connection not yet supported)"
+            )
+        }
+        val subscriberDetails = getEbicsSubscriberDetails(user.id.value, conn.id.value)
+        return@transaction object {
+            val connectionType = conn.type
+            val connectionName = conn.id.value
+            val userId = user.id.value
+            val subscriberDetails = subscriberDetails
+        }
+    }
+    when (res.connectionType) {
+        "ebics" -> {
+            fetchEbicsC5x(
+                "C53",
+                client,
+                res.connectionName,
+                ct.start,
+                ct.end,
+                res.subscriberDetails
+            )
+            ingestBankMessagesIntoAccount(res.connectionName, accountid)
+        }
+        else -> throw NexusError(
+            HttpStatusCode.BadRequest,
+            "Connection type '${res.connectionType}' not implemented"
+        )
+    }
+}
+
 fun serverMain(dbName: String) {
     dbCreateTables(dbName)
     val client = HttpClient {
@@ -555,45 +603,18 @@ fun serverMain(dbName: String) {
                         "Account id missing"
                     )
                 }
-                val res = transaction {
-                    val user = authenticateRequest(call.request)
-                    val acct = NexusBankAccountEntity.findById(accountid)
-                    if (acct == null) {
-                        throw NexusError(
-                            HttpStatusCode.NotFound,
-                            "Account not found"
-                        )
-                    }
-                    val conn = acct.defaultBankConnection
-                    if (conn == null) {
-                        throw NexusError(
-                            HttpStatusCode.BadRequest,
-                            "No default bank connection (explicit connection not yet supported)"
-                        )
-                    }
-                    val subscriberDetails = getEbicsSubscriberDetails(user.id.value, conn.id.value)
-                    return@transaction object {
-                        val connectionType = conn.type
-                        val connectionName = conn.id.value
-                        val userId = user.id.value
-                        val subscriberDetails = subscriberDetails
-                    }
-                }
-                val request = if (call.request.hasBody()) {
+                val user = transaction { authenticateRequest(call.request) }
+                val ct = if (call.request.hasBody()) {
                     call.receive<CollectedTransaction>()
                 } else {
                     CollectedTransaction(null, null, null)
                 }
-                when (res.connectionType) {
-                    "ebics" -> {
-                        fetchEbicsC5x("C53",client, res.connectionName, request.start, request.end, res.subscriberDetails)
-                        ingestBankMessagesIntoAccount(res.connectionName, accountid)
-                    }
-                    else -> throw NexusError(
-                        HttpStatusCode.BadRequest,
-                        "Connection type '${res.connectionType}' not implemented"
-                    )
-                }
+                fetchTransactionsInternal(
+                    client,
+                    user,
+                    accountid,
+                    ct
+                )
                 call.respondText("Collection performed")
                 return@post
             }
