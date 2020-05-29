@@ -32,7 +32,6 @@ import com.github.ajalt.clikt.core.CliktCommand
 import com.github.ajalt.clikt.core.ProgramResult
 import com.github.ajalt.clikt.core.subcommands
 import com.github.ajalt.clikt.parameters.arguments.argument
-import com.github.ajalt.clikt.parameters.arguments.default
 import com.github.ajalt.clikt.parameters.options.default
 import com.github.ajalt.clikt.parameters.options.option
 import com.github.ajalt.clikt.parameters.options.prompt
@@ -49,6 +48,7 @@ import io.ktor.http.HttpStatusCode
 import io.ktor.jackson.jackson
 import io.ktor.request.*
 import io.ktor.response.respond
+import io.ktor.response.respondBytes
 import io.ktor.response.respondText
 import io.ktor.routing.*
 import io.ktor.server.engine.embeddedServer
@@ -64,6 +64,7 @@ import org.slf4j.event.Level
 import tech.libeufin.util.*
 import tech.libeufin.util.CryptoUtil.hashpw
 import tech.libeufin.util.ebics_h004.HTDResponseOrderData
+import java.lang.NumberFormatException
 import java.net.URLEncoder
 import java.util.*
 import java.util.zip.InflaterInputStream
@@ -221,6 +222,22 @@ fun requireBankConnection(call: ApplicationCall, parameterKey: String): NexusBan
         throw NexusError(HttpStatusCode.NotFound, "bank connection '$name' not found")
     }
     return conn
+}
+
+fun ApplicationRequest.hasBody(): Boolean {
+    if (this.isChunked()) {
+        return true
+    }
+    val contentLengthHeaderStr = this.headers["content-length"]
+    if (contentLengthHeaderStr != null) {
+        try {
+            val cl = contentLengthHeaderStr.toInt()
+            return cl != 0
+        } catch (e: NumberFormatException) {
+            return false;
+        }
+    }
+    return false
 }
 
 fun serverMain(dbName: String) {
@@ -548,10 +565,14 @@ fun serverMain(dbName: String) {
                         val subscriberDetails = subscriberDetails
                     }
                 }
-                val body = call.receive<CollectedTransaction>()
+                val request = if (call.request.hasBody()) {
+                    call.receive<CollectedTransaction>()
+                } else {
+                    CollectedTransaction(null, null, null)
+                }
                 when (res.connectionType) {
                     "ebics" -> {
-                        fetchEbicsC5x("C53",client, res.connectionName, body.start, body.end, res.subscriberDetails)
+                        fetchEbicsC5x("C53",client, res.connectionName, request.start, request.end, res.subscriberDetails)
                         ingestBankMessagesIntoAccount(res.connectionName, accountid)
                     }
                     else -> throw NexusError(
@@ -794,8 +815,29 @@ fun serverMain(dbName: String) {
                 call.respond(ret)
             }
 
+            get("/bank-connections/{connid}/messages/{msgid}") {
+                val ret = transaction {
+                    val msgid = call.parameters["msgid"]
+                    if (msgid == null || msgid == "") {
+                        throw NexusError(HttpStatusCode.BadRequest, "missing or invalid message ID")
+                    }
+                    val msg = NexusBankMessageEntity.find { NexusBankMessagesTable.messageId eq msgid}.firstOrNull()
+                    if (msg == null) {
+                        throw NexusError(HttpStatusCode.NotFound, "bank message not found")
+                    }
+                    return@transaction object {
+                        val msgContent = msg.message.toByteArray()
+                    }
+                }
+                call.respondBytes(ret.msgContent, ContentType("application", "xml"))
+            }
+
             post("/bank-connections/{connid}/ebics/fetch-c53") {
-                val paramsJson = call.receiveOrNull<EbicsDateRangeJson>()
+                val paramsJson = if (call.request.hasBody()) {
+                    call.receive<EbicsDateRangeJson>()
+                } else {
+                    null
+                }
                 val ret = transaction {
                     val user = authenticateRequest(call.request)
                     val conn = requireBankConnection(call, "connid")
