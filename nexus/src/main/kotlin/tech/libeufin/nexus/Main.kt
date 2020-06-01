@@ -192,6 +192,13 @@ fun createEbicsBankConnectionFromBackup(
     return
 }
 
+fun createLoopbackBankConnection(bankConnectionName: String, user: NexusUserEntity, data: JsonNode) {
+    val bankConn = NexusBankConnectionEntity.new(bankConnectionName) {
+        owner = user
+        type = "loopback"
+    }
+}
+
 fun createEbicsBankConnection(bankConnectionName: String, user: NexusUserEntity, data: JsonNode) {
     val bankConn = NexusBankConnectionEntity.new(bankConnectionName) {
         owner = user
@@ -690,6 +697,10 @@ fun serverMain(dbName: String) {
                             when (body.type) {
                                 "ebics" -> {
                                     createEbicsBankConnection(body.name, user, body.data)
+                                }
+                                "loopback" -> {
+                                    createLoopbackBankConnection(body.name, user, body.data)
+
                                 }
                                 else -> {
                                     throw NexusError(HttpStatusCode.BadRequest, "connection type not supported")
