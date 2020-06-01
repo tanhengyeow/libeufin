@@ -466,7 +466,6 @@ suspend fun historyOutgoing(call: ApplicationCall): Unit {
 
 // /taler/history/incoming
 suspend fun historyIncoming(call: ApplicationCall): Unit {
-    val exchangeUser = authenticateRequest(call.request)
     val delta: Int = expectInt(call.expectUrlParameter("delta"))
     val start: Long = handleStartArgument(call.request.queryParameters["start"], delta)
     val history = TalerIncomingHistory()
@@ -518,7 +517,7 @@ fun talerFacadeRoutes(route: Route) {
         historyIncoming(call)
         return@get
     }
-    route.get("/taler") {
+    route.get("") {
         call.respondText("Hello Taler")
         return@get
     }

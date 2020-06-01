@@ -160,7 +160,6 @@ assertResponse(
 )
 
 # 1.a, make a new nexus user.
-
 assertResponse(
     post(
         "http://localhost:5001/users",

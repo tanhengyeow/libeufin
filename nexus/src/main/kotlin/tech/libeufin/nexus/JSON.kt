@@ -186,9 +186,9 @@ data class Transactions(
 
 /** Request type of "POST /collected-transactions" */
 data class CollectedTransaction(
-    val transport: String?,
-    val start: String?,
-    val end: String?
+    val transport: String? = null,
+    val start: String? = null,
+    val end: String? = null
 )
 
 data class BankProtocolsResponse(
