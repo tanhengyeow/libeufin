@@ -351,7 +351,7 @@ suspend fun talerAddIncoming(call: ApplicationCall): Unit {
  */
 fun ingestTalerTransactions() {
     fun ingestIncoming(subscriberAccount: NexusBankAccountEntity) {
-        val latestIncomingPaymentId: Long = TalerIncomingPaymentEntity.getLast()
+        val latestIncomingPayment = TalerIncomingPaymentEntity.all().maxBy { it.payment.id.value }
         RawBankTransactionEntity.find {
             /** Those with exchange bank account involved */
             RawBankTransactionsTable.bankAccount eq subscriberAccount.id.value and
@@ -360,7 +360,10 @@ fun ingestTalerTransactions() {
                     /** Those that are booked */
                     (RawBankTransactionsTable.status eq "BOOK") and
                     /** Those that came later than the latest processed payment */
-                    (RawBankTransactionsTable.id.greater(latestIncomingPaymentId))
+                    (RawBankTransactionsTable.id.greater(
+                        if (latestIncomingPayment == null) 0
+                                else latestIncomingPayment.payment.id.value
+                    ))
         }.forEach {
             if (duplicatePayment(it)) {
                 logger.warn("Incoming payment already seen")
@@ -381,13 +384,15 @@ fun ingestTalerTransactions() {
                 }
             }
         }
-
     }
     fun ingestOutgoing(subscriberAccount: NexusBankAccountEntity) {
-        val latestOutgoingPaymentId = TalerRequestedPaymentEntity.getLast()
+        val latestOutgoingPayment = TalerIncomingPaymentEntity.all().maxBy { it.payment.id.value }
         RawBankTransactionEntity.find {
             /** Those that came after the last processed payment */
-            RawBankTransactionsTable.id greater latestOutgoingPaymentId and
+            RawBankTransactionsTable.id.greater(
+                if (latestOutgoingPayment == null) 0
+                    else latestOutgoingPayment.payment.id.value
+            ) and
                     /** Those involving the exchange bank account */
                     (RawBankTransactionsTable.bankAccount eq subscriberAccount.id.value) and
                     /** Those that are outgoing */

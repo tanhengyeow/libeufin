@@ -61,10 +61,6 @@ object TalerIncomingPayments : LongIdTable() {
     val refunded = bool("refunded").default(false)
 }
 
-fun LongEntityClass<*>.getLast(): Long {
-    return this.all().maxBy { it.id }?.id?.value ?: -1
-}
-
 class TalerIncomingPaymentEntity(id: EntityID<Long>) : LongEntity(id) {
     companion object : LongEntityClass<TalerIncomingPaymentEntity>(TalerIncomingPayments) {
         override fun new(init: TalerIncomingPaymentEntity.() -> Unit): TalerIncomingPaymentEntity {
