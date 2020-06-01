@@ -197,6 +197,14 @@ fun createLoopbackBankConnection(bankConnectionName: String, user: NexusUserEnti
         owner = user
         type = "loopback"
     }
+    val bankAccount = jacksonObjectMapper().treeToValue(data, BankAccount::class.java)
+    NexusBankAccountEntity.new(bankAccount.account){
+        iban = bankAccount.iban
+        bankCode = bankAccount.bic
+        accountHolder = bankAccount.holder
+        defaultBankConnection = bankConn
+        highestSeenBankMessageId = 0
+    }
 }
 
 fun createEbicsBankConnection(bankConnectionName: String, user: NexusUserEntity, data: JsonNode) {
@@ -703,7 +711,7 @@ fun serverMain(dbName: String) {
 
                                 }
                                 else -> {
-                                    throw NexusError(HttpStatusCode.BadRequest, "connection type not supported")
+                                    throw NexusError(HttpStatusCode.BadRequest, "connection type ${body.type} not supported")
                                 }
                             }
                         }
