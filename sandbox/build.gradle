@@ -2,6 +2,7 @@ plugins {
     id 'java'
     id 'org.jetbrains.kotlin.jvm'
     id 'application'
+    id "com.github.johnrengelman.shadow" version "5.2.0"
 }
 
 sourceCompatibility = "11"
@@ -12,6 +13,21 @@ compileKotlin {
     kotlinOptions {
         jvmTarget = "11"
     }
+}
+
+task installToPrefix(type: Copy) {
+    dependsOn(installShadowDist)
+    from("build/install/sandbox-shadow") {
+        include("**/sandbox")
+        include("**/*.jar")
+    }
+    /**
+     * Reads from command line -Pkey=value options,
+     * with a default (/tmp) if the key is not found.
+     *
+     * project.findProperty('prefix') ?: '/tmp'
+     */
+    into "${project.findProperty('prefix') ?: '/tmp'}"
 }
 
 compileTestKotlin {
