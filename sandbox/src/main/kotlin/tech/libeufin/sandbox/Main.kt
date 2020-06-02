@@ -159,7 +159,7 @@ fun main() {
         }
         routing {
             get("/") {
-                call.respondText("Hello Sandbox!\n", ContentType.Text.Plain)
+                call.respondText("Hello, this is Sandbox\n", ContentType.Text.Plain)
             }
             get("/admin/payments") {
                 val ret = PaymentsResponse()

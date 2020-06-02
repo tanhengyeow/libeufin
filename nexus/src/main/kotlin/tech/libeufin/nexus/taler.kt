@@ -16,9 +16,13 @@ import org.apache.http.client.methods.RequestBuilder.post
 import org.jetbrains.exposed.dao.Entity
 import org.jetbrains.exposed.dao.IdTable
 import org.jetbrains.exposed.sql.*
+import org.jetbrains.exposed.sql.SqlExpressionBuilder.eq
 import org.jetbrains.exposed.sql.transactions.transaction
 import org.joda.time.DateTime
 import tech.libeufin.util.*
+import java.time.LocalDateTime
+import java.time.ZoneId
+import java.util.concurrent.atomic.LongAdder
 import kotlin.math.abs
 import kotlin.math.min
 
@@ -306,34 +310,23 @@ suspend fun talerAddIncoming(call: ApplicationCall): Unit {
     val addIncomingData = call.receive<TalerAdminAddIncoming>()
     val debtor = parsePayto(addIncomingData.debit_account)
     val amount = parseAmount(addIncomingData.amount)
-    val (bookingDate, opaque_row_id) = transaction {
-        val exchangeUser = authenticateRequest(call.request)
-        val rawPayment = RawBankTransactionEntity.new {
-            unstructuredRemittanceInformation = addIncomingData.reserve_pub
-            transactionType = "CRDT"
-            currency = amount.currency
-            this.amount = amount.amount.toPlainString()
-            counterpartBic = debtor.bic
-            counterpartName = debtor.name
-            counterpartIban = debtor.iban
-            bookingDate = DateTime.now().millis
-            status = "BOOK"
-            bankAccount = getFacadeBankAccount(exchangeUser)
-        }
-        /** This payment is "valid by default" and will be returned
-         * as soon as the exchange will ask for new payments.  */
-        val row = TalerIncomingPaymentEntity.new {
-            payment = rawPayment
-            valid = true
-        }
-        Pair(rawPayment.bookingDate, row.id.value)
+
+    val myLastSeenRawPayment = transaction {
+        val facadeID = expectNonNull(call.parameters["fcid"])
+        val facade = FacadeEntity.findById(facadeID) ?: throw NexusError(
+            HttpStatusCode.NotFound, "Could not find facade"
+        )
+        facade.highestSeenMsgID
     }
     return call.respond(
         TextContent(
             customConverter(
                 TalerAddIncomingResponse(
-                    timestamp = GnunetTimestamp(bookingDate/ 1000),
-                    row_id = opaque_row_id
+                    timestamp = GnunetTimestamp(
+                        // warning: this value might need to come from a real last-seen payment.
+                        LocalDateTime.now().atZone(ZoneId.systemDefault()).toEpochSecond()
+                    ),
+                    row_id = myLastSeenRawPayment
                 )
             ),
             ContentType.Application.Json
@@ -350,21 +343,16 @@ suspend fun talerAddIncoming(call: ApplicationCall): Unit {
  * in the local table).
  */
 fun ingestTalerTransactions() {
-    fun ingestIncoming(subscriberAccount: NexusBankAccountEntity) {
-        val latestIncomingPayment = TalerIncomingPaymentEntity.all().maxBy { it.payment.id.value }
+    fun ingest(subscriberAccount: NexusBankAccountEntity, facade: FacadeEntity) {
+        var lastId = facade.highestSeenMsgID
         RawBankTransactionEntity.find {
             /** Those with exchange bank account involved */
             RawBankTransactionsTable.bankAccount eq subscriberAccount.id.value and
-                    /** Those that are incoming */
-                    (RawBankTransactionsTable.transactionType eq "CRDT") and
                     /** Those that are booked */
                     (RawBankTransactionsTable.status eq "BOOK") and
                     /** Those that came later than the latest processed payment */
-                    (RawBankTransactionsTable.id.greater(
-                        if (latestIncomingPayment == null) 0
-                                else latestIncomingPayment.payment.id.value
-                    ))
-        }.forEach {
+                    (RawBankTransactionsTable.id.greater(lastId))
+        }.orderBy(Pair(RawBankTransactionsTable.id, SortOrder.ASC)).forEach {
             if (duplicatePayment(it)) {
                 logger.warn("Incoming payment already seen")
                 throw NexusError(
@@ -372,63 +360,46 @@ fun ingestTalerTransactions() {
                     "Incoming payment already seen"
                 )
             }
-            if (CryptoUtil.checkValidEddsaPublicKey(it.unstructuredRemittanceInformation)) {
-                TalerIncomingPaymentEntity.new {
-                    payment = it
-                    valid = true
+            // Incoming payment.
+            if (it.transactionType == "CRDT") {
+                if (CryptoUtil.checkValidEddsaPublicKey(it.unstructuredRemittanceInformation)) {
+                    TalerIncomingPaymentEntity.new {
+                        payment = it
+                        valid = true
+                    }
+                } else {
+                    TalerIncomingPaymentEntity.new {
+                        payment = it
+                        valid = false
+                    }
                 }
-            } else {
-                TalerIncomingPaymentEntity.new {
-                    payment = it
-                    valid = false
+            }
+            // Outgoing payment
+            if (it.transactionType == "DBIT") {
+                var talerRequested = TalerRequestedPaymentEntity.find {
+                    TalerRequestedPayments.wtid eq it.unstructuredRemittanceInformation
+                }.firstOrNull() ?: throw NexusError(
+                    HttpStatusCode.InternalServerError,
+                    "Payment '${it.unstructuredRemittanceInformation}' shows in history, but was never requested!"
+                )
+                if (talerRequested != null) {
+                    talerRequested.rawConfirmed = it
                 }
             }
+            /** WARNING: it is not guaranteed that the last processed raw
+             * payment is ALSO the one with highest ID.  A more accurate management
+             * is needed. */
+            lastId = it.id.value
         }
+        facade.highestSeenMsgID = lastId
     }
-    fun ingestOutgoing(subscriberAccount: NexusBankAccountEntity) {
-        val latestOutgoingPayment = TalerIncomingPaymentEntity.all().maxBy { it.payment.id.value }
-        RawBankTransactionEntity.find {
-            /** Those that came after the last processed payment */
-            RawBankTransactionsTable.id.greater(
-                if (latestOutgoingPayment == null) 0
-                    else latestOutgoingPayment.payment.id.value
-            ) and
-                    /** Those involving the exchange bank account */
-                    (RawBankTransactionsTable.bankAccount eq subscriberAccount.id.value) and
-                    /** Those that are outgoing */
-                    (RawBankTransactionsTable.transactionType eq "DBIT")
-        }.forEach {
-            if (paymentFailed(it)) {
-                logger.error("Bank didn't accept one payment from the exchange")
-                throw NexusError(
-                    HttpStatusCode.InternalServerError,
-                    "Bank didn't accept one payment from the exchange"
-                )
-            }
-            if (duplicatePayment(it)) {
-                logger.warn("Incoming payment already seen")
-                throw NexusError(
-                    HttpStatusCode.InternalServerError,
-                    "Outgoing payment already seen"
-                )
-            }
-            var talerRequested = TalerRequestedPaymentEntity.find {
-                TalerRequestedPayments.wtid eq it.unstructuredRemittanceInformation
-            }.firstOrNull() ?: throw NexusError(
-                HttpStatusCode.InternalServerError,
-                "Unrecognized fresh outgoing payment met (subject: ${it.unstructuredRemittanceInformation})."
-            )
-            talerRequested.rawConfirmed = it
-        }
-    }
-
+    // invoke ingestion for all the facades
     transaction {
         FacadeEntity.find {
             FacadesTable.type eq "taler-wire-gateway"
         }.forEach {
             val subscriberAccount = getFacadeBankAccount(it.creator)
-            ingestIncoming(subscriberAccount)
-            ingestOutgoing(subscriberAccount)
+            ingest(subscriberAccount, it)
         }
     }
 }
@@ -523,7 +494,7 @@ fun talerFacadeRoutes(route: Route) {
         return@get
     }
     route.get("") {
-        call.respondText("Hello Taler")
+        call.respondText("Hello, this is Taler Facade")
         return@get
     }
 }

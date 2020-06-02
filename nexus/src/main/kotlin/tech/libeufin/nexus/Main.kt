@@ -260,7 +260,7 @@ fun ApplicationRequest.hasBody(): Boolean {
 }
 suspend fun schedulePeriodicWork(coroutineScope: CoroutineScope) {
     while (true) {
-        delay(Duration.ofSeconds(1))
+        delay(Duration.ofMillis(100))
         downloadFacadesTransactions(coroutineScope)
         ingestTalerTransactions()
     }
@@ -1097,7 +1097,7 @@ fun serverMain(dbName: String) {
              * Hello endpoint.
              */
             get("/") {
-                call.respondText("Hello by nexus!\n")
+                call.respondText("Hello, this is Nexus.\n")
                 return@get
             }
         }

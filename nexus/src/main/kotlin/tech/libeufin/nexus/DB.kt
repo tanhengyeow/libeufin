@@ -272,6 +272,7 @@ object FacadesTable : IdTable<String>() {
     val type = text("type")
     val creator = reference("creator", NexusUsersTable)
     val config = reference("config", TalerFacadeConfigsTable) // see #6266
+    val highestSeenMsgID = long("highestSeenMessageID").default(0)
 }
 
 class FacadeEntity(id: EntityID<String>) : Entity<String>(id) {
@@ -279,6 +280,7 @@ class FacadeEntity(id: EntityID<String>) : Entity<String>(id) {
     var type by FacadesTable.type
     var creator by NexusUserEntity referencedOn FacadesTable.creator
     var config by TalerFacadeConfigEntity referencedOn FacadesTable.config
+    var highestSeenMsgID by FacadesTable.highestSeenMsgID
 }
 
 object TalerFacadeConfigsTable : IntIdTable() {
