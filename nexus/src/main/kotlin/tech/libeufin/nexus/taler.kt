@@ -108,11 +108,11 @@ fun parsePayto(paytoUri: String): Payto {
 
 
     /**
-     * payto://iban/BIC?/IBAN?name=<name>
+     * payto://iban/BIC/IBAN?name=<name>
      * payto://x-taler-bank/<bank hostname>/<plain account number>
      */
 
-    val ibanMatch = Regex("payto://iban/([A-Z0-9]+/)?([A-Z0-9]+)\\?name=(\\w+)").find(paytoUri)
+    val ibanMatch = Regex("payto://iban/([A-Z0-9]+)/([A-Z0-9]+)\\?name=(\\w+)").find(paytoUri)
     if (ibanMatch != null) {
         val (bic, iban, name) = ibanMatch.destructured
         return Payto(name, iban, bic.replace("/", ""))
@@ -141,10 +141,10 @@ fun <T : Entity<Long>> SizedIterable<T>.orderTaler(delta: Int): List<T> {
  * 'iban'.
  */
 fun buildPaytoUri(name: String, iban: String, bic: String): String {
-    return "payto://x-taler-bank/localhost/$iban"
+    return "payto://iban/$bic/$iban?name=$name"
 }
 fun buildPaytoUri(iban: String, bic: String): String {
-    return "payto://x-taler-bank/localhost/$iban"
+    return "payto://iban/$bic/$iban"
 }
 
 /** Builds the comparison operator for history entries based on the sign of 'delta'  */
