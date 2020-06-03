@@ -5,6 +5,7 @@ import io.ktor.http.HttpStatusCode
 import io.ktor.request.ApplicationRequest
 import org.jetbrains.exposed.sql.SortOrder
 import org.jetbrains.exposed.sql.and
+import org.jetbrains.exposed.sql.statements.api.ExposedBlob
 import org.jetbrains.exposed.sql.transactions.transaction
 import org.w3c.dom.Document
 import tech.libeufin.util.*
@@ -16,7 +17,6 @@ import java.time.ZoneId
 import java.time.ZonedDateTime
 import java.time.format.DateTimeFormatter
 import java.util.*
-import javax.sql.rowset.serial.SerialBlob
 
 fun isProduction(): Boolean {
     return System.getenv("NEXUS_PRODUCTION") != null
@@ -64,13 +64,13 @@ fun getEbicsSubscriberDetailsInternal(subscriber: EbicsSubscriberEntity): EbicsC
     var bankAuthPubValue: RSAPublicKey? = null
     if (subscriber.bankAuthenticationPublicKey != null) {
         bankAuthPubValue = CryptoUtil.loadRsaPublicKey(
-            subscriber.bankAuthenticationPublicKey?.toByteArray()!!
+            subscriber.bankAuthenticationPublicKey?.bytes!!
         )
     }
     var bankEncPubValue: RSAPublicKey? = null
     if (subscriber.bankEncryptionPublicKey != null) {
         bankEncPubValue = CryptoUtil.loadRsaPublicKey(
-            subscriber.bankEncryptionPublicKey?.toByteArray()!!
+            subscriber.bankEncryptionPublicKey?.bytes!!
         )
     }
     return EbicsClientSubscriberDetails(
@@ -82,9 +82,9 @@ fun getEbicsSubscriberDetailsInternal(subscriber: EbicsSubscriberEntity): EbicsC
         userId = subscriber.userID,
         partnerId = subscriber.partnerID,
 
-        customerSignPriv = CryptoUtil.loadRsaPrivateKey(subscriber.signaturePrivateKey.toByteArray()),
-        customerAuthPriv = CryptoUtil.loadRsaPrivateKey(subscriber.authenticationPrivateKey.toByteArray()),
-        customerEncPriv = CryptoUtil.loadRsaPrivateKey(subscriber.encryptionPrivateKey.toByteArray()),
+        customerSignPriv = CryptoUtil.loadRsaPrivateKey(subscriber.signaturePrivateKey.bytes),
+        customerAuthPriv = CryptoUtil.loadRsaPrivateKey(subscriber.authenticationPrivateKey.bytes),
+        customerEncPriv = CryptoUtil.loadRsaPrivateKey(subscriber.encryptionPrivateKey.bytes),
         ebicsIniState = subscriber.ebicsIniState,
         ebicsHiaState = subscriber.ebicsHiaState
     )
@@ -157,7 +157,7 @@ fun ingestBankMessagesIntoAccount(
                 (NexusBankMessagesTable.id greater acct.highestSeenBankMessageId)
         }.orderBy(Pair(NexusBankMessagesTable.id, SortOrder.ASC)).forEach {
             // FIXME: check if it's CAMT first!
-            val doc = XMLUtil.parseStringIntoDom(it.message.toByteArray().toString(Charsets.UTF_8))
+            val doc = XMLUtil.parseStringIntoDom(it.message.bytes.toString(Charsets.UTF_8))
             processCamtMessage(bankAccountId, doc)
             lastId = it.id.value
         }
@@ -209,7 +209,7 @@ suspend fun fetchEbicsC5x(
                             this.bankConnection = conn
                             this.code = "C53"
                             this.messageId = msgId
-                            this.message = SerialBlob(it.second.toByteArray(Charsets.UTF_8))
+                            this.message = ExposedBlob(it.second.toByteArray(Charsets.UTF_8))
                         }
                     }
                 }

@@ -1,7 +1,5 @@
 package tech.libeufin.util
 
-import org.jetbrains.exposed.dao.IdTable
-import org.jetbrains.exposed.dao.IntIdTable
 import org.jetbrains.exposed.sql.Column
 import org.jetbrains.exposed.sql.ColumnType
 import org.jetbrains.exposed.sql.Table
@@ -58,6 +56,6 @@ class AmountColumnType : ColumnType() {
  * Make sure the number entered by upper layers does not need any rounding
  * to conform to scale == 2
  */
-fun IdTable<*>.amount(name: String): Column<Amount> {
+fun Table.amount(name: String): Column<Amount> {
     return registerColumn(name, AmountColumnType())
 }

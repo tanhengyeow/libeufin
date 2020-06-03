@@ -50,7 +50,6 @@ import java.lang.ArithmeticException
 import java.math.BigDecimal
 import java.security.interfaces.RSAPublicKey
 import java.text.DateFormat
-import javax.sql.rowset.serial.SerialBlob
 import javax.xml.bind.JAXBContext
 import com.fasterxml.jackson.core.util.DefaultIndenter
 import com.fasterxml.jackson.core.util.DefaultPrettyPrinter
@@ -61,6 +60,7 @@ import com.fasterxml.jackson.module.kotlin.KotlinModule
 import com.fasterxml.jackson.module.kotlin.MissingKotlinParameterException
 import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
 import io.ktor.http.toHttpDateString
+import org.jetbrains.exposed.sql.statements.api.ExposedBlob
 import java.time.Instant
 import java.time.LocalDate
 import java.time.LocalDateTime
@@ -272,9 +272,9 @@ fun main() {
                     EbicsHostEntity.new {
                         this.ebicsVersion = req.ebicsVersion
                         this.hostId = req.hostID
-                        this.authenticationPrivateKey = SerialBlob(pairA.private.encoded)
-                        this.encryptionPrivateKey = SerialBlob(pairB.private.encoded)
-                        this.signaturePrivateKey = SerialBlob(pairC.private.encoded)
+                        this.authenticationPrivateKey = ExposedBlob(pairA.private.encoded)
+                        this.encryptionPrivateKey = ExposedBlob(pairB.private.encoded)
+                        this.signaturePrivateKey = ExposedBlob(pairC.private.encoded)
 
                     }
                 }

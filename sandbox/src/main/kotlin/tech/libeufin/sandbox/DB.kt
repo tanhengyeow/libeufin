@@ -19,8 +19,17 @@
 
 package tech.libeufin.sandbox
 
-import org.jetbrains.exposed.dao.*
-import org.jetbrains.exposed.sql.*
+import org.jetbrains.exposed.dao.Entity
+import org.jetbrains.exposed.dao.EntityClass
+import org.jetbrains.exposed.dao.IntEntity
+import org.jetbrains.exposed.dao.IntEntityClass
+import org.jetbrains.exposed.dao.id.EntityID
+import org.jetbrains.exposed.dao.id.IdTable
+import org.jetbrains.exposed.dao.id.IntIdTable
+import org.jetbrains.exposed.sql.Database
+import org.jetbrains.exposed.sql.SchemaUtils
+import org.jetbrains.exposed.sql.StdOutSqlLogger
+import org.jetbrains.exposed.sql.addLogger
 import org.jetbrains.exposed.sql.transactions.TransactionManager
 import org.jetbrains.exposed.sql.transactions.transaction
 import java.sql.Connection
@@ -85,6 +94,7 @@ object EbicsSubscriberPublicKeysTable : IntIdTable() {
     val rsaPublicKey = blob("rsaPublicKey")
     val state = enumeration("state", KeyState::class)
 }
+
 class EbicsSubscriberPublicKeyEntity(id: EntityID<Int>) : IntEntity(id) {
     companion object : IntEntityClass<EbicsSubscriberPublicKeyEntity>(EbicsSubscriberPublicKeysTable)
 
@@ -102,8 +112,10 @@ object EbicsHostsTable : IntIdTable() {
     val encryptionPrivateKey = blob("encryptionPrivateKey")
     val authenticationPrivateKey = blob("authenticationPrivateKey")
 }
+
 class EbicsHostEntity(id: EntityID<Int>) : IntEntity(id) {
     companion object : IntEntityClass<EbicsHostEntity>(EbicsHostsTable)
+
     var hostId by EbicsHostsTable.hostID
     var ebicsVersion by EbicsHostsTable.ebicsVersion
     var signaturePrivateKey by EbicsHostsTable.signaturePrivateKey
@@ -125,8 +137,10 @@ object EbicsSubscribersTable : IntIdTable() {
     val nextOrderID = integer("nextOrderID")
     val state = enumeration("state", SubscriberState::class)
 }
+
 class EbicsSubscriberEntity(id: EntityID<Int>) : IntEntity(id) {
     companion object : IntEntityClass<EbicsSubscriberEntity>(EbicsSubscribersTable)
+
     var userId by EbicsSubscribersTable.userId
     var partnerId by EbicsSubscribersTable.partnerId
     var systemId by EbicsSubscribersTable.systemId
@@ -152,8 +166,10 @@ object EbicsDownloadTransactionsTable : IdTable<String>() {
     val segmentSize = integer("segmentSize")
     val receiptReceived = bool("receiptReceived")
 }
+
 class EbicsDownloadTransactionEntity(id: EntityID<String>) : Entity<String>(id) {
     companion object : EntityClass<String, EbicsDownloadTransactionEntity>(EbicsDownloadTransactionsTable)
+
     var orderType by EbicsDownloadTransactionsTable.orderType
     var host by EbicsHostEntity referencedOn EbicsDownloadTransactionsTable.host
     var subscriber by EbicsSubscriberEntity referencedOn EbicsDownloadTransactionsTable.subscriber
@@ -177,8 +193,10 @@ object EbicsUploadTransactionsTable : IdTable<String>() {
     val lastSeenSegment = integer("lastSeenSegment")
     val transactionKeyEnc = blob("transactionKeyEnc")
 }
+
 class EbicsUploadTransactionEntity(id: EntityID<String>) : Entity<String>(id) {
     companion object : EntityClass<String, EbicsUploadTransactionEntity>(EbicsUploadTransactionsTable)
+
     var orderType by EbicsUploadTransactionsTable.orderType
     var orderID by EbicsUploadTransactionsTable.orderID
     var host by EbicsHostEntity referencedOn EbicsUploadTransactionsTable.host
@@ -199,8 +217,10 @@ object EbicsOrderSignaturesTable : IntIdTable() {
     val signatureAlgorithm = text("signatureAlgorithm")
     val signatureValue = blob("signatureValue")
 }
+
 class EbicsOrderSignatureEntity(id: EntityID<Int>) : IntEntity(id) {
     companion object : IntEntityClass<EbicsOrderSignatureEntity>(EbicsOrderSignaturesTable)
+
     var orderID by EbicsOrderSignaturesTable.orderID
     var orderType by EbicsOrderSignaturesTable.orderType
     var partnerID by EbicsOrderSignaturesTable.partnerID
@@ -218,8 +238,10 @@ object EbicsUploadTransactionChunksTable : IdTable<String>() {
     val chunkIndex = integer("chunkIndex")
     val chunkContent = blob("chunkContent")
 }
+
 class EbicsUploadTransactionChunkEntity(id: EntityID<String>) : Entity<String>(id) {
     companion object : EntityClass<String, EbicsUploadTransactionChunkEntity>(EbicsUploadTransactionChunksTable)
+
     var chunkIndex by EbicsUploadTransactionChunksTable.chunkIndex
     var chunkContent by EbicsUploadTransactionChunksTable.chunkContent
 }
@@ -234,13 +256,18 @@ object PaymentsTable : IntIdTable() {
     val amount = text("amount")
     val date = long("date")
 }
+
 class PaymentEntity(id: EntityID<Int>) : IntEntity(id) {
     companion object : IntEntityClass<PaymentEntity>(PaymentsTable)
+
     var creditorIban by PaymentsTable.creditorIban
     var debitorIban by PaymentsTable.debitorIban
     var subject by PaymentsTable.subject
-    var amount by PaymentsTable.amount /** in the CURRENCY:X.Y format */
-    var date by PaymentsTable.date /** Date when the payment was persisted in this system.  */
+    var amount by PaymentsTable.amount
+
+    /** in the CURRENCY:X.Y format */
+    var date by PaymentsTable.date
+    /** Date when the payment was persisted in this system.  */
 }
 
 /**
@@ -254,8 +281,10 @@ object BankAccountsTable : IntIdTable() {
     val label = text("label")
     val subscriber = reference("subscriber", EbicsSubscribersTable)
 }
+
 class BankAccountEntity(id: EntityID<Int>) : IntEntity(id) {
     companion object : IntEntityClass<BankAccountEntity>(BankAccountsTable)
+
     var iban by BankAccountsTable.iban
     var bic by BankAccountsTable.bic
     var name by BankAccountsTable.name

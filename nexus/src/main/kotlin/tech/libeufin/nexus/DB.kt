@@ -2,14 +2,16 @@ package tech.libeufin.nexus
 
 import io.ktor.http.HttpStatusCode
 import org.jetbrains.exposed.dao.*
+import org.jetbrains.exposed.dao.id.LongIdTable
+import org.jetbrains.exposed.dao.id.EntityID
+import org.jetbrains.exposed.dao.id.IdTable
+import org.jetbrains.exposed.dao.id.IntIdTable
 import org.jetbrains.exposed.sql.Database
 import org.jetbrains.exposed.sql.SchemaUtils
 import org.jetbrains.exposed.sql.StdOutSqlLogger
 import org.jetbrains.exposed.sql.addLogger
 import org.jetbrains.exposed.sql.transactions.TransactionManager
 import org.jetbrains.exposed.sql.transactions.transaction
-import tech.libeufin.nexus.NexusBankConnectionsTable.entityId
-import tech.libeufin.nexus.NexusBankConnectionsTable.primaryKey
 import tech.libeufin.util.EbicsInitState
 import tech.libeufin.util.amount
 import java.sql.Connection

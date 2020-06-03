@@ -60,6 +60,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.time.delay
 import org.jetbrains.exposed.sql.and
+import org.jetbrains.exposed.sql.statements.api.ExposedBlob
 import org.jetbrains.exposed.sql.transactions.transaction
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
@@ -73,7 +74,6 @@ import java.time.Duration
 import java.util.*
 import java.util.zip.InflaterInputStream
 import javax.crypto.EncryptedPrivateKeyInfo
-import javax.sql.rowset.serial.SerialBlob
 import java.time.LocalDateTime
 
 data class NexusError(val statusCode: HttpStatusCode, val reason: String) :
@@ -176,9 +176,9 @@ fun createEbicsBankConnectionFromBackup(
             hostID = ebicsBackup.hostID
             partnerID = ebicsBackup.partnerID
             userID = ebicsBackup.userID
-            signaturePrivateKey = SerialBlob(sigKey.encoded)
-            encryptionPrivateKey = SerialBlob(encKey.encoded)
-            authenticationPrivateKey = SerialBlob(authKey.encoded)
+            signaturePrivateKey = ExposedBlob(sigKey.encoded)
+            encryptionPrivateKey = ExposedBlob((encKey.encoded))
+            authenticationPrivateKey = ExposedBlob((authKey.encoded))
             nexusBankConnection = bankConn
             ebicsIniState = EbicsInitState.UNKNOWN
             ebicsHiaState = EbicsInitState.UNKNOWN
@@ -222,9 +222,9 @@ fun createEbicsBankConnection(bankConnectionName: String, user: NexusUserEntity,
         partnerID = newTransportData.partnerID
         userID = newTransportData.userID
         systemID = newTransportData.systemID
-        signaturePrivateKey = SerialBlob(pairA.private.encoded)
-        encryptionPrivateKey = SerialBlob(pairB.private.encoded)
-        authenticationPrivateKey = SerialBlob(pairC.private.encoded)
+        signaturePrivateKey = ExposedBlob((pairA.private.encoded))
+        encryptionPrivateKey = ExposedBlob((pairB.private.encoded))
+        authenticationPrivateKey = ExposedBlob((pairC.private.encoded))
         nexusBankConnection = bankConn
         ebicsIniState = EbicsInitState.NOT_SENT
         ebicsHiaState = EbicsInitState.NOT_SENT
@@ -276,6 +276,18 @@ suspend fun downloadFacadesTransactions(coroutineScope: CoroutineScope) {
             }
         }
     }
+}
+
+fun <T>expectNonNull(param: T?): T {
+    return param ?: throw EbicsProtocolError(
+        HttpStatusCode.BadRequest,
+        "Non-null value expected."
+    )
+}
+
+fun ApplicationCall.expectUrlParameter(name: String): String {
+    return this.request.queryParameters[name]
+        ?: throw EbicsProtocolError(HttpStatusCode.BadRequest, "Parameter '$name' not provided in URI")
 }
 
 suspend fun fetchTransactionsInternal(
@@ -860,8 +872,8 @@ fun serverMain(dbName: String) {
                         subscriberEntity.ebicsHiaState = EbicsInitState.SENT
                     }
                     if (hpbData != null) {
-                        subscriberEntity.bankAuthenticationPublicKey = SerialBlob(hpbData.authenticationPubKey.encoded)
-                        subscriberEntity.bankEncryptionPublicKey = SerialBlob(hpbData.encryptionPubKey.encoded)
+                        subscriberEntity.bankAuthenticationPublicKey = ExposedBlob((hpbData.authenticationPubKey.encoded))
+                        subscriberEntity.bankEncryptionPublicKey = ExposedBlob((hpbData.encryptionPubKey.encoded))
                     }
                 }
                 call.respond(object {})
@@ -872,7 +884,7 @@ fun serverMain(dbName: String) {
                     val list = BankMessageList()
                     val conn = requireBankConnection(call, "connid")
                     NexusBankMessageEntity.find { NexusBankMessagesTable.bankConnection eq conn.id }.map {
-                        list.bankMessages.add(BankMessageInfo(it.messageId, it.code, it.message.length()))
+                        list.bankMessages.add(BankMessageInfo(it.messageId, it.code, it.message.bytes.size.toLong()))
                     }
                     list
                 }
@@ -890,7 +902,7 @@ fun serverMain(dbName: String) {
                         throw NexusError(HttpStatusCode.NotFound, "bank message not found")
                     }
                     return@transaction object {
-                        val msgContent = msg.message.toByteArray()
+                        val msgContent = msg.message.bytes
                     }
                 }
                 call.respondBytes(ret.msgContent, ContentType("application", "xml"))
@@ -974,8 +986,8 @@ fun serverMain(dbName: String) {
                     val conn = requireBankConnection(call, "connid")
                     val subscriber =
                         EbicsSubscriberEntity.find { EbicsSubscribersTable.nexusBankConnection eq conn.id }.first()
-                    subscriber.bankAuthenticationPublicKey = SerialBlob(hpbData.authenticationPubKey.encoded)
-                    subscriber.bankEncryptionPublicKey = SerialBlob(hpbData.encryptionPubKey.encoded)
+                    subscriber.bankAuthenticationPublicKey = ExposedBlob((hpbData.authenticationPubKey.encoded))
+                    subscriber.bankEncryptionPublicKey = ExposedBlob((hpbData.encryptionPubKey.encoded))
                 }
                 call.respond(object {})
             }

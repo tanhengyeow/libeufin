@@ -54,11 +54,10 @@ compileTestKotlin {
 
 
 def ktor_version = "1.3.2"
-
+def exposed_version = "0.24.1"
 
 dependencies {
     implementation "org.jetbrains.kotlin:kotlin-stdlib-jdk8"
-    implementation "org.jetbrains.exposed:exposed:0.17.6"
     implementation "ch.qos.logback:logback-classic:1.2.3"
     implementation group: 'javax.xml.bind', name: 'jaxb-api', version: '2.3.1'
     implementation "javax.xml.bind:jaxb-api:2.3.0"
@@ -74,6 +73,12 @@ dependencies {
 
     implementation 'org.jetbrains.kotlinx:kotlinx-coroutines-core:1.3.7'
 
+    // Exposed, an SQL library
+    implementation "org.jetbrains.exposed:exposed-core:$exposed_version"
+    implementation "org.jetbrains.exposed:exposed-dao:$exposed_version"
+    implementation "org.jetbrains.exposed:exposed-jdbc:$exposed_version"
+
+    // Ktor, an HTTP client and server library
     implementation "io.ktor:ktor-server-core:$ktor_version"
     implementation "io.ktor:ktor-client-apache:$ktor_version"
     implementation "io.ktor:ktor-server-netty:$ktor_version"

@@ -12,16 +12,13 @@ import io.ktor.response.respondText
 import io.ktor.routing.Route
 import io.ktor.routing.get
 import io.ktor.routing.post
-import org.apache.http.client.methods.RequestBuilder.post
 import org.jetbrains.exposed.dao.Entity
-import org.jetbrains.exposed.dao.IdTable
+import org.jetbrains.exposed.dao.id.IdTable
 import org.jetbrains.exposed.sql.*
-import org.jetbrains.exposed.sql.SqlExpressionBuilder.eq
 import org.jetbrains.exposed.sql.transactions.transaction
-import tech.libeufin.util.*
-import java.time.LocalDateTime
-import java.time.ZoneId
-import java.util.concurrent.atomic.LongAdder
+import tech.libeufin.util.CryptoUtil
+import tech.libeufin.util.EbicsProtocolError
+import tech.libeufin.util.parseAmount
 import kotlin.math.abs
 import kotlin.math.min
 
@@ -53,6 +50,7 @@ data class TalerIncomingBankTransaction(
 data class TalerIncomingHistory(
     var incoming_transactions: MutableList<TalerIncomingBankTransaction> = mutableListOf()
 )
+
 data class TalerOutgoingBankTransaction(
     val row_id: Long,
     val date: GnunetTimestamp, // timestamp
@@ -83,6 +81,7 @@ data class TalerAdminAddIncoming(
 data class GnunetTimestamp(
     val t_ms: Long
 )
+
 data class TalerAddIncomingResponse(
     val timestamp: GnunetTimestamp,
     val row_id: Long
@@ -146,6 +145,7 @@ fun <T : Entity<Long>> SizedIterable<T>.orderTaler(delta: Int): List<T> {
 fun buildPaytoUri(name: String, iban: String, bic: String): String {
     return "payto://iban/$bic/$iban?name=$name"
 }
+
 fun buildPaytoUri(iban: String, bic: String): String {
     return "payto://iban/$bic/$iban"
 }
@@ -162,23 +162,22 @@ fun getComparisonOperator(delta: Int, start: Long, table: IdTable<Long>): Op<Boo
         }
     }
 }
+
+fun expectLong(param: String?): Long {
+    if (param == null) {
+        throw EbicsProtocolError(HttpStatusCode.BadRequest, "'$param' is not Long")
+    }
+    return try {
+        param.toLong()
+    } catch (e: Exception) {
+        throw EbicsProtocolError(HttpStatusCode.BadRequest, "'$param' is not Long")
+    }
+}
+
+
 /** Helper handling 'start' being optional and its dependence on 'delta'.  */
 fun handleStartArgument(start: String?, delta: Int): Long {
-    return expectLong(start) ?: if (delta >= 0) {
-        /**
-         * Using -1 as the smallest value, as some DBMS might use 0 and some
-         * others might use 1 as the smallest row id.
-         */
-        -1
-    } else {
-        /**
-         * NOTE: the database currently enforces there MAX_VALUE is always
-         * strictly greater than any row's id in the database.  In fact, the
-         * database throws exception whenever a new row is going to occupy
-         * the MAX_VALUE with its id.
-         */
-        Long.MAX_VALUE
-    }
+    return expectLong(start)
 }
 
 /**
@@ -405,13 +404,19 @@ fun ingestTalerTransactions() {
 }
 
 suspend fun historyOutgoing(call: ApplicationCall): Unit {
-    val delta: Int = expectInt(call.expectUrlParameter("delta"))
+    val param = call.expectUrlParameter("delta")
+    val delta: Int = try {
+        param.toInt()
+    } catch (e: Exception) {
+        throw EbicsProtocolError(HttpStatusCode.BadRequest, "'${param}' is not Int")
+    }
     val start: Long = handleStartArgument(call.request.queryParameters["start"], delta)
     val startCmpOp = getComparisonOperator(delta, start, TalerRequestedPayments)
     /* retrieve database elements */
     val history = TalerOutgoingHistory()
     transaction {
         val user = authenticateRequest(call.request)
+
         /** Retrieve all the outgoing payments from the _clean Taler outgoing table_ */
         val subscriberBankAccount = getFacadeBankAccount(user)
         val reqPayments = TalerRequestedPaymentEntity.find {
@@ -424,8 +429,11 @@ suspend fun historyOutgoing(call: ApplicationCall): Unit {
                         row_id = it.id.value,
                         amount = it.amount,
                         wtid = it.wtid,
-                        date = GnunetTimestamp(it.rawConfirmed?.bookingDate?.div(1000) ?: throw NexusError(
-                            HttpStatusCode.InternalServerError, "Null value met after check, VERY strange.")),
+                        date = GnunetTimestamp(
+                            it.rawConfirmed?.bookingDate?.div(1000) ?: throw NexusError(
+                                HttpStatusCode.InternalServerError, "Null value met after check, VERY strange."
+                            )
+                        ),
                         credit_account = it.creditAccount,
                         debit_account = buildPaytoUri(subscriberBankAccount.iban, subscriberBankAccount.bankCode),
                         exchange_base_url = "FIXME-to-request-along-subscriber-registration"
@@ -442,7 +450,12 @@ suspend fun historyOutgoing(call: ApplicationCall): Unit {
 
 // /taler/history/incoming
 suspend fun historyIncoming(call: ApplicationCall): Unit {
-    val delta: Int = expectInt(call.expectUrlParameter("delta"))
+    val param = call.expectUrlParameter("delta")
+    val delta: Int = try {
+        param.toInt()
+    } catch (e: Exception) {
+        throw EbicsProtocolError(HttpStatusCode.BadRequest, "'${param}' is not Int")
+    }
     val start: Long = handleStartArgument(call.request.queryParameters["start"], delta)
     val history = TalerIncomingHistory()
     val startCmpOp = getComparisonOperator(delta, start, TalerIncomingPayments)

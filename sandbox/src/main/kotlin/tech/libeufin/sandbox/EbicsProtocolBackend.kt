@@ -28,38 +28,23 @@ import io.ktor.response.respond
 import io.ktor.response.respondText
 import org.apache.xml.security.binding.xmldsig.RSAKeyValueType
 import org.jetbrains.exposed.sql.*
+import org.jetbrains.exposed.sql.statements.api.ExposedBlob
 import org.jetbrains.exposed.sql.transactions.transaction
 import org.w3c.dom.Document
+import tech.libeufin.util.*
+import tech.libeufin.util.XMLUtil.Companion.signEbicsResponse
 import tech.libeufin.util.ebics_h004.*
 import tech.libeufin.util.ebics_hev.HEVResponse
 import tech.libeufin.util.ebics_hev.SystemReturnCodeType
 import tech.libeufin.util.ebics_s001.SignatureTypes
 import tech.libeufin.util.ebics_s001.UserSignatureData
-import tech.libeufin.util.CryptoUtil
-import tech.libeufin.util.EbicsOrderUtil
-import tech.libeufin.util.XMLUtil
-import tech.libeufin.util.*
-import tech.libeufin.util.XMLUtil.Companion.signEbicsResponse
-import java.io.ByteArrayOutputStream
-import java.math.BigDecimal
 import java.security.interfaces.RSAPrivateCrtKey
 import java.security.interfaces.RSAPublicKey
+import java.time.Instant
+import java.time.LocalDateTime
 import java.util.*
 import java.util.zip.DeflaterInputStream
 import java.util.zip.InflaterInputStream
-import javax.sql.rowset.serial.SerialBlob
-import javax.xml.datatype.DatatypeFactory
-import org.apache.commons.compress.utils.IOUtils
-import org.jetbrains.exposed.sql.SqlExpressionBuilder.eq
-import java.io.BufferedInputStream
-import java.io.ByteArrayInputStream
-import java.nio.charset.Charset
-import java.time.Instant
-import java.time.LocalDateTime
-import java.time.ZoneId
-import java.time.ZonedDateTime
-import java.time.format.DateTimeFormatter
-import javax.xml.datatype.XMLGregorianCalendar
 
 
 open class EbicsRequestError(errorText: String, errorCode: String) :
@@ -142,6 +127,13 @@ private suspend fun ApplicationCall.respondEbicsKeyManagement(
     respondText(text, ContentType.Application.Xml, HttpStatusCode.OK)
 }
 
+fun <T>expectNonNull(x: T?): T {
+    if (x == null) {
+        throw EbicsProtocolError(HttpStatusCode.BadRequest, "expected non-null value")
+    }
+    return x;
+}
+
 /**
  * Returns a list of camt strings.  Note: each element in the
  * list accounts for only one payment in the history.  In other
@@ -172,7 +164,10 @@ fun buildCamtString(type: Int, history: MutableList<RawPayment>): MutableList<St
                 root("Document") {
                     attribute("xmlns", "urn:iso:std:iso:20022:tech:xsd:camt.053.001.02")
                     attribute("xmlns:xsi", "http://www.w3.org/2001/XMLSchema-instance")
-                    attribute("xsi:schemaLocation", "urn:iso:std:iso:20022:tech:xsd:camt.053.001.02 camt.053.001.02.xsd")
+                    attribute(
+                        "xsi:schemaLocation",
+                        "urn:iso:std:iso:20022:tech:xsd:camt.053.001.02 camt.053.001.02.xsd"
+                    )
                     element("BkToCstmrStmt") {
                         element("GrpHdr") {
                             element("MsgId") {
@@ -418,10 +413,11 @@ private fun constructCamtResponse(
     transaction {
         PaymentEntity.find {
             PaymentsTable.creditorIban eq bankAccount.iban or
-                    (PaymentsTable.debitorIban eq bankAccount.iban) /**
-                     FIXME!
-                     and (PaymentsTable.date.between(start.millis, end.millis))
-                     */
+                    (PaymentsTable.debitorIban eq bankAccount.iban)
+            /**
+            FIXME!
+            and (PaymentsTable.date.between(start.millis, end.millis))
+             */
         }.forEach {
             history.add(
                 RawPayment(
@@ -504,11 +500,11 @@ private suspend fun ApplicationCall.handleEbicsHia(header: EbicsUnsecuredRequest
             throw EbicsInvalidRequestError()
         }
         ebicsSubscriber.authenticationKey = EbicsSubscriberPublicKeyEntity.new {
-            this.rsaPublicKey = SerialBlob(authPub.encoded)
+            this.rsaPublicKey = ExposedBlob(authPub.encoded)
             state = KeyState.NEW
         }
         ebicsSubscriber.encryptionKey = EbicsSubscriberPublicKeyEntity.new {
-            this.rsaPublicKey = SerialBlob(encPub.encoded)
+            this.rsaPublicKey = ExposedBlob(encPub.encoded)
             state = KeyState.NEW
         }
         ebicsSubscriber.state = when (ebicsSubscriber.state) {
@@ -539,7 +535,7 @@ private suspend fun ApplicationCall.handleEbicsIni(header: EbicsUnsecuredRequest
             throw EbicsInvalidRequestError()
         }
         ebicsSubscriber.signatureKey = EbicsSubscriberPublicKeyEntity.new {
-            this.rsaPublicKey = SerialBlob(sigPub.encoded)
+            this.rsaPublicKey = ExposedBlob(sigPub.encoded)
             state = KeyState.NEW
         }
         ebicsSubscriber.state = when (ebicsSubscriber.state) {
@@ -570,16 +566,16 @@ private suspend fun ApplicationCall.handleEbicsHpb(
         val encPubBlob = ebicsSubscriber.encryptionKey!!.rsaPublicKey
         val sigPubBlob = ebicsSubscriber.signatureKey!!.rsaPublicKey
         SubscriberKeys(
-            CryptoUtil.loadRsaPublicKey(authPubBlob.toByteArray()),
-            CryptoUtil.loadRsaPublicKey(encPubBlob.toByteArray()),
-            CryptoUtil.loadRsaPublicKey(sigPubBlob.toByteArray())
+            CryptoUtil.loadRsaPublicKey(authPubBlob.bytes),
+            CryptoUtil.loadRsaPublicKey(encPubBlob.bytes),
+            CryptoUtil.loadRsaPublicKey(sigPubBlob.bytes)
         )
     }
     val validationResult =
         XMLUtil.verifyEbicsDocument(requestDocument, subscriberKeys.authenticationPublicKey)
     LOGGER.info("validationResult: $validationResult")
     if (!validationResult) {
-        throw EbicsKeyManagementError("invalid signature", "90000");
+        throw EbicsKeyManagementError("invalid signature", "90000")
     }
     val hpbRespondeData = HPBResponseOrderData().apply {
         this.authenticationPubKeyInfo = EbicsTypes.AuthenticationPubKeyInfoType().apply {
@@ -622,8 +618,8 @@ private fun ApplicationCall.ensureEbicsHost(requestHostID: String): EbicsHostPub
             LOGGER.warn("client requested unknown HostID ${requestHostID}")
             throw EbicsKeyManagementError("[EBICS_INVALID_HOST_ID]", "091011")
         }
-        val encryptionPrivateKey = CryptoUtil.loadRsaPrivateKey(ebicsHost.encryptionPrivateKey.toByteArray())
-        val authenticationPrivateKey = CryptoUtil.loadRsaPrivateKey(ebicsHost.authenticationPrivateKey.toByteArray())
+        val encryptionPrivateKey = CryptoUtil.loadRsaPrivateKey(ebicsHost.encryptionPrivateKey.bytes)
+        val authenticationPrivateKey = CryptoUtil.loadRsaPrivateKey(ebicsHost.authenticationPrivateKey.bytes)
         EbicsHostPublicInfo(
             requestHostID,
             CryptoUtil.getRsaPublicFromPrivate(encryptionPrivateKey),
@@ -797,7 +793,7 @@ private fun handleEbicsDownloadTransactionInitialization(requestContext: Request
         this.host = requestContext.ebicsHost
         this.orderType = orderType
         this.segmentSize = segmentSize
-        this.transactionKeyEnc = SerialBlob(enc.encryptedTransactionKey)
+        this.transactionKeyEnc = ExposedBlob(enc.encryptedTransactionKey)
         this.encodedResponse = encodedResponse
         this.numSegments = numSegments
         this.receiptReceived = false
@@ -847,7 +843,7 @@ private fun handleEbicsUploadTransactionInitialization(requestContext: RequestCo
         this.orderType = orderType
         this.orderID = orderID
         this.numSegments = numSegments.toInt()
-        this.transactionKeyEnc = SerialBlob(transactionKeyEnc)
+        this.transactionKeyEnc = ExposedBlob(transactionKeyEnc)
     }
     val sigObj = XMLUtil.convertStringToJaxb<UserSignatureData>(plainSigData.toString(Charsets.UTF_8))
     println("got UserSignatureData: ${plainSigData.toString(Charsets.UTF_8)}")
@@ -859,7 +855,7 @@ private fun handleEbicsUploadTransactionInitialization(requestContext: RequestCo
             this.partnerID = sig.partnerID
             this.userID = sig.userID
             this.signatureAlgorithm = sig.signatureVersion
-            this.signatureValue = SerialBlob(sig.signatureValue)
+            this.signatureValue = ExposedBlob(sig.signatureValue)
         }
     }
     return EbicsResponse.createForUploadInitializationPhase(transactionID, orderID)
@@ -875,7 +871,7 @@ private fun handleEbicsUploadTransactionTransmission(requestContext: RequestCont
         val encOrderData =
             requestObject.body.dataTransfer?.orderData ?: throw EbicsInvalidRequestError()
         val zippedData = CryptoUtil.decryptEbicsE002(
-            uploadTransaction.transactionKeyEnc.toByteArray(),
+            uploadTransaction.transactionKeyEnc.bytes,
             Base64.getDecoder().decode(encOrderData),
             requestContext.hostEncPriv
         )
@@ -883,18 +879,22 @@ private fun handleEbicsUploadTransactionTransmission(requestContext: RequestCont
             InflaterInputStream(zippedData.inputStream()).use { it.readAllBytes() }
         logger.debug("got upload data: ${unzippedData.toString(Charsets.UTF_8)}")
 
-        val sigs  = EbicsOrderSignatureEntity.find {
+        val sigs = EbicsOrderSignatureEntity.find {
             (EbicsOrderSignaturesTable.orderID eq uploadTransaction.orderID) and
                     (EbicsOrderSignaturesTable.orderType eq uploadTransaction.orderType)
         }
-        if (sigs.count() == 0) {
+        if (sigs.count() == 0L) {
             throw EbicsInvalidRequestError()
         }
         for (sig in sigs) {
             if (sig.signatureAlgorithm == "A006") {
 
                 val signedData = CryptoUtil.digestEbicsOrderA006(unzippedData)
-                val res1 = CryptoUtil.verifyEbicsA006(sig.signatureValue.toByteArray(), signedData, requestContext.clientSigPub)
+                val res1 = CryptoUtil.verifyEbicsA006(
+                    sig.signatureValue.bytes,
+                    signedData,
+                    requestContext.clientSigPub
+                )
 
                 if (!res1) {
                     throw EbicsInvalidRequestError()
@@ -954,19 +954,17 @@ private fun makeReqestContext(requestObject: EbicsRequest): RequestContext {
         throw EbicsSubscriberStateError()
 
     val hostAuthPriv = CryptoUtil.loadRsaPrivateKey(
-        ebicsHost.authenticationPrivateKey
-            .toByteArray()
+        ebicsHost.authenticationPrivateKey.bytes
     )
     val hostEncPriv = CryptoUtil.loadRsaPrivateKey(
-        ebicsHost.encryptionPrivateKey
-            .toByteArray()
+        ebicsHost.encryptionPrivateKey.bytes
     )
     val clientAuthPub =
-        CryptoUtil.loadRsaPublicKey(subscriber.authenticationKey!!.rsaPublicKey.toByteArray())
+        CryptoUtil.loadRsaPublicKey(subscriber.authenticationKey!!.rsaPublicKey.bytes)
     val clientEncPub =
-        CryptoUtil.loadRsaPublicKey(subscriber.encryptionKey!!.rsaPublicKey.toByteArray())
+        CryptoUtil.loadRsaPublicKey(subscriber.encryptionKey!!.rsaPublicKey.bytes)
     val clientSigPub =
-        CryptoUtil.loadRsaPublicKey(subscriber.signatureKey!!.rsaPublicKey.toByteArray())
+        CryptoUtil.loadRsaPublicKey(subscriber.signatureKey!!.rsaPublicKey.bytes)
 
     return RequestContext(
         hostAuthPriv = hostAuthPriv,
@@ -1056,7 +1054,8 @@ suspend fun ApplicationCall.ebicsweb() {
                         }
                     }
                     EbicsTypes.TransactionPhaseType.RECEIPT -> {
-                        val requestTransactionID = requestObject.header.static.transactionID ?: throw EbicsInvalidRequestError()
+                        val requestTransactionID =
+                            requestObject.header.static.transactionID ?: throw EbicsInvalidRequestError()
                         if (requestContext.downloadTransaction == null)
                             throw EbicsInvalidRequestError()
                         val receiptCode =
