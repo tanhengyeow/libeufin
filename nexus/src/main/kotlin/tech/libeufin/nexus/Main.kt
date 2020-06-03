@@ -56,8 +56,7 @@ import io.ktor.server.netty.Netty
 import io.ktor.utils.io.ByteReadChannel
 import io.ktor.utils.io.jvm.javaio.toByteReadChannel
 import io.ktor.utils.io.jvm.javaio.toInputStream
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.launch
+import kotlinx.coroutines.*
 import kotlinx.coroutines.time.delay
 import org.jetbrains.exposed.sql.and
 import org.jetbrains.exposed.sql.statements.api.ExposedBlob
@@ -75,6 +74,7 @@ import java.util.*
 import java.util.zip.InflaterInputStream
 import javax.crypto.EncryptedPrivateKeyInfo
 import java.time.LocalDateTime
+import kotlin.coroutines.CoroutineContext
 
 data class NexusError(val statusCode: HttpStatusCode, val reason: String) :
     Exception("${reason} (HTTP status $statusCode)")
@@ -258,21 +258,37 @@ fun ApplicationRequest.hasBody(): Boolean {
     }
     return false
 }
-suspend fun schedulePeriodicWork(coroutineScope: CoroutineScope) {
-    while (true) {
-        delay(Duration.ofMillis(100))
-        downloadFacadesTransactions(coroutineScope)
-        ingestTalerTransactions()
+
+fun schedulePeriodicWork() {
+    GlobalScope.launch {
+        while (true) {
+            logger.debug("Outer background job")
+            try {
+                delay(Duration.ofSeconds(1))
+                downloadFacadesTransactions(this)
+                ingestTalerTransactions()
+            } catch (e: Exception) {
+                logger.info("==== Background job exception ====\n${e.message}======")
+            }
+        }
     }
 }
 
 /** Crawls all the facades, and requests history for each of its creators. */
-suspend fun downloadFacadesTransactions(coroutineScope: CoroutineScope) {
+suspend fun downloadFacadesTransactions(myScope: CoroutineScope) {
     val httpClient = HttpClient()
     transaction {
         FacadeEntity.all().forEach {
-            coroutineScope.launch {
-                fetchTransactionsInternal(httpClient, it.creator, it.config.bankAccount, CollectedTransaction())
+            logger.debug(
+                "Fetching history for facade: ${it.id.value}, bank account: ${it.config.bankAccount}"
+            )
+            runBlocking {
+                fetchTransactionsInternal(
+                    httpClient,
+                    it.creator,
+                    it.config.bankAccount,
+                    CollectedTransaction(null, null, null)
+                )
             }
         }
     }
@@ -344,9 +360,6 @@ fun serverMain(dbName: String) {
         expectSuccess = false // this way, it does not throw exceptions on != 200 responses.
     }
     val server = embeddedServer(Netty, port = 5001) {
-        launch {
-            schedulePeriodicWork(this)
-        }
         install(CallLogging) {
             this.level = Level.DEBUG
             this.logger = tech.libeufin.nexus.logger
@@ -413,6 +426,7 @@ fun serverMain(dbName: String) {
             return@intercept
         }
 
+        schedulePeriodicWork()
         routing {
             /**
              * Shows information about the requesting user.

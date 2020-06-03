@@ -3,9 +3,12 @@ package tech.libeufin.nexus
 import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
 import io.ktor.application.ApplicationCall
 import io.ktor.application.call
+import io.ktor.client.HttpClient
+import io.ktor.client.request.post
 import io.ktor.content.TextContent
 import io.ktor.http.ContentType
 import io.ktor.http.HttpStatusCode
+import io.ktor.http.contentType
 import io.ktor.request.receive
 import io.ktor.response.respond
 import io.ktor.response.respondText
@@ -226,7 +229,7 @@ fun getFacadeBankAccount(nexusUser: NexusUserEntity): NexusBankAccountEntity {
 }
 
 // /taler/transfer
-suspend fun talerTransfer(call: ApplicationCall): Unit {
+suspend fun talerTransfer(call: ApplicationCall) {
     val transferRequest = call.receive<TalerTransferRequest>()
     val amountObj = parseAmount(transferRequest.amount)
     val creditorObj = parsePayto(transferRequest.credit_account)
@@ -260,20 +263,6 @@ suspend fun talerTransfer(call: ApplicationCall): Unit {
             ),
             exchangeBankAccount
         )
-        val rawEbics = if (!isProduction()) {
-            RawBankTransactionEntity.new {
-                unstructuredRemittanceInformation = transferRequest.wtid
-                transactionType = "DBIT"
-                currency = amountObj.currency
-                this.amount = amountObj.amount.toPlainString()
-                counterpartBic = creditorObj.bic
-                counterpartIban = creditorObj.iban
-                counterpartName = creditorObj.name
-                bankAccount = exchangeBankAccount
-                bookingDate = System.currentTimeMillis()
-                status = "BOOK"
-            }
-        } else null
         val row = TalerRequestedPaymentEntity.new {
             preparedPayment = pain001 // not really used/needed, just here to silence warnings
             exchangeBaseUrl = transferRequest.exchange_base_url
@@ -281,7 +270,6 @@ suspend fun talerTransfer(call: ApplicationCall): Unit {
             amount = transferRequest.amount
             wtid = transferRequest.wtid
             creditAccount = transferRequest.credit_account
-            rawConfirmed = rawEbics
         }
         row.id.value
     }
@@ -307,25 +295,49 @@ suspend fun talerTransfer(call: ApplicationCall): Unit {
 suspend fun talerAddIncoming(call: ApplicationCall): Unit {
     val addIncomingData = call.receive<TalerAdminAddIncoming>()
     val debtor = parsePayto(addIncomingData.debit_account)
-    val amount = parseAmount(addIncomingData.amount)
-
-    val myLastSeenRawPayment = transaction {
+    val res = transaction {
         val facadeID = expectNonNull(call.parameters["fcid"])
         val facade = FacadeEntity.findById(facadeID) ?: throw NexusError(
-            HttpStatusCode.NotFound, "Could not find facade"
+            HttpStatusCode.NotFound, "Could not find facade '$facadeID'"
         )
-        facade.highestSeenMsgID
+        val facadeBankAccount = NexusBankAccountEntity.findById(facade.config.bankAccount) ?: throw NexusError(
+            HttpStatusCode.NotFound,
+            "Such bank account '${facade.config.bankAccount}' wasn't found for facade '$facadeID'"
+        )
+        return@transaction object {
+            val facadeLastSeen = facade.highestSeenMsgID
+            val facadeIban = facadeBankAccount.iban
+            val facadeBic = facadeBankAccount.bankCode
+            val facadeHolderName = facadeBankAccount.accountHolder
+        }
     }
+    val httpClient = HttpClient()
+    /** forward the payment information to the sandbox.  */
+    httpClient.post<String>(
+        urlString = "http://localhost:5000/admin/payments",
+        block = {
+            /** FIXME: ideally Jackson should define such request body.  */
+            this.body = """{
+                "creditorIban": "${res.facadeIban}",
+                "creditorBic": "${res.facadeBic}",
+                "creditorName": "${res.facadeHolderName}",
+                "debitorIban": "${debtor.iban}",
+                "debitorBic": "${debtor.bic}",
+                "debitorName": "${debtor.name}",
+                "amount": "${addIncomingData.amount}",
+                "subject": "${addIncomingData.reserve_pub}"
+            }""".trimIndent()
+            contentType(ContentType.Application.Json)
+        }
+    )
     return call.respond(
         TextContent(
             customConverter(
                 TalerAddIncomingResponse(
                     timestamp = GnunetTimestamp(
-                        // warning: this value might need to come from a real last-seen payment.
-                        // FIXME(dold):  I don't understand the comment above ^^.
                         System.currentTimeMillis()
                     ),
-                    row_id = myLastSeenRawPayment
+                    row_id = res.facadeLastSeen
                 )
             ),
             ContentType.Application.Json
@@ -343,6 +355,7 @@ suspend fun talerAddIncoming(call: ApplicationCall): Unit {
  */
 fun ingestTalerTransactions() {
     fun ingest(subscriberAccount: NexusBankAccountEntity, facade: FacadeEntity) {
+        logger.debug("Ingesting transactions for Taler facade: ${facade.id.value}")
         var lastId = facade.highestSeenMsgID
         RawBankTransactionEntity.find {
             /** Those with exchange bank account involved */

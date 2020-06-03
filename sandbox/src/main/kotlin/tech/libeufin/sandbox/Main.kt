@@ -171,7 +171,11 @@ fun main() {
                                 debitorIban = it.debitorIban,
                                 subject = it.subject,
                                 date = it.date.toHttpDateString(),
-                                amount = it.amount
+                                amount = it.amount,
+                                creditorBic = it.creditorBic,
+                                creditorName = it.creditorName,
+                                debitorBic = it.debitorBic,
+                                debitorName = it.debitorName
                             )
                         )
                     }
@@ -188,7 +192,11 @@ fun main() {
                 transaction {
                    PaymentEntity.new {
                        creditorIban = body.creditorIban
+                       creditorBic = body.creditorBic
+                       creditorName = body.creditorName
                        debitorIban = body.debitorIban
+                       debitorBic = body.debitorBic
+                       debitorName = body.debitorName
                        subject = body.subject
                        amount = body.amount
                        date = Instant.now().toEpochMilli()

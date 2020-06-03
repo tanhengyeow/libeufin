@@ -140,7 +140,7 @@ fun <T>expectNonNull(x: T?): T {
  * words, the camt constructor does creates always only one "Ntry"
  * node.
  */
-fun buildCamtString(type: Int, history: MutableList<RawPayment>): MutableList<String> {
+fun buildCamtString(type: Int, subscriberIban: String, history: MutableList<RawPayment>): MutableList<String> {
     /**
      * ID types required:
      *
@@ -158,7 +158,7 @@ fun buildCamtString(type: Int, history: MutableList<RawPayment>): MutableList<St
         val dashedDate = expectNonNull(it.date)
         val now = LocalDateTime.now()
         val zonedDateTime = now.toZonedString()
-
+        val amount = parseAmount(it.amount)
         ret.add(
             constructXml(indent = true) {
                 root("Document") {
@@ -201,7 +201,7 @@ fun buildCamtString(type: Int, history: MutableList<RawPayment>): MutableList<St
                             element("Acct") {
                                 // mandatory account identifier
                                 element("Id/IBAN") {
-                                    text(it.debitorIban)
+                                    text(subscriberIban)
                                 }
                                 element("Ccy") {
                                     text("EUR")
@@ -240,7 +240,7 @@ fun buildCamtString(type: Int, history: MutableList<RawPayment>): MutableList<St
                                     text(Amount(0).toPlainString())
                                 }
                                 element("CdtDbtInd") {
-                                    text("DBIT")
+                                    text("UNUSED")
                                 }
                                 element("Dt/Dt") {
                                     // date of this balance
@@ -260,20 +260,22 @@ fun buildCamtString(type: Int, history: MutableList<RawPayment>): MutableList<St
                                 }
                                 element("CdtDbtInd") {
                                     // CRDT or DBIT here
-                                    text("DBIT")
+                                    text("UNUSED")
                                 }
                                 element("Dt/Dt") {
                                     text(dashedDate)
                                 }
                             }
-
                             element("Ntry") {
                                 element("Amt") {
-                                    attribute("Ccy", "EUR")
-                                    text(it.amount)
+                                    attribute("Ccy", amount.currency)
+                                    text(amount.amount.toString())
                                 }
                                 element("CdtDbtInd") {
-                                    text("DBIT")
+                                    text(
+                                        if (subscriberIban.equals(it.creditorIban))
+                                            "CRDT" else "DBIT"
+                                    )
                                 }
                                 element("Sts") {
                                     /* Status of the entry (see 2.4.2.15.5 from the ISO20022 reference document.)
@@ -355,13 +357,13 @@ fun buildCamtString(type: Int, history: MutableList<RawPayment>): MutableList<St
                                         }
                                         element("RltdPties") {
                                             element("Dbtr/Nm") {
-                                                text("Debitor Name")
+                                                text(it.debitorName)
                                             }
                                             element("DbtrAcct/Id/IBAN") {
                                                 text(it.debitorIban)
                                             }
                                             element("Cdtr/Nm") {
-                                                text("Creditor Name")
+                                                text(it.creditorName)
                                             }
                                             element("CdtrAcct/Id/IBAN") {
                                                 text(it.creditorIban)
@@ -369,7 +371,10 @@ fun buildCamtString(type: Int, history: MutableList<RawPayment>): MutableList<St
                                         }
                                         element("RltdAgts") {
                                             element("CdtrAgt/FinInstnId/BIC") {
-                                                text("Creditor Bic")
+                                                text(
+                                                    if (subscriberIban.equals(it.creditorIban))
+                                                        it.debitorBic else it.creditorBic
+                                                )
                                             }
                                         }
                                         element("RmtInf/Ustrd") {
@@ -411,6 +416,7 @@ private fun constructCamtResponse(
     val history = mutableListOf<RawPayment>()
     val bankAccount = getBankAccountFromSubscriber(subscriber)
     transaction {
+        logger.debug("Querying transactions involving: ${bankAccount.iban}")
         PaymentEntity.find {
             PaymentsTable.creditorIban eq bankAccount.iban or
                     (PaymentsTable.debitorIban eq bankAccount.iban)
@@ -423,7 +429,11 @@ private fun constructCamtResponse(
                 RawPayment(
                     subject = it.subject,
                     creditorIban = it.creditorIban,
+                    creditorBic = it.creditorBic,
+                    creditorName = it.creditorName,
                     debitorIban = it.debitorIban,
+                    debitorBic = it.debitorBic,
+                    debitorName = it.debitorName,
                     date = importDateFromMillis(it.date).toDashedDate(),
                     amount = it.amount
                 )
@@ -431,7 +441,7 @@ private fun constructCamtResponse(
         }
         history
     }
-    return buildCamtString(type, history)
+    return buildCamtString(type, bankAccount.iban, history)
 }
 
 private fun handleEbicsTSD(requestContext: RequestContext): ByteArray {
@@ -471,6 +481,7 @@ private fun handleCct(paymentRequest: String) {
 }
 
 private fun handleEbicsC53(requestContext: RequestContext): ByteArray {
+    logger.debug("Handling C53 request")
     val camt = constructCamtResponse(
         53,
         requestContext.requestObject.header,

@@ -251,7 +251,11 @@ class EbicsUploadTransactionChunkEntity(id: EntityID<String>) : Entity<String>(i
  */
 object PaymentsTable : IntIdTable() {
     val creditorIban = text("creditorIban")
+    val creditorBic = text("creditorBic")
+    val creditorName = text("creditorName")
     val debitorIban = text("debitorIban")
+    val debitorBic = text("debitorBic")
+    val debitorName = text("debitorName")
     val subject = text("subject")
     val amount = text("amount")
     val date = long("date")
@@ -261,7 +265,11 @@ class PaymentEntity(id: EntityID<Int>) : IntEntity(id) {
     companion object : IntEntityClass<PaymentEntity>(PaymentsTable)
 
     var creditorIban by PaymentsTable.creditorIban
+    var creditorBic by PaymentsTable.creditorBic
+    var creditorName by PaymentsTable.creditorName
     var debitorIban by PaymentsTable.debitorIban
+    var debitorBic by PaymentsTable.debitorBic
+    var debitorName by PaymentsTable.debitorName
     var subject by PaymentsTable.subject
     var amount by PaymentsTable.amount
 
