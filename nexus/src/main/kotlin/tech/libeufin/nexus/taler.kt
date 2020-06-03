@@ -18,7 +18,6 @@ import org.jetbrains.exposed.dao.IdTable
 import org.jetbrains.exposed.sql.*
 import org.jetbrains.exposed.sql.SqlExpressionBuilder.eq
 import org.jetbrains.exposed.sql.transactions.transaction
-import org.joda.time.DateTime
 import tech.libeufin.util.*
 import java.time.LocalDateTime
 import java.time.ZoneId
@@ -272,7 +271,7 @@ suspend fun talerTransfer(call: ApplicationCall): Unit {
                 counterpartIban = creditorObj.iban
                 counterpartName = creditorObj.name
                 bankAccount = exchangeBankAccount
-                bookingDate = DateTime.now().millis
+                bookingDate = System.currentTimeMillis()
                 status = "BOOK"
             }
         } else null
@@ -296,7 +295,7 @@ suspend fun talerTransfer(call: ApplicationCall): Unit {
                      * Normally should point to the next round where the background
                      * routine will send new PAIN.001 data to the bank; work in progress..
                      */
-                    timestamp = GnunetTimestamp(DateTime.now().millis),
+                    timestamp = GnunetTimestamp(System.currentTimeMillis()),
                     row_id = opaque_row_id
                 )
             ),
@@ -324,7 +323,8 @@ suspend fun talerAddIncoming(call: ApplicationCall): Unit {
                 TalerAddIncomingResponse(
                     timestamp = GnunetTimestamp(
                         // warning: this value might need to come from a real last-seen payment.
-                        LocalDateTime.now().atZone(ZoneId.systemDefault()).toEpochSecond()
+                        // FIXME(dold):  I don't understand the comment above ^^.
+                        System.currentTimeMillis()
                     ),
                     row_id = myLastSeenRawPayment
                 )
