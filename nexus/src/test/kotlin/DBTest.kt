@@ -50,7 +50,6 @@ class DBTest {
                     reserveTransferLevel = "any"
                     intervalIncrement = "any"
                 }
-                talerConfig.id
                 talerConfig.flush()
                 val user = NexusUserEntity.new("u") {
                     passwordHash = "x"
