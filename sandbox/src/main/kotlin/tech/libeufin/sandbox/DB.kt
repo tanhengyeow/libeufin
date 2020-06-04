@@ -299,8 +299,8 @@ class BankAccountEntity(id: EntityID<Int>) : IntEntity(id) {
     var subscriber by EbicsSubscriberEntity referencedOn BankAccountsTable.subscriber
 }
 
-fun dbCreateTables() {
-    Database.connect("jdbc:sqlite:libeufin-sandbox.sqlite3", "org.sqlite.JDBC")
+fun dbCreateTables(dbName: String) {
+    Database.connect("jdbc:sqlite:${dbName}", "org.sqlite.JDBC")
     TransactionManager.manager.defaultIsolationLevel = Connection.TRANSACTION_SERIALIZABLE
     transaction {
         addLogger(StdOutSqlLogger)

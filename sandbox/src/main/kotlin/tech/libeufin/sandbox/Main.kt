@@ -49,21 +49,21 @@ import tech.libeufin.util.RawPayment
 import java.lang.ArithmeticException
 import java.math.BigDecimal
 import java.security.interfaces.RSAPublicKey
-import java.text.DateFormat
 import javax.xml.bind.JAXBContext
 import com.fasterxml.jackson.core.util.DefaultIndenter
 import com.fasterxml.jackson.core.util.DefaultPrettyPrinter
-import com.fasterxml.jackson.databind.JsonNode
 import com.fasterxml.jackson.databind.SerializationFeature
-import com.fasterxml.jackson.databind.exc.MismatchedInputException
 import com.fasterxml.jackson.module.kotlin.KotlinModule
-import com.fasterxml.jackson.module.kotlin.MissingKotlinParameterException
-import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
 import io.ktor.http.toHttpDateString
 import org.jetbrains.exposed.sql.statements.api.ExposedBlob
 import java.time.Instant
-import java.time.LocalDate
-import java.time.LocalDateTime
+import com.github.ajalt.clikt.core.CliktCommand
+import com.github.ajalt.clikt.core.ProgramResult
+import com.github.ajalt.clikt.core.subcommands
+import com.github.ajalt.clikt.parameters.arguments.argument
+import com.github.ajalt.clikt.parameters.options.default
+import com.github.ajalt.clikt.parameters.options.option
+import com.github.ajalt.clikt.parameters.options.prompt
 
 class CustomerNotFound(id: String?) : Exception("Customer ${id} not found")
 class BadInputData(inputData: String?) : Exception("Customer provided invalid input data: ${inputData}")
@@ -76,6 +76,17 @@ data class SandboxError(
     val statusCode: HttpStatusCode,
     val reason: String
 ) : java.lang.Exception()
+
+class SandboxCommand : CliktCommand() {
+    override fun run() = Unit
+}
+
+class Serve : CliktCommand("Run sandbox HTTP server") {
+    private val dbName by option().default("libeufin-sandbox.sqlite3")
+    override fun run() {
+        serverMain(dbName)
+    }
+}
 
 fun findEbicsSubscriber(partnerID: String, userID: String, systemID: String?): EbicsSubscriberEntity? {
     return if (systemID == null) {
@@ -117,13 +128,18 @@ inline fun <reified T> Document.toObject(): T {
 }
 
 fun BigDecimal.signToString(): String {
-
     return if (this.signum() > 0) "+" else ""
     // minus sign is added by default already.
 }
 
-fun main() {
-    dbCreateTables()
+fun main(args: Array<String>) {
+    SandboxCommand()
+        .subcommands(Serve())
+        .main(args)
+}
+
+fun serverMain(dbName: String) {
+    dbCreateTables(dbName)
     val server = embeddedServer(Netty, port = 5000) {
         install(CallLogging) {
             this.level = Level.DEBUG
