@@ -34,7 +34,6 @@ NEXUS_DB="test-nexus.sqlite3"
 def fail(msg):
     print(msg)
     nexus.terminate()
-    sandbox.terminate()
     exit(1)
 
 
@@ -56,7 +55,6 @@ def assertResponse(response):
         # Confusing to dump all that to console.
         print("Check nexus.log and sandbox.log, probably under /tmp")
         nexus.terminate()
-        sandbox.terminate()
         exit(1)
     # Allows for finer grained checks.
     return response
@@ -111,6 +109,12 @@ assertResponse(
             name="my-loopback",
             source="new",
             type="loopback",
+            data=dict(
+                iban="myIBAN",
+                bic="myBIC",
+                holder="Account Holder Name",
+                account="my-bank-account"
+            )
         ),
         headers=dict(Authorization=USER_AUTHORIZATION_HEADER),
     )

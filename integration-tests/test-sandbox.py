@@ -109,8 +109,13 @@ for i in range(1, 3):
             "http://localhost:5000/admin/payments",
             json=dict(
                 creditorIban="ES9121000418450200051332",
+                creditorBic="BIC",
+                creditorName="Creditor Name",
                 debitorIban="GB33BUKB20201555555555",
-                amount="EUR:0.99",
+                debitorBic="BIC",
+                debitorName="Debitor Name",
+                amount="0.99",
+                currency="EUR",
                 subject="test service #{}".format(i)
             )
         )

@@ -258,6 +258,7 @@ object PaymentsTable : IntIdTable() {
     val debitorName = text("debitorName")
     val subject = text("subject")
     val amount = text("amount")
+    val currency = text("currency")
     val date = long("date")
 }
 
@@ -272,10 +273,8 @@ class PaymentEntity(id: EntityID<Int>) : IntEntity(id) {
     var debitorName by PaymentsTable.debitorName
     var subject by PaymentsTable.subject
     var amount by PaymentsTable.amount
-
-    /** in the CURRENCY:X.Y format */
+    var currency by PaymentsTable.currency
     var date by PaymentsTable.date
-    /** Date when the payment was persisted in this system.  */
 }
 
 /**

@@ -175,7 +175,8 @@ fun main() {
                                 creditorBic = it.creditorBic,
                                 creditorName = it.creditorName,
                                 debitorBic = it.debitorBic,
-                                debitorName = it.debitorName
+                                debitorName = it.debitorName,
+                                currency = it.currency
                             )
                         )
                     }
@@ -199,6 +200,7 @@ fun main() {
                        debitorName = body.debitorName
                        subject = body.subject
                        amount = body.amount
+                       currency = body.currency
                        date = Instant.now().toEpochMilli()
                    }
                 }

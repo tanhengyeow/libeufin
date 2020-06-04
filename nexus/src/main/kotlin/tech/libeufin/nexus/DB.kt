@@ -202,7 +202,6 @@ object NexusBankAccountsTable : IdTable<String>() {
 
 class NexusBankAccountEntity(id: EntityID<String>) : Entity<String>(id) {
     companion object : EntityClass<String, NexusBankAccountEntity>(NexusBankAccountsTable)
-
     var accountHolder by NexusBankAccountsTable.accountHolder
     var iban by NexusBankAccountsTable.iban
     var bankCode by NexusBankAccountsTable.bankCode
@@ -245,14 +244,14 @@ class EbicsSubscriberEntity(id: EntityID<Int>) : IntEntity(id) {
 }
 
 object NexusUsersTable : IdTable<String>() {
-    override val id = varchar("id", ID_MAX_LENGTH).entityId().primaryKey()
+    override val id = varchar("id", ID_MAX_LENGTH).entityId()
+    override val primaryKey = PrimaryKey(id, name = "id")
     val passwordHash = text("password")
     val superuser = bool("superuser")
 }
 
 class NexusUserEntity(id: EntityID<String>) : Entity<String>(id) {
     companion object : EntityClass<String, NexusUserEntity>(NexusUsersTable)
-
     var passwordHash by NexusUsersTable.passwordHash
     var superuser by NexusUsersTable.superuser
 }
@@ -270,7 +269,8 @@ class NexusBankConnectionEntity(id: EntityID<String>) : Entity<String>(id) {
 }
 
 object FacadesTable : IdTable<String>() {
-    override val id = FacadesTable.text("id").entityId().primaryKey()
+    override val id = FacadesTable.text("id").entityId()
+    override val primaryKey = PrimaryKey(id, name = "id")
     val type = text("type")
     val creator = reference("creator", NexusUsersTable)
     val config = reference("config", TalerFacadeConfigsTable) // see #6266
@@ -317,7 +317,8 @@ fun dbCreateTables(dbName: String) {
             TalerRequestedPayments,
             NexusBankConnectionsTable,
             NexusBankMessagesTable,
-            FacadesTable
+            FacadesTable,
+            TalerFacadeConfigsTable
         )
     }
 }

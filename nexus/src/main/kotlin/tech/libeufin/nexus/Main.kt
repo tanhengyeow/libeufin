@@ -277,20 +277,20 @@ fun schedulePeriodicWork() {
 /** Crawls all the facades, and requests history for each of its creators. */
 suspend fun downloadFacadesTransactions(myScope: CoroutineScope) {
     val httpClient = HttpClient()
+    val work = mutableListOf<Pair<String, String>>()
     transaction {
         FacadeEntity.all().forEach {
-            logger.debug(
-                "Fetching history for facade: ${it.id.value}, bank account: ${it.config.bankAccount}"
-            )
-            runBlocking {
-                fetchTransactionsInternal(
-                    httpClient,
-                    it.creator,
-                    it.config.bankAccount,
-                    CollectedTransaction(null, null, null)
-                )
-            }
+            logger.debug("Fetching history for facade: ${it.id.value}, bank account: ${it.config.bankAccount}")
+            work.add(Pair(it.creator.id.value, it.config.bankAccount))
         }
+    }
+    work.forEach {
+        fetchTransactionsInternal(
+            client = httpClient,
+            userId = it.first,
+            accountid = it.second,
+            ct = CollectedTransaction(null, null, null)
+        )
     }
 }
 
@@ -308,7 +308,7 @@ fun ApplicationCall.expectUrlParameter(name: String): String {
 
 suspend fun fetchTransactionsInternal(
     client: HttpClient,
-    user: NexusUserEntity,
+    userId: String,
     accountid: String,
     ct: CollectedTransaction
 ) {
@@ -327,11 +327,10 @@ suspend fun fetchTransactionsInternal(
                 "No default bank connection (explicit connection not yet supported)"
             )
         }
-        val subscriberDetails = getEbicsSubscriberDetails(user.id.value, conn.id.value)
+        val subscriberDetails = getEbicsSubscriberDetails(userId, conn.id.value)
         return@transaction object {
             val connectionType = conn.type
             val connectionName = conn.id.value
-            val userId = user.id.value
             val subscriberDetails = subscriberDetails
         }
     }
@@ -662,7 +661,7 @@ fun serverMain(dbName: String) {
                 }
                 fetchTransactionsInternal(
                     client,
-                    user,
+                    user.id.value,
                     accountid,
                     ct
                 )
@@ -868,7 +867,6 @@ fun serverMain(dbName: String) {
                         false
                     }
                 }
-
                 val hpbData = try {
                     doEbicsHpbRequest(client, subscriber)
                 } catch (e: EbicsProtocolError) {
@@ -1097,17 +1095,25 @@ fun serverMain(dbName: String) {
             }
             post("/facades") {
                 val body = call.receive<FacadeInfo>()
-                transaction {
+                val (user, talerConfig) = transaction {
                     val user = authenticateRequest(call.request)
+                    val talerConfig = TalerFacadeConfigEntity.new {
+                        bankAccount = body.config.bankAccount
+                        bankConnection = body.config.bankConnection
+                        intervalIncrement = body.config.intervalIncremental
+                        reserveTransferLevel = body.config.reserveTransferLevel
+                    }
+                    Pair(user, talerConfig)
+                }
+                // Kotlin+Exposed did NOT like the referenced and referencing
+                // tables to be created inside the same transfer block.  This
+                // problem must be further investigated.
+                transaction {
                     FacadeEntity.new(body.name) {
                         type = body.type
                         creator = user
-                        config = TalerFacadeConfigEntity.new {
-                            bankAccount = body.config.bankAccount
-                            bankConnection = body.config.bankConnection
-                            intervalIncrement = body.config.intervalIncremental
-                            reserveTransferLevel = body.config.reserveTransferLevel
-                        }
+                        config = talerConfig
+                        highestSeenMsgID = 0
                     }
                 }
                 call.respondText("Facade created")

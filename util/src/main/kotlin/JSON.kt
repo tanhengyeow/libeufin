@@ -13,6 +13,7 @@ data class RawPayment(
     val debitorBic: String,
     val debitorName: String,
     val amount: String,
+    val currency: String,
     val subject: String,
     val date: String?
 )

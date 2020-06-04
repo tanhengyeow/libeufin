@@ -158,7 +158,6 @@ fun buildCamtString(type: Int, subscriberIban: String, history: MutableList<RawP
         val dashedDate = expectNonNull(it.date)
         val now = LocalDateTime.now()
         val zonedDateTime = now.toZonedString()
-        val amount = parseAmount(it.amount)
         ret.add(
             constructXml(indent = true) {
                 root("Document") {
@@ -268,8 +267,8 @@ fun buildCamtString(type: Int, subscriberIban: String, history: MutableList<RawP
                             }
                             element("Ntry") {
                                 element("Amt") {
-                                    attribute("Ccy", amount.currency)
-                                    text(amount.amount.toString())
+                                    attribute("Ccy", it.currency)
+                                    text(it.amount)
                                 }
                                 element("CdtDbtInd") {
                                     text(
@@ -421,7 +420,7 @@ private fun constructCamtResponse(
             PaymentsTable.creditorIban eq bankAccount.iban or
                     (PaymentsTable.debitorIban eq bankAccount.iban)
             /**
-            FIXME!
+            FIXME: add the following condition too:
             and (PaymentsTable.date.between(start.millis, end.millis))
              */
         }.forEach {
@@ -435,7 +434,8 @@ private fun constructCamtResponse(
                     debitorBic = it.debitorBic,
                     debitorName = it.debitorName,
                     date = importDateFromMillis(it.date).toDashedDate(),
-                    amount = it.amount
+                    amount = it.amount,
+                    currency = it.currency
                 )
             )
         }
@@ -455,26 +455,33 @@ private fun handleEbicsPTK(requestContext: RequestContext): ByteArray {
 /**
  * Process a payment request in the pain.001 format.
  */
-private fun handleCct(paymentRequest: String) {
+private fun handleCct(paymentRequest: String, initiatorName: String) {
     /**
      * NOTE: this function is ONLY required to store some details
      * to put then in the camt report.  IBANs / amount / subject / names?
      */
     val painDoc = XMLUtil.parseStringIntoDom(paymentRequest)
     val creditorIban = painDoc.pickString("//*[local-name()='CdtrAcct']//*[local-name()='IBAN']")
+    val creditorBic = painDoc.pickString("//*[local-name()='CdtrAgt']//*[local-name()='BIC']")
+    val creditorName = painDoc.pickString("//*[local-name()='Cdtr']//*[local-name()='Nm']")
     val debitorIban = painDoc.pickString("//*[local-name()='DbtrAcct']//*[local-name()='IBAN']")
+    val debitorBic = painDoc.pickString("//*[local-name()='DbtrAgt']//*[local-name()='BIC']")
+    val debitorName = initiatorName
     val subject = painDoc.pickString("//*[local-name()='Ustrd']")
     val amount = painDoc.pickString("//*[local-name()='InstdAmt']")
+    val currency = painDoc.pickString("//*[local-name()='InstdAmt']/@Ccy")
 
     transaction {
         PaymentEntity.new {
             this.creditorIban = creditorIban
+            this.creditorBic = creditorBic
+            this.creditorName = creditorName
             this.debitorIban = debitorIban
+            this.debitorBic = debitorBic
+            this.debitorName = debitorName
             this.subject = subject
             this.amount = amount
-            /** For now, the date discards any
-             * information about hours and minor units of time.
-             */
+            this.currency = currency
             this.date = Instant.now().toEpochMilli()
         }
     }
@@ -915,10 +922,10 @@ private fun handleEbicsUploadTransactionTransmission(requestContext: RequestCont
                 throw NotImplementedError()
             }
         }
-
         if (getOrderTypeFromTransactionId(requestTransactionID) == "CCT") {
             logger.debug("Attempting a payment.")
-            handleCct(unzippedData.toString(Charsets.UTF_8))
+            val involvedBankAccout = getBankAccountFromSubscriber(requestContext.subscriber)
+            handleCct(unzippedData.toString(Charsets.UTF_8), involvedBankAccout.name)
         }
         return EbicsResponse.createForUploadTransferPhase(
             requestTransactionID,
@@ -1037,15 +1044,12 @@ suspend fun ApplicationCall.ebicsweb() {
 
             val responseXmlStr = transaction {
                 // Step 1 of 3:  Get information about the host and subscriber
-
                 val requestContext = makeReqestContext(requestObject)
-
                 // Step 2 of 3:  Validate the signature
                 val verifyResult = XMLUtil.verifyEbicsDocument(requestDocument, requestContext.clientAuthPub)
                 if (!verifyResult) {
                     throw EbicsInvalidRequestError()
                 }
-
                 // Step 3 of 3:  Generate response
                 val ebicsResponse: EbicsResponse = when (requestObject.header.mutable.transactionPhase) {
                     EbicsTypes.TransactionPhaseType.INITIALISATION -> {
