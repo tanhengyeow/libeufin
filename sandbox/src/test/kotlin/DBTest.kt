@@ -27,10 +27,14 @@ class DBTest {
             SchemaUtils.create(PaymentsTable)
             PaymentEntity.new {
                 creditorIban = "earns"
+                creditorBic = "BIC"
+                creditorName = "Creditor Name"
                 debitorIban = "spends"
+                debitorBic = "BIC"
+                debitorName = "Debitor Name"
                 subject = "deal"
                 amount = "EUR:1"
-                date = Instant.now().toEpochMilli()
+                date = LocalDateTime.now().millis()
             }
         }
         val result = transaction {
