@@ -6,35 +6,62 @@ import org.jetbrains.exposed.sql.StdOutSqlLogger
 import org.jetbrains.exposed.sql.addLogger
 import org.jetbrains.exposed.sql.transactions.transaction
 import org.junit.Test
+import java.io.File
+
+/**
+ * Run a block after connecting to the test database.
+ * Cleans up the DB file afterwards.
+ */
+fun withTestDatabase(f: () -> Unit) {
+    val dbfile = "nexus-test.sqlite3"
+    File(dbfile).also {
+        if (it.exists()) {
+            it.delete()
+        }
+    }
+    Database.connect("jdbc:sqlite:$dbfile", "org.sqlite.JDBC")
+    try {
+        f()
+    }
+    finally {
+        File(dbfile).also {
+            if (it.exists()) {
+                it.delete()
+            }
+        }
+    }
+}
+
 
 class DBTest {
     @Test
     fun facadeConfigTest() {
-        Database.connect("jdbc:sqlite:on-the-fly-db.sqlite3", "org.sqlite.JDBC")
-        val talerConfig = transaction {
-            addLogger(StdOutSqlLogger)
-            SchemaUtils.create(
-                FacadesTable,
-                TalerFacadeConfigsTable,
-                NexusUsersTable
-            )
-            TalerFacadeConfigEntity.new {
-                bankAccount = "b"
-                bankConnection = "b"
-                reserveTransferLevel = "any"
-                intervalIncrement = "any"
-            }
-        }
-        transaction {
-            val user = NexusUserEntity.new("u") {
-                passwordHash = "x"
-                superuser = true
-            }
-            FacadeEntity.new("my-id") {
-                type = "any"
-                creator = user
-                config = talerConfig
-                highestSeenMsgID = 0
+        withTestDatabase {
+            transaction {
+                addLogger(StdOutSqlLogger)
+                SchemaUtils.create(
+                    FacadesTable,
+                    TalerFacadeConfigsTable,
+                    NexusUsersTable
+                )
+                val talerConfig = TalerFacadeConfigEntity.new {
+                    bankAccount = "b"
+                    bankConnection = "b"
+                    reserveTransferLevel = "any"
+                    intervalIncrement = "any"
+                }
+                talerConfig.id
+                talerConfig.flush()
+                val user = NexusUserEntity.new("u") {
+                    passwordHash = "x"
+                    superuser = true
+                }
+                FacadeEntity.new("my-id") {
+                    type = "any"
+                    creator = user
+                    config = talerConfig
+                    highestSeenMsgID = 0
+                }
             }
         }
     }
