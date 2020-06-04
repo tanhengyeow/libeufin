@@ -3,6 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "dependencies": {
+    "@ant-design/icons": "^4.2.1",
     "@testing-library/jest-dom": "^4.2.4",
     "@testing-library/react": "^9.3.2",
     "@testing-library/user-event": "^7.1.2",
@@ -16,6 +17,8 @@
     "@types/redux": "^3.6.0",
     "@types/redux-thunk": "^2.1.0",
     "antd": "^4.2.4",
+    "craco": "^0.0.3",
+    "craco-less": "1.16",
     "history": "^4.10.1",
     "js-base64": "^2.5.2",
     "prettier": "^2.0.5",
@@ -30,13 +33,14 @@
     "typescript": "~3.7.2"
   },
   "scripts": {
-    "start": "react-scripts start",
-    "build": "react-scripts build",
-    "test": "react-scripts test",
+    "start": "craco start",
+    "build": "craco build",
+    "test": "craco test",
     "eject": "react-scripts eject",
     "format": "prettier --write src/**/*.{ts,tsx}",
     "lint": "eslint --fix src/**/*.{ts,tsx}"
   },
+  "proxy": "http://localhost:5001",
   "eslintConfig": {
     "extends": "react-app"
   },
