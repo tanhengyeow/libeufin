@@ -289,7 +289,11 @@ fun buildCamtString(type: Int, subscriberIban: String, history: MutableList<RawP
                                     text(dashedDate)
                                 } // date of assets' actual (un)availability
                                 element("AcctSvcrRef") {
-                                    text("0")
+                                    val uid = if (it.uid != null) it.uid.toString() else throw SandboxError(
+                                        HttpStatusCode.InternalServerError,
+                                        "Payment ${it.subject} doesn't have a UID!"
+                                    )
+                                    text(uid)
                                 }
                                 element("BkTxCd") {
                                     /*  "Set of elements used to fully identify the type of underlying
@@ -435,7 +439,8 @@ private fun constructCamtResponse(
                     debitorName = it.debitorName,
                     date = importDateFromMillis(it.date).toDashedDate(),
                     amount = it.amount,
-                    currency = it.currency
+                    currency = it.currency,
+                    uid = it.id.value
                 )
             )
         }

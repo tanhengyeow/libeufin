@@ -74,7 +74,6 @@ import java.util.*
 import java.util.zip.InflaterInputStream
 import javax.crypto.EncryptedPrivateKeyInfo
 import java.time.LocalDateTime
-import kotlin.coroutines.CoroutineContext
 
 data class NexusError(val statusCode: HttpStatusCode, val reason: String) :
     Exception("${reason} (HTTP status $statusCode)")
@@ -265,7 +264,7 @@ fun schedulePeriodicWork() {
             logger.debug("Outer background job")
             try {
                 delay(Duration.ofSeconds(1))
-                downloadFacadesTransactions(this)
+                downloadTalerFacadesTransactions(this)
                 ingestTalerTransactions()
             } catch (e: Exception) {
                 logger.info("==== Background job exception ====\n${e.message}======")
@@ -275,13 +274,13 @@ fun schedulePeriodicWork() {
 }
 
 /** Crawls all the facades, and requests history for each of its creators. */
-suspend fun downloadFacadesTransactions(myScope: CoroutineScope) {
+suspend fun downloadTalerFacadesTransactions(myScope: CoroutineScope) {
     val httpClient = HttpClient()
     val work = mutableListOf<Pair<String, String>>()
     transaction {
-        FacadeEntity.all().forEach {
-            logger.debug("Fetching history for facade: ${it.id.value}, bank account: ${it.config.bankAccount}")
-            work.add(Pair(it.creator.id.value, it.config.bankAccount))
+        TalerFacadeStateEntity.all().forEach {
+            logger.debug("Fetching history for facade: ${it.id.value}, bank account: ${it.bankAccount}")
+            work.add(Pair(it.facade.creator.id.value, it.bankAccount))
         }
     }
     work.forEach {
@@ -489,7 +488,6 @@ fun serverMain(dbName: String) {
                 call.respond(HttpStatusCode.OK, qr)
                 return@post
             }
-
             /**
              * Shows the bank accounts belonging to the requesting user.
              */
@@ -522,7 +520,6 @@ fun serverMain(dbName: String) {
                 }
                 call.respond(res)
             }
-
             /**
              * Submit one particular payment to the bank.
              */
@@ -1095,25 +1092,20 @@ fun serverMain(dbName: String) {
             }
             post("/facades") {
                 val body = call.receive<FacadeInfo>()
-                val (user, talerConfig) = transaction {
+                val newFacade = transaction {
                     val user = authenticateRequest(call.request)
-                    val talerConfig = TalerFacadeConfigEntity.new {
+                    FacadeEntity.new(body.name) {
+                        type = body.type
+                        creator = user
+                    }
+                }
+                transaction {
+                    TalerFacadeStateEntity.new {
                         bankAccount = body.config.bankAccount
                         bankConnection = body.config.bankConnection
                         intervalIncrement = body.config.intervalIncremental
                         reserveTransferLevel = body.config.reserveTransferLevel
-                    }
-                    Pair(user, talerConfig)
-                }
-                // Kotlin+Exposed did NOT like the referenced and referencing
-                // tables to be created inside the same transfer block.  This
-                // problem must be further investigated.
-                transaction {
-                    FacadeEntity.new(body.name) {
-                        type = body.type
-                        creator = user
-                        config = talerConfig
-                        highestSeenMsgID = 0
+                        facade = newFacade
                     }
                 }
                 call.respondText("Facade created")

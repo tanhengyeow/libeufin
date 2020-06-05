@@ -41,10 +41,10 @@ class DBTest {
                 addLogger(StdOutSqlLogger)
                 SchemaUtils.create(
                     FacadesTable,
-                    TalerFacadeConfigsTable,
+                    TalerFacadeStatesTable,
                     NexusUsersTable
                 )
-                val talerConfig = TalerFacadeConfigEntity.new {
+                val talerConfig = TalerFacadeStateEntity.new {
                     bankAccount = "b"
                     bankConnection = "b"
                     reserveTransferLevel = "any"

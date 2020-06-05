@@ -104,6 +104,16 @@ fun getEbicsSubscriberDetails(userId: String, transportId: String): EbicsClientS
     return getEbicsSubscriberDetailsInternal(subscriber)
 }
 
+// returns true if the payment is found in the database.
+fun isDuplicate(camt: Document, acctSvcrRef: String): Boolean {
+    val found = transaction {
+        RawBankTransactionEntity.find {
+            RawBankTransactionsTable.uid eq acctSvcrRef
+        }.firstOrNull()
+    }
+    return found != null
+}
+
 fun processCamtMessage(
     bankAccountId: String,
     camt53doc: Document
@@ -116,8 +126,14 @@ fun processCamtMessage(
         val bookingDate = parseDashedDate(
             camt53doc.pickString("//*[local-name()='BookgDt']//*[local-name()='Dt']")
         )
+        val acctSvcrRef = camt53doc.pickString("//*[local-name()='AcctSvcrRef']")
+        if (isDuplicate(camt53doc, acctSvcrRef)) {
+            logger.info("Processing a duplicate, not storing it.")
+            return@transaction
+        }
         RawBankTransactionEntity.new {
             bankAccount = acct
+            uid = acctSvcrRef
             unstructuredRemittanceInformation =
                 camt53doc.pickString("//*[local-name()='Ntry']//*[local-name()='Ustrd']")
             transactionType = camt53doc.pickString("//*[local-name()='Ntry']//*[local-name()='CdtDbtInd']")

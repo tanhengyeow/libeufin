@@ -15,5 +15,6 @@ data class RawPayment(
     val amount: String,
     val currency: String,
     val subject: String,
-    val date: String?
+    val date: String?,
+    val uid: Int? = null
 )

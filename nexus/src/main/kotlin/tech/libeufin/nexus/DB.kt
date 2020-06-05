@@ -80,7 +80,6 @@ class TalerIncomingPaymentEntity(id: EntityID<Long>) : LongEntity(id) {
             return newRow
         }
     }
-
     var payment by RawBankTransactionEntity referencedOn TalerIncomingPayments.payment
     var valid by TalerIncomingPayments.valid
     var refunded by TalerIncomingPayments.refunded
@@ -120,12 +119,12 @@ object RawBankTransactionsTable : LongIdTable() {
     val counterpartName = text("counterpartName")
     val bookingDate = long("bookingDate")
     val status = text("status") // BOOK or other.
+    val uid = text("uid") // AcctSvcrRef code, given by the bank.
     val bankAccount = reference("bankAccount", NexusBankAccountsTable)
 }
 
 class RawBankTransactionEntity(id: EntityID<Long>) : LongEntity(id) {
     companion object : LongEntityClass<RawBankTransactionEntity>(RawBankTransactionsTable)
-
     var unstructuredRemittanceInformation by RawBankTransactionsTable.unstructuredRemittanceInformation
     var transactionType by RawBankTransactionsTable.transactionType
     var currency by RawBankTransactionsTable.currency
@@ -135,6 +134,7 @@ class RawBankTransactionEntity(id: EntityID<Long>) : LongEntity(id) {
     var counterpartName by RawBankTransactionsTable.counterpartName
     var bookingDate by RawBankTransactionsTable.bookingDate
     var status by RawBankTransactionsTable.status
+    var uid by RawBankTransactionsTable.uid
     var bankAccount by NexusBankAccountEntity referencedOn RawBankTransactionsTable.bankAccount
 }
 
@@ -157,10 +157,8 @@ object PreparedPaymentsTable : IdTable<String>() {
     val debitorIban = text("debitorIban")
     val debitorBic = text("debitorBic")
     val debitorName = text("debitorName").nullable()
-
     /* Indicates whether the PAIN message was sent to the bank. */
     val submitted = bool("submitted").default(false)
-
     /* Indicates whether the bank didn't perform the payment: note that
      * this state can be reached when the payment gets listed in a CRZ
      * response OR when the payment doesn't show up in a C52/C53 response */
@@ -169,7 +167,6 @@ object PreparedPaymentsTable : IdTable<String>() {
 
 class PreparedPaymentEntity(id: EntityID<String>) : Entity<String>(id) {
     companion object : EntityClass<String, PreparedPaymentEntity>(PreparedPaymentsTable)
-
     var paymentId by PreparedPaymentsTable.paymentId
     var preparationDate by PreparedPaymentsTable.preparationDate
     var submissionDate by PreparedPaymentsTable.submissionDate
@@ -227,7 +224,6 @@ object EbicsSubscribersTable : IntIdTable() {
 
 class EbicsSubscriberEntity(id: EntityID<Int>) : IntEntity(id) {
     companion object : IntEntityClass<EbicsSubscriberEntity>(EbicsSubscribersTable)
-
     var ebicsURL by EbicsSubscribersTable.ebicsURL
     var hostID by EbicsSubscribersTable.hostID
     var partnerID by EbicsSubscribersTable.partnerID
@@ -273,7 +269,6 @@ object FacadesTable : IdTable<String>() {
     override val primaryKey = PrimaryKey(id, name = "id")
     val type = text("type")
     val creator = reference("creator", NexusUsersTable)
-    val config = reference("config", TalerFacadeConfigsTable) // see #6266
     val highestSeenMsgID = long("highestSeenMessageID").default(0)
 }
 
@@ -281,25 +276,27 @@ class FacadeEntity(id: EntityID<String>) : Entity<String>(id) {
     companion object : EntityClass<String, FacadeEntity>(FacadesTable)
     var type by FacadesTable.type
     var creator by NexusUserEntity referencedOn FacadesTable.creator
-    var config by TalerFacadeConfigEntity referencedOn FacadesTable.config
-    var highestSeenMsgID by FacadesTable.highestSeenMsgID
 }
 
-object TalerFacadeConfigsTable : IntIdTable() {
+object TalerFacadeStatesTable : IntIdTable() {
     val bankAccount = text("bankAccount")
     val bankConnection = text("bankConnection")
     /* "statement", "report", "notification" */
     val reserveTransferLevel = text("reserveTransferLevel")
     val intervalIncrement = text("intervalIncrement")
+    val facade = reference("facade", FacadesTable)
+    val highestSeenMsgID = long("highestSeenMsgID").default(0)
 }
 
-class TalerFacadeConfigEntity(id: EntityID<Int>) : IntEntity(id) {
-    companion object : IntEntityClass<TalerFacadeConfigEntity>(TalerFacadeConfigsTable)
-    var bankAccount by TalerFacadeConfigsTable.bankAccount
-    var bankConnection by TalerFacadeConfigsTable.bankConnection
+class TalerFacadeStateEntity(id: EntityID<Int>) : IntEntity(id) {
+    companion object : IntEntityClass<TalerFacadeStateEntity>(TalerFacadeStatesTable)
+    var bankAccount by TalerFacadeStatesTable.bankAccount
+    var bankConnection by TalerFacadeStatesTable.bankConnection
     /* "statement", "report", "notification" */
-    var reserveTransferLevel by TalerFacadeConfigsTable.reserveTransferLevel
-    var intervalIncrement by TalerFacadeConfigsTable.intervalIncrement
+    var reserveTransferLevel by TalerFacadeStatesTable.reserveTransferLevel
+    var intervalIncrement by TalerFacadeStatesTable.intervalIncrement
+    var facade by FacadeEntity referencedOn TalerFacadeStatesTable.facade
+    var highestSeenMsgID by TalerFacadeStatesTable.highestSeenMsgID
 }
 
 fun dbCreateTables(dbName: String) {
@@ -318,7 +315,7 @@ fun dbCreateTables(dbName: String) {
             NexusBankConnectionsTable,
             NexusBankMessagesTable,
             FacadesTable,
-            TalerFacadeConfigsTable
+            TalerFacadeStatesTable
         )
     }
 }

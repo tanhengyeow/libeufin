@@ -177,9 +177,13 @@ fun expectLong(param: String?): Long {
     }
 }
 
-
 /** Helper handling 'start' being optional and its dependence on 'delta'.  */
 fun handleStartArgument(start: String?, delta: Int): Long {
+    if (start == null) {
+        if (delta >= 0)
+            return -1
+        return Long.MAX_VALUE
+    }
     return expectLong(start)
 }
 
@@ -218,13 +222,36 @@ fun paymentFailed(entry: RawBankTransactionEntity): Boolean {
     return false
 }
 
-fun getFacadeBankAccount(nexusUser: NexusUserEntity): NexusBankAccountEntity {
-    val facade = FacadeEntity.find { FacadesTable.creator eq nexusUser.id.value }.firstOrNull() ?: throw NexusError(
-        HttpStatusCode.NotFound, "Could not find any facade from ${nexusUser.id.value}"
+fun getTalerFacadeState(fcid: String): TalerFacadeStateEntity {
+    val facade = FacadeEntity.find { FacadesTable.id eq fcid }.firstOrNull() ?: throw NexusError(
+        HttpStatusCode.NotFound,
+        "Could not find facade '${fcid}'"
     )
-    val bankAccount = NexusBankAccountEntity.findById(facade.config.bankAccount) ?: throw NexusError(
-        HttpStatusCode.NotFound, "Could not find any bank account named ${facade.config.bankAccount}"
+    val facadeState = TalerFacadeStateEntity.find {
+        TalerFacadeStatesTable.facade eq facade.id.value
+    }.firstOrNull() ?: throw NexusError(
+        HttpStatusCode.NotFound,
+        "Could not find any state for facade: ${fcid}"
     )
+    return facadeState
+}
+
+fun getTalerFacadeBankAccount(fcid: String): NexusBankAccountEntity {
+    val facade = FacadeEntity.find { FacadesTable.id eq fcid }.firstOrNull() ?: throw NexusError(
+        HttpStatusCode.NotFound,
+        "Could not find facade '${fcid}'"
+    )
+    val facadeState = TalerFacadeStateEntity.find {
+        TalerFacadeStatesTable.facade eq facade.id.value
+    }.firstOrNull() ?: throw NexusError(
+        HttpStatusCode.NotFound,
+        "Could not find any state for facade: ${fcid}"
+    )
+    val bankAccount = NexusBankAccountEntity.findById(facadeState.bankAccount) ?: throw NexusError(
+        HttpStatusCode.NotFound,
+        "Could not find any bank account named ${facadeState.bankAccount}"
+    )
+
     return bankAccount
 }
 
@@ -251,7 +278,7 @@ suspend fun talerTransfer(call: ApplicationCall) {
                 )
             }
         }
-        val exchangeBankAccount = getFacadeBankAccount(exchangeUser)
+        val exchangeBankAccount = getTalerFacadeBankAccount(expectNonNull(call.parameters["fcid"]))
         val pain001 = addPreparedPayment(
             Pain001Data(
                 creditorIban = creditorData.iban,
@@ -263,6 +290,7 @@ suspend fun talerTransfer(call: ApplicationCall) {
             ),
             exchangeBankAccount
         )
+        logger.debug("Taler requests payment: ${transferRequest.wtid}")
         val row = TalerRequestedPaymentEntity.new {
             preparedPayment = pain001 // not really used/needed, just here to silence warnings
             exchangeBaseUrl = transferRequest.exchange_base_url
@@ -296,16 +324,12 @@ suspend fun talerAddIncoming(call: ApplicationCall): Unit {
     val addIncomingData = call.receive<TalerAdminAddIncoming>()
     val debtor = parsePayto(addIncomingData.debit_account)
     val res = transaction {
+        val user = authenticateRequest(call.request)
         val facadeID = expectNonNull(call.parameters["fcid"])
-        val facade = FacadeEntity.findById(facadeID) ?: throw NexusError(
-            HttpStatusCode.NotFound, "Could not find facade '$facadeID'"
-        )
-        val facadeBankAccount = NexusBankAccountEntity.findById(facade.config.bankAccount) ?: throw NexusError(
-            HttpStatusCode.NotFound,
-            "Such bank account '${facade.config.bankAccount}' wasn't found for facade '$facadeID'"
-        )
+        val facadeState = getTalerFacadeState(facadeID)
+        val facadeBankAccount = getTalerFacadeBankAccount(facadeID)
         return@transaction object {
-            val facadeLastSeen = facade.highestSeenMsgID
+            val facadeLastSeen = facadeState.highestSeenMsgID
             val facadeIban = facadeBankAccount.iban
             val facadeBic = facadeBankAccount.bankCode
             val facadeHolderName = facadeBankAccount.accountHolder
@@ -317,6 +341,7 @@ suspend fun talerAddIncoming(call: ApplicationCall): Unit {
         urlString = "http://localhost:5000/admin/payments",
         block = {
             /** FIXME: ideally Jackson should define such request body.  */
+            val parsedAmount = parseAmount(addIncomingData.amount)
             this.body = """{
                 "creditorIban": "${res.facadeIban}",
                 "creditorBic": "${res.facadeBic}",
@@ -324,7 +349,8 @@ suspend fun talerAddIncoming(call: ApplicationCall): Unit {
                 "debitorIban": "${debtor.iban}",
                 "debitorBic": "${debtor.bic}",
                 "debitorName": "${debtor.name}",
-                "amount": "${addIncomingData.amount}",
+                "amount": "${parsedAmount.amount}",
+                "currency": "${parsedAmount.currency}",
                 "subject": "${addIncomingData.reserve_pub}"
             }""".trimIndent()
             contentType(ContentType.Application.Json)
@@ -356,7 +382,8 @@ suspend fun talerAddIncoming(call: ApplicationCall): Unit {
 fun ingestTalerTransactions() {
     fun ingest(subscriberAccount: NexusBankAccountEntity, facade: FacadeEntity) {
         logger.debug("Ingesting transactions for Taler facade: ${facade.id.value}")
-        var lastId = facade.highestSeenMsgID
+        val facadeState = getTalerFacadeState(facade.id.value)
+        var lastId = facadeState.highestSeenMsgID
         RawBankTransactionEntity.find {
             /** Those with exchange bank account involved */
             RawBankTransactionsTable.bankAccount eq subscriberAccount.id.value and
@@ -365,13 +392,6 @@ fun ingestTalerTransactions() {
                     /** Those that came later than the latest processed payment */
                     (RawBankTransactionsTable.id.greater(lastId))
         }.orderBy(Pair(RawBankTransactionsTable.id, SortOrder.ASC)).forEach {
-            if (duplicatePayment(it)) {
-                logger.warn("Incoming payment already seen")
-                throw NexusError(
-                    HttpStatusCode.InternalServerError,
-                    "Incoming payment already seen"
-                )
-            }
             // Incoming payment.
             if (it.transactionType == "CRDT") {
                 if (CryptoUtil.checkValidEddsaPublicKey(it.unstructuredRemittanceInformation)) {
@@ -388,29 +408,25 @@ fun ingestTalerTransactions() {
             }
             // Outgoing payment
             if (it.transactionType == "DBIT") {
+                logger.debug("Ingesting outgoing payment: ${it.unstructuredRemittanceInformation}")
                 var talerRequested = TalerRequestedPaymentEntity.find {
                     TalerRequestedPayments.wtid eq it.unstructuredRemittanceInformation
                 }.firstOrNull() ?: throw NexusError(
                     HttpStatusCode.InternalServerError,
                     "Payment '${it.unstructuredRemittanceInformation}' shows in history, but was never requested!"
                 )
-                if (talerRequested != null) {
-                    talerRequested.rawConfirmed = it
-                }
+                talerRequested.rawConfirmed = it
             }
-            /** WARNING: it is not guaranteed that the last processed raw
-             * payment is ALSO the one with highest ID.  A more accurate management
-             * is needed. */
             lastId = it.id.value
         }
-        facade.highestSeenMsgID = lastId
+        facadeState.highestSeenMsgID = lastId
     }
     // invoke ingestion for all the facades
     transaction {
         FacadeEntity.find {
             FacadesTable.type eq "taler-wire-gateway"
         }.forEach {
-            val subscriberAccount = getFacadeBankAccount(it.creator)
+            val subscriberAccount = getTalerFacadeBankAccount(it.id.value)
             ingest(subscriberAccount, it)
         }
     }
@@ -429,9 +445,8 @@ suspend fun historyOutgoing(call: ApplicationCall): Unit {
     val history = TalerOutgoingHistory()
     transaction {
         val user = authenticateRequest(call.request)
-
         /** Retrieve all the outgoing payments from the _clean Taler outgoing table_ */
-        val subscriberBankAccount = getFacadeBankAccount(user)
+        val subscriberBankAccount = getTalerFacadeBankAccount(expectNonNull(call.parameters["fcid"]))
         val reqPayments = TalerRequestedPaymentEntity.find {
             TalerRequestedPayments.rawConfirmed.isNotNull() and startCmpOp
         }.orderTaler(delta)
