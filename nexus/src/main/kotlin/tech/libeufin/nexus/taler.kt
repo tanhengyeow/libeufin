@@ -19,9 +19,8 @@ import org.jetbrains.exposed.dao.Entity
 import org.jetbrains.exposed.dao.id.IdTable
 import org.jetbrains.exposed.sql.*
 import org.jetbrains.exposed.sql.transactions.transaction
-import tech.libeufin.util.CryptoUtil
-import tech.libeufin.util.EbicsProtocolError
-import tech.libeufin.util.parseAmount
+import org.w3c.dom.Document
+import tech.libeufin.util.*
 import kotlin.math.abs
 import kotlin.math.min
 
@@ -369,6 +368,53 @@ suspend fun talerAddIncoming(call: ApplicationCall): Unit {
             ContentType.Application.Json
         )
     )
+}
+
+// submits ALL the prepared payments from ALL the Taler facades.
+suspend fun submitPreparedPaymentsViaEbics() {
+    data class EbicsSubmission(
+        val subscriberDetails: EbicsClientSubscriberDetails,
+        val pain001document: String
+    )
+    val workQueue = mutableListOf<EbicsSubmission>()
+    transaction {
+        TalerFacadeStateEntity.all().forEach {
+            val bankConnection = NexusBankConnectionEntity.findById(it.bankConnection) ?: throw NexusError(
+                HttpStatusCode.InternalServerError,
+                "Such facade '${it.facade.id.value}' doesn't map to any bank connection (named '${it.bankConnection}')"
+            )
+            if (bankConnection.type != "ebics") {
+                logger.info("Skipping non-implemented bank connection '${bankConnection.type}'")
+                return@forEach
+            }
+
+            val subscriberEntity = EbicsSubscriberEntity.find {
+                EbicsSubscribersTable.nexusBankConnection eq it.bankConnection
+            }.firstOrNull() ?: throw NexusError(
+                HttpStatusCode.InternalServerError,
+                "Such facade '${it.facade.id.value}' doesn't map to any Ebics subscriber"
+            )
+            val bankAccount: NexusBankAccountEntity = NexusBankAccountEntity.findById(it.bankAccount) ?: throw NexusError(
+                HttpStatusCode.InternalServerError,
+                "Bank account '${it.bankAccount}' not found for facade '${it.id.value}'"
+            )
+            PreparedPaymentEntity.find { PreparedPaymentsTable.debitorIban eq bankAccount.iban }.forEach {
+                val pain001document = createPain001document(it)
+                val subscriberDetails = getEbicsSubscriberDetailsInternal(subscriberEntity)
+                workQueue.add(EbicsSubmission(subscriberDetails, pain001document))
+            }
+        }
+    }
+    val httpClient = HttpClient()
+    workQueue.forEach {
+        doEbicsUploadTransaction(
+            httpClient,
+            it.subscriberDetails,
+            "CCT",
+            it.pain001document.toByteArray(Charsets.UTF_8),
+            EbicsStandardOrderParams()
+        )
+    }
 }
 
 /**

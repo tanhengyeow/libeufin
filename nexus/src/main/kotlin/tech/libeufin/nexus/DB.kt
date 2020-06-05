@@ -234,7 +234,7 @@ class EbicsSubscriberEntity(id: EntityID<Int>) : IntEntity(id) {
     var authenticationPrivateKey by EbicsSubscribersTable.authenticationPrivateKey
     var bankEncryptionPublicKey by EbicsSubscribersTable.bankEncryptionPublicKey
     var bankAuthenticationPublicKey by EbicsSubscribersTable.bankAuthenticationPublicKey
-    var nexusBankConnection by NexusBankConnectionEntity referencedOn  EbicsSubscribersTable.nexusBankConnection
+    var nexusBankConnection by NexusBankConnectionEntity referencedOn EbicsSubscribersTable.nexusBankConnection
     var ebicsIniState by EbicsSubscribersTable.ebicsIniState
     var ebicsHiaState by EbicsSubscribersTable.ebicsHiaState
 }

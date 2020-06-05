@@ -540,9 +540,7 @@ fun serverMain(dbName: String) {
                         throw NexusError(HttpStatusCode.NotFound, "unknown bank account")
                     }
                     val defaultBankConnection = bankAccount.defaultBankConnection
-                    if (defaultBankConnection == null) {
-                        throw NexusError(HttpStatusCode.NotFound, "needs a default connection")
-                    }
+                        ?: throw NexusError(HttpStatusCode.NotFound, "needs a default connection")
                     val subscriberDetails = getEbicsSubscriberDetails(user.id.value, defaultBankConnection.id.value)
                     return@transaction object {
                         val pain001document = createPain001document(preparedPayment)
