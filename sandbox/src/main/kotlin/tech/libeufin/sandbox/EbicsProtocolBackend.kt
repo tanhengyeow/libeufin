@@ -155,6 +155,9 @@ fun buildCamtString(type: Int, subscriberIban: String, history: MutableList<RawP
      */
     val ret = mutableListOf<String>()
     history.forEach {
+        logger.debug(
+            "Building CAMT over payment: ${it.debitorIban} => ${it.creditorIban}, ${it.currency}:${it.amount}, ${it.subject}"
+        )
         val dashedDate = expectNonNull(it.date)
         val now = LocalDateTime.now()
         val zonedDateTime = now.toZonedString()

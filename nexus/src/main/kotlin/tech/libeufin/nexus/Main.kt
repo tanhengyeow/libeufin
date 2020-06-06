@@ -264,8 +264,9 @@ fun schedulePeriodicWork() {
             logger.debug("Outer background job")
             try {
                 delay(Duration.ofSeconds(1))
-                downloadTalerFacadesTransactions(this)
+                downloadTalerFacadesTransactions()
                 ingestTalerTransactions()
+                submitPreparedPaymentsViaEbics()
             } catch (e: Exception) {
                 logger.info("==== Background job exception ====\n${e.message}======")
             }
@@ -274,7 +275,7 @@ fun schedulePeriodicWork() {
 }
 
 /** Crawls all the facades, and requests history for each of its creators. */
-suspend fun downloadTalerFacadesTransactions(myScope: CoroutineScope) {
+suspend fun downloadTalerFacadesTransactions() {
     val httpClient = HttpClient()
     val work = mutableListOf<Pair<String, String>>()
     transaction {
