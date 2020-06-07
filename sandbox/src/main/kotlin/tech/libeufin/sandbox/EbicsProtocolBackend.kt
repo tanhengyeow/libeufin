@@ -790,7 +790,7 @@ private data class RequestContext(
 private fun handleEbicsDownloadTransactionInitialization(requestContext: RequestContext): EbicsResponse {
     val orderType =
         requestContext.requestObject.header.static.orderDetails?.orderType ?: throw EbicsInvalidRequestError()
-    println("handling initialization for order type $orderType")
+    logger.debug("handling initialization for order type $orderType")
     val response = when (orderType) {
         "HTD" -> handleEbicsHtd(requestContext)
         "HKD" -> handleEbicsHkd(requestContext)
@@ -861,7 +861,7 @@ private fun handleEbicsUploadTransactionInitialization(requestContext: RequestCo
     val plainSigData = InflaterInputStream(decryptedSignatureData.inputStream()).use {
         it.readAllBytes()
     }
-    println("creating upload transaction for transactionID $transactionID")
+    logger.debug("creating upload transaction for transactionID $transactionID")
     EbicsUploadTransactionEntity.new(transactionID) {
         this.host = requestContext.ebicsHost
         this.subscriber = requestContext.subscriber
@@ -870,11 +870,11 @@ private fun handleEbicsUploadTransactionInitialization(requestContext: RequestCo
         this.orderID = orderID
         this.numSegments = numSegments.toInt()
         this.transactionKeyEnc = ExposedBlob(transactionKeyEnc)
-    }
+    }.flush()
     val sigObj = XMLUtil.convertStringToJaxb<UserSignatureData>(plainSigData.toString(Charsets.UTF_8))
-    println("got UserSignatureData: ${plainSigData.toString(Charsets.UTF_8)}")
+    logger.debug("got UserSignatureData: ${plainSigData.toString(Charsets.UTF_8)}")
     for (sig in sigObj.value.orderSignatureList ?: listOf()) {
-        println("inserting order signature for orderID $orderID and orderType $orderType")
+        logger.debug("inserting order signature for orderID $orderID and orderType $orderType")
         EbicsOrderSignatureEntity.new {
             this.orderID = orderID
             this.orderType = orderType
@@ -1047,7 +1047,7 @@ suspend fun ApplicationCall.ebicsweb() {
             }
         }
         "ebicsRequest" -> {
-            println("ebicsRequest ${XMLUtil.convertDomToString(requestDocument)}")
+            logger.debug("ebicsRequest ${XMLUtil.convertDomToString(requestDocument)}")
             val requestObject = requestDocument.toObject<EbicsRequest>()
 
             val responseXmlStr = transaction {

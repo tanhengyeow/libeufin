@@ -67,6 +67,8 @@ import org.slf4j.event.Level
 import tech.libeufin.util.*
 import tech.libeufin.util.CryptoUtil.hashpw
 import tech.libeufin.util.ebics_h004.HTDResponseOrderData
+import java.io.PrintWriter
+import java.io.StringWriter
 import java.lang.NumberFormatException
 import java.net.URLEncoder
 import java.time.Duration
@@ -265,10 +267,13 @@ fun schedulePeriodicWork() {
             try {
                 delay(Duration.ofSeconds(1))
                 downloadTalerFacadesTransactions()
-                ingestTalerTransactions()
+                // ingestTalerTransactions()
                 submitPreparedPaymentsViaEbics()
             } catch (e: Exception) {
-                logger.info("==== Background job exception ====\n${e.message}======")
+                val sw = StringWriter()
+                val pw = PrintWriter(sw)
+                e.printStackTrace(pw)
+                logger.info("==== Background job exception ====\n${sw}======")
             }
         }
     }

@@ -376,6 +376,7 @@ suspend fun submitPreparedPaymentsViaEbics() {
         val subscriberDetails: EbicsClientSubscriberDetails,
         val pain001document: String
     )
+    logger.debug("auto-submitter started")
     val workQueue = mutableListOf<EbicsSubmission>()
     transaction {
         TalerFacadeStateEntity.all().forEach {
@@ -400,6 +401,7 @@ suspend fun submitPreparedPaymentsViaEbics() {
             )
             PreparedPaymentEntity.find { PreparedPaymentsTable.debitorIban eq bankAccount.iban }.forEach {
                 val pain001document = createPain001document(it)
+                logger.debug("Preparing payment: ${pain001document}")
                 val subscriberDetails = getEbicsSubscriberDetailsInternal(subscriberEntity)
                 workQueue.add(EbicsSubmission(subscriberDetails, pain001document))
                 // FIXME: the payment must be flagger AFTER the submission happens.

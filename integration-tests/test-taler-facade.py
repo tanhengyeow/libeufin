@@ -8,31 +8,6 @@ import socket
 import hashlib
 import base64
 
-# Steps implemented in this test.
-#
-# 0 Prepare sandbox.
-#  -> (a) Make a EBICS host, (b) make a EBICS subscriber
-#     for the test runner, and (c) assign a IBAN to such
-#     subscriber.
-#
-# 1 Prepare nexus.
-#  -> (a) Make a Nexus user, (b) make a EBICS subscriber
-#     associated to that user
-#
-# 2 Prepare the Ebics bank connection for the nexus user.
-#  -> (a) Upload keys from Nexus to the Bank (INI & HIA),
-#     (b) Download key from the Bank (HPB) to the Nexus,
-#     and (c) Fetch the bank account owned by that subscriber
-#     at the bank.
-
-# 3 Request history from the Nexus to the Bank (C53).
-# 4 Verify that history is empty.
-# 5 Issue a payment from Nexus
-#  -> (a) Prepare & (b) trigger CCT.
-# 6 Request history after submitting the payment,
-#   from Nexus to Bank.
-# 7 Verify that previous payment shows up.
-
 # Nexus user details
 USERNAME = "person"
 PASSWORD = "y"
@@ -60,14 +35,14 @@ BANK_ACCOUNT_LABEL = "savings"
 BANK_CONNECTION_LABEL = "my-ebics"
 
 # Databases
-NEXUS_DB="test-nexus.sqlite3"
+NEXUS_DB="/tmp/test-nexus.sqlite3"
+SANDBOX_DB="/tmp/test-sandbox.sqlite3"
 
 def fail(msg):
     print(msg)
     nexus.terminate()
     sandbox.terminate()
     exit(1)
-
 
 def checkPorts(ports):
     for i in ports:
@@ -78,7 +53,6 @@ def checkPorts(ports):
         except:
             print("Port {} is not available".format(i))
             exit(77)
-
 
 def assertResponse(response):
     if response.status_code != 200:
@@ -92,24 +66,19 @@ def assertResponse(response):
     # Allows for finer grained checks.
     return response
 
-
-# -1 Clean databases and start services.
+# Clean databases and start services.
 os.chdir("..")
-assert 0 == call(["rm", "-f", "sandbox/libeufin-sandbox.sqlite3"])
-assert 0 == call(["rm", "-f", "nexus/{}".format(NEXUS_DB)])
+assert 0 == call(["rm", "-f", SANDBOX_DB])
+assert 0 == call(["rm", "-f", NEXUS_DB])
 DEVNULL = open(os.devnull, "w")
 
 assert 0 == call(
-    ["./gradlew", "nexus:run", "--console=plain", "--args=superuser admin --password x --db-name={}".format(NEXUS_DB)]
+    ["nexus", "superuser", "admin", "--password=x", "--db-name={}".format(NEXUS_DB)]
 )
 
-# Start nexus
+# start nexus
 checkPorts([5001])
-nexus = Popen(
-    ["./gradlew", "nexus:run", "--console=plain", "--args=serve --db-name={}".format(NEXUS_DB)],
-    stdout=PIPE,
-    stderr=PIPE,
-)
+nexus = Popen(["nexus", "serve", "--db-name={}".format(NEXUS_DB)], stdout=PIPE, stderr=PIPE)
 for i in range(10):
     try:
         get("http://localhost:5001/")
@@ -123,9 +92,10 @@ for i in range(10):
         sleep(2)
         continue
     break
-# Start sandbox
+
+# start sandbox
 checkPorts([5000])
-sandbox = Popen(["./gradlew", "sandbox:run"], stdout=PIPE, stderr=PIPE)
+sandbox = Popen(["sandbox", "serve", "--db-name={}".format(SANDBOX_DB)], stdout=PIPE, stderr=PIPE)
 for i in range(10):
     try:
         get("http://localhost:5000/")
@@ -141,7 +111,7 @@ for i in range(10):
         continue
     break
 
-# 0.a
+# make ebics host at sandbox
 assertResponse(
     post(
         "http://localhost:5000/admin/ebics/host",
@@ -149,7 +119,7 @@ assertResponse(
     )
 )
 
-# 0.b
+# make ebics subscriber at sandbox
 assertResponse(
     post(
         "http://localhost:5000/admin/ebics/subscribers",
@@ -157,7 +127,7 @@ assertResponse(
     )
 )
 
-# 0.c
+# link bank account to ebics subscriber at sandbox
 assertResponse(
     post(
         "http://localhost:5000/admin/ebics/bank-accounts",
@@ -171,8 +141,7 @@ assertResponse(
     )
 )
 
-# 1.a, make a new nexus user.
-
+# make a new nexus user.
 assertResponse(
     post(
         "http://localhost:5001/users",
@@ -183,7 +152,7 @@ assertResponse(
 
 print("creating bank connection")
 
-# 1.b, make a ebics bank connection for the new user.
+# make a ebics bank connection for the new user.
 assertResponse(
     post(
         "http://localhost:5001/bank-connections",
@@ -210,7 +179,7 @@ assertResponse(
 )
 
 
-# 2.c, fetch bank account information
+# fetch bank account information
 assertResponse(
     post(
         "http://localhost:5001/bank-connections/{}/ebics/import-accounts".format(BANK_CONNECTION_LABEL),
@@ -219,7 +188,7 @@ assertResponse(
     )
 )
 
-# 3, create new facade
+# create new facade
 assertResponse(
     post(
         "http://localhost:5001/facades",
@@ -234,9 +203,42 @@ assertResponse(
                 intervalIncremental="UNUSED"
             )
         ),
-        headers=dict(Authorization=USER_AUTHORIZATION_HEADER),
+        headers=dict(Authorization=USER_AUTHORIZATION_HEADER)
     )
 )
+
+# todo: call /transfer + call /history/outgoing
+
+assertResponse(
+    post(
+        "http://localhost:5001/facades/my-facade/taler/transfer",
+        json=dict(
+            request_uid="0",
+            amount="EUR:1",
+            exchange_base_url="http//url",
+            wtid="nice",
+            credit_account="payto://iban/THEIBAN/THEBIC?name=theName"
+        ),
+        headers=dict(Authorization=USER_AUTHORIZATION_HEADER)
+    )
+
+)
+
+# Checks if that crashes the _incoming_ history too.  It does NOT!
+#assertResponse(
+#    post(
+#        "http://localhost:5001/facades/my-facade/taler/admin/add-incoming",
+#        json=dict(
+#            amount="EUR:1",
+#            reserve_pub="my-reserve-pub",
+#            debit_account="payto://iban/DONATOR/MONEY?name=TheDonator"
+#        ),
+#        headers=dict(Authorization=USER_AUTHORIZATION_HEADER)
+#    )
+#)
+
+print("sleeping 100s")
+sleep(100)
 
 nexus.terminate()
 sandbox.terminate()
