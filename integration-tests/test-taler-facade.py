@@ -170,6 +170,21 @@ assertResponse(
 
 )
 
+assertResponse(
+    post(
+        "http://localhost:5001/facades/my-facade/taler/transfer",
+        json=dict(
+            request_uid="1",
+            amount="EUR:2",
+            exchange_base_url="http//url",
+            wtid="more nice",
+            credit_account="payto://iban/THEBIC/THEIBAN?name=theName"
+        ),
+        headers=dict(Authorization=USER_AUTHORIZATION_HEADER)
+    )
+
+)
+
 print("Sleeping 5s, to let the automatic tasks ingest the history.")
 sleep(5)
 
