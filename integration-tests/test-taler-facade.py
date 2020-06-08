@@ -37,8 +37,8 @@ BANK_ACCOUNT_LABEL = "savings"
 BANK_CONNECTION_LABEL = "my-ebics"
 
 # Databases
-NEXUS_DB="/tmp/test-nexus.sqlite3"
-SANDBOX_DB="/tmp/test-sandbox.sqlite3"
+NEXUS_DB="test-nexus.sqlite3"
+SANDBOX_DB="test-sandbox.sqlite3"
 
 def fail(msg):
     print(msg)
@@ -163,7 +163,7 @@ assertResponse(
             amount="EUR:1",
             exchange_base_url="http//url",
             wtid="nice",
-            credit_account="payto://iban/THEIBAN/THEBIC?name=theName"
+            credit_account="payto://iban/THEBIC/THEIBAN?name=theName"
         ),
         headers=dict(Authorization=USER_AUTHORIZATION_HEADER)
     )
