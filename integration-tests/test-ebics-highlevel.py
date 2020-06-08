@@ -124,7 +124,7 @@ for i in range(10):
     break
 # Start sandbox
 checkPorts([5000])
-sandbox = Popen(["./gradlew", "sandbox:run"], stdout=PIPE, stderr=PIPE)
+sandbox = Popen(["./gradlew", "sandbox:run", "--args=serve"], stdout=PIPE, stderr=PIPE)
 for i in range(10):
     try:
         get("http://localhost:5000/")
