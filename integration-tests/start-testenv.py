@@ -53,8 +53,6 @@ def assertResponse(response):
     return response
 
 
-os.chdir("..")
-
 startNexus("nexus-testenv.sqlite3")
 startSandbox()
 
@@ -204,4 +202,8 @@ if len(resp.json().get("transactions")) != 1:
     fail("Unexpected number of transactions; should be 1")
 
 
-input("press enter to stop LibEuFin test environment ...")
+try:
+    input("press enter to stop LibEuFin test environment ...")
+except:
+    pass
+print("exiting!")

@@ -95,6 +95,44 @@ suspend fun doEbicsDownloadTransaction(
 
     payloadChunks.add(initOrderDataEncChunk)
 
+    val numSegments = initResponse.numSegments
+        ?: throw NexusError(HttpStatusCode.FailedDependency, "missing segment number in EBICS download init response")
+
+    // Transfer phase
+
+    for (x in 2..numSegments) {
+        val transferReqStr =
+            createEbicsRequestForDownloadTransferPhase(subscriberDetails, transactionID, x, numSegments)
+        val transferResponseStr = client.postToBank(subscriberDetails.ebicsUrl, transferReqStr)
+        val transferResponse = parseAndValidateEbicsResponse(subscriberDetails, transferResponseStr)
+        when (transferResponse.technicalReturnCode) {
+            EbicsReturnCode.EBICS_OK -> {
+                // Success, nothing to do!
+            }
+            else -> {
+                throw NexusError(
+                    HttpStatusCode.FailedDependency,
+                    "unexpected technical return code ${transferResponse.technicalReturnCode}"
+                )
+            }
+        }
+        when (transferResponse.bankReturnCode) {
+            EbicsReturnCode.EBICS_OK -> {
+                // Success, nothing to do!
+            }
+            else -> {
+                logger.warn("Bank return code was: ${transferResponse.bankReturnCode}")
+                return EbicsDownloadBankErrorResult(transferResponse.bankReturnCode)
+            }
+        }
+        val transferOrderDataEncChunk = transferResponse.orderDataEncChunk
+            ?: throw NexusError(
+                HttpStatusCode.InternalServerError,
+                "transfer response for download transaction does not contain data transfer"
+            )
+        payloadChunks.add(transferOrderDataEncChunk)
+    }
+
     val respPayload = decryptAndDecompressResponse(subscriberDetails, encryptionInfo, payloadChunks)
 
     // Acknowledgement phase

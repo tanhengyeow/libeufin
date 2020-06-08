@@ -167,6 +167,15 @@ assertResponse(
     )
 )
 
+# Test download transaction (TSD, LibEuFin-specific test order type)
+assertResponse(
+    post(
+        "http://localhost:5001/bank-connections/my-ebics/ebics/download/tsd",
+        json=dict(),
+        headers=dict(Authorization=USER_AUTHORIZATION_HEADER),
+    )
+)
+
 # 2.c, fetch bank account information
 assertResponse(
     post(

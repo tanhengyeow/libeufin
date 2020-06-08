@@ -5,6 +5,7 @@ import tech.libeufin.util.CryptoUtil
 import java.math.BigInteger
 import java.security.interfaces.RSAPublicKey
 import java.util.*
+import javax.swing.text.Segment
 import javax.xml.bind.annotation.*
 import javax.xml.bind.annotation.adapters.CollapsedStringAdapter
 import javax.xml.bind.annotation.adapters.HexBinaryAdapter
@@ -360,10 +361,10 @@ class EbicsRequest {
                             }
                             securityMedium = "0000"
                         }
-                        mutable = MutableHeader().apply {
-                            transactionPhase =
-                                EbicsTypes.TransactionPhaseType.INITIALISATION
-                        }
+                    }
+                    mutable = MutableHeader().apply {
+                        transactionPhase =
+                            EbicsTypes.TransactionPhaseType.INITIALISATION
                     }
                 }
             }
@@ -469,6 +470,35 @@ class EbicsRequest {
                 body = Body().apply {
                     dataTransfer = DataTransfer().apply {
                         orderData = encryptedData
+                    }
+                }
+            }
+        }
+
+        fun createForDownloadTransferPhase(
+            hostID: String,
+            transactionID: String,
+            segmentNumber: Int,
+            numSegments: Int
+        ): EbicsRequest {
+            return EbicsRequest().apply {
+                version = "H004"
+                revision = 1
+                authSignature = SignatureType()
+                body = Body()
+                header = Header().apply {
+                    authenticate = true
+                    static = StaticHeaderType().apply {
+                        this.hostID = hostID
+                        this.transactionID = transactionID
+                    }
+                    mutable = MutableHeader().apply {
+                        transactionPhase =
+                            EbicsTypes.TransactionPhaseType.TRANSFER
+                        this.segmentNumber = EbicsTypes.SegmentNumber().apply {
+                            this.value = BigInteger.valueOf(segmentNumber.toLong())
+                            this.lastSegment = segmentNumber == numSegments
+                        }
                     }
                 }
             }

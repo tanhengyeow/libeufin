@@ -260,6 +260,23 @@ fun createEbicsRequestForDownloadInitialization(
     return XMLUtil.convertDomToString(doc)
 }
 
+fun createEbicsRequestForDownloadTransferPhase(
+    subscriberDetails: EbicsClientSubscriberDetails,
+    transactionID: String,
+    segmentNumber: Int,
+    numSegments: Int
+): String {
+    val req = EbicsRequest.createForDownloadTransferPhase(
+        subscriberDetails.hostId,
+        transactionID,
+        segmentNumber,
+        numSegments
+    )
+    val doc = XMLUtil.convertJaxbToDocument(req)
+    XMLUtil.signEbicsDocument(doc, subscriberDetails.customerAuthPriv)
+    return XMLUtil.convertDomToString(doc)
+}
+
 
 fun createEbicsRequestForUploadTransferPhase(
     subscriberDetails: EbicsClientSubscriberDetails,
@@ -329,7 +346,10 @@ data class EbicsResponseContent(
     val dataEncryptionInfo: DataEncryptionInfo?,
     val orderDataEncChunk: String?,
     val technicalReturnCode: EbicsReturnCode,
-    val bankReturnCode: EbicsReturnCode
+    val bankReturnCode: EbicsReturnCode,
+    val segmentNumber: Int?,
+    // Only present in init phase
+    val numSegments: Int?
 )
 
 data class EbicsKeyManagementResponseContent(
@@ -404,7 +424,10 @@ fun parseAndValidateEbicsResponse(
     val responseDocument = try {
         XMLUtil.parseStringIntoDom(responseStr)
     } catch (e: Exception) {
-        throw EbicsProtocolError(HttpStatusCode.InternalServerError, "Invalid XML (as EbicsResponse) received from bank")
+        throw EbicsProtocolError(
+            HttpStatusCode.InternalServerError,
+            "Invalid XML (as EbicsResponse) received from bank"
+        )
     }
 
     if (!XMLUtil.verifyEbicsDocument(
@@ -420,7 +443,10 @@ fun parseAndValidateEbicsResponse(
     val resp = try {
         XMLUtil.convertStringToJaxb<EbicsResponse>(responseStr)
     } catch (e: Exception) {
-        throw EbicsProtocolError(HttpStatusCode.InternalServerError, "Could not transform string-response from bank into JAXB")
+        throw EbicsProtocolError(
+            HttpStatusCode.InternalServerError,
+            "Could not transform string-response from bank into JAXB"
+        )
     }
 
     val bankReturnCodeStr = resp.value.body.returnCode.value
@@ -441,7 +467,9 @@ fun parseAndValidateEbicsResponse(
         bankReturnCode = bankReturnCode,
         technicalReturnCode = techReturnCode,
         orderDataEncChunk = resp.value.body.dataTransfer?.orderData?.value,
-        dataEncryptionInfo = dataEncryptionInfo
+        dataEncryptionInfo = dataEncryptionInfo,
+        numSegments = resp.value.header._static.numSegments?.toInt(),
+        segmentNumber = resp.value.header.mutable.segmentNumber?.value?.toInt()
     )
 }
 

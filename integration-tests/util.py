@@ -18,7 +18,7 @@ def checkPort(port):
         exit(77)
 
 
-def startSandbox(dbname):
+def startSandbox(dbname="sandbox-test.sqlite3"):
     db_full_path = str(Path.cwd() / dbname)
     check_call(["rm", "-f", db_full_path])
     check_call(["../gradlew", "-p", "..", "sandbox:assemble"])
@@ -43,7 +43,7 @@ def startSandbox(dbname):
         break
 
 
-def startNexus(dbname):
+def startNexus(dbname="nexus-test.sqlite3"):
     db_full_path = str(Path.cwd() / dbname)
     check_call(["rm", "-f", "--", db_full_path])
     check_call(
