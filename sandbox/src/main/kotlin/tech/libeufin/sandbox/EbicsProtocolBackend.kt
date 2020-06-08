@@ -452,8 +452,17 @@ private fun constructCamtResponse(
     return buildCamtString(type, bankAccount.iban, history)
 }
 
+/**
+ * TSD (test download) message.
+ *
+ * This is a non-standard EBICS order type use by LibEuFin to
+ * test download transactions.
+ *
+ * In the future, additional parameters (size, chunking, inject fault for retry) might
+ * be added to the order parameters.
+ */
 private fun handleEbicsTSD(requestContext: RequestContext): ByteArray {
-    return "Hello World".toByteArray()
+    return "Hello World\n".repeat(1024).toByteArray()
 }
 
 private fun handleEbicsPTK(requestContext: RequestContext): ByteArray {
