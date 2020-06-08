@@ -5,6 +5,8 @@ import { Route } from 'react-router-dom';
 import history from '../history';
 import { Auth } from '../types';
 
+import Footer from '../components/footer/Index';
+
 interface Props {
   exact?: boolean;
   isAuthenticated: boolean | null;
@@ -32,8 +34,8 @@ const AuthenticatedRoute = ({
             </>
           )}
         />
-        <footer>Footer</footer>
       </div>
+      <Footer />
     </>
   );
 };
