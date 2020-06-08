@@ -18,8 +18,8 @@ def checkPort(port):
         exit(77)
 
 
-def startSandbox():
-    db_full_path = str(Path.cwd() / "libeufin-sandbox.sqlite3")
+def startSandbox(dbname = "libeufin-sandbox.sqlite3"):
+    db_full_path = str(Path.cwd() / dbname)
     check_call(["rm", "-f", db_full_path])
     check_call(["../gradlew", "-p", "..", "sandbox:assemble"])
     checkPort(5000)

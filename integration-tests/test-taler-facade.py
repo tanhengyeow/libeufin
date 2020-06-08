@@ -44,16 +44,6 @@ def fail(msg):
     print(msg)
     exit(1)
 
-def checkPorts(ports):
-    for i in ports:
-        s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        try:
-            s.bind(("0.0.0.0", i))
-            s.close()
-        except:
-            print("Port {} is not available".format(i))
-            exit(77)
-
 def assertResponse(response):
     if response.status_code != 200:
         print("Test failed on URL: {}".format(response.url))
@@ -64,10 +54,8 @@ def assertResponse(response):
     # Allows for finer grained checks.
     return response
 
-
-os.chdir("..")
 startNexus(NEXUS_DB)
-startSandbox()
+startSandbox(SANDBOX_DB)
 
 # make ebics host at sandbox
 assertResponse(
@@ -195,7 +183,4 @@ assertResponse(
 #    )
 #)
 
-print("sleeping 100s")
-sleep(100)
-
-print("Test passed!")
+input("press enter to stop the test:")
