@@ -10,3 +10,5 @@ presentation/*.out
 presentation/*.snm
 presentation/*.toc
 .idea/misc.xml
+__pycache__
+*.log

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
 from requests import post, get
-from subprocess import call, Popen, PIPE
+from subprocess import call, Popen
 from time import sleep
 import os
 import socket
@@ -78,14 +78,13 @@ assert 0 == call(
 
 # start nexus
 checkPorts([5001])
-nexus = Popen(["nexus", "serve", "--db-name={}".format(NEXUS_DB)], stdout=PIPE, stderr=PIPE)
+nexus = Popen(["nexus", "serve", "--db-name={}".format(NEXUS_DB)])
 for i in range(10):
     try:
         get("http://localhost:5001/")
     except:
         if i == 9:
             nexus.terminate()
-            stdout, stderr = nexus.communicate()
             print("Nexus timed out")
             print("{}\n{}".format(stdout.decode(), stderr.decode()))
             exit(77)
@@ -95,7 +94,7 @@ for i in range(10):
 
 # start sandbox
 checkPorts([5000])
-sandbox = Popen(["sandbox", "serve", "--db-name={}".format(SANDBOX_DB)], stdout=PIPE, stderr=PIPE)
+sandbox = Popen(["sandbox", "serve", "--db-name={}".format(SANDBOX_DB)])
 for i in range(10):
     try:
         get("http://localhost:5000/")
