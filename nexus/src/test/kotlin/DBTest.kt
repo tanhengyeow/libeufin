@@ -44,22 +44,20 @@ class DBTest {
                     TalerFacadeStatesTable,
                     NexusUsersTable
                 )
+                val user = NexusUserEntity.new("u") {
+                    passwordHash = "x"
+                    superuser = true
+                }
+                val facade = FacadeEntity.new("my-id") {
+                    type = "any"
+                    creator = user
+                }
                 val talerConfig = TalerFacadeStateEntity.new {
                     bankAccount = "b"
                     bankConnection = "b"
                     reserveTransferLevel = "any"
                     intervalIncrement = "any"
-                }
-                talerConfig.flush()
-                val user = NexusUserEntity.new("u") {
-                    passwordHash = "x"
-                    superuser = true
-                }
-                FacadeEntity.new("my-id") {
-                    type = "any"
-                    creator = user
-                    config = talerConfig
-                    highestSeenMsgID = 0
+                    this.facade = facade
                 }
             }
         }

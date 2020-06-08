@@ -143,7 +143,7 @@ class RawBankTransactionEntity(id: EntityID<Long>) : LongEntity(id) {
  */
 object PreparedPaymentsTable : IdTable<String>() {
     /** the UUID representing this payment in the system */
-    override val id = varchar("id", ID_MAX_LENGTH).entityId().primaryKey()
+    override val id = varchar("id", ID_MAX_LENGTH).entityId()
     val paymentId = long("paymentId")
     val preparationDate = long("preparationDate")
     val submissionDate = long("submissionDate").nullable()
@@ -188,7 +188,7 @@ class PreparedPaymentEntity(id: EntityID<String>) : Entity<String>(id) {
  * This table holds triples of <iban, bic, holder name>.
  */
 object NexusBankAccountsTable : IdTable<String>() {
-    override val id = varchar("id", ID_MAX_LENGTH).primaryKey().entityId()
+    override val id = varchar("id", ID_MAX_LENGTH).entityId()
     val accountHolder = text("accountHolder")
     val iban = text("iban")
     val bankCode = text("bankCode")
@@ -241,7 +241,6 @@ class EbicsSubscriberEntity(id: EntityID<Int>) : IntEntity(id) {
 
 object NexusUsersTable : IdTable<String>() {
     override val id = varchar("id", ID_MAX_LENGTH).entityId()
-    override val primaryKey = PrimaryKey(id, name = "id")
     val passwordHash = text("password")
     val superuser = bool("superuser")
 }
@@ -253,7 +252,7 @@ class NexusUserEntity(id: EntityID<String>) : Entity<String>(id) {
 }
 
 object NexusBankConnectionsTable : IdTable<String>() {
-    override val id = NexusBankConnectionsTable.text("id").entityId().primaryKey()
+    override val id = NexusBankConnectionsTable.text("id").entityId()
     val type = text("type")
     val owner = reference("user", NexusUsersTable)
 }
@@ -266,7 +265,6 @@ class NexusBankConnectionEntity(id: EntityID<String>) : Entity<String>(id) {
 
 object FacadesTable : IdTable<String>() {
     override val id = FacadesTable.text("id").entityId()
-    override val primaryKey = PrimaryKey(id, name = "id")
     val type = text("type")
     val creator = reference("creator", NexusUsersTable)
     val highestSeenMsgID = long("highestSeenMessageID").default(0)

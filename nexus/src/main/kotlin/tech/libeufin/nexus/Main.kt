@@ -430,7 +430,7 @@ fun serverMain(dbName: String) {
             return@intercept
         }
 
-        schedulePeriodicWork()
+        //schedulePeriodicWork()
         routing {
             /**
              * Shows information about the requesting user.
