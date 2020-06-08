@@ -94,6 +94,4 @@ resp = assertResponse(
 )
 
 print(resp.text)
-
-sandbox.terminate()
 print("\nTest passed!")
