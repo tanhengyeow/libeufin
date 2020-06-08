@@ -170,6 +170,18 @@ assertResponse(
 
 )
 
+print("Sleeping 5s, to let the automatic tasks ingest the history.")
+sleep(5)
+
+resp = assertResponse(
+    get(
+        "http://localhost:5001/facades/my-facade/taler/history/outgoing?delta=5",
+        headers=dict(Authorization=USER_AUTHORIZATION_HEADER)
+    )
+)
+
+print(resp.text)
+
 # Checks if that crashes the _incoming_ history too.  It does NOT!
 #assertResponse(
 #    post(
@@ -182,5 +194,5 @@ assertResponse(
 #        headers=dict(Authorization=USER_AUTHORIZATION_HEADER)
 #    )
 #)
-
+print("auth header: " + USER_AUTHORIZATION_HEADER)
 input("press enter to stop the test:")

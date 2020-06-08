@@ -266,7 +266,7 @@ fun schedulePeriodicWork() {
             logger.debug("Outer background job")
             try {
                 downloadTalerFacadesTransactions()
-                // ingestTalerTransactions()
+                ingestTalerTransactions()
                 submitPreparedPaymentsViaEbics()
             } catch (e: Exception) {
                 val sw = StringWriter()

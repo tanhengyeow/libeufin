@@ -467,6 +467,7 @@ fun ingestTalerTransactions() {
                     HttpStatusCode.InternalServerError,
                     "Payment '${it.unstructuredRemittanceInformation}' shows in history, but was never requested!"
                 )
+                logger.debug("Payment: ${it.unstructuredRemittanceInformation} was requested, and gets now marked as 'confirmed'")
                 talerRequested.rawConfirmed = it
             }
             lastId = it.id.value
