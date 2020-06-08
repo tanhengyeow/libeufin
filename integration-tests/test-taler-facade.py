@@ -8,6 +8,8 @@ import socket
 import hashlib
 import base64
 
+from util import startNexus, startSandbox
+
 # Nexus user details
 USERNAME = "person"
 PASSWORD = "y"
@@ -40,8 +42,6 @@ SANDBOX_DB="/tmp/test-sandbox.sqlite3"
 
 def fail(msg):
     print(msg)
-    nexus.terminate()
-    sandbox.terminate()
     exit(1)
 
 def checkPorts(ports):
@@ -60,55 +60,14 @@ def assertResponse(response):
         # stdout/stderr from both services is A LOT of text.
         # Confusing to dump all that to console.
         print("Check nexus.log and sandbox.log, probably under /tmp")
-        nexus.terminate()
-        sandbox.terminate()
         exit(1)
     # Allows for finer grained checks.
     return response
 
-# Clean databases and start services.
+
 os.chdir("..")
-assert 0 == call(["rm", "-f", SANDBOX_DB])
-assert 0 == call(["rm", "-f", NEXUS_DB])
-DEVNULL = open(os.devnull, "w")
-
-assert 0 == call(
-    ["nexus", "superuser", "admin", "--password=x", "--db-name={}".format(NEXUS_DB)]
-)
-
-# start nexus
-checkPorts([5001])
-nexus = Popen(["nexus", "serve", "--db-name={}".format(NEXUS_DB)])
-for i in range(10):
-    try:
-        get("http://localhost:5001/")
-    except:
-        if i == 9:
-            nexus.terminate()
-            print("Nexus timed out")
-            print("{}\n{}".format(stdout.decode(), stderr.decode()))
-            exit(77)
-        sleep(2)
-        continue
-    break
-
-# start sandbox
-checkPorts([5000])
-sandbox = Popen(["sandbox", "serve", "--db-name={}".format(SANDBOX_DB)])
-for i in range(10):
-    try:
-        get("http://localhost:5000/")
-    except:
-        if i == 9:
-            nexus.terminate()
-            sandbox.terminate()
-            stdout, stderr = nexus.communicate()
-            print("Sandbox timed out")
-            print("{}\n{}".format(stdout.decode(), stderr.decode()))
-            exit(77)
-        sleep(2)
-        continue
-    break
+startNexus(NEXUS_DB)
+startSandbox()
 
 # make ebics host at sandbox
 assertResponse(
@@ -239,6 +198,4 @@ assertResponse(
 print("sleeping 100s")
 sleep(100)
 
-nexus.terminate()
-sandbox.terminate()
 print("Test passed!")

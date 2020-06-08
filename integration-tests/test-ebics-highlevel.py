@@ -78,8 +78,6 @@ def assertResponse(response):
     return response
 
 
-os.chdir("..")
-
 startNexus(NEXUS_DB)
 startSandbox()
 

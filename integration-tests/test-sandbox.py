@@ -8,6 +8,8 @@ import socket
 import hashlib
 import base64
 
+from util import startSandbox
+
 # EBICS details
 EBICS_URL = "http://localhost:5000/ebicsweb"
 HOST_ID = "HOST01"
@@ -24,20 +26,7 @@ BANK_ACCOUNT_LABEL = "savings"
 
 def fail(msg):
     print(msg)
-    sandbox.terminate()
     exit(1)
-
-
-def checkPorts(ports):
-    for i in ports:
-        s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        try:
-            s.bind(("0.0.0.0", i))
-            s.close()
-        except:
-            print("Port {} is not available".format(i))
-            exit(77)
-
 
 def assertResponse(response):
     if response.status_code != 200:
@@ -45,32 +34,11 @@ def assertResponse(response):
         # stdout/stderr from both services is A LOT of text.
         # Confusing to dump all that to console.
         print("Check sandbox.log, probably under /tmp")
-        sandbox.terminate()
         exit(1)
     # Allows for finer grained checks.
     return response
 
-
-# -1 Clean databases and start the service.
-os.chdir("..")
-assert 0 == call(["rm", "-f", "sandbox/libeufin-sandbox.sqlite3"])
-DEVNULL = open(os.devnull, "w")
-
-# Start sandbox
-checkPorts([5000])
-sandbox = Popen(["./gradlew", "sandbox:run"], stdout=PIPE, stderr=PIPE)
-for i in range(10):
-    try:
-        get("http://localhost:5000/")
-    except:
-        if i == 9:
-            sandbox.terminate()
-            print("Sandbox timed out")
-            print("{}\n{}".format(stdout.decode(), stderr.decode()))
-            exit(77)
-        sleep(2)
-        continue
-    break
+startSandbox()
 
 # Create a Ebics host.
 assertResponse(

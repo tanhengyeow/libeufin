@@ -8,6 +8,8 @@ import socket
 import hashlib
 import base64
 
+from util import startNexus, startSandbox
+
 # Steps implemented in this test.
 #
 # 0 Prepare sandbox.
@@ -63,21 +65,7 @@ NEXUS_DB="test-nexus.sqlite3"
 
 def fail(msg):
     print(msg)
-    nexus.terminate()
-    sandbox.terminate()
     exit(1)
-
-
-def checkPorts(ports):
-    for i in ports:
-        s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        try:
-            s.bind(("0.0.0.0", i))
-            s.close()
-        except:
-            print("Port {} is not available".format(i))
-            exit(77)
-
 
 def assertResponse(response):
     if response.status_code != 200:
@@ -85,60 +73,13 @@ def assertResponse(response):
         # stdout/stderr from both services is A LOT of text.
         # Confusing to dump all that to console.
         print("Check nexus.log and sandbox.log, probably under /tmp")
-        nexus.terminate()
-        sandbox.terminate()
         exit(1)
     # Allows for finer grained checks.
     return response
 
+startSandbox()
+startNexus(NEXUS_DB)
 
-# -1 Clean databases and start services.
-os.chdir("..")
-assert 0 == call(["rm", "-f", "sandbox/libeufin-sandbox.sqlite3"])
-assert 0 == call(["rm", "-f", "nexus/{}".format(NEXUS_DB)])
-DEVNULL = open(os.devnull, "w")
-
-assert 0 == call(
-    ["./gradlew", "nexus:run", "--console=plain", "--args=superuser admin --password x --db-name={}".format(NEXUS_DB)]
-)
-
-# Start nexus
-checkPorts([5001])
-nexus = Popen(
-    ["./gradlew", "nexus:run", "--console=plain", "--args=serve --db-name={}".format(NEXUS_DB)],
-    stdout=PIPE,
-    stderr=PIPE,
-)
-for i in range(10):
-    try:
-        get("http://localhost:5001/")
-    except:
-        if i == 9:
-            nexus.terminate()
-            stdout, stderr = nexus.communicate()
-            print("Nexus timed out")
-            print("{}\n{}".format(stdout.decode(), stderr.decode()))
-            exit(77)
-        sleep(2)
-        continue
-    break
-# Start sandbox
-checkPorts([5000])
-sandbox = Popen(["./gradlew", "sandbox:run"], stdout=PIPE, stderr=PIPE)
-for i in range(10):
-    try:
-        get("http://localhost:5000/")
-    except:
-        if i == 9:
-            nexus.terminate()
-            sandbox.terminate()
-            stdout, stderr = nexus.communicate()
-            print("Sandbox timed out")
-            print("{}\n{}".format(stdout.decode(), stderr.decode()))
-            exit(77)
-        sleep(2)
-        continue
-    break
 
 # 0.a
 assertResponse(
@@ -302,6 +243,4 @@ resp = assertResponse(
 if len(resp.json().get("transactions")) != 1:
     fail("Unexpected number of transactions; should be 1")
 
-nexus.terminate()
-sandbox.terminate()
 print("Test passed!")

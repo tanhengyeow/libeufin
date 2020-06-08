@@ -5,6 +5,7 @@ import socket
 from requests import post, get
 from time import sleep
 import atexit
+from pathlib import Path
 
 
 def checkPort(port):
@@ -13,21 +14,20 @@ def checkPort(port):
         s.bind(("0.0.0.0", port))
         s.close()
     except:
-        print("Port {} is not available".format(i))
+        print(f"Port {port} is not available")
         exit(77)
 
 
 def startSandbox():
-    check_call(["rm", "-f", "sandbox/libeufin-sandbox.sqlite3"])
-    check_call(["./gradlew", "sandbox:assemble"])
+    db_full_path = str(Path.cwd() / "libeufin-sandbox.sqlite3")
+    check_call(["rm", "-f", db_full_path])
+    check_call(["../gradlew", "-p", "..", "sandbox:assemble"])
     checkPort(5000)
-    sandbox = Popen(["./gradlew",
-        "sandbox:run",
-            "--console=plain",
-        "--args=serve"],
-            stdout=open("sandbox-stdout.log", "w"),
-            stderr=open("sandbox-stderr.log", "w"),
-            )
+    sandbox = Popen(
+        ["../gradlew", "-p", "..", "sandbox:run", "--console=plain", "--args=serve --db-name={}".format(db_full_path)],
+        stdout=open("sandbox-stdout.log", "w"),
+        stderr=open("sandbox-stderr.log", "w"),
+    )
     atexit.register(lambda: sandbox.terminate())
     for i in range(10):
         try:
@@ -43,29 +43,31 @@ def startSandbox():
         break
 
 
-def startNexus(dbfile):
-    check_call(["rm", "-f", "nexus/{}".format(dbfile)])
+def startNexus(dbname):
+    db_full_path = str(Path.cwd() / dbname)
+    check_call(["rm", "-f", "--", db_full_path])
     check_call(
-        [
-            "./gradlew",
-            "nexus:assemble",
-        ]
+        ["../gradlew", "-p", "..", "nexus:assemble",]
     )
     check_call(
         [
-            "./gradlew",
+            "../gradlew",
+            "-p",
+            "..",
             "nexus:run",
             "--console=plain",
-            "--args=superuser admin --password x --db-name={}".format(dbfile),
+            "--args=superuser admin --password x --db-name={}".format(db_full_path),
         ]
     )
     checkPort(5001)
     nexus = Popen(
         [
-            "./gradlew",
+            "../gradlew",
+            "-p",
+            "..",
             "nexus:run",
             "--console=plain",
-            "--args=serve --db-name={}".format(dbfile),
+            "--args=serve --db-name={}".format(db_full_path),
         ],
         stdout=open("nexus-stdout.log", "w"),
         stderr=open("nexus-stderr.log", "w"),
