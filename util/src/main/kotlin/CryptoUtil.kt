@@ -45,6 +45,7 @@ object CryptoUtil {
      */
     data class RsaCrtKeyPair(val private: RSAPrivateCrtKey, val public: RSAPublicKey)
 
+    // FIXME(dold): This abstraction needs to be improved.
     class EncryptionResult(
         val encryptedTransactionKey: ByteArray,
         val pubKeyDigest: ByteArray,

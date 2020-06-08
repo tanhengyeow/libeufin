@@ -7,6 +7,7 @@ import javax.xml.bind.annotation.*
 import javax.xml.bind.annotation.adapters.CollapsedStringAdapter
 import javax.xml.bind.annotation.adapters.NormalizedStringAdapter
 import javax.xml.bind.annotation.adapters.XmlJavaTypeAdapter
+import kotlin.math.min
 
 @XmlAccessorType(XmlAccessType.NONE)
 @XmlType(name = "", propOrder = ["header", "authSignature", "body"])
@@ -220,6 +221,52 @@ class EbicsResponse {
             }
         }
 
+        /**
+         * @param requestedSegment requested segment as a 1-based index
+         */
+        fun createForDownloadTransferPhase(
+            transactionID: String,
+            numSegments: Int,
+            segmentSize: Int,
+            encodedData: String,
+            requestedSegment: Int
+        ): EbicsResponse {
+            return EbicsResponse().apply {
+                this.version = "H004"
+                this.revision = 1
+                this.header = Header().apply {
+                    this.authenticate = true
+                    this._static = StaticHeaderType().apply {
+                        this.transactionID = transactionID
+                        this.numSegments = BigInteger.valueOf(numSegments.toLong())
+                    }
+                    this.mutable = MutableHeaderType().apply {
+                        this.transactionPhase =
+                            EbicsTypes.TransactionPhaseType.TRANSFER
+                        this.segmentNumber = EbicsTypes.SegmentNumber().apply {
+                            this.lastSegment = numSegments == requestedSegment
+                            this.value = BigInteger.valueOf(requestedSegment.toLong())
+                        }
+                        this.reportText = "[EBICS_OK] OK"
+                        this.returnCode = "000000"
+                    }
+                }
+                this.authSignature = SignatureType()
+                this.body = Body().apply {
+                    this.returnCode = ReturnCode().apply {
+                        this.authenticate = true
+                        this.value = "000000"
+                    }
+                    this.dataTransfer = DataTransferResponseType().apply {
+                        this.orderData = OrderData().apply {
+                            val start = segmentSize * (requestedSegment - 1)
+                            this.value = encodedData.substring(start, min(start + segmentSize, encodedData.length))
+                        }
+                    }
+                }
+            }
+        }
+
         fun createForDownloadInitializationPhase(
             transactionID: String,
             numSegments: Int,
@@ -265,7 +312,7 @@ class EbicsResponse {
                             this.transactionKey = enc.encryptedTransactionKey
                         }
                         this.orderData = OrderData().apply {
-                            this.value = encodedData.substring(0, Math.min(segmentSize, encodedData.length))
+                            this.value = encodedData.substring(0, min(segmentSize, encodedData.length))
                         }
                     }
                 }

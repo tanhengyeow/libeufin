@@ -786,6 +786,19 @@ private data class RequestContext(
     val downloadTransaction: EbicsDownloadTransactionEntity?
 )
 
+private fun handleEbicsDownloadTransactionTransfer(requestContext: RequestContext): EbicsResponse {
+    val segmentNumber = requestContext.requestObject.header.mutable.segmentNumber?.value ?: throw EbicsInvalidRequestError()
+    val transactionID = requestContext.requestObject.header.static.transactionID ?: throw EbicsInvalidRequestError()
+    val downloadTransaction = requestContext.downloadTransaction ?: throw AssertionError()
+    return EbicsResponse.createForDownloadTransferPhase(
+        transactionID,
+        downloadTransaction.numSegments,
+        downloadTransaction.segmentSize,
+        downloadTransaction.encodedResponse,
+        segmentNumber.toInt()
+    )
+}
+
 
 private fun handleEbicsDownloadTransactionInitialization(requestContext: RequestContext): EbicsResponse {
     val orderType =
@@ -1072,7 +1085,7 @@ suspend fun ApplicationCall.ebicsweb() {
                         if (requestContext.uploadTransaction != null) {
                             handleEbicsUploadTransactionTransmission(requestContext)
                         } else if (requestContext.downloadTransaction != null) {
-                            throw NotImplementedError()
+                            handleEbicsDownloadTransactionTransfer(requestContext)
                         } else {
                             throw AssertionError()
                         }
