@@ -52,7 +52,7 @@ class DBTest {
                     type = "any"
                     creator = user
                 }
-                val talerConfig = TalerFacadeStateEntity.new {
+                TalerFacadeStateEntity.new {
                     bankAccount = "b"
                     bankConnection = "b"
                     reserveTransferLevel = "any"

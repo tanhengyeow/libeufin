@@ -265,7 +265,6 @@ fun schedulePeriodicWork() {
         while (true) {
             logger.debug("Outer background job")
             try {
-                delay(Duration.ofSeconds(1))
                 downloadTalerFacadesTransactions()
                 // ingestTalerTransactions()
                 submitPreparedPaymentsViaEbics()
@@ -275,6 +274,7 @@ fun schedulePeriodicWork() {
                 e.printStackTrace(pw)
                 logger.info("==== Background job exception ====\n${sw}======")
             }
+            delay(Duration.ofSeconds(1))
         }
     }
 }
@@ -430,7 +430,7 @@ fun serverMain(dbName: String) {
             return@intercept
         }
 
-        //schedulePeriodicWork()
+        schedulePeriodicWork()
         routing {
             /**
              * Shows information about the requesting user.

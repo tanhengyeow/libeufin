@@ -411,6 +411,7 @@ suspend fun submitPreparedPaymentsViaEbics() {
     }
     val httpClient = HttpClient()
     workQueue.forEach {
+        println("submitting prepared payment via EBICS");
         doEbicsUploadTransaction(
             httpClient,
             it.subscriberDetails,

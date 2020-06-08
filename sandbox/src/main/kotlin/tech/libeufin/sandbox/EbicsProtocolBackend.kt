@@ -870,7 +870,7 @@ private fun handleEbicsUploadTransactionInitialization(requestContext: RequestCo
         this.orderID = orderID
         this.numSegments = numSegments.toInt()
         this.transactionKeyEnc = ExposedBlob(transactionKeyEnc)
-    }.flush()
+    }
     logger.debug("after SQL flush")
     val sigObj = XMLUtil.convertStringToJaxb<UserSignatureData>(plainSigData.toString(Charsets.UTF_8))
     logger.debug("got UserSignatureData: ${plainSigData.toString(Charsets.UTF_8)}")

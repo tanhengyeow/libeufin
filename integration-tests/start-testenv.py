@@ -7,31 +7,7 @@ import os
 import socket
 import hashlib
 import base64
-
-# Steps implemented in this test.
-#
-# 0 Prepare sandbox.
-#  -> (a) Make a EBICS host, (b) make a EBICS subscriber
-#     for the test runner, and (c) assign a IBAN to such
-#     subscriber.
-#
-# 1 Prepare nexus.
-#  -> (a) Make a Nexus user, (b) make a EBICS subscriber
-#     associated to that user
-#
-# 2 Prepare the Ebics bank connection for the nexus user.
-#  -> (a) Upload keys from Nexus to the Bank (INI & HIA),
-#     (b) Download key from the Bank (HPB) to the Nexus,
-#     and (c) Fetch the bank account owned by that subscriber
-#     at the bank.
-
-# 3 Request history from the Nexus to the Bank (C53).
-# 4 Verify that history is empty.
-# 5 Issue a payment from Nexus
-#  -> (a) Prepare & (b) trigger CCT.
-# 6 Request history after submitting the payment,
-#   from Nexus to Bank.
-# 7 Verify that previous payment shows up.
+from util import startNexus, startSandbox
 
 # Nexus user details
 USERNAME = "person"
@@ -63,20 +39,7 @@ NEXUS_DB="test-nexus.sqlite3"
 
 def fail(msg):
     print(msg)
-    nexus.terminate()
-    sandbox.terminate()
     exit(1)
-
-
-def checkPorts(ports):
-    for i in ports:
-        s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        try:
-            s.bind(("0.0.0.0", i))
-            s.close()
-        except:
-            print("Port {} is not available".format(i))
-            exit(77)
 
 
 def assertResponse(response):
@@ -85,60 +48,15 @@ def assertResponse(response):
         # stdout/stderr from both services is A LOT of text.
         # Confusing to dump all that to console.
         print("Check nexus.log and sandbox.log, probably under /tmp")
-        nexus.terminate()
-        sandbox.terminate()
         exit(1)
     # Allows for finer grained checks.
     return response
 
 
-# -1 Clean databases and start services.
 os.chdir("..")
-assert 0 == call(["rm", "-f", "sandbox/libeufin-sandbox.sqlite3"])
-assert 0 == call(["rm", "-f", "nexus/{}".format(NEXUS_DB)])
-DEVNULL = open(os.devnull, "w")
 
-assert 0 == call(
-    ["./gradlew", "nexus:run", "--console=plain", "--args=superuser admin --password x --db-name={}".format(NEXUS_DB)]
-)
-
-# Start nexus
-checkPorts([5001])
-nexus = Popen(
-    ["./gradlew", "nexus:run", "--console=plain", "--args=serve --db-name={}".format(NEXUS_DB)],
-    stdout=PIPE,
-    stderr=PIPE,
-)
-for i in range(10):
-    try:
-        get("http://localhost:5001/")
-    except:
-        if i == 9:
-            nexus.terminate()
-            stdout, stderr = nexus.communicate()
-            print("Nexus timed out")
-            print("{}\n{}".format(stdout.decode(), stderr.decode()))
-            exit(77)
-        sleep(2)
-        continue
-    break
-# Start sandbox
-checkPorts([5000])
-sandbox = Popen(["./gradlew", "sandbox:run"], stdout=PIPE, stderr=PIPE)
-for i in range(10):
-    try:
-        get("http://localhost:5000/")
-    except:
-        if i == 9:
-            nexus.terminate()
-            sandbox.terminate()
-            stdout, stderr = nexus.communicate()
-            print("Sandbox timed out")
-            print("{}\n{}".format(stdout.decode(), stderr.decode()))
-            exit(77)
-        sleep(2)
-        continue
-    break
+startNexus("nexus-testenv.sqlite3")
+startSandbox()
 
 # 0.a
 assertResponse(
@@ -286,8 +204,4 @@ if len(resp.json().get("transactions")) != 1:
     fail("Unexpected number of transactions; should be 1")
 
 
-try:
-    input("press enter to stop LibEuFin test environment ...")
-finally:
-    nexus.terminate()
-    sandbox.terminate()
+input("press enter to stop LibEuFin test environment ...")
