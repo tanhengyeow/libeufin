@@ -106,12 +106,26 @@ fun getEbicsSubscriberDetails(userId: String, transportId: String): EbicsClientS
 
 // returns true if the payment is found in the database.
 fun isDuplicate(camt: Document, acctSvcrRef: String): Boolean {
-    val found = transaction {
-        RawBankTransactionEntity.find {
+    val foundWithStatus = transaction {
+        val res = RawBankTransactionEntity.find {
             RawBankTransactionsTable.uid eq acctSvcrRef
         }.firstOrNull()
+        if (res != null) {
+            Pair(true, res.status)
+        } else {
+            Pair(false, null)
+        }
     }
-    return found != null
+    if (!foundWithStatus.first)
+        return false
+
+    // ignore if status if the same as the one stored previously
+    val givenStatus = camt.pickString("//*[local-name()='Ntry']//*[local-name()='Sts']")
+    if (givenStatus == foundWithStatus.second)
+        return true
+
+    // at this point, the message has neither a known status, or it is itself known.
+    return false
 }
 
 fun processCamtMessage(
