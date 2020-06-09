@@ -260,27 +260,44 @@ fun ApplicationRequest.hasBody(): Boolean {
     return false
 }
 
-fun schedulePeriodicWork() {
+fun moreFrequentBackgroundTasks() {
     GlobalScope.launch {
         while (true) {
-            logger.debug("Outer background job")
+            logger.debug("More frequent background job")
+            ingestTalerTransactions()
+            submitPreparedPaymentsViaEbics()
             try {
-                downloadTalerFacadesTransactions()
-                ingestTalerTransactions()
-                submitPreparedPaymentsViaEbics()
+                downloadTalerFacadesTransactions("C52")
             } catch (e: Exception) {
                 val sw = StringWriter()
                 val pw = PrintWriter(sw)
                 e.printStackTrace(pw)
-                logger.info("==== Background job exception ====\n${sw}======")
+                logger.info("==== Frequent background task exception ====\n${sw}======")
             }
             delay(Duration.ofSeconds(1))
         }
     }
 }
 
+fun lessFrequentBackgroundTasks() {
+    GlobalScope.launch {
+        while (true) {
+            logger.debug("Less frequent background job")
+            try {
+                downloadTalerFacadesTransactions("C53")
+            } catch (e: Exception) {
+                val sw = StringWriter()
+                val pw = PrintWriter(sw)
+                e.printStackTrace(pw)
+                logger.info("==== Less frequent background task exception ====\n${sw}======")
+            }
+            delay(Duration.ofSeconds(10))
+        }
+    }
+}
+
 /** Crawls all the facades, and requests history for each of its creators. */
-suspend fun downloadTalerFacadesTransactions() {
+suspend fun downloadTalerFacadesTransactions(type: String) {
     val httpClient = HttpClient()
     val work = mutableListOf<Pair<String, String>>()
     transaction {
@@ -292,6 +309,7 @@ suspend fun downloadTalerFacadesTransactions() {
     work.forEach {
         fetchTransactionsInternal(
             client = httpClient,
+            type = type,
             userId = it.first,
             accountid = it.second,
             ct = CollectedTransaction(null, null, null)
@@ -313,6 +331,7 @@ fun ApplicationCall.expectUrlParameter(name: String): String {
 
 suspend fun fetchTransactionsInternal(
     client: HttpClient,
+    type: String, // C53 or C52
     userId: String,
     accountid: String,
     ct: CollectedTransaction
@@ -430,7 +449,8 @@ fun serverMain(dbName: String) {
             return@intercept
         }
 
-        schedulePeriodicWork()
+        lessFrequentBackgroundTasks()
+        moreFrequentBackgroundTasks()
         routing {
             /**
              * Shows information about the requesting user.
@@ -662,6 +682,7 @@ fun serverMain(dbName: String) {
                 }
                 fetchTransactionsInternal(
                     client,
+                    "C53",
                     user.id.value,
                     accountid,
                     ct
