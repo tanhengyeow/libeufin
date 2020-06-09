@@ -137,7 +137,7 @@ fun <T>expectNonNull(x: T?): T {
 /**
  * Returns a list of camt strings.  Note: each element in the
  * list accounts for only one payment in the history.  In other
- * words, the camt constructor does creates always only one "Ntry"
+ * words, the camt constructor does create always only one "Ntry"
  * node.
  */
 fun buildCamtString(type: Int, subscriberIban: String, history: MutableList<RawPayment>): MutableList<String> {
