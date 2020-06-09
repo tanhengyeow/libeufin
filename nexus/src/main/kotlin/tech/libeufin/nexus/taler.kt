@@ -461,12 +461,13 @@ fun ingestTalerTransactions() {
             // Outgoing payment
             if (it.transactionType == "DBIT") {
                 logger.debug("Ingesting outgoing payment: ${it.unstructuredRemittanceInformation}")
-                var talerRequested = TalerRequestedPaymentEntity.find {
+                val talerRequested = TalerRequestedPaymentEntity.find {
                     TalerRequestedPayments.wtid eq it.unstructuredRemittanceInformation
-                }.firstOrNull() ?: throw NexusError(
-                    HttpStatusCode.InternalServerError,
-                    "Payment '${it.unstructuredRemittanceInformation}' shows in history, but was never requested!"
-                )
+                }.firstOrNull()
+                if (talerRequested == null){
+                    logger.info("Payment '${it.unstructuredRemittanceInformation}' shows in history, but was never requested!")
+                    return@forEach
+                }
                 logger.debug("Payment: ${it.unstructuredRemittanceInformation} was requested, and gets now marked as 'confirmed'")
                 talerRequested.rawConfirmed = it
             }
