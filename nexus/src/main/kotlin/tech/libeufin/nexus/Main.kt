@@ -964,6 +964,28 @@ fun serverMain(dbName: String) {
                 call.respond(object {})
             }
 
+            post("/bank-connections/{connid}/ebics/fetch-c52") {
+                val paramsJson = if (call.request.hasBody()) {
+                    call.receive<EbicsDateRangeJson>()
+                } else {
+                    null
+                }
+                val ret = transaction {
+                    val user = authenticateRequest(call.request)
+                    val conn = requireBankConnection(call, "connid")
+                    if (conn.type != "ebics") {
+                        throw NexusError(HttpStatusCode.BadRequest, "bank connection is not of type 'ebics'")
+                    }
+                    object {
+                        val subscriber = getEbicsSubscriberDetails(user.id.value, conn.id.value)
+                        val connId = conn.id.value
+                    }
+
+                }
+                fetchEbicsC5x("C52", client, ret.connId, paramsJson?.start, paramsJson?.end, ret.subscriber)
+                call.respond(object {})
+            }
+
             post("/bank-connections/{connid}/ebics/send-ini") {
                 val subscriber = transaction {
                     val user = authenticateRequest(call.request)

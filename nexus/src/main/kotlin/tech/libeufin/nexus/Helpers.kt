@@ -210,17 +210,19 @@ suspend fun fetchEbicsC5x(
     val orderParamsJson = EbicsStandardOrderParamsJson(
         EbicsDateRangeJson(start, end)
     )
-    /** More types C52/C54 .. forthcoming */
-    if (historyType != "C53") throw NexusError(
-        HttpStatusCode.InternalServerError,
-        "Ebics query tried on unknown message $historyType"
-    )
     val response = doEbicsDownloadTransaction(
         client,
         subscriberDetails,
         historyType,
         orderParamsJson.toOrderParams()
     )
+    when (historyType) {
+        "C52" -> {}
+        "C53" -> {}
+        else -> {
+            throw NexusError(HttpStatusCode.BadRequest, "history type '$historyType' not supported")
+        }
+    }
     when (response) {
         is EbicsDownloadSuccessResult -> {
             response.orderData.unzipWithLambda {
@@ -237,7 +239,7 @@ suspend fun fetchEbicsC5x(
                     if (oldMsg == null) {
                         NexusBankMessageEntity.new {
                             this.bankConnection = conn
-                            this.code = "C53"
+                            this.code = historyType
                             this.messageId = msgId
                             this.message = ExposedBlob(it.second.toByteArray(Charsets.UTF_8))
                         }
