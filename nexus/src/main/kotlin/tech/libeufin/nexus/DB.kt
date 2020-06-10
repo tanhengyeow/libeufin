@@ -252,7 +252,6 @@ object FacadesTable : IdTable<String>() {
     override val id = FacadesTable.text("id").entityId()
     val type = text("type")
     val creator = reference("creator", NexusUsersTable)
-    val highestSeenMsgID = long("highestSeenMessageID").default(0)
 }
 
 class FacadeEntity(id: EntityID<String>) : Entity<String>(id) {
