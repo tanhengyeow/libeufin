@@ -1,11 +1,10 @@
 package tech.libeufin.nexus
 
-import io.ktor.http.HttpStatusCode
 import org.jetbrains.exposed.dao.*
-import org.jetbrains.exposed.dao.id.LongIdTable
 import org.jetbrains.exposed.dao.id.EntityID
 import org.jetbrains.exposed.dao.id.IdTable
 import org.jetbrains.exposed.dao.id.IntIdTable
+import org.jetbrains.exposed.dao.id.LongIdTable
 import org.jetbrains.exposed.sql.Database
 import org.jetbrains.exposed.sql.SchemaUtils
 import org.jetbrains.exposed.sql.StdOutSqlLogger
@@ -15,8 +14,6 @@ import org.jetbrains.exposed.sql.transactions.transaction
 import tech.libeufin.util.EbicsInitState
 import tech.libeufin.util.amount
 import java.sql.Connection
-
-const val ID_MAX_LENGTH = 50
 
 /**
  * This table holds the values that exchange gave to issue a payment,
@@ -58,16 +55,13 @@ class TalerRequestedPaymentEntity(id: EntityID<Long>) : LongEntity(id) {
 object TalerIncomingPayments : LongIdTable() {
     val payment = reference("payment", RawBankTransactionsTable)
     val valid = bool("valid")
-
-    // avoid refunding twice!
-    val refunded = bool("refunded").default(false)
 }
 
 class TalerIncomingPaymentEntity(id: EntityID<Long>) : LongEntity(id) {
     companion object : LongEntityClass<TalerIncomingPaymentEntity>(TalerIncomingPayments)
+
     var payment by RawBankTransactionEntity referencedOn TalerIncomingPayments.payment
     var valid by TalerIncomingPayments.valid
-    var refunded by TalerIncomingPayments.refunded
 }
 
 /**
@@ -75,6 +69,7 @@ class TalerIncomingPaymentEntity(id: EntityID<Long>) : LongEntity(id) {
  */
 object NexusBankMessagesTable : IntIdTable() {
     val bankConnection = reference("bankConnection", NexusBankConnectionsTable)
+
     // Unique identifier for the message within the bank connection
     val messageId = text("messageId")
     val code = text("code")
@@ -110,6 +105,7 @@ object RawBankTransactionsTable : LongIdTable() {
 
 class RawBankTransactionEntity(id: EntityID<Long>) : LongEntity(id) {
     companion object : LongEntityClass<RawBankTransactionEntity>(RawBankTransactionsTable)
+
     var unstructuredRemittanceInformation by RawBankTransactionsTable.unstructuredRemittanceInformation
     var transactionType by RawBankTransactionsTable.transactionType
     var currency by RawBankTransactionsTable.currency
@@ -128,7 +124,7 @@ class RawBankTransactionEntity(id: EntityID<Long>) : LongEntity(id) {
  */
 object PreparedPaymentsTable : IdTable<String>() {
     /** the UUID representing this payment in the system */
-    override val id = varchar("id", ID_MAX_LENGTH).entityId()
+    override val id = text("id").entityId()
     val paymentId = long("paymentId")
     val preparationDate = long("preparationDate")
     val submissionDate = long("submissionDate").nullable()
@@ -142,8 +138,10 @@ object PreparedPaymentsTable : IdTable<String>() {
     val debitorIban = text("debitorIban")
     val debitorBic = text("debitorBic")
     val debitorName = text("debitorName").nullable()
+
     /* Indicates whether the PAIN message was sent to the bank. */
     val submitted = bool("submitted").default(false)
+
     /* Indicates whether the bank didn't perform the payment: note that
      * this state can be reached when the payment gets listed in a CRZ
      * response OR when the payment doesn't show up in a C52/C53 response */
@@ -152,6 +150,7 @@ object PreparedPaymentsTable : IdTable<String>() {
 
 class PreparedPaymentEntity(id: EntityID<String>) : Entity<String>(id) {
     companion object : EntityClass<String, PreparedPaymentEntity>(PreparedPaymentsTable)
+
     var paymentId by PreparedPaymentsTable.paymentId
     var preparationDate by PreparedPaymentsTable.preparationDate
     var submissionDate by PreparedPaymentsTable.submissionDate
@@ -173,17 +172,19 @@ class PreparedPaymentEntity(id: EntityID<String>) : Entity<String>(id) {
  * This table holds triples of <iban, bic, holder name>.
  */
 object NexusBankAccountsTable : IdTable<String>() {
-    override val id = varchar("id", ID_MAX_LENGTH).entityId()
+    override val id = text("id").entityId()
     val accountHolder = text("accountHolder")
     val iban = text("iban")
     val bankCode = text("bankCode")
     val defaultBankConnection = reference("defaultBankConnection", NexusBankConnectionsTable).nullable()
+
     // Highest bank message ID that this bank account is aware of.
     val highestSeenBankMessageId = integer("")
 }
 
 class NexusBankAccountEntity(id: EntityID<String>) : Entity<String>(id) {
     companion object : EntityClass<String, NexusBankAccountEntity>(NexusBankAccountsTable)
+
     var accountHolder by NexusBankAccountsTable.accountHolder
     var iban by NexusBankAccountsTable.iban
     var bankCode by NexusBankAccountsTable.bankCode
@@ -209,6 +210,7 @@ object EbicsSubscribersTable : IntIdTable() {
 
 class EbicsSubscriberEntity(id: EntityID<Int>) : IntEntity(id) {
     companion object : IntEntityClass<EbicsSubscriberEntity>(EbicsSubscribersTable)
+
     var ebicsURL by EbicsSubscribersTable.ebicsURL
     var hostID by EbicsSubscribersTable.hostID
     var partnerID by EbicsSubscribersTable.partnerID
@@ -225,13 +227,14 @@ class EbicsSubscriberEntity(id: EntityID<Int>) : IntEntity(id) {
 }
 
 object NexusUsersTable : IdTable<String>() {
-    override val id = varchar("id", ID_MAX_LENGTH).entityId()
+    override val id = text("id").entityId()
     val passwordHash = text("password")
     val superuser = bool("superuser")
 }
 
 class NexusUserEntity(id: EntityID<String>) : Entity<String>(id) {
     companion object : EntityClass<String, NexusUserEntity>(NexusUsersTable)
+
     var passwordHash by NexusUsersTable.passwordHash
     var superuser by NexusUsersTable.superuser
 }
@@ -244,6 +247,7 @@ object NexusBankConnectionsTable : IdTable<String>() {
 
 class NexusBankConnectionEntity(id: EntityID<String>) : Entity<String>(id) {
     companion object : EntityClass<String, NexusBankConnectionEntity>(NexusBankConnectionsTable)
+
     var type by NexusBankConnectionsTable.type
     var owner by NexusUserEntity referencedOn NexusBankConnectionsTable.owner
 }
@@ -256,6 +260,7 @@ object FacadesTable : IdTable<String>() {
 
 class FacadeEntity(id: EntityID<String>) : Entity<String>(id) {
     companion object : EntityClass<String, FacadeEntity>(FacadesTable)
+
     var type by FacadesTable.type
     var creator by NexusUserEntity referencedOn FacadesTable.creator
 }
@@ -263,6 +268,7 @@ class FacadeEntity(id: EntityID<String>) : Entity<String>(id) {
 object TalerFacadeStatesTable : IntIdTable() {
     val bankAccount = text("bankAccount")
     val bankConnection = text("bankConnection")
+
     /* "statement", "report", "notification" */
     val reserveTransferLevel = text("reserveTransferLevel")
     val intervalIncrement = text("intervalIncrement")
@@ -272,8 +278,10 @@ object TalerFacadeStatesTable : IntIdTable() {
 
 class TalerFacadeStateEntity(id: EntityID<Int>) : IntEntity(id) {
     companion object : IntEntityClass<TalerFacadeStateEntity>(TalerFacadeStatesTable)
+
     var bankAccount by TalerFacadeStatesTable.bankAccount
     var bankConnection by TalerFacadeStatesTable.bankConnection
+
     /* "statement", "report", "notification" */
     var reserveTransferLevel by TalerFacadeStatesTable.reserveTransferLevel
     var intervalIncrement by TalerFacadeStatesTable.intervalIncrement
