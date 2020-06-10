@@ -221,6 +221,12 @@ fun paymentFailed(entry: RawBankTransactionEntity): Boolean {
     return false
 }
 
+// Tries to extract a valid PUB from the raw subject
+// line, as that was communicated by the originating bank.
+fun normalizeSubject(rawSubject: String): String {
+    return rawSubject
+}
+
 fun getTalerFacadeState(fcid: String): TalerFacadeStateEntity {
     val facade = FacadeEntity.find { FacadesTable.id eq fcid }.firstOrNull() ?: throw NexusError(
         HttpStatusCode.NotFound,
@@ -446,6 +452,7 @@ fun ingestTalerTransactions() {
         }.orderBy(Pair(RawBankTransactionsTable.id, SortOrder.ASC)).forEach {
             // Incoming payment.
             if (it.transactionType == "CRDT") {
+                val normalizedSubject = normalizeSubject(it.unstructuredRemittanceInformation)
                 if (CryptoUtil.checkValidEddsaPublicKey(it.unstructuredRemittanceInformation)) {
                     TalerIncomingPaymentEntity.new {
                         payment = it
