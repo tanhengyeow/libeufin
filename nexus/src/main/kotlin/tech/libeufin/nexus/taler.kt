@@ -453,7 +453,7 @@ fun ingestTalerTransactions() {
             // Incoming payment.
             if (it.transactionType == "CRDT") {
                 val normalizedSubject = normalizeSubject(it.unstructuredRemittanceInformation)
-                if (CryptoUtil.checkValidEddsaPublicKey(it.unstructuredRemittanceInformation)) {
+                if (CryptoUtil.checkValidEddsaPublicKey(normalizedSubject)) {
                     TalerIncomingPaymentEntity.new {
                         payment = it
                         valid = true
