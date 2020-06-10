@@ -1,5 +1,5 @@
 import * as React from 'react';
 
-const Activity = () => <p>Activity</p>;
+const Activity = () => <h1>Activity</h1>;
 
 export default Activity;

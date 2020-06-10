@@ -3,8 +3,10 @@ import * as React from 'react';
 import { connect } from 'react-redux';
 import { Route } from 'react-router-dom';
 import history from '../history';
-import { Auth } from '../types';
+import { Store } from '../types';
 
+import './Layout.less';
+import NavBar from '../components/navbar/Index';
 import Footer from '../components/footer/Index';
 
 interface Props {
@@ -26,7 +28,7 @@ const AuthenticatedRoute = ({
   return (
     <>
       <div className="container">
-        <header>Nav Bar</header>
+        <NavBar />
         <Route
           render={() => (
             <>
@@ -40,7 +42,8 @@ const AuthenticatedRoute = ({
   );
 };
 
-const mapStateToProps = (state: Auth) => ({
+const mapStateToProps = (state: Store) => ({
+  ...state,
   isAuthenticated: state.isAuthenticated,
 });
 

@@ -6,8 +6,8 @@ import { applyMiddleware, compose, createStore } from 'redux';
 import thunkMiddleware from 'redux-thunk-recursion-detect';
 
 import App from './App';
-import authReducer from './reducers/auth';
-import { Auth } from './types';
+import rootReducer from './reducers/index';
+import { Store } from './types';
 
 let composeEnhancers;
 if (
@@ -19,8 +19,8 @@ if (
   composeEnhancers = compose;
 }
 
-const store = createStore<Auth, any, any, any>(
-  authReducer,
+const store = createStore<Store, any, any, any>(
+  rootReducer,
   undefined,
   composeEnhancers(applyMiddleware(thunkMiddleware))
 );

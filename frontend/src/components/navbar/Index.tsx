@@ -1,4 +1,4 @@
-import * as React from 'react';
+import React from 'react';
 import { Menu, Button } from 'antd';
 import { connect } from 'react-redux';
 import { LogoutOutlined } from '@ant-design/icons';
@@ -36,6 +36,7 @@ const NavBar = ({ logoutConnect }: Props) => {
       <Menu
         className="menu"
         mode="horizontal"
+        selectedKeys={[]}
         onClick={({ key }) => handleClick(key)}
       >
         <Menu.Item key="1">Home</Menu.Item>

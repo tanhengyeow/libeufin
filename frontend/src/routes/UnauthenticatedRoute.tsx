@@ -4,7 +4,7 @@ import { connect } from 'react-redux';
 import { Route } from 'react-router-dom';
 
 import history from '../history';
-import { Auth } from '../types';
+import { Store } from '../types';
 
 interface Props {
   exact?: boolean;
@@ -35,7 +35,8 @@ const UnauthenticatedRoute = ({
   );
 };
 
-const mapStateToProps = (state: Auth) => ({
+const mapStateToProps = (state: Store) => ({
+  ...state,
   isAuthenticated: state.isAuthenticated,
 });
 

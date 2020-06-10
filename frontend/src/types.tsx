@@ -1,3 +1,3 @@
-export interface Auth {
+export interface Store {
   isAuthenticated: boolean | null;
 }

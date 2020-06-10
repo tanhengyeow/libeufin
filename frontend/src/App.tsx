@@ -4,7 +4,7 @@ import { Route, Router } from 'react-router-dom';
 import history from './history';
 import Pages from './routes/Pages';
 import { checkAuthentication } from './actions/auth';
-import { Auth } from './types';
+import { Store } from './types';
 import './App.less';
 
 interface Props {
@@ -27,7 +27,8 @@ const App = ({ checkAuthenticationConnect, isAuthenticated }: Props) => {
   return <div className="App">{app}</div>;
 };
 
-const mapStateToProps = (state: Auth) => ({
+const mapStateToProps = (state: Store) => ({
+  ...state,
   isAuthenticated: state.isAuthenticated,
 });
 
