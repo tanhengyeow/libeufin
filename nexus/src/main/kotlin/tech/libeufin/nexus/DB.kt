@@ -64,22 +64,7 @@ object TalerIncomingPayments : LongIdTable() {
 }
 
 class TalerIncomingPaymentEntity(id: EntityID<Long>) : LongEntity(id) {
-    companion object : LongEntityClass<TalerIncomingPaymentEntity>(TalerIncomingPayments) {
-        override fun new(init: TalerIncomingPaymentEntity.() -> Unit): TalerIncomingPaymentEntity {
-            val newRow = super.new(init)
-            /**
-             * In case the exchange asks for all the values strictly lesser than MAX_VALUE,
-             * it would lose the row whose id == MAX_VALUE.  So the check below makes this
-             * situation impossible by disallowing MAX_VALUE as a id value.
-             */
-            if (newRow.id.value == Long.MAX_VALUE) {
-                throw NexusError(
-                    HttpStatusCode.InsufficientStorage, "Cannot store rows anymore"
-                )
-            }
-            return newRow
-        }
-    }
+    companion object : LongEntityClass<TalerIncomingPaymentEntity>(TalerIncomingPayments)
     var payment by RawBankTransactionEntity referencedOn TalerIncomingPayments.payment
     var valid by TalerIncomingPayments.valid
     var refunded by TalerIncomingPayments.refunded
