@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
 
-import os
 import click
 import json
 import hashlib
@@ -46,19 +45,19 @@ def sandbox(ctx):
 @click.argument("nexus-base-url")
 @click.pass_obj
 def new_ebics_connection(obj, connection_name, ebics_url, host_id, partner_id,
-                         nexus_user_id, nexus_password, nexus_base_url):
+                         nexus_user_id, nexus_password, nexus_base_url, ebics_user_id):
     url = urljoin(nexus_base_url, "/bank-connections")
     body = dict(
         name=connection_name,
         source="new",
         type="ebics",
-        data=dict(ebicsURL=ebics_url, hostID=host_id, partnerID=partner_id, userID=user_id)
+        data=dict(ebicsURL=ebics_url, hostID=host_id, partnerID=partner_id, userID=ebics_user_id)
     ),
     try:
         resp = post(url, json=body, auth = auth.HTTPBasicAuth(nexus_user_id, nexus_password))
     except Exception:
         print("Could not reach nexus")
-        return
+        exit(1)
     print(resp.content.decode("utf-8"))
 
 @bank_connection.command(help="bootstrap the bank connection")
@@ -103,6 +102,7 @@ def import_bank_accounts(obj, connection_name, nexus_user_id, nexus_password, ne
 @click.option("--nexus-user-id", help="Nexus user ID", required=True)
 @click.option("--nexus-password", help="Nexus password", required=True)
 @click.argument("nexus-base-url")
+@click.pass_obj
 def prepare_payment(obj, account_name, credit_iban, credit_bic, credit_name,
                     nexus_user_id, nexus_password, nexus_base_url):
     url = urljoin(nexus_basd_url, "/bank-accounts/{}/prepared-payments".format(account_name))
@@ -128,6 +128,7 @@ def prepare_payment(obj, account_name, credit_iban, credit_bic, credit_name,
 @click.option("--nexus-user-id", help="nexus user id", required=True)
 @click.option("--nexus-password", help="nexus user password", required=True)
 @click.argument("nexus-base-url")
+@click.pass_obj
 def submit_payment(obj, account_name, payment_uuid, nexus_user_id, nexus_password, nexus_base_url):
     url = urljoin(
         nexus_base_url, "/bank-accounts/{}/prepared-payments/{}/submit".format(account_name, payment_uuid)
@@ -144,6 +145,7 @@ def submit_payment(obj, account_name, payment_uuid, nexus_user_id, nexus_passwor
 @click.option("--nexus-user-id", help="nexus user id", required=True)
 @click.option("--nexus-password", help="nexus user password", required=True)
 @click.argument("nexus-base-url")
+@click.pass_obj
 def submit_payment(obj, account_name, nexus_user_id, nexus_password, nexus_base_url):
     url = urljoin(
         nexus_base_url, "/bank-accounts/{}/fetch-transactions".format(account_name)
@@ -160,6 +162,7 @@ def submit_payment(obj, account_name, nexus_user_id, nexus_password, nexus_base_
 @click.option("--nexus-user-id", help="nexus user id", required=True)
 @click.option("--nexus-password", help="nexus user password", required=True)
 @click.argument("nexus-base-url")
+@click.pass_obj
 def transactions(obj, account_name, nexus_user_id, nexus_password, nexus_base_url):
     url = urljoin(nexus_base_url, "/bank-accounts/{}/transactions".format(account_name))
     try:
@@ -173,21 +176,26 @@ def transactions(obj, account_name, nexus_user_id, nexus_password, nexus_base_ur
 @sandbox.command(help="activate a Ebics host")
 @click.option("--host-id", help="Ebics host ID", required=True)
 @click.argument("sandbox-base-url")
+@click.pass_obj
 def make_ebics_host(obj, host_id, sandbox_base_url):
     url = urljoin(sandbox_base_url, "/admin/ebics/host")
     try:
-        post(url, json=dict(hostID=host_id, ebicsVersion="2.5"))
+        resp = post(url, json=dict(hostID=host_id, ebicsVersion="2.5"))
     except Exception:
         print("Could not reach sandbox")
         return
     print(resp.content.decode("utf-8"))
 
 @sandbox.command(help="activate a Ebics subscriber")
+@click.option("--host-id", help="Ebics host ID", required=True)
+@click.option("--partner-id", help="Ebics partner ID", required=True)
+@click.option("--user-id", help="Ebics user ID", required=True)
 @click.argument("sandbox-base-url")
+@click.pass_obj
 def activate_ebics_subscriber(obj, host_id, partner_id, user_id, sandbox_base_url):
     url = urljoin(sandbox_base_url, "/admin/ebics/subscribers")
     try:
-        post(url, json=dict(hostID=host_id, partnerID=partner_id, userID=user_id))
+        resp = post(url, json=dict(hostID=host_id, partnerID=partner_id, userID=user_id))
     except Exception:
         print("Could not reach sandbox")
         return
@@ -198,10 +206,11 @@ def activate_ebics_subscriber(obj, host_id, partner_id, user_id, sandbox_base_ur
 @click.option("--bic", help="BIC", required=True)
 @click.option("--person-name", help="bank account owner name", required=True)
 @click.option("--account-name", help="label of this bank account", required=True)
-@click.option("--ebics_user_id", help="user ID of the Ebics subscriber", required=True)
-@click.option("--ebics_host_id", help="host ID of the Ebics subscriber", required=True)
-@click.option("--ebics_partner_id", help="partner ID of the Ebics subscriber", required=True)
+@click.option("--ebics-user-id", help="user ID of the Ebics subscriber", required=True)
+@click.option("--ebics-host-id", help="host ID of the Ebics subscriber", required=True)
+@click.option("--ebics-partner-id", help="partner ID of the Ebics subscriber", required=True)
 @click.argument("sandbox-base-url")
+@click.pass_obj
 def associate_bank_account(obj, iban, bic, person_name, account_name,
                            ebics_user_id, ebics_host_id, ebics_partner_id, sandbox_base_url):
     url = urljoin(sandbox_base_url, "/admin/ebics/bank-accounts")
@@ -226,8 +235,9 @@ def associate_bank_account(obj, iban, bic, person_name, account_name,
 @click.option("--debtor-name", help="name of the person who is sending the payment")
 @click.option("--amount", help="amount, no currency")
 @click.option("--currency", help="currency")
-@click.option("--subject", help="Payment subject")
+@click.option("--subject", help="payment subject")
 @click.argument("sandbox-base-url")
+@click.pass_obj
 def book_payment(obj, creditor_iban, creditor_bic, creditor_name, debtor_iban,
                  debtor_bic, debtor_name, amount, currency, subject, sandbox_base_url):
 
