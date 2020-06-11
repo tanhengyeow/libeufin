@@ -36,6 +36,19 @@ enum class TransactionStatus {
     BOOK, PENDING
 }
 
+/**
+ * Schemes to identify a transaction within an account.
+ * An identifier from such a scheme will be used to reconcile transactions
+ * from multiple sources.
+ * (LibEuFin-specific, not defined by ISO 20022)
+ */
+enum class TransactionIdentifierSchemes {
+    /**
+     * Reconcile based on the account servicer reference.
+     */
+    AcctSvcrRef
+}
+
 data class TransactionDetails(
     /**
      * Related parties as JSON.
@@ -53,9 +66,14 @@ data class TransactionDetails(
 data class BankTransaction(
     val accountIdentifier: String,
     /**
+     * Identifier for the transaction that should be unique within an account.
+     * Prefix by the identifier scheme name followed by a colon.
+     */
+    val transactionIdentifier: String,
+    /**
      * Scheme used for the account identifier.
      */
-    val accountScheme: String,
+    val accountIdentifierScheme: String,
     val currency: String,
     val amount: String,
     /**
@@ -76,7 +94,10 @@ data class BankTransaction(
      * Is this a batch booking?
      */
     val isBatch: Boolean,
-    val details: List<TransactionDetails>
+    val details: List<TransactionDetails>,
+    val valueDate: DateOrDateTime?,
+    val bookingDate: DateOrDateTime?,
+    val accountServicerReference: String
 )
 
 abstract class TypedEntity(val type: String)
@@ -96,6 +117,16 @@ class Party(
 class Account(
     val iban: String?
 ) : TypedEntity("party")
+
+abstract class DateOrDateTime(type: String) : TypedEntity(type)
+
+class Date(
+    val date: String
+) : DateOrDateTime("date")
+
+class DateTime(
+    val date: String
+) : DateOrDateTime("datetime")
 
 
 @JsonInclude(JsonInclude.Include.NON_NULL)
@@ -142,6 +173,16 @@ data class RelatedParties(
 )
 
 class CamtParsingError(msg: String) : Exception(msg)
+
+private fun XmlElementDestructor.extractDateOrDateTime(): DateOrDateTime {
+    return requireOnlyChild {
+        when (it.localName) {
+            "Dt" -> Date(e.textContent)
+            "DtTm" -> DateTime(e.textContent)
+            else -> throw Exception("Invalid date / time: ${e.localName}")
+        }
+    }
+}
 
 private fun XmlElementDestructor.extractAgent(): Agent {
     return Agent(
@@ -277,17 +318,24 @@ private fun XmlElementDestructor.extractInnerTransactions(): List<BankTransactio
                 }
             )
         }
+        val acctSvcrRef = maybeUniqueChildNamed("AcctSvcrRef") { it.textContent }
+        // For now, only support account servicer reference as id
+        val txId = "AcctSvcrRef:" + (acctSvcrRef ?: throw Exception("currently, AcctSvcrRef is mandatory in LibEuFin"))
         val details = extractTransactionDetails()
         BankTransaction(
             accountIdentifier = iban,
-            accountScheme = "iban",
+            accountIdentifierScheme = "iban",
             amount = amount,
             currency = currency,
             status = status,
             creditDebitIndicator = creditDebitIndicator,
             bankTransactionCode = btc,
             details = details,
-            isBatch = details.size > 1
+            isBatch = details.size > 1,
+            bookingDate = maybeUniqueChildNamed("BookgDt") { extractDateOrDateTime() },
+            valueDate = maybeUniqueChildNamed("ValDt") { extractDateOrDateTime() },
+            accountServicerReference = acctSvcrRef,
+            transactionIdentifier = txId
         )
     }
 }

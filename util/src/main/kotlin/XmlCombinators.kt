@@ -145,7 +145,6 @@ class XmlElementDestructor internal constructor(val d: Document, val e: Element)
         if (cl.size == 1) {
             val el = cl[0]
             val destr = XmlElementDestructor(d, el)
-            println("found child $s")
             return f(destr, el)
         }
         return null
