@@ -10,7 +10,12 @@ from requests import post, get, auth
 from urllib.parse import urljoin
 from getpass import getpass
 
-@click.group()
+@click.group(help="""
+General utility to invoke HTTP REST services offered by Nexus.
+Consider also invoking the 'nexus' command directly, for example
+to create new users.
+"""
+)
 def cli():
     pass
 
