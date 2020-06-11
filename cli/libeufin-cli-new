@@ -1,0 +1,161 @@
+#!/usr/bin/env python3
+
+import os
+import click
+import json
+import hashlib
+import errno
+from datetime import datetime
+from requests import post, get, auth
+from urllib.parse import urljoin
+from getpass import getpass
+
+@click.group()
+def cli():
+    pass
+
+@cli.group()
+@click.pass_context
+def bank_connection(ctx):
+    pass
+
+@cli.group()
+@click.pass_context
+def bank_accounts(ctx):
+    pass
+
+@bank_connection.command(help="make new Ebics bank connection")
+@click.option("--connection-name", help="Connection ID", required=True)
+@click.option("--ebics-url", help="EBICS URL", required=True)
+@click.option("--host-id", help="Host ID", required=True)
+@click.option("--partner-id", help="Partner ID", required=True)
+@click.option("--ebics-user-id", help="Ebics user ID", required=True)
+@click.option("--nexus-user-id", help="Nexus user ID", required=True)
+@click.option("--nexus-password", help="Nexus password", required=True)
+@click.argument("nexus-base-url")
+@click.pass_obj
+def new_ebics_connection(obj, connection_name, ebics_url, host_id, partner_id,
+                         nexus_user_id, nexus_password, nexus_base_url):
+    url = urljoin(nexus_base_url, "/bank-connections")
+    body = dict(
+        name=connection_name,
+        source="new",
+        type="ebics",
+        data=dict(ebicsURL=ebics_url, hostID=host_id, partnerID=partner_id, userID=user_id)
+    ),
+    try:
+        resp = post(url, json=body, auth = auth.HTTPBasicAuth(nexus_user_id, nexus_password))
+    except Exception:
+        print("Could not reach nexus")
+        return
+    print(resp.content.decode("utf-8"))
+
+@bank_connection.command(help="bootstrap the bank connection")
+@click.option("--connection-name", help="Connection ID", required=True)
+@click.option("--nexus-user-id", help="Nexus user ID", required=True)
+@click.option("--nexus-password", help="Nexus password", required=True)
+@click.argument("nexus-base-url")
+@click.pass_obj
+def bootstrap_bank_connection(obj, connection_name, nexus_user_id, nexus_password, nexus_base_url):
+    url = urljoin(nexus_base_url, "/bank-connections/{}/connect".format(connection_name))
+    try:
+        resp = post(url, json=dict(), auth = auth.HTTPBasicAuth(nexus_user_id, nexus_password))
+    except Exception:
+        print("Could not reach nexus")
+        return
+    print(resp.content.decode("utf-8"))
+
+@bank_connection.command(help="import related bank accounts of 'connection-name'")
+@click.option("--connection-name", help="Connection ID", required=True)
+@click.option("--nexus-user-id", help="Nexus user ID", required=True)
+@click.option("--nexus-password", help="Nexus password", required=True)
+@click.argument("nexus-base-url")
+@click.pass_obj
+def import_bank_accounts(obj, connection_name, nexus_user_id, nexus_password, nexus_base_url):
+    # FIXME/NOTE: the 'ebics' part will soon go away.
+    url = urljoin(nexus_base_url, "/bank-connections/{}/ebics/import-accounts".format(connection_name))
+    try:
+        resp = post(url, json=dict(), auth = auth.HTTPBasicAuth(nexus_user_id, nexus_password))
+    except Exception:
+        print("Could not reach nexus")
+        return
+    print(resp.content.decode("utf-8"))
+
+
+@bank_accounts.command(help="prepare payment debiting 'account-name'")
+@click.option("--account-name", help="bank account name", required=True)
+@click.option("--credit-iban", help="IBAN that will receive the payment", required=True)
+@click.option("--credit-bic", help="BIC that will receive the payment", required=False)
+@click.option("--credit-name", help="Legal name that will receive the payment", required=True)
+@click.option("--payment-amount", help="Amount to be paid (<currency>:X.Y)", required=True)
+@click.option("--payment-subject", help="Subject of this payment", required=True)
+@click.option("--nexus-user-id", help="Nexus user ID", required=True)
+@click.option("--nexus-password", help="Nexus password", required=True)
+@click.argument("nexus-base-url")
+def prepare_payment(obj, account_name, credit_iban, credit_bic, credit_name,
+                    nexus_user_id, nexus_password, nexus_base_url):
+    url = urljoin(nexus_basd_url, "/bank-accounts/{}/prepared-payments".format(account_name))
+    body = dict(
+        iban=credit_iban,
+        bic=credit_bic,
+        name=credit_name,
+        subject=payment_subject,
+        amount=payment_amount
+    )
+
+    try:
+        resp = post(url, json=body, auth = auth.HTTPBasicAuth(nexus_user_id, nexus_password))
+    except Exception:
+        print("Could not reach nexus")
+        return
+    print(resp.content.decode("utf-8"))
+
+
+@bank_accounts.command(help="submit a prepared payment")
+@click.option("--account-name", help="bank account name", required=True)
+@click.option("--payment-uuid", help="payment unique identifier", required=True)
+@click.option("--nexus-user-id", help="nexus user id", required=True)
+@click.option("--nexus-password", help="nexus user password", required=True)
+@click.argument("nexus-base-url")
+def submit_payment(obj, account_name, payment_uuid, nexus_user_id, nexus_password, nexus_base_url):
+    url = urljoin(
+        nexus_base_url, "/bank-accounts/{}/prepared-payments/{}/submit".format(account_name, payment_uuid)
+    )
+    try:
+        post(url, json=dict(), auth = auth.HTTPBasicAuth(nexus_user_id, nexus_password))
+    except Exception:
+        print("Could not reach nexus")
+        return
+    print(resp.content.decode("utf-8"))
+
+@bank_accounts.command(help="fetch transactions from the bank")
+@click.option("--account-name", help="bank account name", required=True)
+@click.option("--nexus-user-id", help="nexus user id", required=True)
+@click.option("--nexus-password", help="nexus user password", required=True)
+@click.argument("nexus-base-url")
+def submit_payment(obj, account_name, nexus_user_id, nexus_password, nexus_base_url):
+    url = urljoin(
+        nexus_base_url, "/bank-accounts/{}/fetch-transactions".format(account_name)
+    )
+    try:
+        post(url, json=dict(), auth = auth.HTTPBasicAuth(nexus_user_id, nexus_password))
+    except Exception:
+        print("Could not reach nexus")
+        return
+    print(resp.content.decode("utf-8"))
+
+@bank_accounts.command(help="get transactions from the simplified nexus JSON API")
+@click.option("--account-name", help="bank account name", required=True)
+@click.option("--nexus-user-id", help="nexus user id", required=True)
+@click.option("--nexus-password", help="nexus user password", required=True)
+@click.argument("nexus-base-url")
+def transactions(obj, account_name, nexus_user_id, nexus_password, nexus_base_url):
+    url = urljoin(nexus_base_url, "/bank-accounts/{}/transactions".format(account_name))
+    try:
+        get(url, auth = auth.HTTPBasicAuth(nexus_user_id, nexus_password))
+    except Exception:
+        print("Could not reach nexus")
+        return
+    print(resp.content.decode("utf-8"))
+
+cli()
