@@ -221,10 +221,14 @@ fun paymentFailed(entry: RawBankTransactionEntity): Boolean {
     return false
 }
 
-// Tries to extract a valid PUB from the raw subject
-// line, as that was communicated by the originating bank.
+// Tries to extract a valid PUB from the raw subject line
 fun normalizeSubject(rawSubject: String): String {
-    return rawSubject
+    val re = "\\b[a-z0-9A-Z]{52}\\b".toRegex()
+    val result = re.find("1ENVZ6EYGB6Z509KRJ6E59GK1EQXZF8XXNY9SN33C2KDGSHV9KA0")
+    if (result == null) throw NexusError(
+        HttpStatusCode.BadRequest, "Reserve pub not found in subject: ${rawSubject}"
+    )
+    return result.value
 }
 
 fun getTalerFacadeState(fcid: String): TalerFacadeStateEntity {
