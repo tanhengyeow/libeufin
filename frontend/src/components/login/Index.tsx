@@ -1,19 +1,20 @@
 import React, { useState } from 'react';
 import { connect } from 'react-redux';
-import { Form, Input, Button } from 'antd';
+import { Alert, Form, Input, Button } from 'antd';
 import { LoginOutlined } from '@ant-design/icons';
 import { login } from '../../actions/auth';
 import largeLogo from './libeufin-logo-large.png';
 import './Login.less';
 
 interface Props {
-  loginConnect: (nexusURL: string, username: string, password: string) => void;
+  loginConnect: (nexusURL: string, username: string, password: string) => any;
 }
 
 const Login = ({ loginConnect }: Props) => {
   const [nexusURL, setNexusURL] = useState('localhost:5000');
-  const [username, setUsername] = useState('user1');
-  const [password, setPassword] = useState('user1');
+  const [username, setUsername] = useState('admin');
+  const [password, setPassword] = useState('x');
+  const [authenticationFailure, setAuthenticationFailure] = useState(false);
 
   const layout = {
     wrapperCol: { span: 32 },
@@ -21,6 +22,14 @@ const Login = ({ loginConnect }: Props) => {
 
   return (
     <div className="login">
+      {authenticationFailure ? (
+        <Alert
+          message="Error"
+          description="Invalid credentials"
+          type="error"
+          showIcon
+        />
+      ) : null}
       <img className="img" src={largeLogo} alt="LibEuFin large logo" />
       <Form {...layout} size="large">
         <Form.Item>
@@ -46,7 +55,13 @@ const Login = ({ loginConnect }: Props) => {
           <Button
             type="primary"
             icon={<LoginOutlined />}
-            onClick={() => loginConnect(nexusURL, username, password)}
+            onClick={() =>
+              loginConnect(nexusURL, username, password)
+                .then(() => {
+                  setAuthenticationFailure(false);
+                })
+                .catch((err) => setAuthenticationFailure(true))
+            }
           >
             Login
           </Button>

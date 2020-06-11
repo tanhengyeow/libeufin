@@ -35,7 +35,7 @@ export const login = (nexusURL: string, username: string, password: string) => {
           if (response.ok) {
             return response.json();
           }
-          throw new Error('Error connecting to server');
+          throw 'Cannot connect to server';
         })
         .then(async () => {
           await window.localStorage.setItem('authenticated', 'true');
@@ -46,7 +46,7 @@ export const login = (nexusURL: string, username: string, password: string) => {
           dispatch(authenticate());
         })
         .catch((err) => {
-          console.log(err);
+          throw new Error(err);
         });
     }
   };
