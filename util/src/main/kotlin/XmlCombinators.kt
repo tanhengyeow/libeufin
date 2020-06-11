@@ -1,6 +1,8 @@
 package tech.libeufin.util
 
 import com.sun.xml.txw2.output.IndentingXMLStreamWriter
+import org.w3c.dom.Document
+import org.w3c.dom.Element
 import java.io.StringWriter
 import javax.xml.stream.XMLOutputFactory
 import javax.xml.stream.XMLStreamWriter
@@ -49,6 +51,7 @@ class XmlDocumentBuilder {
     fun namespace(uri: String) {
         writer.setDefaultNamespace(uri)
     }
+
     fun namespace(prefix: String, uri: String) {
         writer.setPrefix(prefix, uri)
     }
@@ -85,10 +88,80 @@ fun constructXml(indent: Boolean = false, f: XmlDocumentBuilder.() -> Unit): Str
     return "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?>\n${stream.buffer.toString()}"
 }
 
-class XmlDocumentDestructor {
+class DestructionError(m: String) : Exception(m)
+
+private fun Element.getChildElements(ns: String, tag: String): List<Element> {
+    val elements = mutableListOf<Element>()
+    for (i in 0..this.childNodes.length) {
+        val el = this.childNodes.item(i)
+        if (el !is Element) {
+            continue
+        }
+        if (ns != "*" && el.namespaceURI != ns) {
+            continue
+        }
+        if (tag != "*" && el.localName != tag) {
+            continue
+        }
+        elements.add(el)
+    }
+    return elements
 }
 
-fun <T> destructXml(f: XmlDocumentDestructor.() -> T): T {
-    val d = XmlDocumentDestructor()
-    return f(d)
+class XmlElementDestructor internal constructor(val d: Document, val e: Element) {
+    fun <T> requireOnlyChild(f: XmlElementDestructor.(e: Element) -> T): T {
+        val child =
+            e.getChildElements("*", "*").elementAtOrNull(0)
+                ?: throw DestructionError("expected singleton child tag")
+        val destr = XmlElementDestructor(d, child)
+        return f(destr, child)
+    }
+
+    fun <T> mapEachChildNamed(s: String, f: XmlElementDestructor.(e: Element) -> T): List<T> {
+        val res = mutableListOf<T>()
+        val els = e.getChildElements("*", s)
+        for (child in els) {
+            val destr = XmlElementDestructor(d, child)
+            res.add(f(destr, child))
+        }
+        return res
+    }
+
+    fun <T> requireUniqueChildNamed(s: String, f: XmlElementDestructor.(e: Element) -> T): T {
+        val cl = e.getChildElements("*", s)
+        if (cl.size != 1) {
+            throw DestructionError("expected exactly one unique $s child, got ${cl.size} instead")
+        }
+        val el = cl[0]
+        val destr = XmlElementDestructor(d, el)
+        return f(destr, el)
+    }
+
+    fun <T> maybeUniqueChildNamed(s: String, f: XmlElementDestructor.(e: Element) -> T): T? {
+        val cl = e.getChildElements("*", s)
+        if (cl.size > 1) {
+            throw DestructionError("expected at most one unique $s child, got ${cl.size} instead")
+        }
+        if (cl.size == 1) {
+            val el = cl[0]
+            val destr = XmlElementDestructor(d, el)
+            println("found child $s")
+            return f(destr, el)
+        }
+        return null
+    }
+}
+
+class XmlDocumentDestructor internal constructor(val d: Document) {
+    fun <T> requireRootElement(name: String, f: XmlElementDestructor.(e: Element) -> T): T {
+        if (this.d.documentElement.tagName != name) {
+            throw DestructionError("expected '$name' tag")
+        }
+        val destr = XmlElementDestructor(d, d.documentElement)
+        return f(destr, this.d.documentElement)
+    }
+}
+
+fun <T> destructXml(d: Document, f: XmlDocumentDestructor.() -> T): T {
+    return f(XmlDocumentDestructor(d))
 }

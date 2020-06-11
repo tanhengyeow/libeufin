@@ -193,7 +193,6 @@ fun ingestBankMessagesIntoAccount(
         }
         acct.highestSeenBankMessageId = lastId
     }
-
 }
 
 /**
