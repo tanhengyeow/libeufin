@@ -134,7 +134,7 @@ def submit_payment(obj, account_name, payment_uuid, nexus_user_id, nexus_passwor
         nexus_base_url, "/bank-accounts/{}/prepared-payments/{}/submit".format(account_name, payment_uuid)
     )
     try:
-        post(url, json=dict(), auth = auth.HTTPBasicAuth(nexus_user_id, nexus_password))
+        resp = post(url, json=dict(), auth = auth.HTTPBasicAuth(nexus_user_id, nexus_password))
     except Exception:
         print("Could not reach nexus")
         return
@@ -151,7 +151,7 @@ def submit_payment(obj, account_name, nexus_user_id, nexus_password, nexus_base_
         nexus_base_url, "/bank-accounts/{}/fetch-transactions".format(account_name)
     )
     try:
-        post(url, json=dict(), auth = auth.HTTPBasicAuth(nexus_user_id, nexus_password))
+        resp = post(url, json=dict(), auth = auth.HTTPBasicAuth(nexus_user_id, nexus_password))
     except Exception:
         print("Could not reach nexus")
         return
@@ -166,7 +166,7 @@ def submit_payment(obj, account_name, nexus_user_id, nexus_password, nexus_base_
 def transactions(obj, account_name, nexus_user_id, nexus_password, nexus_base_url):
     url = urljoin(nexus_base_url, "/bank-accounts/{}/transactions".format(account_name))
     try:
-        get(url, auth = auth.HTTPBasicAuth(nexus_user_id, nexus_password))
+        resp = get(url, auth = auth.HTTPBasicAuth(nexus_user_id, nexus_password))
     except Exception:
         print("Could not reach nexus")
         return
@@ -220,7 +220,7 @@ def associate_bank_account(obj, iban, bic, person_name, account_name,
     )
 
     try:
-        post(url, json=body)
+        resp = post(url, json=body)
     except Exception:
         print("Could not reach sandbox")
         return
