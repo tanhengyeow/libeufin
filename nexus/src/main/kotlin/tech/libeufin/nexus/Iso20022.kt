@@ -33,7 +33,18 @@ enum class CreditDebitIndicator {
 }
 
 enum class TransactionStatus {
-    BOOK, PENDING
+    /**
+     * Booked
+     */
+    BOOK,
+    /**
+     * Pending
+     */
+    PDNG,
+    /**
+     * Informational
+     */
+    INFO,
 }
 
 /**
