@@ -52,9 +52,9 @@ def new_ebics_connection(obj, connection_name, ebics_url, host_id, partner_id,
         source="new",
         type="ebics",
         data=dict(ebicsURL=ebics_url, hostID=host_id, partnerID=partner_id, userID=ebics_user_id)
-    ),
+    )
     try:
-        resp = post(url, json=body, auth = auth.HTTPBasicAuth(nexus_user_id, nexus_password))
+        resp = post(url, json=body, auth=auth.HTTPBasicAuth(nexus_user_id, nexus_password))
     except Exception:
         print("Could not reach nexus")
         exit(1)

@@ -19,11 +19,14 @@ NEXUS_USER=u
 NEXUS_PASSWORD=p
 NEXUS_BANK_CONNECTION_NAME=b
 
+NEXUS_DB=/tmp/n.sqlite3
+SANDBOX_DB=/tmp/s.sqlite3
+
 ########## setup sandbox #############
 
-# make ebics host as sandbox
+# make ebics host at sandbox
 echo Making a ebics host at the sandbox
-sleep 3
+sleep 2
 ./libeufin-cli-new \
   sandbox \
     make-ebics-host \
@@ -32,7 +35,7 @@ sleep 3
 
 # activate a ebics subscriber on that host
 echo Activating the ebics subscriber at the sandbox
-sleep 3
+sleep 2
 ./libeufin-cli-new \
   sandbox \
     activate-ebics-subscriber \
@@ -54,14 +57,14 @@ echo Giving a bank account to such subscriber
       --ebics-host-id=$EBICS_HOST_ID \
       --ebics-partner-id=$EBICS_PARTNER_ID \
       $SANDBOX_URL
-sleep 3
+sleep 2
 
 ########## setup nexus #############
 
 # create a user
-echo Creating a nexus user
-nexus superuser --password $NEXUS_PASSWORD $NEXUS_USER
-sleep 3
+echo "Creating a nexus user (giving time to settle)"
+nexus superuser --db-name=$NEXUS_DB --password $NEXUS_PASSWORD $NEXUS_USER
+sleep 2
 
 # create a bank connection
 echo Creating a bank connection for such user
@@ -76,7 +79,7 @@ echo Creating a bank connection for such user
       --nexus-user-id $NEXUS_USER \
       --nexus-password $NEXUS_PASSWORD \
       $NEXUS_URL
-sleep 3
+sleep 2
 
 # Bootstrapping such connection
 echo Bootstrapping the bank connection
@@ -87,7 +90,7 @@ echo Bootstrapping the bank connection
       --nexus-user-id $NEXUS_USER \
       --nexus-password $NEXUS_PASSWORD \
       $NEXUS_URL
-sleep 3
+sleep 2
 
 # Fetching the bank accounts
 echo Fetching the bank accounts
@@ -98,7 +101,7 @@ echo Fetching the bank accounts
       --nexus-user-id $NEXUS_USER \
       --nexus-password $NEXUS_PASSWORD \
       $NEXUS_URL
-sleep 3
+sleep 2
 
 echo User is setup, history can be requested, and \
   new payments can be prepared and submitted.
