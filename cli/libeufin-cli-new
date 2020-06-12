@@ -28,11 +28,74 @@ def bank_connection(ctx):
 def bank_accounts(ctx):
     pass
 
-
 @cli.group()
 @click.pass_context
 def sandbox(ctx):
     pass
+
+@bank_connection.command(help="export backup")
+@click.option("--connection-name", help="Name of the bank connection to backup", required=True)
+@click.option("--nexus-user-id", help="Nexus user ID", required=True)
+@click.option("--nexus-password", help="Nexus password", required=True)
+@click.option("--passphrase", help="Passphrase for locking the backup", required=True)
+@click.option("--output-file", help="Where to store the backup", required=True)
+@click.argument("nexus-base-url")
+@click.pass_obj
+def export_backup(obj, connection_name, nexus_user_id, nexus_password, passphrase, output_file, nexus_base_url):
+    url = urljoin(nexus_base_url, "/bank-connections/{}/export-backup".format(connection_name))
+    try:
+        resp = post(
+            url, json=dict(passphrase=passphrase),
+            auth=auth.HTTPBasicAuth(nexus_user_id, nexus_password)
+        )
+    except Exception:
+        print("Could not reach nexus")
+        exit(1)
+
+    output = open(output_file, "w+")
+    output.write(resp.content.decode("utf-8"))
+    output.close()
+
+    print("Backup stored in {}".format(output_file))
+
+
+@bank_connection.command(help="export backup")
+@click.option("--connection-name", help="Name of the bank connection to backup", required=True)
+@click.option("--nexus-user-id", help="Nexus user ID", required=True)
+@click.option("--nexus-password", help="Nexus password", required=True)
+@click.option("--backup-file", help="Back file", required=True)
+@click.option("--passphrase", help="Passphrase for locking the backup", required=True)
+@click.argument("nexus-base-url")
+@click.pass_obj
+def restore_backup(obj, backup_file, passphrase, nexus_base_url, nexus_user_id, nexus_password, connection_name):
+    url = urljoin(nexus_base_url, "/bank-connections")
+    try:
+        backup = open(backup_file, "r")
+    except Exception:
+        print("Could not open the backup at {}".format(backup_file))
+        return
+
+    backup_json = json.loads(backup.read())
+    backup.close()
+
+    try:
+        resp = post(
+            url,
+            json=dict(
+                name=connection_name,
+                data=backup_json,
+                passphrase=passphrase,
+                source="backup"
+            ),
+            auth=auth.HTTPBasicAuth(nexus_user_id, nexus_password)
+
+        )
+    except Exception:
+        print("Could not reach nexus")
+        exit(1)
+
+    print(resp.content.decode("utf-8"))
+
 
 @bank_connection.command(help="make new Ebics bank connection")
 @click.option("--connection-name", help="Connection ID", required=True)
@@ -146,7 +209,7 @@ def submit_payment(obj, account_name, payment_uuid, nexus_user_id, nexus_passwor
 @click.option("--nexus-password", help="nexus user password", required=True)
 @click.argument("nexus-base-url")
 @click.pass_obj
-def submit_payment(obj, account_name, nexus_user_id, nexus_password, nexus_base_url):
+def fetch_transactions(obj, account_name, nexus_user_id, nexus_password, nexus_base_url):
     url = urljoin(
         nexus_base_url, "/bank-accounts/{}/fetch-transactions".format(account_name)
     )
@@ -242,13 +305,13 @@ def book_payment(obj, creditor_iban, creditor_bic, creditor_name, debtor_iban,
                  debtor_bic, debtor_name, amount, currency, subject, sandbox_base_url):
 
     url = urljoin(sandbox_base_url, "/admin/payments")
-    body = json(
+    body = dict(
         creditorIban=creditor_iban,
         creditorBic=creditor_bic,
         creditorName=creditor_name,
-        debitorIban=debitor_iban,
-        debitorBic=debitor_bic,
-        debitorName=debitor_name,
+        debitorIban=debtor_iban,
+        debitorBic=debtor_bic,
+        debitorName=debtor_name,
         amount=amount,
         currency=currency,
         subject=subject

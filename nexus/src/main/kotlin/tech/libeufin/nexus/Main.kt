@@ -764,7 +764,7 @@ fun serverMain(dbName: String) {
                         }
                     }
                 }
-                call.respond(object {})
+                call.respond(object {}) 
             }
 
             get("/bank-connections") {
