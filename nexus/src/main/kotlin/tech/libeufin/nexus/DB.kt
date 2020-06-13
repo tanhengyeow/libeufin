@@ -51,6 +51,8 @@ object TalerRequestedPayments : LongIdTable() {
     /**
      * This column gets a value only after the bank acknowledges the payment via
      * a camt.05x entry.  The "crunch" logic is responsible for assigning such value.
+     *
+     * FIXME(dold): Shouldn't this happen at the level of the PreparedPaymentsTable?
      */
     val rawConfirmed = reference("raw_confirmed", RawBankTransactionsTable).nullable()
 }
@@ -73,14 +75,18 @@ class TalerRequestedPaymentEntity(id: EntityID<Long>) : LongEntity(id) {
  */
 object TalerIncomingPayments : LongIdTable() {
     val payment = reference("payment", RawBankTransactionsTable)
-    val valid = bool("valid")
+    val reservePublicKey = text("reservePublicKey")
+    val timestampMs = long("timestampMs")
+    val incomingPaytoUri = text("incomingPaytoUri")
 }
 
 class TalerIncomingPaymentEntity(id: EntityID<Long>) : LongEntity(id) {
     companion object : LongEntityClass<TalerIncomingPaymentEntity>(TalerIncomingPayments)
 
     var payment by RawBankTransactionEntity referencedOn TalerIncomingPayments.payment
-    var valid by TalerIncomingPayments.valid
+    var reservePublicKey by TalerIncomingPayments.reservePublicKey
+    var timestampMs by TalerIncomingPayments.timestampMs
+    var incomingPaytoUri by TalerIncomingPayments.incomingPaytoUri
 }
 
 /**
@@ -109,33 +115,52 @@ class NexusBankMessageEntity(id: EntityID<Int>) : IntEntity(id) {
  * CAMT message.
  */
 object RawBankTransactionsTable : LongIdTable() {
-    val unstructuredRemittanceInformation = text("unstructuredRemittanceInformation")
-    val transactionType = text("transactionType") /* DBIT or CRDT */
+    /**
+     * Identifier for the transaction that is unique among all transactions of the account.
+     * The scheme for this identifier is the accounts transaction identification scheme.
+     *
+     * Note that this is *not* a unique ID per account, as the same underlying
+     * transaction can show up multiple times with a different status.
+     */
+    val accountTransactionId = text("accountTransactionId")
+
+    /**
+     * Bank account that this transaction happened on.
+     */
+    val bankAccount = reference("bankAccount", NexusBankAccountsTable)
+
+    /**
+     * Direction of the amount.
+     */
+    val creditDebitIndicator = text("creditDebitIndicator")
+
+    /**
+     * Currency of the amount.
+     */
     val currency = text("currency")
     val amount = text("amount")
-    val counterpartIban = text("counterpartIban")
-    val counterpartBic = text("counterpartBic")
-    val counterpartName = text("counterpartName")
-    val bookingDate = long("bookingDate")
-    val status = text("status") // BOOK or other.
-    val uid = text("uid") // AcctSvcrRef code, given by the bank.
-    val bankAccount = reference("bankAccount", NexusBankAccountsTable)
+
+    /**
+     * Booked / pending / informational.
+     */
+    val status = text("status")
+
+    /**
+     * Full details of the transaction in JSON format.
+     */
+    val transactionJson = text("transactionJson")
 }
 
 class RawBankTransactionEntity(id: EntityID<Long>) : LongEntity(id) {
     companion object : LongEntityClass<RawBankTransactionEntity>(RawBankTransactionsTable)
 
-    var unstructuredRemittanceInformation by RawBankTransactionsTable.unstructuredRemittanceInformation
-    var transactionType by RawBankTransactionsTable.transactionType
     var currency by RawBankTransactionsTable.currency
     var amount by RawBankTransactionsTable.amount
-    var counterpartIban by RawBankTransactionsTable.counterpartIban
-    var counterpartBic by RawBankTransactionsTable.counterpartBic
-    var counterpartName by RawBankTransactionsTable.counterpartName
-    var bookingDate by RawBankTransactionsTable.bookingDate
     var status by RawBankTransactionsTable.status
-    var uid by RawBankTransactionsTable.uid
+    var creditDebitIndicator by RawBankTransactionsTable.creditDebitIndicator
     var bankAccount by NexusBankAccountEntity referencedOn RawBankTransactionsTable.bankAccount
+    var transactionJson by RawBankTransactionsTable.transactionJson
+    var accountTransactionId by RawBankTransactionsTable.accountTransactionId
 }
 
 /**
@@ -160,11 +185,6 @@ object PreparedPaymentsTable : IdTable<String>() {
 
     /* Indicates whether the PAIN message was sent to the bank. */
     val submitted = bool("submitted").default(false)
-
-    /* Indicates whether the bank didn't perform the payment: note that
-     * this state can be reached when the payment gets listed in a CRZ
-     * response OR when the payment doesn't show up in a C52/C53 response */
-    val invalid = bool("invalid").default(false)
 }
 
 class PreparedPaymentEntity(id: EntityID<String>) : Entity<String>(id) {
@@ -184,11 +204,11 @@ class PreparedPaymentEntity(id: EntityID<String>) : Entity<String>(id) {
     var creditorBic by PreparedPaymentsTable.creditorBic
     var creditorName by PreparedPaymentsTable.creditorName
     var submitted by PreparedPaymentsTable.submitted
-    var invalid by PreparedPaymentsTable.invalid
 }
 
 /**
  * This table holds triples of <iban, bic, holder name>.
+ * FIXME(dold):  Allow other account and bank identifications than IBAN and BIC
  */
 object NexusBankAccountsTable : IdTable<String>() {
     override val id = text("id").entityId()
@@ -198,7 +218,7 @@ object NexusBankAccountsTable : IdTable<String>() {
     val defaultBankConnection = reference("defaultBankConnection", NexusBankConnectionsTable).nullable()
 
     // Highest bank message ID that this bank account is aware of.
-    val highestSeenBankMessageId = integer("")
+    val highestSeenBankMessageId = integer("highestSeenBankMessageId")
 }
 
 class NexusBankAccountEntity(id: EntityID<String>) : Entity<String>(id) {
@@ -284,7 +304,7 @@ class FacadeEntity(id: EntityID<String>) : Entity<String>(id) {
     var creator by NexusUserEntity referencedOn FacadesTable.creator
 }
 
-object TalerFacadeStatesTable : IntIdTable() {
+object TalerFacadeStateTable : IntIdTable() {
     val bankAccount = text("bankAccount")
     val bankConnection = text("bankConnection")
 
@@ -296,16 +316,16 @@ object TalerFacadeStatesTable : IntIdTable() {
 }
 
 class TalerFacadeStateEntity(id: EntityID<Int>) : IntEntity(id) {
-    companion object : IntEntityClass<TalerFacadeStateEntity>(TalerFacadeStatesTable)
+    companion object : IntEntityClass<TalerFacadeStateEntity>(TalerFacadeStateTable)
 
-    var bankAccount by TalerFacadeStatesTable.bankAccount
-    var bankConnection by TalerFacadeStatesTable.bankConnection
+    var bankAccount by TalerFacadeStateTable.bankAccount
+    var bankConnection by TalerFacadeStateTable.bankConnection
 
     /* "statement", "report", "notification" */
-    var reserveTransferLevel by TalerFacadeStatesTable.reserveTransferLevel
-    var intervalIncrement by TalerFacadeStatesTable.intervalIncrement
-    var facade by FacadeEntity referencedOn TalerFacadeStatesTable.facade
-    var highestSeenMsgID by TalerFacadeStatesTable.highestSeenMsgID
+    var reserveTransferLevel by TalerFacadeStateTable.reserveTransferLevel
+    var intervalIncrement by TalerFacadeStateTable.intervalIncrement
+    var facade by FacadeEntity referencedOn TalerFacadeStateTable.facade
+    var highestSeenMsgID by TalerFacadeStateTable.highestSeenMsgID
 }
 
 fun dbCreateTables(dbName: String) {
@@ -324,7 +344,7 @@ fun dbCreateTables(dbName: String) {
             NexusBankConnectionsTable,
             NexusBankMessagesTable,
             FacadesTable,
-            TalerFacadeStatesTable
+            TalerFacadeStateTable
         )
     }
 }

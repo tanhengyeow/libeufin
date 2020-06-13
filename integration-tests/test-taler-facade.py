@@ -198,16 +198,18 @@ resp = assertResponse(
 print(resp.text)
 
 # Checks if that crashes the _incoming_ history too.  It does NOT!
-#assertResponse(
-#    post(
-#        "http://localhost:5001/facades/my-facade/taler/admin/add-incoming",
-#        json=dict(
-#            amount="EUR:1",
-#            reserve_pub="my-reserve-pub",
-#            debit_account="payto://iban/DONATOR/MONEY?name=TheDonator"
-#        ),
-#        headers=dict(Authorization=USER_AUTHORIZATION_HEADER)
-#    )
-#)
+resp = assertResponse(
+    post(
+        "http://localhost:5001/facades/my-facade/taler/admin/add-incoming",
+        json=dict(
+            amount="EUR:1",
+            reserve_pub="my-reserve-pub",
+            debit_account="payto://iban/DONATOR/MONEY?name=TheDonator"
+        ),
+        headers=dict(Authorization=USER_AUTHORIZATION_HEADER)
+    )
+)
+
 print("auth header: " + USER_AUTHORIZATION_HEADER)
 input("press enter to stop the test:")
+print("test will stop")

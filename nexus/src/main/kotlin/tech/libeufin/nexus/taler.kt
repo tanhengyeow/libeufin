@@ -38,7 +38,6 @@ import org.jetbrains.exposed.dao.Entity
 import org.jetbrains.exposed.dao.id.IdTable
 import org.jetbrains.exposed.sql.*
 import org.jetbrains.exposed.sql.transactions.transaction
-import org.w3c.dom.Document
 import tech.libeufin.util.*
 import kotlin.math.abs
 import kotlin.math.min
@@ -129,13 +128,11 @@ fun parsePayto(paytoUri: String): Payto {
      * maps to a "bic".
      */
 
-
     /**
      * payto://iban/BIC/IBAN?name=<name>
      * payto://x-taler-bank/<bank hostname>/<plain account number>
      */
-
-    val ibanMatch = Regex("payto://iban/([A-Z0-9]+)/([A-Z0-9]+)\\?name=(\\w+)").find(paytoUri)
+    val ibanMatch = Regex("payto://iban/([A-Z0-9]+)/([A-Z0-9]+)\\?receiver-name=(\\w+)").find(paytoUri)
     if (ibanMatch != null) {
         val (bic, iban, name) = ibanMatch.destructured
         return Payto(name, iban, bic.replace("/", ""))
@@ -159,16 +156,10 @@ fun <T : Entity<Long>> SizedIterable<T>.orderTaler(delta: Int): List<T> {
 }
 
 /**
- * NOTE: those payto-builders default all to the x-taler-bank transport.
- * A mechanism to easily switch transport is needed, as production needs
- * 'iban'.
+ * Build an IBAN payto URI.
  */
-fun buildPaytoUri(name: String, iban: String, bic: String): String {
-    return "payto://iban/$bic/$iban?name=$name"
-}
-
-fun buildPaytoUri(iban: String, bic: String): String {
-    return "payto://iban/$bic/$iban"
+fun buildIbanPaytoUri(iban: String, bic: String, name: String): String {
+    return "payto://iban/$bic/$iban?receiver-name=$name"
 }
 
 /** Builds the comparison operator for history entries based on the sign of 'delta'  */
@@ -240,14 +231,22 @@ fun paymentFailed(entry: RawBankTransactionEntity): Boolean {
     return false
 }
 
-// Tries to extract a valid PUB from the raw subject line
-fun normalizeSubject(rawSubject: String): String {
+/**
+ * Tries to extract a valid reserve public key from the raw subject line
+ */
+fun extractReservePubFromSubject(rawSubject: String): String? {
     val re = "\\b[a-z0-9A-Z]{52}\\b".toRegex()
-    val result = re.find("1ENVZ6EYGB6Z509KRJ6E59GK1EQXZF8XXNY9SN33C2KDGSHV9KA0")
-    if (result == null) throw NexusError(
-        HttpStatusCode.BadRequest, "Reserve pub not found in subject: ${rawSubject}"
-    )
-    return result.value
+    val result = re.find(rawSubject) ?: return null
+    return result.value.toUpperCase()
+}
+
+/**
+ * Tries to extract a valid wire transfer id from the subject.
+ */
+fun extractWtidFromSubject(rawSubject: String): String? {
+    val re = "\\b[a-z0-9A-Z]{52}\\b".toRegex()
+    val result = re.find(rawSubject) ?: return null
+    return result.value.toUpperCase()
 }
 
 fun getTalerFacadeState(fcid: String): TalerFacadeStateEntity {
@@ -256,7 +255,7 @@ fun getTalerFacadeState(fcid: String): TalerFacadeStateEntity {
         "Could not find facade '${fcid}'"
     )
     val facadeState = TalerFacadeStateEntity.find {
-        TalerFacadeStatesTable.facade eq facade.id.value
+        TalerFacadeStateTable.facade eq facade.id.value
     }.firstOrNull() ?: throw NexusError(
         HttpStatusCode.NotFound,
         "Could not find any state for facade: ${fcid}"
@@ -270,7 +269,7 @@ fun getTalerFacadeBankAccount(fcid: String): NexusBankAccountEntity {
         "Could not find facade '${fcid}'"
     )
     val facadeState = TalerFacadeStateEntity.find {
-        TalerFacadeStatesTable.facade eq facade.id.value
+        TalerFacadeStateTable.facade eq facade.id.value
     }.firstOrNull() ?: throw NexusError(
         HttpStatusCode.NotFound,
         "Could not find any state for facade: ${fcid}"
@@ -424,12 +423,15 @@ suspend fun submitPreparedPaymentsViaEbics() {
                 HttpStatusCode.InternalServerError,
                 "Such facade '${it.facade.id.value}' doesn't map to any Ebics subscriber"
             )
-            val bankAccount: NexusBankAccountEntity = NexusBankAccountEntity.findById(it.bankAccount) ?: throw NexusError(
-                HttpStatusCode.InternalServerError,
-                "Bank account '${it.bankAccount}' not found for facade '${it.id.value}'"
-            )
-            PreparedPaymentEntity.find { PreparedPaymentsTable.debitorIban eq bankAccount.iban and
-                    not(PreparedPaymentsTable.submitted) }.forEach {
+            val bankAccount: NexusBankAccountEntity =
+                NexusBankAccountEntity.findById(it.bankAccount) ?: throw NexusError(
+                    HttpStatusCode.InternalServerError,
+                    "Bank account '${it.bankAccount}' not found for facade '${it.id.value}'"
+                )
+            PreparedPaymentEntity.find {
+                PreparedPaymentsTable.debitorIban eq bankAccount.iban and
+                        not(PreparedPaymentsTable.submitted)
+            }.forEach {
                 val pain001document = createPain001document(it)
                 logger.debug("Preparing payment: ${pain001document}")
                 val subscriberDetails = getEbicsSubscriberDetailsInternal(subscriberEntity)
@@ -452,6 +454,69 @@ suspend fun submitPreparedPaymentsViaEbics() {
     }
 }
 
+private fun ingestIncoming(payment: RawBankTransactionEntity, txDtls: TransactionDetails) {
+    val subject = txDtls.unstructuredRemittanceInformation
+    val debtorName = txDtls.relatedParties.debtor?.name
+    if (debtorName == null) {
+        logger.warn("empty debtor name")
+        return
+    }
+    val debtorAcct = txDtls.relatedParties.debtorAccount
+    if (debtorAcct == null) {
+        // FIXME: Report payment, we can't even send it back
+        logger.warn("empty debitor account")
+        return
+    }
+    if (debtorAcct !is AccountIdentificationIban) {
+        // FIXME: Report payment, we can't even send it back
+        logger.warn("non-iban debitor account")
+        return
+    }
+    val debtorAgent = txDtls.relatedParties.debtorAgent
+    if (debtorAgent == null) {
+        // FIXME: Report payment, we can't even send it back
+        logger.warn("missing debitor agent")
+        return
+    }
+    val reservePub = extractReservePubFromSubject(subject)
+    if (reservePub == null) {
+        // FIXME: send back!
+        logger.warn("could not find reserve pub in remittance information")
+        return
+    }
+    if (!CryptoUtil.checkValidEddsaPublicKey(reservePub)) {
+        // FIXME: send back!
+        logger.warn("invalid public key")
+        return
+    }
+    TalerIncomingPaymentEntity.new {
+        this.payment = payment
+        reservePublicKey = reservePub
+        timestampMs = System.currentTimeMillis()
+        incomingPaytoUri = buildIbanPaytoUri(debtorAcct.iban, debtorAgent.bic, debtorName)
+    }
+    return
+}
+
+private fun ingestOutgoing(payment: RawBankTransactionEntity, txDtls: TransactionDetails) {
+    val subject = txDtls.unstructuredRemittanceInformation
+    logger.debug("Ingesting outgoing payment: subject")
+    val wtid = extractWtidFromSubject(subject)
+    if (wtid == null) {
+        logger.warn("did not find wire transfer ID in outgoing payment")
+        return
+    }
+    val talerRequested = TalerRequestedPaymentEntity.find {
+        TalerRequestedPayments.wtid eq subject
+    }.firstOrNull()
+    if (talerRequested == null) {
+        logger.info("Payment '${subject}' shows in history, but was never requested!")
+        return
+    }
+    logger.debug("Payment: ${subject} was requested, and gets now marked as 'confirmed'")
+    talerRequested.rawConfirmed = payment
+}
+
 /**
  * Crawls the database to find ALL the users that have a Taler
  * facade and process their histories respecting the TWG policy.
@@ -462,7 +527,7 @@ suspend fun submitPreparedPaymentsViaEbics() {
  */
 fun ingestTalerTransactions() {
     fun ingest(subscriberAccount: NexusBankAccountEntity, facade: FacadeEntity) {
-        logger.debug("Ingesting transactions for Taler facade: ${facade.id.value}")
+        logger.debug("Ingesting transactions for Taler facade ${facade.id.value}")
         val facadeState = getTalerFacadeState(facade.id.value)
         var lastId = facadeState.highestSeenMsgID
         RawBankTransactionEntity.find {
@@ -474,32 +539,15 @@ fun ingestTalerTransactions() {
                     (RawBankTransactionsTable.id.greater(lastId))
         }.orderBy(Pair(RawBankTransactionsTable.id, SortOrder.ASC)).forEach {
             // Incoming payment.
-            if (it.transactionType == "CRDT") {
-                val normalizedSubject = normalizeSubject(it.unstructuredRemittanceInformation)
-                if (CryptoUtil.checkValidEddsaPublicKey(normalizedSubject)) {
-                    TalerIncomingPaymentEntity.new {
-                        payment = it
-                        valid = true
-                    }
-                } else {
-                    TalerIncomingPaymentEntity.new {
-                        payment = it
-                        valid = false
-                    }
+            val tx = jacksonObjectMapper().readValue(it.transactionJson, BankTransaction::class.java)
+            if (tx.isBatch) {
+                // We don't support batch transactions at the moment!
+                logger.warn("batch transactions not supported")
+            } else {
+                when (tx.creditDebitIndicator) {
+                    CreditDebitIndicator.DBIT -> ingestOutgoing(it, txDtls = tx.details[0])
+                    CreditDebitIndicator.CRDT -> ingestIncoming(it, txDtls = tx.details[0])
                 }
-            }
-            // Outgoing payment
-            if (it.transactionType == "DBIT") {
-                logger.debug("Ingesting outgoing payment: ${it.unstructuredRemittanceInformation}")
-                val talerRequested = TalerRequestedPaymentEntity.find {
-                    TalerRequestedPayments.wtid eq it.unstructuredRemittanceInformation
-                }.firstOrNull()
-                if (talerRequested == null){
-                    logger.info("Payment '${it.unstructuredRemittanceInformation}' shows in history, but was never requested!")
-                    return@forEach
-                }
-                logger.debug("Payment: ${it.unstructuredRemittanceInformation} was requested, and gets now marked as 'confirmed'")
-                talerRequested.rawConfirmed = it
             }
             lastId = it.id.value
         }
@@ -529,6 +577,7 @@ suspend fun historyOutgoing(call: ApplicationCall): Unit {
     val history = TalerOutgoingHistory()
     transaction {
         val user = authenticateRequest(call.request)
+
         /** Retrieve all the outgoing payments from the _clean Taler outgoing table_ */
         val subscriberBankAccount = getTalerFacadeBankAccount(expectNonNull(call.parameters["fcid"]))
         val reqPayments = TalerRequestedPaymentEntity.find {
@@ -541,13 +590,13 @@ suspend fun historyOutgoing(call: ApplicationCall): Unit {
                         row_id = it.id.value,
                         amount = it.amount,
                         wtid = it.wtid,
-                        date = GnunetTimestamp(
-                            it.rawConfirmed?.bookingDate?.div(1000) ?: throw NexusError(
-                                HttpStatusCode.InternalServerError, "Null value met after check, VERY strange."
-                            )
-                        ),
+                        date = GnunetTimestamp(it.preparedPayment.preparationDate),
                         credit_account = it.creditAccount,
-                        debit_account = buildPaytoUri(subscriberBankAccount.iban, subscriberBankAccount.bankCode),
+                        debit_account = buildIbanPaytoUri(
+                            subscriberBankAccount.iban,
+                            subscriberBankAccount.bankCode,
+                            subscriberBankAccount.accountHolder
+                        ),
                         exchange_base_url = "FIXME-to-request-along-subscriber-registration"
                     )
                 )
@@ -573,26 +622,22 @@ suspend fun historyIncoming(call: ApplicationCall): Unit {
     val startCmpOp = getComparisonOperator(delta, start, TalerIncomingPayments)
     transaction {
         val orderedPayments = TalerIncomingPaymentEntity.find {
-            TalerIncomingPayments.valid eq true and startCmpOp
+            startCmpOp
         }.orderTaler(delta)
         if (orderedPayments.isNotEmpty()) {
             orderedPayments.subList(0, min(abs(delta), orderedPayments.size)).forEach {
                 history.incoming_transactions.add(
                     TalerIncomingBankTransaction(
-                        date = GnunetTimestamp(it.payment.bookingDate / 1000),
+                        date = GnunetTimestamp(it.timestampMs),
                         row_id = it.id.value,
                         amount = "${it.payment.currency}:${it.payment.amount}",
-                        reserve_pub = it.payment.unstructuredRemittanceInformation,
-                        credit_account = buildPaytoUri(
-                            it.payment.bankAccount.accountHolder,
+                        reserve_pub = it.reservePublicKey,
+                        credit_account = buildIbanPaytoUri(
                             it.payment.bankAccount.iban,
-                            it.payment.bankAccount.bankCode
+                            it.payment.bankAccount.bankCode,
+                            it.payment.bankAccount.accountHolder
                         ),
-                        debit_account = buildPaytoUri(
-                            it.payment.counterpartName,
-                            it.payment.counterpartIban,
-                            it.payment.counterpartBic
-                        )
+                        debit_account = it.incomingPaytoUri
                     )
                 )
             }

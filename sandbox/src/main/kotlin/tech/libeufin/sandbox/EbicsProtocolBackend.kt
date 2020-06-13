@@ -127,7 +127,7 @@ private suspend fun ApplicationCall.respondEbicsKeyManagement(
     respondText(text, ContentType.Application.Xml, HttpStatusCode.OK)
 }
 
-fun <T>expectNonNull(x: T?): T {
+fun <T> expectNonNull(x: T?): T {
     if (x == null) {
         throw EbicsProtocolError(HttpStatusCode.BadRequest, "expected non-null value")
     }
@@ -361,31 +361,40 @@ fun buildCamtString(type: Int, subscriberIban: String, history: MutableList<RawP
                                                 text("XY")
                                             }
                                         }
-                                        element("RltdPties") {
-                                            element("Dbtr/Nm") {
-                                                text(it.debitorName)
-                                            }
-                                            element("DbtrAcct/Id/IBAN") {
-                                                text(it.debitorIban)
-                                            }
-                                            element("Cdtr/Nm") {
-                                                text(it.creditorName)
-                                            }
-                                            element("CdtrAcct/Id/IBAN") {
-                                                text(it.creditorIban)
-                                            }
+                                    }
+                                    element("RltdPties") {
+                                        element("Dbtr/Nm") {
+                                            text(it.debitorName)
                                         }
-                                        element("RltdAgts") {
-                                            element("CdtrAgt/FinInstnId/BIC") {
-                                                text(
-                                                    if (subscriberIban.equals(it.creditorIban))
-                                                        it.debitorBic else it.creditorBic
-                                                )
-                                            }
+                                        element("DbtrAcct/Id/IBAN") {
+                                            text(it.debitorIban)
                                         }
-                                        element("RmtInf/Ustrd") {
-                                            text(it.subject)
+                                        element("Cdtr/Nm") {
+                                            text(it.creditorName)
                                         }
+                                        element("CdtrAcct/Id/IBAN") {
+                                            text(it.creditorIban)
+                                        }
+                                    }
+                                    element("RltdAgts") {
+                                        element("CdtrAgt/FinInstnId/BIC") {
+                                            // FIXME: explain this!
+                                            text(
+                                                if (subscriberIban.equals(it.creditorIban))
+                                                    it.debitorBic else it.creditorBic
+                                            )
+                                        }
+                                        element("DbtrAgt/FinInstnId/BIC") {
+                                            // FIXME: explain this!
+                                            text(
+                                                if (subscriberIban.equals(it.creditorIban))
+                                                    it.creditorBic else it.debitorBic
+                                            )
+                                        }
+
+                                    }
+                                    element("RmtInf/Ustrd") {
+                                        text(it.subject)
                                     }
                                     element("AddtlNtryInf") {
                                         text("additional information not given")
@@ -796,7 +805,8 @@ private data class RequestContext(
 )
 
 private fun handleEbicsDownloadTransactionTransfer(requestContext: RequestContext): EbicsResponse {
-    val segmentNumber = requestContext.requestObject.header.mutable.segmentNumber?.value ?: throw EbicsInvalidRequestError()
+    val segmentNumber =
+        requestContext.requestObject.header.mutable.segmentNumber?.value ?: throw EbicsInvalidRequestError()
     val transactionID = requestContext.requestObject.header.static.transactionID ?: throw EbicsInvalidRequestError()
     val downloadTransaction = requestContext.downloadTransaction ?: throw AssertionError()
     return EbicsResponse.createForDownloadTransferPhase(

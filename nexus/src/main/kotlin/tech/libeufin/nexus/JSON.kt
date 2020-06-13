@@ -188,19 +188,8 @@ data class PaymentStatus(
     val preparationDate: String
 )
 
-/** Response type of "GET /collected-transactions" */
-data class Transaction(
-    val account: String,
-    val counterpartIban: String,
-    val counterpartBic: String,
-    val counterpartName: String,
-    val amount: String,
-    val subject: String,
-    val date: String
-)
-
 data class Transactions(
-    val transactions: MutableList<Transaction> = mutableListOf()
+    val transactions: MutableList<BankTransaction> = mutableListOf()
 )
 
 /** Request type of "POST /collected-transactions" */

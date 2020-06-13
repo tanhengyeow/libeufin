@@ -20,6 +20,10 @@ class Iso20022Test {
     fun testTransactionsImport() {
         val camt53 = loadXmlResource("iso20022-samples/camt.053.001.02.gesamtbeispiel.xml")
         val txs = getTransactions(camt53)
-        println(jacksonObjectMapper().writerWithDefaultPrettyPrinter().writeValueAsString(txs))
+        for (tx in txs) {
+            val txStr = jacksonObjectMapper().writerWithDefaultPrettyPrinter().writeValueAsString(tx)
+            println(txStr)
+            val tx2 = jacksonObjectMapper().readValue(txStr, BankTransaction::class.java)
+        }
     }
 }

@@ -263,20 +263,23 @@ fun ApplicationRequest.hasBody(): Boolean {
     return false
 }
 
+inline fun reportAndIgnoreErrors(f: () -> Unit) {
+    try {
+        f()
+    } catch (e: java.lang.Exception) {
+        logger.error("ignoring exception", e)
+    }
+}
+
 fun moreFrequentBackgroundTasks(httpClient: HttpClient) {
     GlobalScope.launch {
         while (true) {
-            logger.debug("More frequent background job")
-            ingestTalerTransactions()
-            submitPreparedPaymentsViaEbics()
-            try {
-                downloadTalerFacadesTransactions(httpClient, "C52")
-            } catch (e: Exception) {
-                val sw = StringWriter()
-                val pw = PrintWriter(sw)
-                e.printStackTrace(pw)
-                logger.info("==== Frequent background task exception ====\n${sw}======")
-            }
+            logger.debug("Running more frequent background jobs")
+            reportAndIgnoreErrors { downloadTalerFacadesTransactions(httpClient, "C53") }
+            reportAndIgnoreErrors { downloadTalerFacadesTransactions(httpClient, "C52")  }
+            reportAndIgnoreErrors { ingestTalerTransactions() }
+            reportAndIgnoreErrors { submitPreparedPaymentsViaEbics() }
+            logger.debug("More frequent background jobs done")
             delay(Duration.ofSeconds(1))
         }
     }
@@ -287,7 +290,7 @@ fun lessFrequentBackgroundTasks(httpClient: HttpClient) {
         while (true) {
             logger.debug("Less frequent background job")
             try {
-                downloadTalerFacadesTransactions(httpClient, "C53")
+                //downloadTalerFacadesTransactions(httpClient, "C53")
             } catch (e: Exception) {
                 val sw = StringWriter()
                 val pw = PrintWriter(sw)
@@ -702,25 +705,10 @@ fun serverMain(dbName: String) {
                 val end = call.request.queryParameters["end"]
                 val ret = Transactions()
                 transaction {
-                    val userId = transaction { authenticateRequest(call.request).id.value }
-                    RawBankTransactionEntity.find {
-                        (RawBankTransactionsTable.bankAccount eq bankAccount) and
-                                RawBankTransactionsTable.bookingDate.between(
-                                    parseDashedDate(start ?: "1970-01-01").millis(),
-                                    parseDashedDate(end ?: LocalDateTime.now().toDashedDate()).millis()
-                                )
-                    }.forEach {
-                        ret.transactions.add(
-                            Transaction(
-                                account = it.bankAccount.id.value,
-                                counterpartBic = it.counterpartBic,
-                                counterpartIban = it.counterpartIban,
-                                counterpartName = it.counterpartName,
-                                date = importDateFromMillis(it.bookingDate).toDashedDate(),
-                                subject = it.unstructuredRemittanceInformation,
-                                amount = "${it.currency}:${it.amount}"
-                            )
-                        )
+                    authenticateRequest(call.request).id.value
+                    RawBankTransactionEntity.all().map {
+                        val tx = jacksonObjectMapper().readValue(it.transactionJson, BankTransaction::class.java)
+                        ret.transactions.add(tx)
                     }
                 }
                 call.respond(ret)

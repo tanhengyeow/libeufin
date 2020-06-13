@@ -24,6 +24,8 @@ package tech.libeufin.nexus
  */
 
 import com.fasterxml.jackson.annotation.JsonInclude
+import com.fasterxml.jackson.annotation.JsonSubTypes
+import com.fasterxml.jackson.annotation.JsonTypeInfo
 import org.w3c.dom.Document
 import tech.libeufin.util.XmlElementDestructor
 import tech.libeufin.util.destructXml
@@ -76,12 +78,12 @@ data class TransactionDetails(
     val unstructuredRemittanceInformation: String
 )
 
-abstract class AccountIdentification(type: String) : TypedEntity(type)
+abstract class AccountIdentification() : TypedEntity()
 
 @JsonInclude(JsonInclude.Include.NON_NULL)
 data class AccountIdentificationIban(
     val iban: String
-) : AccountIdentification("account-identification-iban")
+) : AccountIdentification()
 
 @JsonInclude(JsonInclude.Include.NON_NULL)
 data class AccountIdentificationGeneric(
@@ -89,7 +91,7 @@ data class AccountIdentificationGeneric(
     val issuer: String?,
     val code: String?,
     val proprietary: String?
-) : AccountIdentification("account-identification-generic")
+) : AccountIdentification()
 
 data class BankTransaction(
     val account: AccountIdentification,
@@ -124,32 +126,44 @@ data class BankTransaction(
     val details: List<TransactionDetails>,
     val valueDate: DateOrDateTime?,
     val bookingDate: DateOrDateTime?,
-    val accountServicerReference: String
+    val accountServicerReference: String?
 )
 
-abstract class TypedEntity(val type: String)
+@JsonTypeInfo(
+    use = JsonTypeInfo.Id.NAME,
+    include = JsonTypeInfo.As.PROPERTY,
+    property = "type"
+)
+@JsonSubTypes(
+    JsonSubTypes.Type(value = Agent::class, name = "agent"),
+    JsonSubTypes.Type(value = Party::class, name = "party"),
+    JsonSubTypes.Type(value = Date::class, name = "date"),
+    JsonSubTypes.Type(value = DateTime::class, name = "datetime"),
+    JsonSubTypes.Type(value = AccountIdentificationIban::class, name = "account-identification-iban"),
+    JsonSubTypes.Type(value = AccountIdentificationGeneric::class, name = "account-identification-generic")
+)
+abstract class TypedEntity()
 
 @JsonInclude(JsonInclude.Include.NON_NULL)
 class Agent(
     val name: String?,
     val bic: String
-) : TypedEntity("agent")
+) : TypedEntity()
 
 @JsonInclude(JsonInclude.Include.NON_NULL)
 class Party(
     val name: String?
-) : TypedEntity("party")
+) : TypedEntity()
 
-
-abstract class DateOrDateTime(type: String) : TypedEntity(type)
+abstract class DateOrDateTime() : TypedEntity()
 
 class Date(
     val date: String
-) : DateOrDateTime("date")
+) : DateOrDateTime()
 
 class DateTime(
     val date: String
-) : DateOrDateTime("datetime")
+) : DateOrDateTime()
 
 
 @JsonInclude(JsonInclude.Include.NON_NULL)

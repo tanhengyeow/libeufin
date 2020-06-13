@@ -19,6 +19,7 @@
 
 package tech.libeufin.nexus
 
+import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
 import io.ktor.client.HttpClient
 import io.ktor.http.HttpStatusCode
 import io.ktor.request.ApplicationRequest
@@ -123,62 +124,52 @@ fun getEbicsSubscriberDetails(userId: String, transportId: String): EbicsClientS
     return getEbicsSubscriberDetailsInternal(subscriber)
 }
 
-// returns true if the payment is found in the database.
-fun isDuplicate(camt: Document, acctSvcrRef: String): Boolean {
-    val foundWithStatus = transaction {
+/**
+ * Check if the transaction is already found in the database.
+ */
+private fun isDuplicate(acctSvcrRef: String): Boolean {
+    // FIXME: make this generic depending on transaction identification scheme
+    val ati = "AcctSvcrRef:$acctSvcrRef"
+    return transaction {
         val res = RawBankTransactionEntity.find {
-            RawBankTransactionsTable.uid eq acctSvcrRef
+            RawBankTransactionsTable.accountTransactionId eq ati
         }.firstOrNull()
-        if (res != null) {
-            Pair(true, res.status)
-        } else {
-            Pair(false, null)
-        }
+        res != null
     }
-    if (!foundWithStatus.first)
-        return false
-
-    // ignore if status if the same as the one stored previously
-    val givenStatus = camt.pickString("//*[local-name()='Ntry']//*[local-name()='Sts']")
-    if (givenStatus == foundWithStatus.second)
-        return true
-
-    // at this point, the message has neither a known status, or it is itself known.
-    return false
 }
 
 fun processCamtMessage(
     bankAccountId: String,
-    camt53doc: Document
+    camtDoc: Document
 ) {
+    logger.info("processing CAMT message")
     transaction {
         val acct = NexusBankAccountEntity.findById(bankAccountId)
         if (acct == null) {
             throw NexusError(HttpStatusCode.NotFound, "user not found")
         }
-        val bookingDate = parseDashedDate(
-            camt53doc.pickString("//*[local-name()='BookgDt']//*[local-name()='Dt']")
-        )
-        val acctSvcrRef = camt53doc.pickString("//*[local-name()='AcctSvcrRef']")
-        if (isDuplicate(camt53doc, acctSvcrRef)) {
-            logger.info("Processing a duplicate, not storing it.")
-            return@transaction
-        }
-        RawBankTransactionEntity.new {
-            bankAccount = acct
-            uid = acctSvcrRef
-            unstructuredRemittanceInformation =
-                camt53doc.pickString("//*[local-name()='Ntry']//*[local-name()='Ustrd']")
-            transactionType = camt53doc.pickString("//*[local-name()='Ntry']//*[local-name()='CdtDbtInd']")
-            currency = camt53doc.pickString("//*[local-name()='Ntry']//*[local-name()='Amt']/@Ccy")
-            amount = camt53doc.pickString("//*[local-name()='Ntry']//*[local-name()='Amt']")
-            status = camt53doc.pickString("//*[local-name()='Ntry']//*[local-name()='Sts']")
-            this.bookingDate = LocalDateTime.from(bookingDate).millis()
-            counterpartIban =
-                camt53doc.pickString("//*[local-name()='${if (this.transactionType == "DBIT") "CdtrAcct" else "DbtrAcct"}']//*[local-name()='IBAN']")
-            counterpartName =
-                camt53doc.pickString("//*[local-name()='RltdPties']//*[local-name()='${if (this.transactionType == "DBIT") "Cdtr" else "Dbtr"}']//*[local-name()='Nm']")
-            counterpartBic = camt53doc.pickString("//*[local-name()='RltdAgts']//*[local-name()='BIC']")
+        val transactions = getTransactions(camtDoc)
+        logger.info("found ${transactions.size} transactions")
+        for (tx in transactions) {
+            val acctSvcrRef = tx.accountServicerReference
+            if (acctSvcrRef == null) {
+                // FIXME(dold): Report this!
+                logger.error("missing account servicer reference in transaction")
+                continue
+            }
+            if (isDuplicate(acctSvcrRef)) {
+                logger.info("Processing a duplicate, not storing it.")
+                return@transaction
+            }
+            RawBankTransactionEntity.new {
+                bankAccount = acct
+                accountTransactionId = "AcctSvcrRef:$acctSvcrRef"
+                amount = tx.amount
+                currency = tx.currency
+                transactionJson = jacksonObjectMapper().writerWithDefaultPrettyPrinter().writeValueAsString(tx)
+                creditDebitIndicator = tx.creditDebitIndicator.name
+                status = tx.status.name
+            }
         }
     }
 }

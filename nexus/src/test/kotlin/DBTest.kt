@@ -41,7 +41,7 @@ class DBTest {
                 addLogger(StdOutSqlLogger)
                 SchemaUtils.create(
                     FacadesTable,
-                    TalerFacadeStatesTable,
+                    TalerFacadeStateTable,
                     NexusUsersTable
                 )
                 val user = NexusUserEntity.new("u") {
