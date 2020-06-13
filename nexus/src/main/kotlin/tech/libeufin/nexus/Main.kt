@@ -260,14 +260,14 @@ fun ApplicationRequest.hasBody(): Boolean {
     return false
 }
 
-fun moreFrequentBackgroundTasks() {
+fun moreFrequentBackgroundTasks(httpClient: HttpClient) {
     GlobalScope.launch {
         while (true) {
             logger.debug("More frequent background job")
             ingestTalerTransactions()
             submitPreparedPaymentsViaEbics()
             try {
-                downloadTalerFacadesTransactions("C52")
+                downloadTalerFacadesTransactions(httpClient,"C52")
             } catch (e: Exception) {
                 val sw = StringWriter()
                 val pw = PrintWriter(sw)
@@ -279,12 +279,12 @@ fun moreFrequentBackgroundTasks() {
     }
 }
 
-fun lessFrequentBackgroundTasks() {
+fun lessFrequentBackgroundTasks(httpClient: HttpClient) {
     GlobalScope.launch {
         while (true) {
             logger.debug("Less frequent background job")
             try {
-                downloadTalerFacadesTransactions("C53")
+                downloadTalerFacadesTransactions(httpClient,"C53")
             } catch (e: Exception) {
                 val sw = StringWriter()
                 val pw = PrintWriter(sw)
@@ -297,8 +297,7 @@ fun lessFrequentBackgroundTasks() {
 }
 
 /** Crawls all the facades, and requests history for each of its creators. */
-suspend fun downloadTalerFacadesTransactions(type: String) {
-    val httpClient = HttpClient()
+suspend fun downloadTalerFacadesTransactions(httpClient: HttpClient, type: String) {
     val work = mutableListOf<Pair<String, String>>()
     transaction {
         TalerFacadeStateEntity.all().forEach {
@@ -449,8 +448,8 @@ fun serverMain(dbName: String) {
             return@intercept
         }
 
-        lessFrequentBackgroundTasks()
-        moreFrequentBackgroundTasks()
+        lessFrequentBackgroundTasks(client)
+        moreFrequentBackgroundTasks(client)
         routing {
             /**
              * Shows information about the requesting user.
