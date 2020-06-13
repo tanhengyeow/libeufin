@@ -360,7 +360,7 @@ suspend fun fetchTransactionsInternal(
     when (res.connectionType) {
         "ebics" -> {
             fetchEbicsC5x(
-                "C53",
+                type,
                 client,
                 res.connectionName,
                 ct.start,
