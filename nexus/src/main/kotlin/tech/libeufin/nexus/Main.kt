@@ -50,13 +50,17 @@ import io.ktor.request.*
 import io.ktor.response.respond
 import io.ktor.response.respondBytes
 import io.ktor.response.respondText
-import io.ktor.routing.*
+import io.ktor.routing.get
+import io.ktor.routing.post
+import io.ktor.routing.route
+import io.ktor.routing.routing
 import io.ktor.server.engine.embeddedServer
 import io.ktor.server.netty.Netty
 import io.ktor.utils.io.ByteReadChannel
 import io.ktor.utils.io.jvm.javaio.toByteReadChannel
 import io.ktor.utils.io.jvm.javaio.toInputStream
-import kotlinx.coroutines.*
+import kotlinx.coroutines.GlobalScope
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.time.delay
 import org.jetbrains.exposed.sql.and
 import org.jetbrains.exposed.sql.statements.api.ExposedBlob
@@ -69,13 +73,12 @@ import tech.libeufin.util.CryptoUtil.hashpw
 import tech.libeufin.util.ebics_h004.HTDResponseOrderData
 import java.io.PrintWriter
 import java.io.StringWriter
-import java.lang.NumberFormatException
 import java.net.URLEncoder
 import java.time.Duration
+import java.time.LocalDateTime
 import java.util.*
 import java.util.zip.InflaterInputStream
 import javax.crypto.EncryptedPrivateKeyInfo
-import java.time.LocalDateTime
 
 data class NexusError(val statusCode: HttpStatusCode, val reason: String) :
     Exception("${reason} (HTTP status $statusCode)")
@@ -199,7 +202,7 @@ fun createLoopbackBankConnection(bankConnectionName: String, user: NexusUserEnti
         type = "loopback"
     }
     val bankAccount = jacksonObjectMapper().treeToValue(data, BankAccount::class.java)
-    NexusBankAccountEntity.new(bankAccount.account){
+    NexusBankAccountEntity.new(bankAccount.account) {
         iban = bankAccount.iban
         bankCode = bankAccount.bic
         accountHolder = bankAccount.holder
@@ -267,7 +270,7 @@ fun moreFrequentBackgroundTasks(httpClient: HttpClient) {
             ingestTalerTransactions()
             submitPreparedPaymentsViaEbics()
             try {
-                downloadTalerFacadesTransactions(httpClient,"C52")
+                downloadTalerFacadesTransactions(httpClient, "C52")
             } catch (e: Exception) {
                 val sw = StringWriter()
                 val pw = PrintWriter(sw)
@@ -284,7 +287,7 @@ fun lessFrequentBackgroundTasks(httpClient: HttpClient) {
         while (true) {
             logger.debug("Less frequent background job")
             try {
-                downloadTalerFacadesTransactions(httpClient,"C53")
+                downloadTalerFacadesTransactions(httpClient, "C53")
             } catch (e: Exception) {
                 val sw = StringWriter()
                 val pw = PrintWriter(sw)
@@ -316,7 +319,7 @@ suspend fun downloadTalerFacadesTransactions(httpClient: HttpClient, type: Strin
     }
 }
 
-fun <T>expectNonNull(param: T?): T {
+fun <T> expectNonNull(param: T?): T {
     return param ?: throw EbicsProtocolError(
         HttpStatusCode.BadRequest,
         "Non-null value expected."
@@ -757,13 +760,16 @@ fun serverMain(dbName: String) {
 
                                 }
                                 else -> {
-                                    throw NexusError(HttpStatusCode.BadRequest, "connection type ${body.type} not supported")
+                                    throw NexusError(
+                                        HttpStatusCode.BadRequest,
+                                        "connection type ${body.type} not supported"
+                                    )
                                 }
                             }
                         }
                     }
                 }
-                call.respond(object {}) 
+                call.respond(object {})
             }
 
             get("/bank-connections") {
@@ -905,7 +911,8 @@ fun serverMain(dbName: String) {
                         subscriberEntity.ebicsHiaState = EbicsInitState.SENT
                     }
                     if (hpbData != null) {
-                        subscriberEntity.bankAuthenticationPublicKey = ExposedBlob((hpbData.authenticationPubKey.encoded))
+                        subscriberEntity.bankAuthenticationPublicKey =
+                            ExposedBlob((hpbData.authenticationPubKey.encoded))
                         subscriberEntity.bankEncryptionPublicKey = ExposedBlob((hpbData.encryptionPubKey.encoded))
                     }
                 }
@@ -930,7 +937,7 @@ fun serverMain(dbName: String) {
                     if (msgid == null || msgid == "") {
                         throw NexusError(HttpStatusCode.BadRequest, "missing or invalid message ID")
                     }
-                    val msg = NexusBankMessageEntity.find { NexusBankMessagesTable.messageId eq msgid}.firstOrNull()
+                    val msg = NexusBankMessageEntity.find { NexusBankMessagesTable.messageId eq msgid }.firstOrNull()
                     if (msg == null) {
                         throw NexusError(HttpStatusCode.NotFound, "bank message not found")
                     }
