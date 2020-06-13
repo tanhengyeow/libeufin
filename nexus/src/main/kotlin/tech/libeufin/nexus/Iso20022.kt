@@ -74,8 +74,23 @@ data class TransactionDetails(
     val unstructuredRemittanceInformation: String
 )
 
+abstract class AccountIdentification(type: String) : TypedEntity(type)
+
+@JsonInclude(JsonInclude.Include.NON_NULL)
+data class AccountIdentificationIban(
+    val iban: String
+) : AccountIdentification("account-identification-iban")
+
+@JsonInclude(JsonInclude.Include.NON_NULL)
+data class AccountIdentificationGeneric(
+    val identification: String,
+    val issuer: String?,
+    val code: String?,
+    val proprietary: String?
+) : AccountIdentification("account-identification-generic")
+
 data class BankTransaction(
-    val accountIdentifier: String,
+    val account: AccountIdentification,
     /**
      * Identifier for the transaction that should be unique within an account.
      * Prefix by the identifier scheme name followed by a colon.
@@ -84,7 +99,6 @@ data class BankTransaction(
     /**
      * Scheme used for the account identifier.
      */
-    val accountIdentifierScheme: String,
     val currency: String,
     val amount: String,
     /**
@@ -124,10 +138,6 @@ class Party(
     val name: String?
 ) : TypedEntity("party")
 
-@JsonInclude(JsonInclude.Include.NON_NULL)
-class Account(
-    val iban: String?
-) : TypedEntity("party")
 
 abstract class DateOrDateTime(type: String) : TypedEntity(type)
 
@@ -176,10 +186,10 @@ data class References(
 @JsonInclude(JsonInclude.Include.NON_NULL)
 data class RelatedParties(
     val debtor: Party?,
-    val debtorAccount: Account?,
+    val debtorAccount: AccountIdentification?,
     val debtorAgent: Agent?,
     val creditor: Party?,
-    val creditorAccount: Account?,
+    val creditorAccount: AccountIdentification?,
     val creditorAgent: Agent?
 )
 
@@ -210,14 +220,21 @@ private fun XmlElementDestructor.extractAgent(): Agent {
     )
 }
 
-private fun XmlElementDestructor.extractAccount(): Account {
-    return Account(
-        iban = requireUniqueChildNamed("Id") {
-            maybeUniqueChildNamed("IBAN") {
-                it.textContent
+private fun XmlElementDestructor.extractAccount(): AccountIdentification {
+    return requireUniqueChildNamed("Id") {
+        requireOnlyChild {
+            when (it.localName) {
+                "IBAN" -> AccountIdentificationIban(it.textContent)
+                "Othr" -> AccountIdentificationGeneric(
+                    identification = requireUniqueChildNamed("Id") { it.textContent },
+                    proprietary = maybeUniqueChildNamed("Prtry") { it.textContent },
+                    code = maybeUniqueChildNamed("Cd") { it.textContent },
+                    issuer = maybeUniqueChildNamed("Issr") { it.textContent }
+                )
+                else -> throw Error("invalid account identification")
             }
         }
-    )
+    }
 }
 
 private fun XmlElementDestructor.extractParty(): Party {
@@ -293,14 +310,7 @@ private fun XmlElementDestructor.extractTransactionDetails(): List<TransactionDe
 }
 
 private fun XmlElementDestructor.extractInnerTransactions(): List<BankTransaction> {
-    val iban = requireUniqueChildNamed("Acct") {
-        requireUniqueChildNamed("Id") {
-            requireUniqueChildNamed("IBAN") {
-                it.textContent
-            }
-        }
-    }
-
+    val account = requireUniqueChildNamed("Acct") { extractAccount() }
     return mapEachChildNamed("Ntry") {
         val amount = requireUniqueChildNamed("Amt") { it.textContent }
         val currency = requireUniqueChildNamed("Amt") { it.getAttribute("Ccy") }
@@ -315,7 +325,7 @@ private fun XmlElementDestructor.extractInnerTransactions(): List<BankTransactio
                 proprietary = maybeUniqueChildNamed("Prtry") {
                     val cd = requireUniqueChildNamed("Cd") { it.textContent }
                     val issr = requireUniqueChildNamed("Issr") { it.textContent }
-                    "$issr:$cd"
+                    "$issr/$cd"
                 },
                 iso = maybeUniqueChildNamed("Domn") {
                     val cd = requireUniqueChildNamed("Cd") { it.textContent }
@@ -334,8 +344,7 @@ private fun XmlElementDestructor.extractInnerTransactions(): List<BankTransactio
         val txId = "AcctSvcrRef:" + (acctSvcrRef ?: throw Exception("currently, AcctSvcrRef is mandatory in LibEuFin"))
         val details = extractTransactionDetails()
         BankTransaction(
-            accountIdentifier = iban,
-            accountIdentifierScheme = "iban",
+            account = account,
             amount = amount,
             currency = currency,
             status = status,

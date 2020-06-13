@@ -130,7 +130,7 @@ class XmlElementDestructor internal constructor(val d: Document, val e: Element)
     fun <T> requireUniqueChildNamed(s: String, f: XmlElementDestructor.(e: Element) -> T): T {
         val cl = e.getChildElements("*", s)
         if (cl.size != 1) {
-            throw DestructionError("expected exactly one unique $s child, got ${cl.size} instead")
+            throw DestructionError("expected exactly one unique $s child, got ${cl.size} instead at ${e}")
         }
         val el = cl[0]
         val destr = XmlElementDestructor(d, el)
