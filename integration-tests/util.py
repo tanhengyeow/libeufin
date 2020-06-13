@@ -1,6 +1,6 @@
 # Helpers for the integration tests.
 
-from subprocess import check_call, Popen, PIPE
+from subprocess import check_call, Popen, PIPE, DEVNULL
 import socket
 from requests import post, get
 from time import sleep
@@ -17,6 +17,11 @@ def checkPort(port):
         print(f"Port {port} is not available")
         exit(77)
 
+def kill(name, s):
+    print(f"terminating {name} ...")
+    s.terminate()
+    print("terminated!")
+
 
 def startSandbox(dbname="sandbox-test.sqlite3"):
     db_full_path = str(Path.cwd() / dbname)
@@ -25,10 +30,11 @@ def startSandbox(dbname="sandbox-test.sqlite3"):
     checkPort(5000)
     sandbox = Popen(
         ["../gradlew", "-p", "..", "sandbox:run", "--console=plain", "--args=serve --db-name={}".format(db_full_path)],
+        stdin=DEVNULL,
         stdout=open("sandbox-stdout.log", "w"),
         stderr=open("sandbox-stderr.log", "w"),
     )
-    atexit.register(lambda: sandbox.terminate())
+    atexit.register(lambda: kill("sandbox", sandbox))
     for i in range(10):
         try:
             get("http://localhost:5000/")
@@ -69,10 +75,11 @@ def startNexus(dbname="nexus-test.sqlite3"):
             "--console=plain",
             "--args=serve --db-name={}".format(db_full_path),
         ],
+        stdin=DEVNULL,
         stdout=open("nexus-stdout.log", "w"),
         stderr=open("nexus-stderr.log", "w"),
     )
-    atexit.register(lambda: nexus.terminate())
+    atexit.register(lambda: kill("nexus", nexus))
     for i in range(10):
         try:
             get("http://localhost:5001/")
