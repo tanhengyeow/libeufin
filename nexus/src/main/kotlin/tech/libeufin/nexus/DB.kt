@@ -43,6 +43,10 @@ import java.sql.Connection
 object TalerRequestedPayments : LongIdTable() {
     val preparedPayment = reference("payment", PreparedPaymentsTable)
     val requestUId = text("request_uid")
+
+    /**
+     * Amount in the Taler amount format.
+     */
     val amount = text("amount")
     val exchangeBaseUrl = text("exchange_base_url")
     val wtid = text("wtid")
@@ -170,7 +174,15 @@ object PreparedPaymentsTable : IdTable<String>() {
     /** the UUID representing this payment in the system */
     override val id = text("id").entityId()
     val paymentId = long("paymentId")
+
+    /**
+     * Time when the payment initiation was created.
+     */
     val preparationDate = long("preparationDate")
+
+    /**
+     * First time that this payment request has been submitted successfully.
+     */
     val submissionDate = long("submissionDate").nullable()
     val sum = amount("sum")
     val currency = varchar("currency", length = 3).default("EUR")
@@ -183,7 +195,10 @@ object PreparedPaymentsTable : IdTable<String>() {
     val debitorBic = text("debitorBic")
     val debitorName = text("debitorName").nullable()
 
-    /* Indicates whether the PAIN message was sent to the bank. */
+    /**
+     * Indicates whether the PAIN message was sent to the bank.
+     * FIXME(dold): Overlap with submissionDate?!
+     */
     val submitted = bool("submitted").default(false)
 }
 
