@@ -14,14 +14,14 @@
         </encoder>
     </appender>
 
-    <logger name="tech.libeufin" level="TRACE" />
-    <logger name="io.netty" level="WARN" />
-    <logger name="ktor" level="WARN" />
-    <logger name="Exposed" level="WARN" />
+    <logger name="tech.libeufin" level="TRACE"/>
+    <logger name="io.netty" level="WARN"/>
+    <logger name="ktor" level="WARN"/>
+    <logger name="Exposed" level="WARN"/>
 
     <root level="WARN">
-        <appender-ref ref="STDOUT" />
-        <appender-ref ref="NEXUS-FILE" />
+        <appender-ref ref="STDOUT"/>
+        <appender-ref ref="NEXUS-FILE"/>
     </root>
 
 </configuration>

@@ -1,5 +1,4 @@
 package tech.libeufin.nexus
-import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
 import org.junit.Test
 import org.w3c.dom.Document

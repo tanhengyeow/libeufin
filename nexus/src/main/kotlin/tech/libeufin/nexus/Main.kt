@@ -62,7 +62,6 @@ import io.ktor.utils.io.jvm.javaio.toInputStream
 import kotlinx.coroutines.GlobalScope
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.time.delay
-import org.jetbrains.exposed.sql.and
 import org.jetbrains.exposed.sql.statements.api.ExposedBlob
 import org.jetbrains.exposed.sql.transactions.transaction
 import org.slf4j.Logger
@@ -75,7 +74,6 @@ import java.io.PrintWriter
 import java.io.StringWriter
 import java.net.URLEncoder
 import java.time.Duration
-import java.time.LocalDateTime
 import java.util.*
 import java.util.zip.InflaterInputStream
 import javax.crypto.EncryptedPrivateKeyInfo
@@ -257,7 +255,7 @@ fun ApplicationRequest.hasBody(): Boolean {
             val cl = contentLengthHeaderStr.toInt()
             return cl != 0
         } catch (e: NumberFormatException) {
-            return false;
+            return false
         }
     }
     return false
@@ -276,7 +274,7 @@ fun moreFrequentBackgroundTasks(httpClient: HttpClient) {
         while (true) {
             logger.debug("Running more frequent background jobs")
             reportAndIgnoreErrors { downloadTalerFacadesTransactions(httpClient, "C53") }
-            reportAndIgnoreErrors { downloadTalerFacadesTransactions(httpClient, "C52")  }
+            reportAndIgnoreErrors { downloadTalerFacadesTransactions(httpClient, "C52") }
             reportAndIgnoreErrors { ingestTalerTransactions() }
             reportAndIgnoreErrors { submitPreparedPaymentsViaEbics() }
             logger.debug("More frequent background jobs done")

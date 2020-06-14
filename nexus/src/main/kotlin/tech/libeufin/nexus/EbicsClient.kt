@@ -119,7 +119,7 @@ suspend fun doEbicsDownloadTransaction(
 
     // Transfer phase
 
-    for (x in 2..numSegments) {
+    for (x in 2 .. numSegments) {
         val transferReqStr =
             createEbicsRequestForDownloadTransferPhase(subscriberDetails, transactionID, x, numSegments)
         val transferResponseStr = client.postToBank(subscriberDetails.ebicsUrl, transferReqStr)

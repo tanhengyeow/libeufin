@@ -32,20 +32,10 @@ import tech.libeufin.util.*
 import tech.libeufin.util.ebics_h004.EbicsTypes
 import java.security.interfaces.RSAPublicKey
 import java.time.Instant
-import java.time.LocalDateTime
 import java.time.ZoneId
 import java.time.ZonedDateTime
 import java.time.format.DateTimeFormatter
 import java.util.*
-
-fun isProduction(): Boolean {
-    return System.getenv("NEXUS_PRODUCTION") != null
-}
-
-fun calculateRefund(amount: String): Amount {
-    // fixme: must apply refund fees!
-    return Amount(amount)
-}
 
 /**
  * Skip national only-numeric bank account ids, and return the first IBAN in list
@@ -194,7 +184,7 @@ fun ingestBankMessagesIntoAccount(
         var lastId = acct.highestSeenBankMessageId
         NexusBankMessageEntity.find {
             (NexusBankMessagesTable.bankConnection eq conn.id) and
-                (NexusBankMessagesTable.id greater acct.highestSeenBankMessageId)
+                    (NexusBankMessagesTable.id greater acct.highestSeenBankMessageId)
         }.orderBy(Pair(NexusBankMessagesTable.id, SortOrder.ASC)).forEach {
             // FIXME: check if it's CAMT first!
             val doc = XMLUtil.parseStringIntoDom(it.message.bytes.toString(Charsets.UTF_8))
@@ -226,8 +216,10 @@ suspend fun fetchEbicsC5x(
         orderParamsJson.toOrderParams()
     )
     when (historyType) {
-        "C52" -> {}
-        "C53" -> {}
+        "C52" -> {
+        }
+        "C53" -> {
+        }
         else -> {
             throw NexusError(HttpStatusCode.BadRequest, "history type '$historyType' not supported")
         }
@@ -404,14 +396,6 @@ fun getPreparedPayment(uuid: String): PreparedPaymentEntity {
     )
 }
 
-fun getNexusUser(id: String): NexusUserEntity {
-    return transaction {
-        NexusUserEntity.findById(id)
-    } ?: throw NexusError(
-        HttpStatusCode.NotFound,
-        "User '$id' not found"
-    )
-}
 
 /**
  * Insert one row in the database, and leaves it marked as non-submitted.

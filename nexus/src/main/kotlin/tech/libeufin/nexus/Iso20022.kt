@@ -78,7 +78,7 @@ data class TransactionDetails(
     val unstructuredRemittanceInformation: String
 )
 
-abstract class AccountIdentification() : TypedEntity()
+abstract class AccountIdentification : TypedEntity()
 
 @JsonInclude(JsonInclude.Include.NON_NULL)
 data class AccountIdentificationIban(
@@ -142,7 +142,7 @@ data class BankTransaction(
     JsonSubTypes.Type(value = AccountIdentificationIban::class, name = "account-identification-iban"),
     JsonSubTypes.Type(value = AccountIdentificationGeneric::class, name = "account-identification-generic")
 )
-abstract class TypedEntity()
+abstract class TypedEntity
 
 @JsonInclude(JsonInclude.Include.NON_NULL)
 class Agent(
@@ -155,7 +155,7 @@ class Party(
     val name: String?
 ) : TypedEntity()
 
-abstract class DateOrDateTime() : TypedEntity()
+abstract class DateOrDateTime : TypedEntity()
 
 class Date(
     val date: String
@@ -383,7 +383,7 @@ fun getTransactions(doc: Document): List<BankTransaction> {
     return destructXml(doc) {
         requireRootElement("Document") {
             // Either bank to customer statement or report
-            requireOnlyChild() {
+            requireOnlyChild {
                 when (it.localName) {
                     "BkToCstmrAcctRpt" -> {
                         mapEachChildNamed("Rpt") {

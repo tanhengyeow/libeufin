@@ -209,29 +209,6 @@ fun customConverter(body: Any): String {
 }
 
 /**
- * This function indicates whether a payment in the raw table was already reported
- * by some other EBICS message.  It works for both incoming and outgoing payments.
- * Basically, it tries to match all the relevant details with those from the records
- * that are already stored in the local "taler" database.
- *
- * @param entry a new raw payment to be checked.
- * @return true if the payment was already "seen" by the Taler layer, false otherwise.
- */
-fun duplicatePayment(entry: RawBankTransactionEntity): Boolean {
-    return false
-}
-
-/**
- * This function checks whether the bank didn't accept one exchange's payment initiation.
- *
- * @param entry the raw entry to check
- * @return true if the payment failed, false if it was successful.
- */
-fun paymentFailed(entry: RawBankTransactionEntity): Boolean {
-    return false
-}
-
-/**
  * Tries to extract a valid reserve public key from the raw subject line
  */
 fun extractReservePubFromSubject(rawSubject: String): String? {
@@ -249,7 +226,7 @@ fun extractWtidFromSubject(rawSubject: String): String? {
     return result.value.toUpperCase()
 }
 
-fun getTalerFacadeState(fcid: String): TalerFacadeStateEntity {
+private fun getTalerFacadeState(fcid: String): TalerFacadeStateEntity {
     val facade = FacadeEntity.find { FacadesTable.id eq fcid }.firstOrNull() ?: throw NexusError(
         HttpStatusCode.NotFound,
         "Could not find facade '${fcid}'"
@@ -263,7 +240,7 @@ fun getTalerFacadeState(fcid: String): TalerFacadeStateEntity {
     return facadeState
 }
 
-fun getTalerFacadeBankAccount(fcid: String): NexusBankAccountEntity {
+private fun getTalerFacadeBankAccount(fcid: String): NexusBankAccountEntity {
     val facade = FacadeEntity.find { FacadesTable.id eq fcid }.firstOrNull() ?: throw NexusError(
         HttpStatusCode.NotFound,
         "Could not find facade '${fcid}'"
@@ -282,8 +259,10 @@ fun getTalerFacadeBankAccount(fcid: String): NexusBankAccountEntity {
     return bankAccount
 }
 
-// /taler/transfer
-suspend fun talerTransfer(call: ApplicationCall) {
+/**
+ * Handle a Taler Wire Gateway /transfer request.
+ */
+private suspend fun talerTransfer(call: ApplicationCall) {
     val transferRequest = call.receive<TalerTransferRequest>()
     val amountObj = parseAmount(transferRequest.amount)
     val creditorObj = parsePayto(transferRequest.credit_account)
@@ -347,7 +326,7 @@ suspend fun talerTransfer(call: ApplicationCall) {
 }
 
 // /taler/admin/add-incoming
-suspend fun talerAddIncoming(call: ApplicationCall): Unit {
+private suspend fun talerAddIncoming(call: ApplicationCall): Unit {
     val addIncomingData = call.receive<TalerAdminAddIncoming>()
     val debtor = parsePayto(addIncomingData.debit_account)
     val res = transaction {
@@ -443,7 +422,7 @@ suspend fun submitPreparedPaymentsViaEbics() {
     }
     val httpClient = HttpClient()
     workQueue.forEach {
-        println("submitting prepared payment via EBICS");
+        println("submitting prepared payment via EBICS")
         doEbicsUploadTransaction(
             httpClient,
             it.subscriberDetails,
@@ -564,7 +543,7 @@ fun ingestTalerTransactions() {
     }
 }
 
-suspend fun historyOutgoing(call: ApplicationCall): Unit {
+private suspend fun historyOutgoing(call: ApplicationCall): Unit {
     val param = call.expectUrlParameter("delta")
     val delta: Int = try {
         param.toInt()
@@ -609,8 +588,10 @@ suspend fun historyOutgoing(call: ApplicationCall): Unit {
     )
 }
 
-// /taler/history/incoming
-suspend fun historyIncoming(call: ApplicationCall): Unit {
+/**
+ * taler/history/incoming
+ */
+private suspend fun historyIncoming(call: ApplicationCall): Unit {
     val param = call.expectUrlParameter("delta")
     val delta: Int = try {
         param.toInt()
