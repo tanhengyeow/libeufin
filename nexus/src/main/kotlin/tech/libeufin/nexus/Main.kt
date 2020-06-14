@@ -79,7 +79,7 @@ import java.util.zip.InflaterInputStream
 import javax.crypto.EncryptedPrivateKeyInfo
 
 data class NexusError(val statusCode: HttpStatusCode, val reason: String) :
-    Exception("${reason} (HTTP status $statusCode)")
+    Exception("$reason (HTTP status $statusCode)")
 
 val logger: Logger = LoggerFactory.getLogger("tech.libeufin.nexus")
 
@@ -314,8 +314,7 @@ suspend fun downloadTalerFacadesTransactions(httpClient: HttpClient, type: Strin
             client = httpClient,
             type = type,
             userId = it.first,
-            accountid = it.second,
-            ct = CollectedTransaction(null, null, null)
+            accountid = it.second
         )
     }
 }
@@ -332,12 +331,11 @@ fun ApplicationCall.expectUrlParameter(name: String): String {
         ?: throw EbicsProtocolError(HttpStatusCode.BadRequest, "Parameter '$name' not provided in URI")
 }
 
-suspend fun fetchTransactionsInternal(
+private suspend fun fetchTransactionsInternal(
     client: HttpClient,
     type: String, // C53 or C52
     userId: String,
-    accountid: String,
-    ct: CollectedTransaction
+    accountid: String
 ) {
     val res = transaction {
         val acct = NexusBankAccountEntity.findById(accountid)
@@ -363,12 +361,13 @@ suspend fun fetchTransactionsInternal(
     }
     when (res.connectionType) {
         "ebics" -> {
+            // FIXME(dold): Support fetching not only the latest transactions.
+            // It's not clear what's the nicest way to support this.
             fetchEbicsC5x(
                 type,
                 client,
                 res.connectionName,
-                ct.start,
-                ct.end,
+                EbicsStandardOrderParams(),
                 res.subscriberDetails
             )
             ingestBankMessagesIntoAccount(res.connectionName, accountid)
@@ -687,8 +686,7 @@ fun serverMain(dbName: String) {
                     client,
                     "C53",
                     user.id.value,
-                    accountid,
-                    ct
+                    accountid
                 )
                 call.respondText("Collection performed")
                 return@post
@@ -935,10 +933,10 @@ fun serverMain(dbName: String) {
             }
 
             post("/bank-connections/{connid}/ebics/fetch-c53") {
-                val paramsJson = if (call.request.hasBody()) {
-                    call.receive<EbicsDateRangeJson>()
+                val ebicsOrderParams = if (call.request.hasBody()) {
+                    call.receive<EbicsOrderParamsJson>().toOrderParams()
                 } else {
-                    null
+                    EbicsStandardOrderParams()
                 }
                 val ret = transaction {
                     val user = authenticateRequest(call.request)
@@ -952,15 +950,15 @@ fun serverMain(dbName: String) {
                     }
 
                 }
-                fetchEbicsC5x("C53", client, ret.connId, paramsJson?.start, paramsJson?.end, ret.subscriber)
+                fetchEbicsC5x("C53", client, ret.connId, ebicsOrderParams, ret.subscriber)
                 call.respond(object {})
             }
 
             post("/bank-connections/{connid}/ebics/fetch-c52") {
-                val paramsJson = if (call.request.hasBody()) {
-                    call.receive<EbicsDateRangeJson>()
+                val ebicsOrderParams = if (call.request.hasBody()) {
+                    call.receive<EbicsOrderParamsJson>().toOrderParams()
                 } else {
-                    null
+                    EbicsStandardOrderParams()
                 }
                 val ret = transaction {
                     val user = authenticateRequest(call.request)
@@ -974,7 +972,7 @@ fun serverMain(dbName: String) {
                     }
 
                 }
-                fetchEbicsC5x("C52", client, ret.connId, paramsJson?.start, paramsJson?.end, ret.subscriber)
+                fetchEbicsC5x("C52", client, ret.connId, ebicsOrderParams, ret.subscriber)
                 call.respond(object {})
             }
 
@@ -1093,7 +1091,7 @@ fun serverMain(dbName: String) {
                 if (orderType.length != 3) {
                     throw NexusError(HttpStatusCode.BadRequest, "ebics order type must be three characters")
                 }
-                val paramsJson = call.receiveOrNull<EbicsStandardOrderParamsJson>()
+                val paramsJson = call.receiveOrNull<EbicsStandardOrderParamsDateJson>()
                 val orderParams = if (paramsJson == null) {
                     EbicsStandardOrderParams()
                 } else {

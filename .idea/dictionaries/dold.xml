@@ -4,7 +4,9 @@
       <w>affero</w>
       <w>combinators</w>
       <w>ebics</w>
+      <w>libeufin</w>
       <w>payto</w>
+      <w>sqlite</w>
     </words>
   </dictionary>
 </component>

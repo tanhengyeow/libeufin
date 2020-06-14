@@ -202,18 +202,14 @@ suspend fun fetchEbicsC5x(
     historyType: String,
     client: HttpClient,
     bankConnectionId: String,
-    start: String?, // dashed date YYYY-MM(01-12)-DD(01-31)
-    end: String?, // dashed date YYYY-MM(01-12)-DD(01-31)
+    orderParams: EbicsOrderParams,
     subscriberDetails: EbicsClientSubscriberDetails
 ) {
-    val orderParamsJson = EbicsStandardOrderParamsJson(
-        EbicsDateRangeJson(start, end)
-    )
     val response = doEbicsDownloadTransaction(
         client,
         subscriberDetails,
         historyType,
-        orderParamsJson.toOrderParams()
+        orderParams
     )
     when (historyType) {
         "C52" -> {

@@ -22,6 +22,7 @@ package tech.libeufin.nexus
 import com.fasterxml.jackson.annotation.JsonSubTypes
 import com.fasterxml.jackson.annotation.JsonTypeInfo
 import com.fasterxml.jackson.annotation.JsonTypeName
+import com.fasterxml.jackson.annotation.JsonValue
 import com.fasterxml.jackson.databind.JsonNode
 import tech.libeufin.util.*
 import java.time.LocalDate
@@ -31,44 +32,50 @@ data class EbicsBackupRequestJson(
     val passphrase: String
 )
 
-data class NexusErrorJson(
-    val message: String
+@JsonTypeInfo(
+    use = JsonTypeInfo.Id.NAME,
+    include = JsonTypeInfo.As.PROPERTY,
+    property = "paramType"
 )
+@JsonSubTypes(
+    JsonSubTypes.Type(value = EbicsStandardOrderParamsDateJson::class, name = "standard-date-range"),
+    JsonSubTypes.Type(value = EbicsStandardOrderParamsEmptyJson::class, name = "standard-empty"),
+    JsonSubTypes.Type(value = EbicsGenericOrderParamsJson::class, name = "generic")
+)
+abstract class EbicsOrderParamsJson {
+    abstract fun toOrderParams(): EbicsOrderParams
+}
 
-data class EbicsStandardOrderParamsJson(val dateRange: EbicsDateRangeJson?) {
-    fun toOrderParams(): EbicsOrderParams {
-        var dateRange: EbicsDateRange? = if (this.dateRange != null) {
-            EbicsDateRange(
-                LocalDate.parse(this.dateRange.start ?: "1970-01-31"),
-                LocalDate.parse(this.dateRange.end ?: LocalDateTime.now().toDashedDate())
-            )
-        } else {
-            null
-        }
-        return EbicsStandardOrderParams(dateRange)
+@JsonTypeName("generic")
+class EbicsGenericOrderParamsJson(
+    val params: Map<String, String>
+) : EbicsOrderParamsJson() {
+    override fun toOrderParams(): EbicsOrderParams {
+        return EbicsGenericOrderParams(params)
     }
 }
 
-data class EbicsDateRangeJson(
-    /** ISO 8601 calendar dates: YEAR-MONTH(01-12)-DAY(1-31) */
-    val start: String?,
-    val end: String?
-)
+@JsonTypeName("standard-empty")
+class EbicsStandardOrderParamsEmptyJson : EbicsOrderParamsJson() {
+    override fun toOrderParams(): EbicsOrderParams {
+        return EbicsStandardOrderParams(null)
+    }
+}
 
-data class EbicsPubKeyInfo(
-    val authPub: String,
-    val encPub: String,
-    val sigPub: String
-)
-
-data class ProtocolAndVersionJson(
-    val protocol: String,
-    val version: String
-)
-
-data class EbicsHevResponseJson(
-    val versions: List<ProtocolAndVersionJson>
-)
+@JsonTypeName("standard-date-range")
+class EbicsStandardOrderParamsDateJson(
+    val start: String,
+    val end: String
+) : EbicsOrderParamsJson() {
+    override fun toOrderParams(): EbicsOrderParams {
+        val dateRange: EbicsDateRange? =
+            EbicsDateRange(
+                LocalDate.parse(this.start),
+                LocalDate.parse(this.end)
+            )
+        return EbicsStandardOrderParams(dateRange)
+    }
+}
 
 data class EbicsErrorDetailJson(
     val type: String,
@@ -77,34 +84,6 @@ data class EbicsErrorDetailJson(
 
 data class EbicsErrorJson(
     val error: EbicsErrorDetailJson
-)
-
-/** Instructs the nexus to CREATE a new Ebics subscriber.
- * Note that the nexus user to which the subscriber must be
- * associated is extracted from other HTTP details.
- *
- * This same structure can be user to SHOW one Ebics subscriber
- * existing at the nexus.
- */
-data class EbicsSubscriber(
-    val ebicsURL: String,
-    val hostID: String,
-    val partnerID: String,
-    val userID: String,
-    val systemID: String?
-)
-
-data class RawPayments(
-    var payments: MutableList<RawPayment> = mutableListOf()
-)
-
-/*************************************************
- *  API types (used as requests/responses types) *
- *************************************************/
-data class BankTransport(
-    val transport: String,
-    val backup: Any? = null,
-    val data: Any?
 )
 
 data class BankConnectionInfo(
@@ -138,6 +117,35 @@ data class EbicsKeysBackupJson(
     val sigBlob: String
 )
 
+enum class FetchLevel(@get:JsonValue val jsonName: String) {
+    REPORT("report"), STATEMENT("statement"), ALL("all");
+}
+
+/**
+ * Instructions on what range to fetch from the bank,
+ * and which source(s) to use.
+ *
+ * Intended to be convenient to specify.
+ */
+@JsonTypeInfo(
+    use = JsonTypeInfo.Id.NAME,
+    include = JsonTypeInfo.As.PROPERTY,
+    property = "rangeType"
+)
+@JsonSubTypes(
+    JsonSubTypes.Type(value = FetchSpecLatestJson::class, name = "latest"),
+    JsonSubTypes.Type(value = FetchSpecAllJson::class, name = "all"),
+    JsonSubTypes.Type(value = FetchSpecPreviousDaysJson::class, name = "previousDays")
+)
+abstract class FetchSpecJson(
+    val level: FetchLevel,
+    val bankConnection: String?
+)
+
+class FetchSpecLatestJson(level: FetchLevel, bankConnection: String) : FetchSpecJson(level, bankConnection)
+class FetchSpecAllJson(level: FetchLevel, bankConnection: String) : FetchSpecJson(level, bankConnection)
+class FetchSpecPreviousDaysJson(level: FetchLevel, bankConnection: String, val number: Int) :
+    FetchSpecJson(level, bankConnection)
 
 @JsonTypeInfo(
     use = JsonTypeInfo.Id.NAME,
