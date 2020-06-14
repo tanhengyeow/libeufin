@@ -16,13 +16,12 @@ plugins {
 
 sourceSets {
     main.kotlin.srcDirs = ["src/main/kotlin"]
-    main.kotlin.excludes = ["**/MainDeprecated.kt"]
 }
 
 task installToPrefix(type: Copy) {
     dependsOn(installShadowDist)
     from("build/install/nexus-shadow") {
-        include("**/nexus")
+        include("**/libeufin-nexus")
         include("**/*.jar")
     }
     /**
@@ -88,6 +87,7 @@ dependencies {
 
 application {
     mainClassName = "tech.libeufin.nexus.MainKt"
+    applicationName = "libeufin-nexus"
 }
 
 
@@ -100,3 +100,4 @@ jar {
 run {
     standardInput = System.in
 }
+

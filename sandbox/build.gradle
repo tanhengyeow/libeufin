@@ -18,7 +18,7 @@ compileKotlin {
 task installToPrefix(type: Copy) {
     dependsOn(installShadowDist)
     from("build/install/sandbox-shadow") {
-        include("**/sandbox")
+        include("**/libeufin-sandbox")
         include("**/*.jar")
     }
     /**
@@ -75,6 +75,7 @@ dependencies {
 
 application {
     mainClassName = "tech.libeufin.sandbox.MainKt"
+    applicationName = "libeufin-sandbox"
 }
 
 
