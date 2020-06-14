@@ -113,12 +113,75 @@ assertResponse(
         headers=dict(Authorization=USER_AUTHORIZATION_HEADER),
     )
 )
+assertResponse(
+    post(
+        "http://localhost:5001/bank-connections",
+        json=dict(
+            name="my-ebics-2",
+            source="new",
+            type="ebics",
+            data=dict(
+                ebicsURL=EBICS_URL, hostID=HOST_ID, partnerID=PARTNER_ID, userID=USER_ID
+            ),
+        ),
+        headers=dict(Authorization=USER_AUTHORIZATION_HEADER),
+    )
+)
+assertResponse(
+    post(
+        "http://localhost:5001/bank-connections",
+        json=dict(
+            name="my-ebics-3",
+            source="new",
+            type="ebics",
+            data=dict(
+                ebicsURL=EBICS_URL, hostID=HOST_ID, partnerID=PARTNER_ID, userID=USER_ID
+            ),
+        ),
+        headers=dict(Authorization=USER_AUTHORIZATION_HEADER),
+    )
+)
+assertResponse(
+    post(
+        "http://localhost:5001/bank-connections",
+        json=dict(
+            name="my-ebics-4",
+            source="new",
+            type="ebics",
+            data=dict(
+                ebicsURL=EBICS_URL, hostID=HOST_ID, partnerID=PARTNER_ID, userID=USER_ID
+            ),
+        ),
+        headers=dict(Authorization=USER_AUTHORIZATION_HEADER),
+    )
+)
 
 print("connecting")
 
 assertResponse(
     post(
         "http://localhost:5001/bank-connections/my-ebics/connect",
+        json=dict(),
+        headers=dict(Authorization=USER_AUTHORIZATION_HEADER),
+    )
+)
+assertResponse(
+    post(
+        "http://localhost:5001/bank-connections/my-ebics-2/connect",
+        json=dict(),
+        headers=dict(Authorization=USER_AUTHORIZATION_HEADER),
+    )
+)
+assertResponse(
+    post(
+        "http://localhost:5001/bank-connections/my-ebics-3/connect",
+        json=dict(),
+        headers=dict(Authorization=USER_AUTHORIZATION_HEADER),
+    )
+)
+assertResponse(
+    post(
+        "http://localhost:5001/bank-connections/my-ebics-4/connect",
         json=dict(),
         headers=dict(Authorization=USER_AUTHORIZATION_HEADER),
     )
