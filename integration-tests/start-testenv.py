@@ -201,7 +201,6 @@ assertResponse(
 assertResponse(
     post(
         f"http://localhost:5001/bank-accounts/{BANK_ACCOUNT_LABEL}/fetch-transactions",
-        json=dict(),
         headers=dict(Authorization=USER_AUTHORIZATION_HEADER),
     )
 )
@@ -249,7 +248,6 @@ assertResponse(
 assertResponse(
     post(
         f"http://localhost:5001/bank-accounts/{BANK_ACCOUNT_LABEL}/fetch-transactions",
-        json=dict(),
         headers=dict(Authorization=USER_AUTHORIZATION_HEADER),
     )
 )

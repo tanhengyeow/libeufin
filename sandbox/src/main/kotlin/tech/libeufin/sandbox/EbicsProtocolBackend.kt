@@ -537,12 +537,20 @@ private suspend fun ApplicationCall.handleEbicsHia(header: EbicsUnsecuredRequest
     val encPub = CryptoUtil.loadRsaPublicKeyFromComponents(encPubXml.modulus, encPubXml.exponent)
     val authPub = CryptoUtil.loadRsaPublicKeyFromComponents(authPubXml.modulus, authPubXml.exponent)
 
-    transaction {
+    val ok = transaction {
         val ebicsSubscriber = findEbicsSubscriber(header.static.partnerID, header.static.userID, header.static.systemID)
         if (ebicsSubscriber == null) {
             LOGGER.warn("ebics subscriber not found")
             throw EbicsInvalidRequestError()
         }
+        when (ebicsSubscriber.state) {
+            SubscriberState.NEW -> {}
+            SubscriberState.PARTIALLY_INITIALIZED_INI -> {}
+            SubscriberState.PARTIALLY_INITIALIZED_HIA, SubscriberState.INITIALIZED, SubscriberState.READY -> {
+                return@transaction false
+            }
+        }
+
         ebicsSubscriber.authenticationKey = EbicsSubscriberPublicKeyEntity.new {
             this.rsaPublicKey = ExposedBlob(authPub.encoded)
             state = KeyState.NEW
@@ -554,10 +562,15 @@ private suspend fun ApplicationCall.handleEbicsHia(header: EbicsUnsecuredRequest
         ebicsSubscriber.state = when (ebicsSubscriber.state) {
             SubscriberState.NEW -> SubscriberState.PARTIALLY_INITIALIZED_HIA
             SubscriberState.PARTIALLY_INITIALIZED_INI -> SubscriberState.INITIALIZED
-            else -> ebicsSubscriber.state
+            else -> throw Exception("internal invariant failed")
         }
+        return@transaction true
     }
-    respondEbicsKeyManagement("[EBICS_OK]", "000000", "000000")
+    if (ok) {
+        respondEbicsKeyManagement("[EBICS_OK]", "000000", "000000")
+    } else {
+        respondEbicsKeyManagement("[EBICS_INVALID_USER_OR_USER_STATE]", "091002", "000000")
+    }
 }
 
 
@@ -571,12 +584,19 @@ private suspend fun ApplicationCall.handleEbicsIni(header: EbicsUnsecuredRequest
     val sigPubXml = keyObject.signaturePubKeyInfo.pubKeyValue.rsaKeyValue
     val sigPub = CryptoUtil.loadRsaPublicKeyFromComponents(sigPubXml.modulus, sigPubXml.exponent)
 
-    transaction {
+    val ok = transaction {
         val ebicsSubscriber =
             findEbicsSubscriber(header.static.partnerID, header.static.userID, header.static.systemID)
         if (ebicsSubscriber == null) {
             LOGGER.warn("ebics subscriber ('${header.static.partnerID}' / '${header.static.userID}' / '${header.static.systemID}') not found")
             throw EbicsInvalidRequestError()
+        }
+        when (ebicsSubscriber.state) {
+            SubscriberState.NEW -> {}
+            SubscriberState.PARTIALLY_INITIALIZED_HIA -> {}
+            SubscriberState.PARTIALLY_INITIALIZED_INI, SubscriberState.INITIALIZED, SubscriberState.READY -> {
+                return@transaction false
+            }
         }
         ebicsSubscriber.signatureKey = EbicsSubscriberPublicKeyEntity.new {
             this.rsaPublicKey = ExposedBlob(sigPub.encoded)
@@ -585,11 +605,16 @@ private suspend fun ApplicationCall.handleEbicsIni(header: EbicsUnsecuredRequest
         ebicsSubscriber.state = when (ebicsSubscriber.state) {
             SubscriberState.NEW -> SubscriberState.PARTIALLY_INITIALIZED_INI
             SubscriberState.PARTIALLY_INITIALIZED_HIA -> SubscriberState.INITIALIZED
-            else -> ebicsSubscriber.state
+            else -> throw Error("internal invariant failed")
         }
+        return@transaction true
     }
     LOGGER.info("Signature key inserted in database _and_ subscriber state changed accordingly")
-    respondEbicsKeyManagement("[EBICS_OK]", "000000", bankReturnCode = "000000", orderId = "OR01")
+    if (ok) {
+        respondEbicsKeyManagement("[EBICS_OK]", "000000", "000000")
+    } else {
+        respondEbicsKeyManagement("[EBICS_INVALID_USER_OR_USER_STATE]", "091002", "000000")
+    }
 }
 
 private suspend fun ApplicationCall.handleEbicsHpb(

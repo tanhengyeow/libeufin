@@ -289,7 +289,7 @@ fun Route.ebicsBankConnectionRoutes(client: HttpClient) {
      */
     post("/import-accounts") {
         val subscriberDetails = transaction {
-            val user = authenticateRequest(call.request)
+            authenticateRequest(call.request)
             val conn = requireBankConnection(call, "connid")
             if (conn.type != "ebics") {
                 throw NexusError(HttpStatusCode.BadRequest, "bank connection is not of type 'ebics'")
