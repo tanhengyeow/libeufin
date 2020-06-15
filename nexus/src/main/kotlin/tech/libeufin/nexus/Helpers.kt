@@ -101,11 +101,10 @@ fun getEbicsSubscriberDetailsInternal(subscriber: EbicsSubscriberEntity): EbicsC
 }
 
 /**
- * Retrieve Ebics subscriber details given a Transport
- * object and handling the default case (when this latter is null).
+ * Retrieve Ebics subscriber details given a bank connection.
  */
-fun getEbicsSubscriberDetails(userId: String, transportId: String): EbicsClientSubscriberDetails {
-    val transport = NexusBankConnectionEntity.findById(transportId)
+fun getEbicsSubscriberDetails(bankConnectionId: String): EbicsClientSubscriberDetails {
+    val transport = NexusBankConnectionEntity.findById(bankConnectionId)
     if (transport == null) {
         throw NexusError(HttpStatusCode.NotFound, "transport not found")
     }
@@ -195,10 +194,40 @@ fun ingestBankMessagesIntoAccount(
     }
 }
 
+private data class EbicsFetchSpec(
+    val orderType: String,
+    val orderParams: EbicsOrderParams
+)
+
+suspend fun fetchEbicsBySpec(fetchSpec: FetchSpecJson, client: HttpClient, bankConnectionId: String) {
+    val subscriberDetails = getEbicsSubscriberDetails(bankConnectionId)
+    val specs = mutableListOf<EbicsFetchSpec>()
+    when (fetchSpec) {
+        is FetchSpecLatestJson -> {
+            val p = EbicsStandardOrderParams()
+            when (fetchSpec.level) {
+                FetchLevel.ALL -> {
+                    specs.add(EbicsFetchSpec("C52", p))
+                    specs.add(EbicsFetchSpec("C53", p))
+                }
+                FetchLevel.REPORT -> {
+                    specs.add(EbicsFetchSpec("C52", p))
+                }
+                FetchLevel.STATEMENT -> {
+                    specs.add(EbicsFetchSpec("C53", p))
+                }
+            }
+        }
+    }
+    for (spec in specs) {
+        fetchEbicsC5x(spec.orderType, client, bankConnectionId, spec.orderParams, subscriberDetails)
+    }
+}
+
 /**
  * Fetch EBICS C5x and store it locally, but do not update bank accounts.
  */
-suspend fun fetchEbicsC5x(
+private suspend fun fetchEbicsC5x(
     historyType: String,
     client: HttpClient,
     bankConnectionId: String,

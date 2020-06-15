@@ -273,8 +273,13 @@ fun moreFrequentBackgroundTasks(httpClient: HttpClient) {
     GlobalScope.launch {
         while (true) {
             logger.debug("Running more frequent background jobs")
-            reportAndIgnoreErrors { downloadTalerFacadesTransactions(httpClient, "C53") }
-            reportAndIgnoreErrors { downloadTalerFacadesTransactions(httpClient, "C52") }
+            reportAndIgnoreErrors {
+                downloadTalerFacadesTransactions(
+                    httpClient,
+                    FetchSpecLatestJson(FetchLevel.ALL, null)
+                )
+            }
+            // FIXME: should be done automatically after raw ingestion
             reportAndIgnoreErrors { ingestTalerTransactions() }
             reportAndIgnoreErrors { submitPreparedPaymentsViaEbics() }
             logger.debug("More frequent background jobs done")
@@ -301,7 +306,7 @@ fun lessFrequentBackgroundTasks(httpClient: HttpClient) {
 }
 
 /** Crawls all the facades, and requests history for each of its creators. */
-suspend fun downloadTalerFacadesTransactions(httpClient: HttpClient, type: String) {
+suspend fun downloadTalerFacadesTransactions(httpClient: HttpClient, fetchSpec: FetchSpecJson) {
     val work = mutableListOf<Pair<String, String>>()
     transaction {
         TalerFacadeStateEntity.all().forEach {
@@ -312,7 +317,7 @@ suspend fun downloadTalerFacadesTransactions(httpClient: HttpClient, type: Strin
     work.forEach {
         fetchTransactionsInternal(
             client = httpClient,
-            type = type,
+            fetchSpec = fetchSpec,
             userId = it.first,
             accountid = it.second
         )
@@ -333,7 +338,7 @@ fun ApplicationCall.expectUrlParameter(name: String): String {
 
 private suspend fun fetchTransactionsInternal(
     client: HttpClient,
-    type: String, // C53 or C52
+    fetchSpec: FetchSpecJson,
     userId: String,
     accountid: String
 ) {
@@ -352,23 +357,19 @@ private suspend fun fetchTransactionsInternal(
                 "No default bank connection (explicit connection not yet supported)"
             )
         }
-        val subscriberDetails = getEbicsSubscriberDetails(userId, conn.id.value)
         return@transaction object {
             val connectionType = conn.type
             val connectionName = conn.id.value
-            val subscriberDetails = subscriberDetails
         }
     }
     when (res.connectionType) {
         "ebics" -> {
             // FIXME(dold): Support fetching not only the latest transactions.
             // It's not clear what's the nicest way to support this.
-            fetchEbicsC5x(
-                type,
+            fetchEbicsBySpec(
+                fetchSpec,
                 client,
-                res.connectionName,
-                EbicsStandardOrderParams(),
-                res.subscriberDetails
+                res.connectionName
             )
             ingestBankMessagesIntoAccount(res.connectionName, accountid)
         }
@@ -569,7 +570,7 @@ fun serverMain(dbName: String) {
                     }
                     val defaultBankConnection = bankAccount.defaultBankConnection
                         ?: throw NexusError(HttpStatusCode.NotFound, "needs a default connection")
-                    val subscriberDetails = getEbicsSubscriberDetails(user.id.value, defaultBankConnection.id.value)
+                    val subscriberDetails = getEbicsSubscriberDetails(defaultBankConnection.id.value)
                     return@transaction object {
                         val pain001document = createPain001document(preparedPayment)
                         val bankConnectionType = defaultBankConnection.type
@@ -677,14 +678,14 @@ fun serverMain(dbName: String) {
                     )
                 }
                 val user = transaction { authenticateRequest(call.request) }
-                val ct = if (call.request.hasBody()) {
-                    call.receive<CollectedTransaction>()
+                val fetchSpec = if (call.request.hasBody()) {
+                    call.receive<FetchSpecJson>()
                 } else {
-                    CollectedTransaction(null, null, null)
+                    FetchSpecLatestJson(FetchLevel.ALL, null)
                 }
                 fetchTransactionsInternal(
                     client,
-                    "C53",
+                    fetchSpec,
                     user.id.value,
                     accountid
                 )
@@ -776,7 +777,7 @@ fun serverMain(dbName: String) {
                             "bank connection is not of type 'ebics' (but '${conn.type}')"
                         )
                     }
-                    val ebicsSubscriber = getEbicsSubscriberDetails(user.id.value, conn.id.value)
+                    val ebicsSubscriber = getEbicsSubscriberDetails(conn.id.value)
                     val mapper = ObjectMapper()
                     val details = mapper.createObjectNode()
                     details.put("ebicsUrl", ebicsSubscriber.ebicsUrl)
@@ -799,7 +800,7 @@ fun serverMain(dbName: String) {
                     val conn = requireBankConnection(call, "connid")
                     when (conn.type) {
                         "ebics" -> {
-                            val subscriber = getEbicsSubscriberDetails(user.id.value, conn.id.value)
+                            val subscriber = getEbicsSubscriberDetails(conn.id.value)
                             EbicsKeysBackupJson(
                                 type = "ebics",
                                 userID = subscriber.userId,
@@ -851,7 +852,7 @@ fun serverMain(dbName: String) {
                             "bank connection is not of type 'ebics' (but '${conn.type}')"
                         )
                     }
-                    getEbicsSubscriberDetails(user.id.value, conn.id.value)
+                    getEbicsSubscriberDetails(conn.id.value)
                 }
                 if (subscriber.bankAuthPub != null && subscriber.bankEncPub != null) {
                     call.respond(object {
@@ -932,50 +933,6 @@ fun serverMain(dbName: String) {
                 call.respondBytes(ret.msgContent, ContentType("application", "xml"))
             }
 
-            post("/bank-connections/{connid}/ebics/fetch-c53") {
-                val ebicsOrderParams = if (call.request.hasBody()) {
-                    call.receive<EbicsOrderParamsJson>().toOrderParams()
-                } else {
-                    EbicsStandardOrderParams()
-                }
-                val ret = transaction {
-                    val user = authenticateRequest(call.request)
-                    val conn = requireBankConnection(call, "connid")
-                    if (conn.type != "ebics") {
-                        throw NexusError(HttpStatusCode.BadRequest, "bank connection is not of type 'ebics'")
-                    }
-                    object {
-                        val subscriber = getEbicsSubscriberDetails(user.id.value, conn.id.value)
-                        val connId = conn.id.value
-                    }
-
-                }
-                fetchEbicsC5x("C53", client, ret.connId, ebicsOrderParams, ret.subscriber)
-                call.respond(object {})
-            }
-
-            post("/bank-connections/{connid}/ebics/fetch-c52") {
-                val ebicsOrderParams = if (call.request.hasBody()) {
-                    call.receive<EbicsOrderParamsJson>().toOrderParams()
-                } else {
-                    EbicsStandardOrderParams()
-                }
-                val ret = transaction {
-                    val user = authenticateRequest(call.request)
-                    val conn = requireBankConnection(call, "connid")
-                    if (conn.type != "ebics") {
-                        throw NexusError(HttpStatusCode.BadRequest, "bank connection is not of type 'ebics'")
-                    }
-                    object {
-                        val subscriber = getEbicsSubscriberDetails(user.id.value, conn.id.value)
-                        val connId = conn.id.value
-                    }
-
-                }
-                fetchEbicsC5x("C52", client, ret.connId, ebicsOrderParams, ret.subscriber)
-                call.respond(object {})
-            }
-
             post("/bank-connections/{connid}/ebics/send-ini") {
                 val subscriber = transaction {
                     val user = authenticateRequest(call.request)
@@ -986,7 +943,7 @@ fun serverMain(dbName: String) {
                             "bank connection is not of type 'ebics' (but '${conn.type}')"
                         )
                     }
-                    getEbicsSubscriberDetails(user.id.value, conn.id.value)
+                    getEbicsSubscriberDetails(conn.id.value)
                 }
                 val resp = doEbicsIniRequest(client, subscriber)
                 call.respond(resp)
@@ -999,7 +956,7 @@ fun serverMain(dbName: String) {
                     if (conn.type != "ebics") {
                         throw NexusError(HttpStatusCode.BadRequest, "bank connection is not of type 'ebics'")
                     }
-                    getEbicsSubscriberDetails(user.id.value, conn.id.value)
+                    getEbicsSubscriberDetails(conn.id.value)
                 }
                 val resp = doEbicsHiaRequest(client, subscriber)
                 call.respond(resp)
@@ -1012,7 +969,7 @@ fun serverMain(dbName: String) {
                     if (conn.type != "ebics") {
                         throw NexusError(HttpStatusCode.BadRequest, "bank connection is not of type 'ebics'")
                     }
-                    getEbicsSubscriberDetails(user.id.value, conn.id.value)
+                    getEbicsSubscriberDetails(conn.id.value)
                 }
                 val resp = doEbicsHostVersionQuery(client, subscriber.ebicsUrl, subscriber.hostId)
                 call.respond(resp)
@@ -1025,7 +982,7 @@ fun serverMain(dbName: String) {
                     if (conn.type != "ebics") {
                         throw NexusError(HttpStatusCode.BadRequest, "bank connection is not of type 'ebics'")
                     }
-                    getEbicsSubscriberDetails(user.id.value, conn.id.value)
+                    getEbicsSubscriberDetails(conn.id.value)
                 }
                 val hpbData = doEbicsHpbRequest(client, subscriberDetails)
                 transaction {
@@ -1048,7 +1005,7 @@ fun serverMain(dbName: String) {
                     if (conn.type != "ebics") {
                         throw NexusError(HttpStatusCode.BadRequest, "bank connection is not of type 'ebics'")
                     }
-                    getEbicsSubscriberDetails(user.id.value, conn.id.value)
+                    getEbicsSubscriberDetails(conn.id.value)
                 }
                 val response = doEbicsDownloadTransaction(
                     client, subscriberDetails, "HTD", EbicsStandardOrderParams()
@@ -1103,7 +1060,7 @@ fun serverMain(dbName: String) {
                     if (conn.type != "ebics") {
                         throw NexusError(HttpStatusCode.BadRequest, "bank connection is not of type 'ebics'")
                     }
-                    getEbicsSubscriberDetails(user.id.value, conn.id.value)
+                    getEbicsSubscriberDetails(conn.id.value)
                 }
                 val response = doEbicsDownloadTransaction(
                     client,

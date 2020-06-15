@@ -135,16 +135,18 @@ enum class FetchLevel(@get:JsonValue val jsonName: String) {
 @JsonSubTypes(
     JsonSubTypes.Type(value = FetchSpecLatestJson::class, name = "latest"),
     JsonSubTypes.Type(value = FetchSpecAllJson::class, name = "all"),
-    JsonSubTypes.Type(value = FetchSpecPreviousDaysJson::class, name = "previousDays")
+    JsonSubTypes.Type(value = FetchSpecPreviousDaysJson::class, name = "previous-days") ,
+    JsonSubTypes.Type(value = FetchSpecSinceLastJson::class, name = "since-last")
 )
 abstract class FetchSpecJson(
     val level: FetchLevel,
     val bankConnection: String?
 )
 
-class FetchSpecLatestJson(level: FetchLevel, bankConnection: String) : FetchSpecJson(level, bankConnection)
-class FetchSpecAllJson(level: FetchLevel, bankConnection: String) : FetchSpecJson(level, bankConnection)
-class FetchSpecPreviousDaysJson(level: FetchLevel, bankConnection: String, val number: Int) :
+class FetchSpecLatestJson(level: FetchLevel, bankConnection: String?) : FetchSpecJson(level, bankConnection)
+class FetchSpecAllJson(level: FetchLevel, bankConnection: String?) : FetchSpecJson(level, bankConnection)
+class FetchSpecSinceLastJson(level: FetchLevel, bankConnection: String?) : FetchSpecJson(level, bankConnection)
+class FetchSpecPreviousDaysJson(level: FetchLevel, bankConnection: String?, val number: Int) :
     FetchSpecJson(level, bankConnection)
 
 @JsonTypeInfo(
@@ -197,13 +199,6 @@ data class PaymentStatus(
 
 data class Transactions(
     val transactions: MutableList<BankTransaction> = mutableListOf()
-)
-
-/** Request type of "POST /collected-transactions" */
-data class CollectedTransaction(
-    val transport: String? = null,
-    val start: String? = null,
-    val end: String? = null
 )
 
 data class BankProtocolsResponse(
