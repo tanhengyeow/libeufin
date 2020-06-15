@@ -101,19 +101,6 @@ fun getEbicsSubscriberDetailsInternal(subscriber: EbicsSubscriberEntity): EbicsC
 }
 
 /**
- * Retrieve Ebics subscriber details given a bank connection.
- */
-fun getEbicsSubscriberDetails(bankConnectionId: String): EbicsClientSubscriberDetails {
-    val transport = NexusBankConnectionEntity.findById(bankConnectionId)
-    if (transport == null) {
-        throw NexusError(HttpStatusCode.NotFound, "transport not found")
-    }
-    val subscriber = EbicsSubscriberEntity.find { EbicsSubscribersTable.nexusBankConnection eq transport.id }.first()
-    // transport exists and belongs to caller.
-    return getEbicsSubscriberDetailsInternal(subscriber)
-}
-
-/**
  * Check if the transaction is already found in the database.
  */
 private fun isDuplicate(acctSvcrRef: String): Boolean {
@@ -194,93 +181,6 @@ fun ingestBankMessagesIntoAccount(
     }
 }
 
-private data class EbicsFetchSpec(
-    val orderType: String,
-    val orderParams: EbicsOrderParams
-)
-
-suspend fun fetchEbicsBySpec(fetchSpec: FetchSpecJson, client: HttpClient, bankConnectionId: String) {
-    val subscriberDetails = getEbicsSubscriberDetails(bankConnectionId)
-    val specs = mutableListOf<EbicsFetchSpec>()
-    when (fetchSpec) {
-        is FetchSpecLatestJson -> {
-            val p = EbicsStandardOrderParams()
-            when (fetchSpec.level) {
-                FetchLevel.ALL -> {
-                    specs.add(EbicsFetchSpec("C52", p))
-                    specs.add(EbicsFetchSpec("C53", p))
-                }
-                FetchLevel.REPORT -> {
-                    specs.add(EbicsFetchSpec("C52", p))
-                }
-                FetchLevel.STATEMENT -> {
-                    specs.add(EbicsFetchSpec("C53", p))
-                }
-            }
-        }
-    }
-    for (spec in specs) {
-        fetchEbicsC5x(spec.orderType, client, bankConnectionId, spec.orderParams, subscriberDetails)
-    }
-}
-
-/**
- * Fetch EBICS C5x and store it locally, but do not update bank accounts.
- */
-private suspend fun fetchEbicsC5x(
-    historyType: String,
-    client: HttpClient,
-    bankConnectionId: String,
-    orderParams: EbicsOrderParams,
-    subscriberDetails: EbicsClientSubscriberDetails
-) {
-    val response = doEbicsDownloadTransaction(
-        client,
-        subscriberDetails,
-        historyType,
-        orderParams
-    )
-    when (historyType) {
-        "C52" -> {
-        }
-        "C53" -> {
-        }
-        else -> {
-            throw NexusError(HttpStatusCode.BadRequest, "history type '$historyType' not supported")
-        }
-    }
-    when (response) {
-        is EbicsDownloadSuccessResult -> {
-            response.orderData.unzipWithLambda {
-                logger.debug("Camt entry: ${it.second}")
-                val camt53doc = XMLUtil.parseStringIntoDom(it.second)
-                val msgId = camt53doc.pickStringWithRootNs("/*[1]/*[1]/root:GrpHdr/root:MsgId")
-                logger.info("msg id $msgId")
-                transaction {
-                    val conn = NexusBankConnectionEntity.findById(bankConnectionId)
-                    if (conn == null) {
-                        throw NexusError(HttpStatusCode.InternalServerError, "bank connection missing")
-                    }
-                    val oldMsg = NexusBankMessageEntity.find { NexusBankMessagesTable.messageId eq msgId }.firstOrNull()
-                    if (oldMsg == null) {
-                        NexusBankMessageEntity.new {
-                            this.bankConnection = conn
-                            this.code = historyType
-                            this.messageId = msgId
-                            this.message = ExposedBlob(it.second.toByteArray(Charsets.UTF_8))
-                        }
-                    }
-                }
-            }
-        }
-        is EbicsDownloadBankErrorResult -> {
-            throw NexusError(
-                HttpStatusCode.BadGateway,
-                response.returnCode.errorCode
-            )
-        }
-    }
-}
 
 /**
  * Create a PAIN.001 XML document according to the input data.
@@ -472,29 +372,4 @@ fun extractUserAndPassword(authorizationHeader: String): Pair<String, String> {
         )
     }
     return Pair(username, password)
-}
-
-/**
- * Test HTTP basic auth.  Throws error if password is wrong,
- * and makes sure that the user exists in the system.
- *
- * @param authorization the Authorization:-header line.
- * @return user id
- */
-fun authenticateRequest(request: ApplicationRequest): NexusUserEntity {
-    val authorization = request.headers["Authorization"]
-    val headerLine = if (authorization == null) throw NexusError(
-        HttpStatusCode.BadRequest, "Authentication:-header line not found"
-    ) else authorization
-    val (username, password) = extractUserAndPassword(headerLine)
-    val user = NexusUserEntity.find {
-        NexusUsersTable.id eq username
-    }.firstOrNull()
-    if (user == null) {
-        throw NexusError(HttpStatusCode.Unauthorized, "Unknown user '$username'")
-    }
-    if (!CryptoUtil.checkpw(password, user.passwordHash)) {
-        throw NexusError(HttpStatusCode.Forbidden, "Wrong password")
-    }
-    return user
 }

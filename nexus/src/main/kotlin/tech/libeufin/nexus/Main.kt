@@ -67,16 +67,14 @@ import org.jetbrains.exposed.sql.transactions.transaction
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 import org.slf4j.event.Level
+import tech.libeufin.nexus.ebics.*
 import tech.libeufin.util.*
 import tech.libeufin.util.CryptoUtil.hashpw
-import tech.libeufin.util.ebics_h004.HTDResponseOrderData
 import java.io.PrintWriter
 import java.io.StringWriter
 import java.net.URLEncoder
 import java.time.Duration
-import java.util.*
 import java.util.zip.InflaterInputStream
-import javax.crypto.EncryptedPrivateKeyInfo
 
 data class NexusError(val statusCode: HttpStatusCode, val reason: String) :
     Exception("$reason (HTTP status $statusCode)")
@@ -135,64 +133,31 @@ suspend inline fun <reified T : Any> ApplicationCall.receiveJson(): T {
     }
 }
 
-fun createEbicsBankConnectionFromBackup(
-    bankConnectionName: String,
-    user: NexusUserEntity,
-    passphrase: String?,
-    backup: JsonNode
-) {
-    if (passphrase === null) {
-        throw NexusError(HttpStatusCode.BadRequest, "EBICS backup needs passphrase")
+/**
+ * Test HTTP basic auth.  Throws error if password is wrong,
+ * and makes sure that the user exists in the system.
+ *
+ * @param authorization the Authorization:-header line.
+ * @return user id
+ */
+fun authenticateRequest(request: ApplicationRequest): NexusUserEntity {
+    val authorization = request.headers["Authorization"]
+    val headerLine = if (authorization == null) throw NexusError(
+        HttpStatusCode.BadRequest, "Authentication:-header line not found"
+    ) else authorization
+    val (username, password) = extractUserAndPassword(headerLine)
+    val user = NexusUserEntity.find {
+        NexusUsersTable.id eq username
+    }.firstOrNull()
+    if (user == null) {
+        throw NexusError(HttpStatusCode.Unauthorized, "Unknown user '$username'")
     }
-    val bankConn = NexusBankConnectionEntity.new(bankConnectionName) {
-        owner = user
-        type = "ebics"
+    if (!CryptoUtil.checkpw(password, user.passwordHash)) {
+        throw NexusError(HttpStatusCode.Forbidden, "Wrong password")
     }
-    val ebicsBackup = jacksonObjectMapper().treeToValue(backup, EbicsKeysBackupJson::class.java)
-    val (authKey, encKey, sigKey) = try {
-        Triple(
-            CryptoUtil.decryptKey(
-                EncryptedPrivateKeyInfo(base64ToBytes(ebicsBackup.authBlob)),
-                passphrase
-            ),
-            CryptoUtil.decryptKey(
-                EncryptedPrivateKeyInfo(base64ToBytes(ebicsBackup.encBlob)),
-                passphrase
-            ),
-            CryptoUtil.decryptKey(
-                EncryptedPrivateKeyInfo(base64ToBytes(ebicsBackup.sigBlob)),
-                passphrase
-            )
-        )
-    } catch (e: Exception) {
-        e.printStackTrace()
-        logger.info("Restoring keys failed, probably due to wrong passphrase")
-        throw NexusError(
-            HttpStatusCode.BadRequest,
-            "Bad backup given"
-        )
-    }
-    try {
-        EbicsSubscriberEntity.new {
-            ebicsURL = ebicsBackup.ebicsURL
-            hostID = ebicsBackup.hostID
-            partnerID = ebicsBackup.partnerID
-            userID = ebicsBackup.userID
-            signaturePrivateKey = ExposedBlob(sigKey.encoded)
-            encryptionPrivateKey = ExposedBlob((encKey.encoded))
-            authenticationPrivateKey = ExposedBlob((authKey.encoded))
-            nexusBankConnection = bankConn
-            ebicsIniState = EbicsInitState.UNKNOWN
-            ebicsHiaState = EbicsInitState.UNKNOWN
-        }
-    } catch (e: Exception) {
-        throw NexusError(
-            HttpStatusCode.BadRequest,
-            "exception: $e"
-        )
-    }
-    return
+    return user
 }
+
 
 fun createLoopbackBankConnection(bankConnectionName: String, user: NexusUserEntity, data: JsonNode) {
     val bankConn = NexusBankConnectionEntity.new(bankConnectionName) {
@@ -511,12 +476,10 @@ fun serverMain(dbName: String) {
                 return@get
             }
 
-            post("/bank-connection-protocols/ebics/test-host") {
-                val r = call.receiveJson<EbicsHostTestRequest>()
-                val qr = doEbicsHostVersionQuery(client, r.ebicsBaseUrl, r.ebicsHostId)
-                call.respond(HttpStatusCode.OK, qr)
-                return@post
+            route("/bank-connection-protocols/ebics") {
+                ebicsBankProtocolRoutes(client)
             }
+
             /**
              * Shows the bank accounts belonging to the requesting user.
              */
@@ -570,24 +533,16 @@ fun serverMain(dbName: String) {
                     }
                     val defaultBankConnection = bankAccount.defaultBankConnection
                         ?: throw NexusError(HttpStatusCode.NotFound, "needs a default connection")
-                    val subscriberDetails = getEbicsSubscriberDetails(defaultBankConnection.id.value)
                     return@transaction object {
                         val pain001document = createPain001document(preparedPayment)
                         val bankConnectionType = defaultBankConnection.type
-                        val subscriberDetails = subscriberDetails
+                        val connId = defaultBankConnection.id.value
                     }
                 }
                 // type and name aren't null
                 when (res.bankConnectionType) {
                     "ebics" -> {
-                        logger.debug("Uploading PAIN.001: ${res.pain001document}")
-                        doEbicsUploadTransaction(
-                            client,
-                            res.subscriberDetails,
-                            "CCT",
-                            res.pain001document.toByteArray(Charsets.UTF_8),
-                            EbicsStandardOrderParams()
-                        )
+                        submitEbicsPaymentInitiation(client, res.connId, res.pain001document)
                     }
                     else -> throw NexusError(
                         HttpStatusCode.NotFound,
@@ -771,61 +726,29 @@ fun serverMain(dbName: String) {
                 val resp = transaction {
                     val user = authenticateRequest(call.request)
                     val conn = requireBankConnection(call, "connid")
-                    if (conn.type != "ebics") {
-                        throw NexusError(
-                            HttpStatusCode.BadRequest,
-                            "bank connection is not of type 'ebics' (but '${conn.type}')"
-                        )
+                    when (conn.type) {
+                        "ebics" -> {
+                            getEbicsConnectionDetails(conn)
+                        }
+                        else -> {
+                            throw NexusError(
+                                HttpStatusCode.BadRequest,
+                                "bank connection is not of type 'ebics' (but '${conn.type}')"
+                            )
+                        }
                     }
-                    val ebicsSubscriber = getEbicsSubscriberDetails(conn.id.value)
-                    val mapper = ObjectMapper()
-                    val details = mapper.createObjectNode()
-                    details.put("ebicsUrl", ebicsSubscriber.ebicsUrl)
-                    details.put("ebicsHostId", ebicsSubscriber.hostId)
-                    details.put("partnerId", ebicsSubscriber.partnerId)
-                    details.put("userId", ebicsSubscriber.userId)
-                    val node = mapper.createObjectNode()
-                    node.put("type", conn.type)
-                    node.put("owner", conn.owner.id.value)
-                    node.set<JsonNode>("details", details)
-                    node
                 }
                 call.respond(resp)
             }
 
             post("/bank-connections/{connid}/export-backup") {
-                val body = call.receive<EbicsBackupRequestJson>()
-                val response = transaction {
-                    val user = authenticateRequest(call.request)
+                transaction { authenticateRequest(call.request) }
+                val body = call.receive<BackupRequestJson>()
+                val response = run {
                     val conn = requireBankConnection(call, "connid")
                     when (conn.type) {
                         "ebics" -> {
-                            val subscriber = getEbicsSubscriberDetails(conn.id.value)
-                            EbicsKeysBackupJson(
-                                type = "ebics",
-                                userID = subscriber.userId,
-                                hostID = subscriber.hostId,
-                                partnerID = subscriber.partnerId,
-                                ebicsURL = subscriber.ebicsUrl,
-                                authBlob = bytesToBase64(
-                                    CryptoUtil.encryptKey(
-                                        subscriber.customerAuthPriv.encoded,
-                                        body.passphrase
-                                    )
-                                ),
-                                encBlob = bytesToBase64(
-                                    CryptoUtil.encryptKey(
-                                        subscriber.customerEncPriv.encoded,
-                                        body.passphrase
-                                    )
-                                ),
-                                sigBlob = bytesToBase64(
-                                    CryptoUtil.encryptKey(
-                                        subscriber.customerSignPriv.encoded,
-                                        body.passphrase
-                                    )
-                                )
-                            )
+                            exportEbicsKeyBackup(conn.id.value, body.passphrase)
                         }
                         else -> {
                             throw NexusError(
@@ -843,62 +766,13 @@ fun serverMain(dbName: String) {
             }
 
             post("/bank-connections/{connid}/connect") {
-                val subscriber = transaction {
-                    val user = authenticateRequest(call.request)
-                    val conn = requireBankConnection(call, "connid")
-                    if (conn.type != "ebics") {
-                        throw NexusError(
-                            HttpStatusCode.BadRequest,
-                            "bank connection is not of type 'ebics' (but '${conn.type}')"
-                        )
-                    }
-                    getEbicsSubscriberDetails(conn.id.value)
+                val conn = transaction {
+                    authenticateRequest(call.request)
+                    requireBankConnection(call, "connid")
                 }
-                if (subscriber.bankAuthPub != null && subscriber.bankEncPub != null) {
-                    call.respond(object {
-                        val ready = true
-                    })
-                    return@post
-                }
-
-                val iniDone = when (subscriber.ebicsIniState) {
-                    EbicsInitState.NOT_SENT, EbicsInitState.UNKNOWN -> {
-                        val iniResp = doEbicsIniRequest(client, subscriber)
-                        iniResp.bankReturnCode == EbicsReturnCode.EBICS_OK && iniResp.technicalReturnCode == EbicsReturnCode.EBICS_OK
-                    }
-                    else -> {
-                        false
-                    }
-                }
-                val hiaDone = when (subscriber.ebicsHiaState) {
-                    EbicsInitState.NOT_SENT, EbicsInitState.UNKNOWN -> {
-                        val hiaResp = doEbicsHiaRequest(client, subscriber)
-                        hiaResp.bankReturnCode == EbicsReturnCode.EBICS_OK && hiaResp.technicalReturnCode == EbicsReturnCode.EBICS_OK
-                    }
-                    else -> {
-                        false
-                    }
-                }
-                val hpbData = try {
-                    doEbicsHpbRequest(client, subscriber)
-                } catch (e: EbicsProtocolError) {
-                    logger.warn("failed hpb request", e)
-                    null
-                }
-                transaction {
-                    val conn = requireBankConnection(call, "connid")
-                    val subscriberEntity =
-                        EbicsSubscriberEntity.find { EbicsSubscribersTable.nexusBankConnection eq conn.id }.first()
-                    if (iniDone) {
-                        subscriberEntity.ebicsIniState = EbicsInitState.SENT
-                    }
-                    if (hiaDone) {
-                        subscriberEntity.ebicsHiaState = EbicsInitState.SENT
-                    }
-                    if (hpbData != null) {
-                        subscriberEntity.bankAuthenticationPublicKey =
-                            ExposedBlob((hpbData.authenticationPubKey.encoded))
-                        subscriberEntity.bankEncryptionPublicKey = ExposedBlob((hpbData.encryptionPubKey.encoded))
+                when (conn.type) {
+                    "ebics" -> {
+                        connectEbics(client, conn.id.value)
                     }
                 }
                 call.respond(object {})
@@ -933,157 +807,6 @@ fun serverMain(dbName: String) {
                 call.respondBytes(ret.msgContent, ContentType("application", "xml"))
             }
 
-            post("/bank-connections/{connid}/ebics/send-ini") {
-                val subscriber = transaction {
-                    val user = authenticateRequest(call.request)
-                    val conn = requireBankConnection(call, "connid")
-                    if (conn.type != "ebics") {
-                        throw NexusError(
-                            HttpStatusCode.BadRequest,
-                            "bank connection is not of type 'ebics' (but '${conn.type}')"
-                        )
-                    }
-                    getEbicsSubscriberDetails(conn.id.value)
-                }
-                val resp = doEbicsIniRequest(client, subscriber)
-                call.respond(resp)
-            }
-
-            post("/bank-connections/{connid}/ebics/send-hia") {
-                val subscriber = transaction {
-                    val user = authenticateRequest(call.request)
-                    val conn = requireBankConnection(call, "connid")
-                    if (conn.type != "ebics") {
-                        throw NexusError(HttpStatusCode.BadRequest, "bank connection is not of type 'ebics'")
-                    }
-                    getEbicsSubscriberDetails(conn.id.value)
-                }
-                val resp = doEbicsHiaRequest(client, subscriber)
-                call.respond(resp)
-            }
-
-            post("/bank-connections/{connid}/ebics/send-hev") {
-                val subscriber = transaction {
-                    val user = authenticateRequest(call.request)
-                    val conn = requireBankConnection(call, "connid")
-                    if (conn.type != "ebics") {
-                        throw NexusError(HttpStatusCode.BadRequest, "bank connection is not of type 'ebics'")
-                    }
-                    getEbicsSubscriberDetails(conn.id.value)
-                }
-                val resp = doEbicsHostVersionQuery(client, subscriber.ebicsUrl, subscriber.hostId)
-                call.respond(resp)
-            }
-
-            post("/bank-connections/{connid}/ebics/send-hpb") {
-                val subscriberDetails = transaction {
-                    val user = authenticateRequest(call.request)
-                    val conn = requireBankConnection(call, "connid")
-                    if (conn.type != "ebics") {
-                        throw NexusError(HttpStatusCode.BadRequest, "bank connection is not of type 'ebics'")
-                    }
-                    getEbicsSubscriberDetails(conn.id.value)
-                }
-                val hpbData = doEbicsHpbRequest(client, subscriberDetails)
-                transaction {
-                    val conn = requireBankConnection(call, "connid")
-                    val subscriber =
-                        EbicsSubscriberEntity.find { EbicsSubscribersTable.nexusBankConnection eq conn.id }.first()
-                    subscriber.bankAuthenticationPublicKey = ExposedBlob((hpbData.authenticationPubKey.encoded))
-                    subscriber.bankEncryptionPublicKey = ExposedBlob((hpbData.encryptionPubKey.encoded))
-                }
-                call.respond(object {})
-            }
-
-            /**
-             * Directly import accounts.  Used for testing.
-             */
-            post("/bank-connections/{connid}/ebics/import-accounts") {
-                val subscriberDetails = transaction {
-                    val user = authenticateRequest(call.request)
-                    val conn = requireBankConnection(call, "connid")
-                    if (conn.type != "ebics") {
-                        throw NexusError(HttpStatusCode.BadRequest, "bank connection is not of type 'ebics'")
-                    }
-                    getEbicsSubscriberDetails(conn.id.value)
-                }
-                val response = doEbicsDownloadTransaction(
-                    client, subscriberDetails, "HTD", EbicsStandardOrderParams()
-                )
-                when (response) {
-                    is EbicsDownloadBankErrorResult -> {
-                        throw NexusError(
-                            HttpStatusCode.BadGateway,
-                            response.returnCode.errorCode
-                        )
-                    }
-                    is EbicsDownloadSuccessResult -> {
-                        val payload = XMLUtil.convertStringToJaxb<HTDResponseOrderData>(
-                            response.orderData.toString(Charsets.UTF_8)
-                        )
-                        transaction {
-                            val conn = requireBankConnection(call, "connid")
-                            payload.value.partnerInfo.accountInfoList?.forEach {
-                                val bankAccount = NexusBankAccountEntity.new(id = it.id) {
-                                    accountHolder = it.accountHolder ?: "NOT-GIVEN"
-                                    iban = extractFirstIban(it.accountNumberList)
-                                        ?: throw NexusError(HttpStatusCode.NotFound, reason = "bank gave no IBAN")
-                                    bankCode = extractFirstBic(it.bankCodeList) ?: throw NexusError(
-                                        HttpStatusCode.NotFound,
-                                        reason = "bank gave no BIC"
-                                    )
-                                    defaultBankConnection = conn
-                                    highestSeenBankMessageId = 0
-                                }
-                            }
-                        }
-                        response.orderData.toString(Charsets.UTF_8)
-                    }
-                }
-                call.respond(object {})
-            }
-
-            post("/bank-connections/{connid}/ebics/download/{msgtype}") {
-                val orderType = requireNotNull(call.parameters["msgtype"]).toUpperCase(Locale.ROOT)
-                if (orderType.length != 3) {
-                    throw NexusError(HttpStatusCode.BadRequest, "ebics order type must be three characters")
-                }
-                val paramsJson = call.receiveOrNull<EbicsStandardOrderParamsDateJson>()
-                val orderParams = if (paramsJson == null) {
-                    EbicsStandardOrderParams()
-                } else {
-                    paramsJson.toOrderParams()
-                }
-                val subscriberDetails = transaction {
-                    val user = authenticateRequest(call.request)
-                    val conn = requireBankConnection(call, "connid")
-                    if (conn.type != "ebics") {
-                        throw NexusError(HttpStatusCode.BadRequest, "bank connection is not of type 'ebics'")
-                    }
-                    getEbicsSubscriberDetails(conn.id.value)
-                }
-                val response = doEbicsDownloadTransaction(
-                    client,
-                    subscriberDetails,
-                    orderType,
-                    orderParams
-                )
-                when (response) {
-                    is EbicsDownloadSuccessResult -> {
-                        call.respondText(
-                            response.orderData.toString(Charsets.UTF_8),
-                            ContentType.Text.Plain,
-                            HttpStatusCode.OK
-                        )
-                    }
-                    is EbicsDownloadBankErrorResult -> {
-                        call.respond(
-                            HttpStatusCode.BadGateway,
-                            EbicsErrorJson(EbicsErrorDetailJson("bankError", response.returnCode.errorCode))
-                        )
-                    }
-                }
-            }
             post("/facades") {
                 val body = call.receive<FacadeInfo>()
                 val newFacade = transaction {
@@ -1106,10 +829,12 @@ fun serverMain(dbName: String) {
                 return@post
             }
 
-            route("/facades/{fcid}") {
-                route("taler") {
-                    talerFacadeRoutes(this)
-                }
+            route("/bank-connections/{connid}/ebics") {
+                ebicsBankConnectionRoutes(client)
+            }
+
+            route("/facades/{fcid}/taler") {
+                talerFacadeRoutes(this)
             }
             /**
              * Hello endpoint.

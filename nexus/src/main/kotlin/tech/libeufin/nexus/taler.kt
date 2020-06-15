@@ -38,6 +38,7 @@ import org.jetbrains.exposed.dao.Entity
 import org.jetbrains.exposed.dao.id.IdTable
 import org.jetbrains.exposed.sql.*
 import org.jetbrains.exposed.sql.transactions.transaction
+import tech.libeufin.nexus.ebics.doEbicsUploadTransaction
 import tech.libeufin.util.*
 import kotlin.math.abs
 import kotlin.math.min
@@ -378,6 +379,7 @@ private suspend fun talerAddIncoming(call: ApplicationCall): Unit {
 }
 
 // submits ALL the prepared payments from ALL the Taler facades.
+// FIXME(dold): This should not be done here.
 suspend fun submitPreparedPaymentsViaEbics() {
     data class EbicsSubmission(
         val subscriberDetails: EbicsClientSubscriberDetails,

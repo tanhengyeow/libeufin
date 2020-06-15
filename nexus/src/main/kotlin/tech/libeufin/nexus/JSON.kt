@@ -28,7 +28,7 @@ import tech.libeufin.util.*
 import java.time.LocalDate
 import java.time.LocalDateTime
 
-data class EbicsBackupRequestJson(
+data class BackupRequestJson(
     val passphrase: String
 )
 

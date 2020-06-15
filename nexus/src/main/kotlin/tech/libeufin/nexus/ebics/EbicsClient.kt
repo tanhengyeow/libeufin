@@ -20,11 +20,12 @@
 /**
  * High-level interface for the EBICS protocol.
  */
-package tech.libeufin.nexus
+package tech.libeufin.nexus.ebics
 
 import io.ktor.client.HttpClient
 import io.ktor.client.request.post
 import io.ktor.http.HttpStatusCode
+import tech.libeufin.nexus.NexusError
 import tech.libeufin.util.*
 import java.util.*
 
