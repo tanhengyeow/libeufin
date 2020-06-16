@@ -544,7 +544,10 @@ fun ingestTalerTransactions() {
     }
 }
 
-private suspend fun historyOutgoing(call: ApplicationCall): Unit {
+/**
+ * Handle a /taler/history/outgoing request.
+ */
+private suspend fun historyOutgoing(call: ApplicationCall) {
     val param = call.expectUrlParameter("delta")
     val delta: Int = try {
         param.toInt()
@@ -590,7 +593,7 @@ private suspend fun historyOutgoing(call: ApplicationCall): Unit {
 }
 
 /**
- * taler/history/incoming
+ * Handle a /taler/history/incoming request.
  */
 private suspend fun historyIncoming(call: ApplicationCall): Unit {
     val param = call.expectUrlParameter("delta")

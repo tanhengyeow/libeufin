@@ -22,7 +22,6 @@ package tech.libeufin.nexus
 import com.fasterxml.jackson.core.util.DefaultIndenter
 import com.fasterxml.jackson.core.util.DefaultPrettyPrinter
 import com.fasterxml.jackson.databind.JsonNode
-import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.databind.SerializationFeature
 import com.fasterxml.jackson.databind.exc.MismatchedInputException
 import com.fasterxml.jackson.module.kotlin.KotlinModule
@@ -35,10 +34,6 @@ import com.github.ajalt.clikt.parameters.arguments.argument
 import com.github.ajalt.clikt.parameters.options.default
 import com.github.ajalt.clikt.parameters.options.option
 import com.github.ajalt.clikt.parameters.options.prompt
-import com.itextpdf.kernel.pdf.PdfDocument
-import com.itextpdf.kernel.pdf.PdfWriter
-import com.itextpdf.layout.Document
-import com.itextpdf.layout.element.Paragraph
 import io.ktor.application.ApplicationCall
 import io.ktor.application.ApplicationCallPipeline
 import io.ktor.application.call
@@ -74,7 +69,6 @@ import org.slf4j.event.Level
 import tech.libeufin.nexus.ebics.*
 import tech.libeufin.util.*
 import tech.libeufin.util.CryptoUtil.hashpw
-import java.io.ByteArrayOutputStream
 import java.io.PrintWriter
 import java.io.StringWriter
 import java.net.URLEncoder
