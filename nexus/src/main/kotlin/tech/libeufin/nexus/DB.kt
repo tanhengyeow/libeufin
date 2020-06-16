@@ -41,7 +41,7 @@ import java.sql.Connection
  * in the PAIN-table.
  */
 object TalerRequestedPayments : LongIdTable() {
-    val preparedPayment = reference("payment", PreparedPaymentsTable)
+    val preparedPayment = reference("payment", InitiatedPaymentsTable)
     val requestUId = text("request_uid")
 
     /**
@@ -64,7 +64,7 @@ object TalerRequestedPayments : LongIdTable() {
 class TalerRequestedPaymentEntity(id: EntityID<Long>) : LongEntity(id) {
     companion object : LongEntityClass<TalerRequestedPaymentEntity>(TalerRequestedPayments)
 
-    var preparedPayment by PreparedPaymentEntity referencedOn TalerRequestedPayments.preparedPayment
+    var preparedPayment by InitiatedPaymentEntry referencedOn TalerRequestedPayments.preparedPayment
     var requestUId by TalerRequestedPayments.requestUId
     var amount by TalerRequestedPayments.amount
     var exchangeBaseUrl by TalerRequestedPayments.exchangeBaseUrl
@@ -170,7 +170,7 @@ class RawBankTransactionEntity(id: EntityID<Long>) : LongEntity(id) {
 /**
  * Represents a prepared payment.
  */
-object PreparedPaymentsTable : LongIdTable() {
+object InitiatedPaymentsTable : LongIdTable() {
     val preparationDate = long("preparationDate")
     val submissionDate = long("submissionDate").nullable()
     val sum = amount("sum")
@@ -186,21 +186,21 @@ object PreparedPaymentsTable : LongIdTable() {
     val submitted = bool("submitted").default(false)
 }
 
-class PreparedPaymentEntity(id: EntityID<Long>) : LongEntity(id) {
-    companion object : LongEntityClass<PreparedPaymentEntity>(PreparedPaymentsTable)
-    var preparationDate by PreparedPaymentsTable.preparationDate
-    var submissionDate by PreparedPaymentsTable.submissionDate
-    var sum by PreparedPaymentsTable.sum
-    var currency by PreparedPaymentsTable.currency
-    var debitorIban by PreparedPaymentsTable.debitorIban
-    var debitorBic by PreparedPaymentsTable.debitorBic
-    var debitorName by PreparedPaymentsTable.debitorName
-    var endToEndId by PreparedPaymentsTable.endToEndId
-    var subject by PreparedPaymentsTable.subject
-    var creditorIban by PreparedPaymentsTable.creditorIban
-    var creditorBic by PreparedPaymentsTable.creditorBic
-    var creditorName by PreparedPaymentsTable.creditorName
-    var submitted by PreparedPaymentsTable.submitted
+class InitiatedPaymentEntry(id: EntityID<Long>) : LongEntity(id) {
+    companion object : LongEntityClass<InitiatedPaymentEntry>(InitiatedPaymentsTable)
+    var preparationDate by InitiatedPaymentsTable.preparationDate
+    var submissionDate by InitiatedPaymentsTable.submissionDate
+    var sum by InitiatedPaymentsTable.sum
+    var currency by InitiatedPaymentsTable.currency
+    var debitorIban by InitiatedPaymentsTable.debitorIban
+    var debitorBic by InitiatedPaymentsTable.debitorBic
+    var debitorName by InitiatedPaymentsTable.debitorName
+    var endToEndId by InitiatedPaymentsTable.endToEndId
+    var subject by InitiatedPaymentsTable.subject
+    var creditorIban by InitiatedPaymentsTable.creditorIban
+    var creditorBic by InitiatedPaymentsTable.creditorBic
+    var creditorName by InitiatedPaymentsTable.creditorName
+    var submitted by InitiatedPaymentsTable.submitted
 }
 
 /**
@@ -332,7 +332,7 @@ fun dbCreateTables(dbName: String) {
         addLogger(StdOutSqlLogger)
         SchemaUtils.create(
             NexusUsersTable,
-            PreparedPaymentsTable,
+            InitiatedPaymentsTable,
             EbicsSubscribersTable,
             NexusBankAccountsTable,
             RawBankTransactionsTable,
