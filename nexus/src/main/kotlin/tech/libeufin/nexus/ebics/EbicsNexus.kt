@@ -48,6 +48,7 @@ import tech.libeufin.util.*
 import tech.libeufin.util.ebics_h004.HTDResponseOrderData
 import java.io.ByteArrayOutputStream
 import java.security.interfaces.RSAPrivateCrtKey
+import java.time.LocalDate
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
 import java.util.*
@@ -65,6 +66,21 @@ suspend fun fetchEbicsBySpec(fetchSpec: FetchSpecJson, client: HttpClient, bankC
     when (fetchSpec) {
         is FetchSpecLatestJson -> {
             val p = EbicsStandardOrderParams()
+            when (fetchSpec.level) {
+                FetchLevel.ALL -> {
+                    specs.add(EbicsFetchSpec("C52", p))
+                    specs.add(EbicsFetchSpec("C53", p))
+                }
+                FetchLevel.REPORT -> {
+                    specs.add(EbicsFetchSpec("C52", p))
+                }
+                FetchLevel.STATEMENT -> {
+                    specs.add(EbicsFetchSpec("C53", p))
+                }
+            }
+        }
+        is FetchSpecAllJson -> {
+            val p = EbicsStandardOrderParams(EbicsDateRange(LocalDate.EPOCH, LocalDate.now()))
             when (fetchSpec.level) {
                 FetchLevel.ALL -> {
                     specs.add(EbicsFetchSpec("C52", p))

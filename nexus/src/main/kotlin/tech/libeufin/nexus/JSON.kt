@@ -143,9 +143,13 @@ abstract class FetchSpecJson(
     val bankConnection: String?
 )
 
+@JsonTypeName("latest")
 class FetchSpecLatestJson(level: FetchLevel, bankConnection: String?) : FetchSpecJson(level, bankConnection)
+@JsonTypeName("all")
 class FetchSpecAllJson(level: FetchLevel, bankConnection: String?) : FetchSpecJson(level, bankConnection)
+@JsonTypeName("since-last")
 class FetchSpecSinceLastJson(level: FetchLevel, bankConnection: String?) : FetchSpecJson(level, bankConnection)
+@JsonTypeName("previous-days")
 class FetchSpecPreviousDaysJson(level: FetchLevel, bankConnection: String?, val number: Int) :
     FetchSpecJson(level, bankConnection)
 
