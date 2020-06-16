@@ -26,6 +26,11 @@ package tech.libeufin.nexus.ebics
 import com.fasterxml.jackson.databind.JsonNode
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
+import com.itextpdf.kernel.pdf.PdfDocument
+import com.itextpdf.kernel.pdf.PdfWriter
+import com.itextpdf.layout.Document
+import com.itextpdf.layout.element.AreaBreak
+import com.itextpdf.layout.element.Paragraph
 import io.ktor.application.Application
 import io.ktor.application.ApplicationCall
 import io.ktor.application.call
@@ -47,6 +52,10 @@ import tech.libeufin.nexus.*
 import tech.libeufin.nexus.logger
 import tech.libeufin.util.*
 import tech.libeufin.util.ebics_h004.HTDResponseOrderData
+import java.io.ByteArrayOutputStream
+import java.security.interfaces.RSAPrivateCrtKey
+import java.time.LocalDateTime
+import java.time.format.DateTimeFormatter
 import java.util.*
 import javax.crypto.EncryptedPrivateKeyInfo
 
@@ -479,4 +488,79 @@ suspend fun connectEbics(client: HttpClient, connId: String) {
             subscriberEntity.bankEncryptionPublicKey = ExposedBlob((hpbData.encryptionPubKey.encoded))
         }
     }
+}
+
+fun formatHex(ba: ByteArray): String {
+    var out = ""
+    for (i in ba.indices) {
+        val b = ba[i]
+        if (i > 0 && i % 16 == 0) {
+            out += "\n"
+        }
+        out += java.lang.String.format("%02X", b)
+        out += " "
+    }
+    return out
+}
+
+fun getEbicsKeyLetterPdf(conn: NexusBankConnectionEntity): ByteArray {
+    val ebicsSubscriber = transaction { getEbicsSubscriberDetails(conn.id.value) }
+
+    val po = ByteArrayOutputStream()
+    val pdfWriter = PdfWriter(po)
+    val pdfDoc = PdfDocument(pdfWriter)
+    val date = LocalDateTime.now()
+    val dateStr = date.format(DateTimeFormatter.ISO_LOCAL_DATE)
+
+    fun writeCommon(doc: Document) {
+        doc.add(Paragraph("""
+            Datum: $dateStr
+            Teilnehmer: ${conn.id.value}
+            Host-ID: ${ebicsSubscriber.hostId}
+            User-ID: ${ebicsSubscriber.userId}
+            Partner-ID: ${ebicsSubscriber.partnerId}
+            ES version: A006
+        """.trimIndent()))
+    }
+
+    fun writeKey(doc: Document, priv: RSAPrivateCrtKey) {
+        val pub = CryptoUtil.getRsaPublicFromPrivate(priv)
+        val hash = CryptoUtil.getEbicsPublicKeyHash(pub)
+        doc.add(Paragraph("Exponent:\n${formatHex(pub.publicExponent.toByteArray())}"))
+        doc.add(Paragraph("Modulus:\n${formatHex(pub.modulus.toByteArray())}"))
+        doc.add(Paragraph("SHA-256 hash:\n${formatHex(hash)}"))
+    }
+
+    fun writeSigLine(doc: Document) {
+        doc.add(Paragraph("Ort / Datum: ________________"))
+        doc.add(Paragraph("Firma / Name: ________________"))
+        doc.add(Paragraph("Unterschrift: ________________"))
+    }
+
+    Document(pdfDoc).use {
+        it.add(Paragraph("Signaturschlüssel").setFontSize(24f))
+        writeCommon(it)
+        it.add(Paragraph("Öffentlicher Schlüssel (Public key for the electronic signature)"))
+        writeKey(it, ebicsSubscriber.customerSignPriv)
+        it.add(Paragraph("\n"))
+        writeSigLine(it)
+        it.add(AreaBreak())
+
+        it.add(Paragraph("Authentifikationsschlüssel").setFontSize(24f))
+        writeCommon(it)
+        it.add(Paragraph("Öffentlicher Schlüssel (Public key for the identification and authentication signature)"))
+        writeKey(it, ebicsSubscriber.customerAuthPriv)
+        it.add(Paragraph("\n"))
+        writeSigLine(it)
+        it.add(AreaBreak())
+
+        it.add(Paragraph("Verschlüsselungsschlüssel").setFontSize(24f))
+        writeCommon(it)
+        it.add(Paragraph("Öffentlicher Schlüssel (Public encryption key)"))
+        it.add(Paragraph("\n"))
+        writeKey(it, ebicsSubscriber.customerSignPriv)
+        writeSigLine(it)
+    }
+    pdfWriter.flush()
+    return po.toByteArray()
 }

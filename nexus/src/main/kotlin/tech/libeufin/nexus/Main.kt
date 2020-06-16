@@ -35,6 +35,10 @@ import com.github.ajalt.clikt.parameters.arguments.argument
 import com.github.ajalt.clikt.parameters.options.default
 import com.github.ajalt.clikt.parameters.options.option
 import com.github.ajalt.clikt.parameters.options.prompt
+import com.itextpdf.kernel.pdf.PdfDocument
+import com.itextpdf.kernel.pdf.PdfWriter
+import com.itextpdf.layout.Document
+import com.itextpdf.layout.element.Paragraph
 import io.ktor.application.ApplicationCall
 import io.ktor.application.ApplicationCallPipeline
 import io.ktor.application.call
@@ -70,6 +74,7 @@ import org.slf4j.event.Level
 import tech.libeufin.nexus.ebics.*
 import tech.libeufin.util.*
 import tech.libeufin.util.CryptoUtil.hashpw
+import java.io.ByteArrayOutputStream
 import java.io.PrintWriter
 import java.io.StringWriter
 import java.net.URLEncoder
@@ -776,6 +781,20 @@ fun serverMain(dbName: String) {
                     }
                 }
                 call.respond(object {})
+            }
+
+            get("/bank-connections/{connid}/keyletter") {
+                val conn = transaction {
+                    authenticateRequest(call.request)
+                    requireBankConnection(call, "connid")
+                }
+                when (conn.type) {
+                    "ebics" -> {
+                        val pdfBytes = getEbicsKeyLetterPdf(conn)
+                        call.respondBytes(pdfBytes, ContentType("application", "pdf"))
+                    }
+                    else -> throw NexusError(HttpStatusCode.NotImplemented, "keyletter not supporte dfor ${conn.type}")
+                }
             }
 
             get("/bank-connections/{connid}/messages") {
