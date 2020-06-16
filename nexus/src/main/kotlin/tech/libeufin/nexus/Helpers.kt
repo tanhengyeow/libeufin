@@ -20,12 +20,9 @@
 package tech.libeufin.nexus
 
 import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
-import io.ktor.client.HttpClient
 import io.ktor.http.HttpStatusCode
-import io.ktor.request.ApplicationRequest
 import org.jetbrains.exposed.sql.SortOrder
 import org.jetbrains.exposed.sql.and
-import org.jetbrains.exposed.sql.statements.api.ExposedBlob
 import org.jetbrains.exposed.sql.transactions.transaction
 import org.w3c.dom.Document
 import tech.libeufin.util.*
@@ -103,14 +100,13 @@ fun getEbicsSubscriberDetailsInternal(subscriber: EbicsSubscriberEntity): EbicsC
 /**
  * Check if the transaction is already found in the database.
  */
-private fun isDuplicate(acctSvcrRef: String): Boolean {
+private fun findDuplicate(bankAccountId: String, acctSvcrRef: String): RawBankTransactionEntity? {
     // FIXME: make this generic depending on transaction identification scheme
     val ati = "AcctSvcrRef:$acctSvcrRef"
     return transaction {
-        val res = RawBankTransactionEntity.find {
-            RawBankTransactionsTable.accountTransactionId eq ati
+        RawBankTransactionEntity.find {
+            (RawBankTransactionsTable.accountTransactionId eq ati) and (RawBankTransactionsTable.bankAccount eq bankAccountId)
         }.firstOrNull()
-        res != null
     }
 }
 
@@ -126,16 +122,18 @@ fun processCamtMessage(
         }
         val transactions = getTransactions(camtDoc)
         logger.info("found ${transactions.size} transactions")
-        for (tx in transactions) {
+        txloop@for (tx in transactions) {
             val acctSvcrRef = tx.accountServicerReference
             if (acctSvcrRef == null) {
                 // FIXME(dold): Report this!
                 logger.error("missing account servicer reference in transaction")
                 continue
             }
-            if (isDuplicate(acctSvcrRef)) {
-                logger.info("Processing a duplicate, not storing it.")
-                return@transaction
+            val duplicate = findDuplicate(bankAccountId, acctSvcrRef)
+            if (duplicate != null) {
+                // FIXME(dold): See if an old transaction needs to be superseded by this one
+                // https://bugs.gnunet.org/view.php?id=6381
+                break
             }
             RawBankTransactionEntity.new {
                 bankAccount = acct
@@ -144,7 +142,7 @@ fun processCamtMessage(
                 currency = tx.currency
                 transactionJson = jacksonObjectMapper().writerWithDefaultPrettyPrinter().writeValueAsString(tx)
                 creditDebitIndicator = tx.creditDebitIndicator.name
-                status = tx.status.name
+                status = tx.status
             }
         }
     }

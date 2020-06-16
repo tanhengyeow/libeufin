@@ -147,7 +147,12 @@ object RawBankTransactionsTable : LongIdTable() {
     /**
      * Booked / pending / informational.
      */
-    val status = text("status")
+    val status = enumerationByName("status", 16, TransactionStatus::class)
+
+    /**
+     * Another, later transaction that updates the status of the current transaction.
+     */
+    val updatedBy = optReference("updatedBy", RawBankTransactionsTable)
 
     /**
      * Full details of the transaction in JSON format.
@@ -165,6 +170,7 @@ class RawBankTransactionEntity(id: EntityID<Long>) : LongEntity(id) {
     var bankAccount by NexusBankAccountEntity referencedOn RawBankTransactionsTable.bankAccount
     var transactionJson by RawBankTransactionsTable.transactionJson
     var accountTransactionId by RawBankTransactionsTable.accountTransactionId
+    val updatedBy by RawBankTransactionEntity optionalReferencedOn RawBankTransactionsTable.updatedBy
 }
 
 /**
