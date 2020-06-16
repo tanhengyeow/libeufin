@@ -181,7 +181,6 @@ fun ingestBankMessagesIntoAccount(
     }
 }
 
-
 /**
  * Create a PAIN.001 XML document according to the input data.
  * Needs to be called within a transaction block.
@@ -312,7 +311,7 @@ fun createPain001document(paymentData: PreparedPaymentEntity): String {
  * Retrieve prepared payment from database, raising exception
  * if not found.
  */
-fun getPreparedPayment(uuid: String): PreparedPaymentEntity {
+fun getPreparedPayment(uuid: Long): PreparedPaymentEntity {
     return transaction {
         PreparedPaymentEntity.findById(uuid)
     } ?: throw NexusError(
@@ -330,9 +329,8 @@ fun getPreparedPayment(uuid: String): PreparedPaymentEntity {
  * by this pain document.
  */
 fun addPreparedPayment(paymentData: Pain001Data, debitorAccount: NexusBankAccountEntity): PreparedPaymentEntity {
-    val randomId = Random().nextLong()
     return transaction {
-        PreparedPaymentEntity.new(randomId.toString()) {
+        PreparedPaymentEntity.new {
             subject = paymentData.subject
             sum = paymentData.sum
             debitorIban = debitorAccount.iban
@@ -342,15 +340,21 @@ fun addPreparedPayment(paymentData: Pain001Data, debitorAccount: NexusBankAccoun
             creditorBic = paymentData.creditorBic
             creditorIban = paymentData.creditorIban
             preparationDate = Instant.now().toEpochMilli()
-            paymentId = randomId
-            endToEndId = randomId
+            endToEndId = 0
         }
     }
 }
 
 fun ensureNonNull(param: String?): String {
     return param ?: throw NexusError(
-        HttpStatusCode.BadRequest, "Bad ID given"
+        HttpStatusCode.BadRequest, "Bad ID given: ${param}"
+    )
+}
+
+fun ensureLong(param: String?): Long {
+    val asString = ensureNonNull(param)
+    return asString.toLongOrNull() ?: throw NexusError(
+        HttpStatusCode.BadRequest, "Parameter is not a number: ${param}"
     )
 }
 

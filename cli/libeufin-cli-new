@@ -167,8 +167,8 @@ def import_bank_accounts(obj, connection_name, nexus_user_id, nexus_password, ne
 @click.argument("nexus-base-url")
 @click.pass_obj
 def prepare_payment(obj, account_name, credit_iban, credit_bic, credit_name,
-                    nexus_user_id, nexus_password, nexus_base_url):
-    url = urljoin(nexus_basd_url, "/bank-accounts/{}/prepared-payments".format(account_name))
+                    nexus_user_id, nexus_password, nexus_base_url, payment_amount, payment_subject):
+    url = urljoin(nexus_base_url, "/bank-accounts/{}/prepared-payments".format(account_name))
     body = dict(
         iban=credit_iban,
         bic=credit_bic,

@@ -170,19 +170,8 @@ class RawBankTransactionEntity(id: EntityID<Long>) : LongEntity(id) {
 /**
  * Represents a prepared payment.
  */
-object PreparedPaymentsTable : IdTable<String>() {
-    /** the UUID representing this payment in the system */
-    override val id = text("id").entityId()
-    val paymentId = long("paymentId")
-
-    /**
-     * Time when the payment initiation was created.
-     */
+object PreparedPaymentsTable : LongIdTable() {
     val preparationDate = long("preparationDate")
-
-    /**
-     * First time that this payment request has been submitted successfully.
-     */
     val submissionDate = long("submissionDate").nullable()
     val sum = amount("sum")
     val currency = varchar("currency", length = 3).default("EUR")
@@ -194,18 +183,11 @@ object PreparedPaymentsTable : IdTable<String>() {
     val debitorIban = text("debitorIban")
     val debitorBic = text("debitorBic")
     val debitorName = text("debitorName").nullable()
-
-    /**
-     * Indicates whether the PAIN message was sent to the bank.
-     * FIXME(dold): Overlap with submissionDate?!
-     */
     val submitted = bool("submitted").default(false)
 }
 
-class PreparedPaymentEntity(id: EntityID<String>) : Entity<String>(id) {
-    companion object : EntityClass<String, PreparedPaymentEntity>(PreparedPaymentsTable)
-
-    var paymentId by PreparedPaymentsTable.paymentId
+class PreparedPaymentEntity(id: EntityID<Long>) : LongEntity(id) {
+    companion object : LongEntityClass<PreparedPaymentEntity>(PreparedPaymentsTable)
     var preparationDate by PreparedPaymentsTable.preparationDate
     var submissionDate by PreparedPaymentsTable.submissionDate
     var sum by PreparedPaymentsTable.sum

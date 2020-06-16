@@ -521,7 +521,7 @@ fun serverMain(dbName: String) {
              * Submit one particular payment to the bank.
              */
             post("/bank-accounts/{accountid}/prepared-payments/{uuid}/submit") {
-                val uuid = ensureNonNull(call.parameters["uuid"])
+                val uuid = ensureLong(call.parameters["uuid"])
                 val accountId = ensureNonNull(call.parameters["accountid"])
                 val res = transaction {
                     val user = authenticateRequest(call.request)
@@ -568,7 +568,7 @@ fun serverMain(dbName: String) {
             get("/bank-accounts/{accountid}/prepared-payments/{uuid}") {
                 val res = transaction {
                     val user = authenticateRequest(call.request)
-                    val preparedPayment = getPreparedPayment(ensureNonNull(call.parameters["uuid"]))
+                    val preparedPayment = getPreparedPayment(ensureLong(call.parameters["uuid"]))
                     return@transaction object {
                         val preparedPayment = preparedPayment
                     }
@@ -576,7 +576,7 @@ fun serverMain(dbName: String) {
                 val sd = res.preparedPayment.submissionDate
                 call.respond(
                     PaymentStatus(
-                        uuid = res.preparedPayment.id.value,
+                        uuid = res.preparedPayment.id.value.toString(),
                         submitted = res.preparedPayment.submitted,
                         creditorName = res.preparedPayment.creditorName,
                         creditorBic = res.preparedPayment.creditorBic,
@@ -621,7 +621,7 @@ fun serverMain(dbName: String) {
                 }
                 call.respond(
                     HttpStatusCode.OK,
-                    PreparedPaymentResponse(uuid = res.uuid)
+                    PreparedPaymentResponse(uuid = res.uuid.toString())
                 )
                 return@post
             }
