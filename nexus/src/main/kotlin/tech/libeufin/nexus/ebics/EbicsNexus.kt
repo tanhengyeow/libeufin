@@ -557,8 +557,8 @@ fun getEbicsKeyLetterPdf(conn: NexusBankConnectionEntity): ByteArray {
         it.add(Paragraph("Verschlüsselungsschlüssel").setFontSize(24f))
         writeCommon(it)
         it.add(Paragraph("Öffentlicher Schlüssel (Public encryption key)"))
-        it.add(Paragraph("\n"))
         writeKey(it, ebicsSubscriber.customerSignPriv)
+        it.add(Paragraph("\n"))
         writeSigLine(it)
     }
     pdfWriter.flush()
