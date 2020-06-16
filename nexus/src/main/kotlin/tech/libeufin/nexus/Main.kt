@@ -202,7 +202,7 @@ fun requireBankConnection(call: ApplicationCall, parameterKey: String): NexusBan
     if (name == null) {
         throw NexusError(HttpStatusCode.InternalServerError, "no parameter for bank connection")
     }
-    val conn = NexusBankConnectionEntity.findById(name)
+    val conn = transaction { NexusBankConnectionEntity.findById(name) }
     if (conn == null) {
         throw NexusError(HttpStatusCode.NotFound, "bank connection '$name' not found")
     }
