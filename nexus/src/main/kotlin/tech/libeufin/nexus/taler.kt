@@ -515,7 +515,7 @@ fun ingestTalerTransactions() {
             /** Those with exchange bank account involved */
             RawBankTransactionsTable.bankAccount eq subscriberAccount.id.value and
                     /** Those that are booked */
-                    (RawBankTransactionsTable.status eq "BOOK") and
+                    (RawBankTransactionsTable.status eq TransactionStatus.BOOK) and
                     /** Those that came later than the latest processed payment */
                     (RawBankTransactionsTable.id.greater(lastId))
         }.orderBy(Pair(RawBankTransactionsTable.id, SortOrder.ASC)).forEach {
