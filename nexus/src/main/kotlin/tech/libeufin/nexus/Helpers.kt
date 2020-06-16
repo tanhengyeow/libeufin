@@ -183,7 +183,7 @@ fun ingestBankMessagesIntoAccount(
  * Create a PAIN.001 XML document according to the input data.
  * Needs to be called within a transaction block.
  */
-fun createPain001document(paymentData: PreparedPaymentEntity): String {
+fun createPain001document(paymentData: InitiatedPaymentEntity): String {
     /**
      * Every PAIN.001 document contains at least three IDs:
      *
@@ -310,9 +310,9 @@ fun createPain001document(paymentData: PreparedPaymentEntity): String {
  * Retrieve prepared payment from database, raising exception
  * if not found.
  */
-fun getPreparedPayment(uuid: Long): PreparedPaymentEntity {
+fun getPreparedPayment(uuid: Long): InitiatedPaymentEntity {
     return transaction {
-        PreparedPaymentEntity.findById(uuid)
+        InitiatedPaymentEntity.findById(uuid)
     } ?: throw NexusError(
         HttpStatusCode.NotFound,
         "Payment '$uuid' not found"
@@ -327,9 +327,9 @@ fun getPreparedPayment(uuid: Long): PreparedPaymentEntity {
  * it will be the account whose money will pay the wire transfer being defined
  * by this pain document.
  */
-fun addPreparedPayment(paymentData: Pain001Data, debitorAccount: NexusBankAccountEntity): PreparedPaymentEntity {
+fun addPreparedPayment(paymentData: Pain001Data, debitorAccount: NexusBankAccountEntity): InitiatedPaymentEntity {
     return transaction {
-        PreparedPaymentEntity.new {
+        InitiatedPaymentEntity.new {
             subject = paymentData.subject
             sum = paymentData.sum
             debitorIban = debitorAccount.iban

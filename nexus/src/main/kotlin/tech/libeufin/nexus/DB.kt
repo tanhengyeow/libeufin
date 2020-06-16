@@ -64,7 +64,7 @@ object TalerRequestedPayments : LongIdTable() {
 class TalerRequestedPaymentEntity(id: EntityID<Long>) : LongEntity(id) {
     companion object : LongEntityClass<TalerRequestedPaymentEntity>(TalerRequestedPayments)
 
-    var preparedPayment by InitiatedPaymentEntry referencedOn TalerRequestedPayments.preparedPayment
+    var preparedPayment by InitiatedPaymentEntity referencedOn TalerRequestedPayments.preparedPayment
     var requestUId by TalerRequestedPayments.requestUId
     var amount by TalerRequestedPayments.amount
     var exchangeBaseUrl by TalerRequestedPayments.exchangeBaseUrl
@@ -182,7 +182,7 @@ object InitiatedPaymentsTable : LongIdTable() {
     val sum = amount("sum")
     val currency = varchar("currency", length = 3).default("EUR")
     val endToEndId = long("EndToEndId")
-    val subject = text("subject")
+    val subject = text("subject")   
     val creditorIban = text("creditorIban")
     val creditorBic = text("creditorBic")
     val creditorName = text("creditorName")
@@ -192,8 +192,8 @@ object InitiatedPaymentsTable : LongIdTable() {
     val submitted = bool("submitted").default(false)
 }
 
-class InitiatedPaymentEntry(id: EntityID<Long>) : LongEntity(id) {
-    companion object : LongEntityClass<InitiatedPaymentEntry>(InitiatedPaymentsTable)
+class InitiatedPaymentEntity(id: EntityID<Long>) : LongEntity(id) {
+    companion object : LongEntityClass<InitiatedPaymentEntity>(InitiatedPaymentsTable)
     var preparationDate by InitiatedPaymentsTable.preparationDate
     var submissionDate by InitiatedPaymentsTable.submissionDate
     var sum by InitiatedPaymentsTable.sum

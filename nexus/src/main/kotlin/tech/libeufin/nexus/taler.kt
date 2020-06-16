@@ -409,9 +409,9 @@ suspend fun submitPreparedPaymentsViaEbics() {
                     HttpStatusCode.InternalServerError,
                     "Bank account '${it.bankAccount}' not found for facade '${it.id.value}'"
                 )
-            PreparedPaymentEntity.find {
-                PreparedPaymentsTable.debitorIban eq bankAccount.iban and
-                        not(PreparedPaymentsTable.submitted)
+            InitiatedPaymentEntity.find {
+                InitiatedPaymentsTable.debitorIban eq bankAccount.iban and
+                        not(InitiatedPaymentsTable.submitted)
             }.forEach {
                 val pain001document = createPain001document(it)
                 logger.debug("Preparing payment: ${pain001document}")
