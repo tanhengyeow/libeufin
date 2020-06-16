@@ -31,21 +31,15 @@ import com.itextpdf.kernel.pdf.PdfWriter
 import com.itextpdf.layout.Document
 import com.itextpdf.layout.element.AreaBreak
 import com.itextpdf.layout.element.Paragraph
-import io.ktor.application.Application
-import io.ktor.application.ApplicationCall
 import io.ktor.application.call
 import io.ktor.client.HttpClient
 import io.ktor.http.ContentType
 import io.ktor.http.HttpStatusCode
-import io.ktor.request.receive
 import io.ktor.request.receiveOrNull
 import io.ktor.response.respond
 import io.ktor.response.respondText
 import io.ktor.routing.Route
-import io.ktor.routing.Routing
 import io.ktor.routing.post
-import io.ktor.util.pipeline.PipelineContext
-import org.jetbrains.exposed.sql.SqlExpressionBuilder.eq
 import org.jetbrains.exposed.sql.statements.api.ExposedBlob
 import org.jetbrains.exposed.sql.transactions.transaction
 import tech.libeufin.nexus.*
@@ -440,28 +434,58 @@ fun getEbicsConnectionDetails(conn: NexusBankConnectionEntity): Any {
     return node
 }
 
+/**
+ * Do the Hpb request when we don't know whether our keys have been submitted or not.
+ *
+ * Return true when the tentative HPB request succeeded, and thus key initialization is done.
+ */
+private suspend fun tentativeHpb(client: HttpClient, connId: String): Boolean {
+    val subscriber = transaction { getEbicsSubscriberDetails(connId) }
+    val hpbData = try {
+        doEbicsHpbRequest(client, subscriber)
+    } catch (e: EbicsProtocolError) {
+        logger.info("failed tentative hpb request", e)
+        return false
+    }
+    transaction {
+        val conn = NexusBankConnectionEntity.findById(connId)
+        if (conn == null) {
+            throw NexusError(HttpStatusCode.NotFound, "bank connection '$connId' not found")
+        }
+        val subscriberEntity =
+            EbicsSubscriberEntity.find { EbicsSubscribersTable.nexusBankConnection eq conn.id }.first()
+        subscriberEntity.ebicsIniState = EbicsInitState.SENT
+        subscriberEntity.ebicsHiaState = EbicsInitState.SENT
+        subscriberEntity.bankAuthenticationPublicKey =
+            ExposedBlob((hpbData.authenticationPubKey.encoded))
+        subscriberEntity.bankEncryptionPublicKey = ExposedBlob((hpbData.encryptionPubKey.encoded))
+    }
+    return true
+}
+
 suspend fun connectEbics(client: HttpClient, connId: String) {
     val subscriber = transaction { getEbicsSubscriberDetails(connId) }
     if (subscriber.bankAuthPub != null && subscriber.bankEncPub != null) {
         return
+    }
+    if (subscriber.ebicsIniState == EbicsInitState.UNKNOWN || subscriber.ebicsHiaState == EbicsInitState.UNKNOWN) {
+        if (tentativeHpb(client, connId)) {
+            return
+        }
     }
     val iniDone = when (subscriber.ebicsIniState) {
         EbicsInitState.NOT_SENT, EbicsInitState.UNKNOWN -> {
             val iniResp = doEbicsIniRequest(client, subscriber)
             iniResp.bankReturnCode == EbicsReturnCode.EBICS_OK && iniResp.technicalReturnCode == EbicsReturnCode.EBICS_OK
         }
-        else -> {
-            false
-        }
+        EbicsInitState.SENT -> true
     }
     val hiaDone = when (subscriber.ebicsHiaState) {
         EbicsInitState.NOT_SENT, EbicsInitState.UNKNOWN -> {
             val hiaResp = doEbicsHiaRequest(client, subscriber)
             hiaResp.bankReturnCode == EbicsReturnCode.EBICS_OK && hiaResp.technicalReturnCode == EbicsReturnCode.EBICS_OK
         }
-        else -> {
-            false
-        }
+        EbicsInitState.SENT -> true
     }
     val hpbData = try {
         doEbicsHpbRequest(client, subscriber)
@@ -513,14 +537,18 @@ fun getEbicsKeyLetterPdf(conn: NexusBankConnectionEntity): ByteArray {
     val dateStr = date.format(DateTimeFormatter.ISO_LOCAL_DATE)
 
     fun writeCommon(doc: Document) {
-        doc.add(Paragraph("""
+        doc.add(
+            Paragraph(
+                """
             Datum: $dateStr
             Teilnehmer: ${conn.id.value}
             Host-ID: ${ebicsSubscriber.hostId}
             User-ID: ${ebicsSubscriber.userId}
             Partner-ID: ${ebicsSubscriber.partnerId}
             ES version: A006
-        """.trimIndent()))
+        """.trimIndent()
+            )
+        )
     }
 
     fun writeKey(doc: Document, priv: RSAPrivateCrtKey) {
