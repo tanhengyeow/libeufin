@@ -285,9 +285,10 @@ fun createPain001document(paymentData: PreparedPaymentEntity): String {
                             attribute("Ccy", paymentData.currency)
                             text(paymentData.sum.toString())
                         }
+                        /*
                         element("CdtrAgt/FinInstnId/BIC") {
                             text(paymentData.creditorBic)
-                        }
+                        }*/
                         element("Cdtr/Nm") {
                             text(paymentData.creditorName)
                         }
