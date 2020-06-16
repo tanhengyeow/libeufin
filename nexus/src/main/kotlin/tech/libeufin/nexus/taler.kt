@@ -327,7 +327,7 @@ private suspend fun talerTransfer(call: ApplicationCall) {
 }
 
 // /taler/admin/add-incoming
-private suspend fun talerAddIncoming(call: ApplicationCall): Unit {
+private suspend fun talerAddIncoming(call: ApplicationCall, httpClient: HttpClient): Unit {
     val addIncomingData = call.receive<TalerAdminAddIncoming>()
     val debtor = parsePayto(addIncomingData.debit_account)
     val res = transaction {
@@ -342,7 +342,6 @@ private suspend fun talerAddIncoming(call: ApplicationCall): Unit {
             val facadeHolderName = facadeBankAccount.accountHolder
         }
     }
-    val httpClient = HttpClient()
     /** forward the payment information to the sandbox.  */
     httpClient.post<String>(
         urlString = "http://localhost:5000/admin/payments",
@@ -629,13 +628,13 @@ private suspend fun historyIncoming(call: ApplicationCall): Unit {
     return call.respond(TextContent(customConverter(history), ContentType.Application.Json))
 }
 
-fun talerFacadeRoutes(route: Route) {
+fun talerFacadeRoutes(route: Route, httpClient: HttpClient) {
     route.post("/transfer") {
         talerTransfer(call)
         return@post
     }
     route.post("/admin/add-incoming") {
-        talerAddIncoming(call)
+        talerAddIncoming(call, httpClient)
         return@post
     }
     route.get("/history/outgoing") {

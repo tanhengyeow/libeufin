@@ -853,7 +853,7 @@ fun serverMain(dbName: String) {
             }
 
             route("/facades/{fcid}/taler") {
-                talerFacadeRoutes(this)
+                talerFacadeRoutes(this, client)
             }
             /**
              * Hello endpoint.
