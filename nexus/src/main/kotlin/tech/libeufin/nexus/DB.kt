@@ -41,36 +41,28 @@ import java.sql.Connection
  * in the PAIN-table.
  */
 object TalerRequestedPayments : LongIdTable() {
+    // this id gets assigned when the bank confirms the
+    // corresponding outgoing payment.  It is "abstract"
+    // in the sense that a "early" prepared payment might
+    // get a "high" id because the bank confirmed it "late".
+    val abstractId = long("abstractId").nullable()
     val preparedPayment = reference("payment", InitiatedPaymentsTable)
     val requestUId = text("request_uid")
-
-    /**
-     * Amount in the Taler amount format.
-     */
     val amount = text("amount")
     val exchangeBaseUrl = text("exchange_base_url")
     val wtid = text("wtid")
     val creditAccount = text("credit_account")
-
-    /**
-     * This column gets a value only after the bank acknowledges the payment via
-     * a camt.05x entry.  The "crunch" logic is responsible for assigning such value.
-     *
-     * FIXME(dold): Shouldn't this happen at the level of the PreparedPaymentsTable?
-     */
-    val rawConfirmed = reference("raw_confirmed", RawBankTransactionsTable).nullable()
 }
 
 class TalerRequestedPaymentEntity(id: EntityID<Long>) : LongEntity(id) {
     companion object : LongEntityClass<TalerRequestedPaymentEntity>(TalerRequestedPayments)
-
+    var abstractId by TalerRequestedPayments.abstractId
     var preparedPayment by InitiatedPaymentEntity referencedOn TalerRequestedPayments.preparedPayment
     var requestUId by TalerRequestedPayments.requestUId
     var amount by TalerRequestedPayments.amount
     var exchangeBaseUrl by TalerRequestedPayments.exchangeBaseUrl
     var wtid by TalerRequestedPayments.wtid
     var creditAccount by TalerRequestedPayments.creditAccount
-    var rawConfirmed by RawBankTransactionEntity optionalReferencedOn TalerRequestedPayments.rawConfirmed
 }
 
 /**
@@ -162,7 +154,6 @@ object RawBankTransactionsTable : LongIdTable() {
 
 class RawBankTransactionEntity(id: EntityID<Long>) : LongEntity(id) {
     companion object : LongEntityClass<RawBankTransactionEntity>(RawBankTransactionsTable)
-
     var currency by RawBankTransactionsTable.currency
     var amount by RawBankTransactionsTable.amount
     var status by RawBankTransactionsTable.status
@@ -319,7 +310,9 @@ object TalerFacadeStateTable : IntIdTable() {
     val reserveTransferLevel = text("reserveTransferLevel")
     val intervalIncrement = text("intervalIncrement")
     val facade = reference("facade", FacadesTable)
+    // highest ID seen in the raw transactions table.
     val highestSeenMsgID = long("highestSeenMsgID").default(0)
+    val highestOutgoingAbstractID = long("highestOutgoingAbstractID").default(0)
 }
 
 class TalerFacadeStateEntity(id: EntityID<Int>) : IntEntity(id) {
@@ -333,6 +326,7 @@ class TalerFacadeStateEntity(id: EntityID<Int>) : IntEntity(id) {
     var intervalIncrement by TalerFacadeStateTable.intervalIncrement
     var facade by FacadeEntity referencedOn TalerFacadeStateTable.facade
     var highestSeenMsgID by TalerFacadeStateTable.highestSeenMsgID
+    var highestOutgoingAbstractID by TalerFacadeStateTable.highestOutgoingAbstractID
 }
 
 fun dbCreateTables(dbName: String) {

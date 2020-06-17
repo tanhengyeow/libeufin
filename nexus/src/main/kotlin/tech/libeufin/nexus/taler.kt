@@ -479,7 +479,9 @@ private fun ingestIncoming(payment: RawBankTransactionEntity, txDtls: Transactio
     return
 }
 
-private fun ingestOutgoing(payment: RawBankTransactionEntity, txDtls: TransactionDetails) {
+private fun ingestOutgoing(
+    txDtls: TransactionDetails,
+    fcid: String) {
     val subject = txDtls.unstructuredRemittanceInformation
     logger.debug("Ingesting outgoing payment: subject")
     val wtid = extractWtidFromSubject(subject)
@@ -495,7 +497,9 @@ private fun ingestOutgoing(payment: RawBankTransactionEntity, txDtls: Transactio
         return
     }
     logger.debug("Payment: ${subject} was requested, and gets now marked as 'confirmed'")
-    talerRequested.rawConfirmed = payment
+    val fs = getTalerFacadeState(fcid)
+    fs.highestOutgoingAbstractID++
+    talerRequested.abstractId = fs.highestOutgoingAbstractID
 }
 
 /**
@@ -526,7 +530,9 @@ fun ingestTalerTransactions() {
                 logger.warn("batch transactions not supported")
             } else {
                 when (tx.creditDebitIndicator) {
-                    CreditDebitIndicator.DBIT -> ingestOutgoing(it, txDtls = tx.details[0])
+                    CreditDebitIndicator.DBIT -> ingestOutgoing(
+                        txDtls = tx.details[0], fcid = facade.id.value
+                    )
                     CreditDebitIndicator.CRDT -> ingestIncoming(it, txDtls = tx.details[0])
                 }
             }
@@ -564,9 +570,17 @@ private suspend fun historyOutgoing(call: ApplicationCall) {
 
         /** Retrieve all the outgoing payments from the _clean Taler outgoing table_ */
         val subscriberBankAccount = getTalerFacadeBankAccount(expectNonNull(call.parameters["fcid"]))
-        val reqPayments = TalerRequestedPaymentEntity.find {
-            TalerRequestedPayments.rawConfirmed.isNotNull() and startCmpOp
+        val reqPayments = mutableListOf<TalerRequestedPaymentEntity>()
+        val reqPaymentsWithUnconfirmed = TalerRequestedPaymentEntity.find {
+            if (delta < 0) {
+                TalerRequestedPayments.abstractId less start
+            } else TalerRequestedPayments.abstractId greater start
         }.orderTaler(delta)
+        reqPaymentsWithUnconfirmed.forEach {
+            if (it.preparedPayment.rawConfirmation != null) {
+                reqPayments.add(it)
+            }
+        }
         if (reqPayments.isNotEmpty()) {
             reqPayments.subList(0, min(abs(delta), reqPayments.size)).forEach {
                 history.outgoing_transactions.add(
