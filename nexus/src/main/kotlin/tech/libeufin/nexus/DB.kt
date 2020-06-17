@@ -190,6 +190,9 @@ object InitiatedPaymentsTable : LongIdTable() {
     val debitorBic = text("debitorBic")
     val debitorName = text("debitorName").nullable()
     val submitted = bool("submitted").default(false)
+    // points at the raw transaction witnessing that this
+    // initiated payment was successfully performed.
+    val rawConfirmation = reference("rawConfirmation", RawBankTransactionsTable).nullable()
 }
 
 class InitiatedPaymentEntity(id: EntityID<Long>) : LongEntity(id) {
@@ -207,6 +210,7 @@ class InitiatedPaymentEntity(id: EntityID<Long>) : LongEntity(id) {
     var creditorBic by InitiatedPaymentsTable.creditorBic
     var creditorName by InitiatedPaymentsTable.creditorName
     var submitted by InitiatedPaymentsTable.submitted
+    var rawConfirmation by RawBankTransactionEntity optionalReferencedOn  InitiatedPaymentsTable.rawConfirmation
 }
 
 /**

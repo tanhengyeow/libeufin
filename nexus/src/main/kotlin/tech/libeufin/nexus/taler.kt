@@ -379,6 +379,7 @@ private suspend fun talerAddIncoming(call: ApplicationCall, httpClient: HttpClie
 
 // submits ALL the prepared payments from ALL the Taler facades.
 // FIXME(dold): This should not be done here.
+// -> why?  It crawls the *taler* facade to find payment to submit.
 suspend fun submitPreparedPaymentsViaEbics(httpClient: HttpClient) {
     data class EbicsSubmission(
         val subscriberDetails: EbicsClientSubscriberDetails,
@@ -417,6 +418,7 @@ suspend fun submitPreparedPaymentsViaEbics(httpClient: HttpClient) {
                 val subscriberDetails = getEbicsSubscriberDetailsInternal(subscriberEntity)
                 workQueue.add(EbicsSubmission(subscriberDetails, pain001document))
                 // FIXME: the payment must be flagged AFTER the submission happens.
+                // -> this is an open question: see #6367.
                 it.submitted = true
             }
         }

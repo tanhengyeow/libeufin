@@ -110,6 +110,26 @@ private fun findDuplicate(bankAccountId: String, acctSvcrRef: String): RawBankTr
     }
 }
 
+// retrieves the initiated payment and marks it as "performed
+// by the bank".  This avoids to submit it again.  'subject' is
+// the the A.K.A. unstructured remittance information.
+fun markInitiatedAsConfirmed(subject: String, debtorIban: String, rawUuid: Long) {
+    // not introducing a 'transaction {}' block since
+    // this function should be always be invoked from one.
+    val initiatedPayment = InitiatedPaymentEntity.find {
+        InitiatedPaymentsTable.subject eq subject and
+                (InitiatedPaymentsTable.debitorIban eq debtorIban)
+    }.firstOrNull()
+    if (initiatedPayment == null) {
+        logger.info("Payment '$subject' was never programmatically prepared")
+        return
+    }
+    val rawEntity = RawBankTransactionEntity.findById(rawUuid) ?: throw NexusError(
+        HttpStatusCode.InternalServerError, "Raw payment '$rawUuid' disappeared from database"
+    )
+    initiatedPayment.rawConfirmation = rawEntity
+}
+
 fun processCamtMessage(
     bankAccountId: String,
     camtDoc: Document
@@ -135,7 +155,8 @@ fun processCamtMessage(
                 // https://bugs.gnunet.org/view.php?id=6381
                 break
             }
-            RawBankTransactionEntity.new {
+
+            val rawEntity = RawBankTransactionEntity.new {
                 bankAccount = acct
                 accountTransactionId = "AcctSvcrRef:$acctSvcrRef"
                 amount = tx.amount
@@ -143,6 +164,26 @@ fun processCamtMessage(
                 transactionJson = jacksonObjectMapper().writerWithDefaultPrettyPrinter().writeValueAsString(tx)
                 creditDebitIndicator = tx.creditDebitIndicator.name
                 status = tx.status
+            }
+            if (tx.creditDebitIndicator == CreditDebitIndicator.DBIT) {
+                // assuming batches contain always one element, as aren't fully
+                // implemented now.
+                val uniqueBatchElement = tx.details.get(0)
+                markInitiatedAsConfirmed(
+                    // if the user has two initiated payments under the same
+                    // IBAN with the same subject, then this logic will cause
+                    // problems.  But a programmatic user should take care of this.
+                    uniqueBatchElement.unstructuredRemittanceInformation,
+                    if (uniqueBatchElement.relatedParties.debtorAccount !is AccountIdentificationIban) {
+                        throw NexusError(
+                            HttpStatusCode.InternalServerError,
+                            "Parsed CAMT didn't have IBAN in debtor!"
+                        )
+                    } else {
+                        uniqueBatchElement.relatedParties.debtorAccount.iban
+                    },
+                    rawEntity.id.value
+                )
             }
         }
     }
