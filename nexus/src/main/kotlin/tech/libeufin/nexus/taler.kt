@@ -416,7 +416,7 @@ suspend fun submitPreparedPaymentsViaEbics(httpClient: HttpClient) {
                 logger.debug("Preparing payment: ${pain001document}")
                 val subscriberDetails = getEbicsSubscriberDetailsInternal(subscriberEntity)
                 workQueue.add(EbicsSubmission(subscriberDetails, pain001document))
-                // FIXME: the payment must be flagger AFTER the submission happens.
+                // FIXME: the payment must be flagged AFTER the submission happens.
                 it.submitted = true
             }
         }
