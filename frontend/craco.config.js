@@ -12,6 +12,7 @@ module.exports = {
             '@body-background': '#f0f2f5',
             '@menu-item-padding': '0 120px',
             '@menu-bg': 'none',
+            '@menu-item-font-size': '16px',
           },
           javascriptEnabled: true,
         },
