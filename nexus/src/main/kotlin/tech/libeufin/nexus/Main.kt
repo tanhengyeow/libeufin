@@ -245,7 +245,7 @@ fun moreFrequentBackgroundTasks(httpClient: HttpClient) {
             }
             // FIXME: should be done automatically after raw ingestion
             reportAndIgnoreErrors { ingestTalerTransactions() }
-            reportAndIgnoreErrors { submitPreparedPaymentsViaEbics() }
+            reportAndIgnoreErrors { submitPreparedPaymentsViaEbics(httpClient) }
             logger.debug("More frequent background jobs done")
             delay(Duration.ofSeconds(1))
         }

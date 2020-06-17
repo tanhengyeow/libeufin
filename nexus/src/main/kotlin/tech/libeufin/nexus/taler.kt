@@ -379,7 +379,7 @@ private suspend fun talerAddIncoming(call: ApplicationCall, httpClient: HttpClie
 
 // submits ALL the prepared payments from ALL the Taler facades.
 // FIXME(dold): This should not be done here.
-suspend fun submitPreparedPaymentsViaEbics() {
+suspend fun submitPreparedPaymentsViaEbics(httpClient: HttpClient) {
     data class EbicsSubmission(
         val subscriberDetails: EbicsClientSubscriberDetails,
         val pain001document: String
@@ -421,7 +421,6 @@ suspend fun submitPreparedPaymentsViaEbics() {
             }
         }
     }
-    val httpClient = HttpClient()
     workQueue.forEach {
         println("submitting prepared payment via EBICS")
         doEbicsUploadTransaction(
