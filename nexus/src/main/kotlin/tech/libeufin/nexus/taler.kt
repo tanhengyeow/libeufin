@@ -38,6 +38,7 @@ import org.jetbrains.exposed.dao.Entity
 import org.jetbrains.exposed.dao.id.IdTable
 import org.jetbrains.exposed.sql.*
 import org.jetbrains.exposed.sql.transactions.transaction
+import tech.libeufin.nexus.bankaccount.addPreparedPayment
 import tech.libeufin.nexus.ebics.doEbicsUploadTransaction
 import tech.libeufin.util.*
 import kotlin.math.abs
