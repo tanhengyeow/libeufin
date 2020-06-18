@@ -195,9 +195,12 @@ fun getPreparedPayment(uuid: Long): PaymentInitiationEntity {
  * by this pain document.
  */
 fun addPreparedPayment(paymentData: Pain001Data, debitorAccount: NexusBankAccountEntity): PaymentInitiationEntity {
-    val now = Instant.now().toEpochMilli()
-    val nowHex = now.toString(16)
     return transaction {
+        val now = Instant.now().toEpochMilli()
+        val nowHex = now.toString(16)
+        val painCounter = debitorAccount.pain001Counter++
+        val painHex = painCounter.toString(16)
+        val acctHex = debitorAccount.id.hashCode().toString(16).substring(0, 4)
         PaymentInitiationEntity.new {
             bankAccount = debitorAccount
             subject = paymentData.subject
@@ -206,10 +209,10 @@ fun addPreparedPayment(paymentData: Pain001Data, debitorAccount: NexusBankAccoun
             creditorBic = paymentData.creditorBic
             creditorIban = paymentData.creditorIban
             preparationDate = now
-            messageId = "leuf-m-pain1-$nowHex"
-            endToEndId = "leuf-e-$nowHex"
-            paymentInformationId = "leuf-p-$nowHex"
-            instructionId = "leuf-i-$nowHex"
+            messageId = "leuf-mp1-$nowHex-$painHex-$acctHex"
+            endToEndId = "leuf-e-$nowHex-$painHex-$acctHex"
+            paymentInformationId = "leuf-p-$nowHex-$painHex-$acctHex"
+            instructionId = "leuf-i-$nowHex-$painHex-$acctHex"
         }
     }
 }

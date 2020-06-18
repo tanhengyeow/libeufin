@@ -220,6 +220,8 @@ object NexusBankAccountsTable : IdTable<String>() {
 
     // Highest bank message ID that this bank account is aware of.
     val highestSeenBankMessageId = integer("highestSeenBankMessageId")
+
+    val pain001Counter = long("pain001counter")
 }
 
 class NexusBankAccountEntity(id: EntityID<String>) : Entity<String>(id) {
@@ -230,6 +232,7 @@ class NexusBankAccountEntity(id: EntityID<String>) : Entity<String>(id) {
     var bankCode by NexusBankAccountsTable.bankCode
     var defaultBankConnection by NexusBankConnectionEntity optionalReferencedOn NexusBankAccountsTable.defaultBankConnection
     var highestSeenBankMessageId by NexusBankAccountsTable.highestSeenBankMessageId
+    var pain001Counter by NexusBankAccountsTable.pain001Counter
 }
 
 object EbicsSubscribersTable : IntIdTable() {
