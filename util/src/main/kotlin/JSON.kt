@@ -26,10 +26,10 @@ package tech.libeufin.util
  */
 data class RawPayment(
     val creditorIban: String,
-    val creditorBic: String,
+    val creditorBic: String?,
     val creditorName: String,
     val debitorIban: String,
-    val debitorBic: String,
+    val debitorBic: String?,
     val debitorName: String,
     val amount: String,
     val currency: String,

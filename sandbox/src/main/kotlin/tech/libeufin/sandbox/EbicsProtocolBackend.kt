@@ -376,23 +376,23 @@ fun buildCamtString(type: Int, subscriberIban: String, history: MutableList<RawP
                                             text(it.creditorIban)
                                         }
                                     }
-                                    element("RltdAgts") {
-                                        element("CdtrAgt/FinInstnId/BIC") {
-                                            // FIXME: explain this!
-                                            text(
-                                                if (subscriberIban.equals(it.creditorIban))
-                                                    it.debitorBic else it.creditorBic
-                                            )
-                                        }
-                                        element("DbtrAgt/FinInstnId/BIC") {
-                                            // FIXME: explain this!
-                                            text(
-                                                if (subscriberIban.equals(it.creditorIban))
-                                                    it.creditorBic else it.debitorBic
-                                            )
-                                        }
-
-                                    }
+//                                    element("RltdAgts") {
+//                                        element("CdtrAgt/FinInstnId/BIC") {
+//                                            // FIXME: explain this!
+//                                            text(
+//                                                if (subscriberIban.equals(it.creditorIban))
+//                                                    it.debitorBic else it.creditorBic
+//                                            )
+//                                        }
+//                                        element("DbtrAgt/FinInstnId/BIC") {
+//                                            // FIXME: explain this!
+//                                            text(
+//                                                if (subscriberIban.equals(it.creditorIban))
+//                                                    it.creditorBic else it.debitorBic
+//                                            )
+//                                        }
+//
+//                                    }
                                     element("RmtInf/Ustrd") {
                                         text(it.subject)
                                     }
@@ -488,10 +488,10 @@ private fun handleCct(paymentRequest: String, initiatorName: String) {
      */
     val painDoc = XMLUtil.parseStringIntoDom(paymentRequest)
     val creditorIban = painDoc.pickString("//*[local-name()='CdtrAcct']//*[local-name()='IBAN']")
-    val creditorBic = painDoc.pickString("//*[local-name()='CdtrAgt']//*[local-name()='BIC']")
+    //val creditorBic = painDoc.pickString("//*[local-name()='CdtrAgt']//*[local-name()='BIC']")
     val creditorName = painDoc.pickString("//*[local-name()='Cdtr']//*[local-name()='Nm']")
     val debitorIban = painDoc.pickString("//*[local-name()='DbtrAcct']//*[local-name()='IBAN']")
-    val debitorBic = painDoc.pickString("//*[local-name()='DbtrAgt']//*[local-name()='BIC']")
+    //val debitorBic = painDoc.pickString("//*[local-name()='DbtrAgt']//*[local-name()='BIC']")
     val debitorName = initiatorName
     val subject = painDoc.pickString("//*[local-name()='Ustrd']")
     val amount = painDoc.pickString("//*[local-name()='InstdAmt']")
@@ -500,10 +500,8 @@ private fun handleCct(paymentRequest: String, initiatorName: String) {
     transaction {
         PaymentEntity.new {
             this.creditorIban = creditorIban
-            this.creditorBic = creditorBic
             this.creditorName = creditorName
             this.debitorIban = debitorIban
-            this.debitorBic = debitorBic
             this.debitorName = debitorName
             this.subject = subject
             this.amount = amount

@@ -635,7 +635,7 @@ fun getEbicsKeyLetterPdf(conn: NexusBankConnectionEntity): ByteArray {
 
 suspend fun submitEbicsPaymentInitiation(httpClient: HttpClient, paymentInitiationId: Long) {
     val r = transaction {
-        val paymentInitiation = InitiatedPaymentEntity.findById(paymentInitiationId)
+        val paymentInitiation = PaymentInitiationEntity.findById(paymentInitiationId)
             ?: throw NexusError(HttpStatusCode.NotFound, "payment initiation not found")
         val connId = paymentInitiation.bankAccount.defaultBankConnection?.id
             ?: throw NexusError(HttpStatusCode.NotFound, "no default bank connection available for submission")
@@ -653,7 +653,8 @@ suspend fun submitEbicsPaymentInitiation(httpClient: HttpClient, paymentInitiati
                 // FIXME(dold): Put date in here as well
                 paymentInformationId = paymentInitiation.id.toString(),
                 preparationTimestamp = paymentInitiation.preparationDate,
-                subject = paymentInitiation.subject
+                subject = paymentInitiation.subject,
+                debtorName = paymentInitiation.bankAccount.accountHolder
         ))
         object {
             val subscriberDetails = subscriberDetails

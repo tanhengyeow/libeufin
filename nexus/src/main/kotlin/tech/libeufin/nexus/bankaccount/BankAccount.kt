@@ -25,19 +25,29 @@ import org.jetbrains.exposed.sql.and
 import org.jetbrains.exposed.sql.not
 import org.jetbrains.exposed.sql.transactions.transaction
 import tech.libeufin.nexus.*
-import tech.libeufin.nexus.ebics.doEbicsUploadTransaction
 import tech.libeufin.nexus.ebics.submitEbicsPaymentInitiation
-import tech.libeufin.util.EbicsClientSubscriberDetails
-import tech.libeufin.util.EbicsStandardOrderParams
 
+
+suspend fun submitPreparedPayment(httpClient: HttpClient, paymentInitiationId: Long) {
+    val type = transaction {
+        val paymentInitiation = PaymentInitiationEntity.findById(paymentInitiationId)
+        if (paymentInitiation == null) {
+            throw NexusError(HttpStatusCode.NotFound, "prepared payment not found")
+        }
+        paymentInitiation.bankAccount.defaultBankConnection?.type
+    }
+    when (type) {
+        null -> throw NexusError(HttpStatusCode.NotFound, "no default bank connection")
+        "ebics" -> submitEbicsPaymentInitiation(httpClient, paymentInitiationId)
+    }
+}
 
 /**
  * Submit all pending prepared payments.
  */
-suspend fun submitPreparedPayments(httpClient: HttpClient) {
+suspend fun submitAllPreparedPayments(httpClient: HttpClient) {
     data class Submission(
-        val id: Long,
-        val type: String
+        val id: Long
     )
     logger.debug("auto-submitter started")
     val workQueue = mutableListOf<Submission>()
@@ -56,21 +66,15 @@ suspend fun submitPreparedPayments(httpClient: HttpClient) {
                 return@forEach
             }
             val bankAccount: NexusBankAccountEntity = it
-            InitiatedPaymentEntity.find {
-                InitiatedPaymentsTable.debitorIban eq bankAccount.iban and
-                        not(InitiatedPaymentsTable.submitted)
+            PaymentInitiationEntity.find {
+                PaymentInitiationsTable.debitorIban eq bankAccount.iban and
+                        not(PaymentInitiationsTable.submitted)
             }.forEach {
-                workQueue.add(Submission(it.id.value, bankConnection.type))
+                workQueue.add(Submission(it.id.value))
             }
         }
     }
     workQueue.forEach {
-        when (it.type) {
-            "ebics" -> {
-                submitEbicsPaymentInitiation(httpClient, it.id)
-            }
-            else -> throw NexusError(HttpStatusCode.NotImplemented, "submission for ${it.type }not supported")
-        }
-
+        submitPreparedPayment(httpClient, it.id)
     }
 }

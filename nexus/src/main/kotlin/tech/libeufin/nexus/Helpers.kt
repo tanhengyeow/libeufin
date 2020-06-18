@@ -52,9 +52,9 @@ private fun findDuplicate(bankAccountId: String, acctSvcrRef: String): RawBankTr
 fun markInitiatedAsConfirmed(subject: String, debtorIban: String, rawUuid: Long) {
     // not introducing a 'transaction {}' block since
     // this function should be always be invoked from one.
-    val initiatedPayment = InitiatedPaymentEntity.find {
-        InitiatedPaymentsTable.subject eq subject and
-                (InitiatedPaymentsTable.debitorIban eq debtorIban)
+    val initiatedPayment = PaymentInitiationEntity.find {
+        PaymentInitiationsTable.subject eq subject and
+                (PaymentInitiationsTable.debitorIban eq debtorIban)
     }.firstOrNull()
     if (initiatedPayment == null) {
         logger.info("Payment '$subject' was never programmatically prepared")
@@ -160,7 +160,7 @@ fun ingestBankMessagesIntoAccount(
  * Create a PAIN.001 XML document according to the input data.
  * Needs to be called within a transaction block.
  */
-fun createPain001document(paymentData: InitiatedPaymentEntity): String {
+fun createPain001document(paymentData: PaymentInitiationEntity): String {
     /**
      * Every PAIN.001 document contains at least three IDs:
      *
@@ -286,9 +286,9 @@ fun createPain001document(paymentData: InitiatedPaymentEntity): String {
  * Retrieve prepared payment from database, raising exception
  * if not found.
  */
-fun getPreparedPayment(uuid: Long): InitiatedPaymentEntity {
+fun getPreparedPayment(uuid: Long): PaymentInitiationEntity {
     return transaction {
-        InitiatedPaymentEntity.findById(uuid)
+        PaymentInitiationEntity.findById(uuid)
     } ?: throw NexusError(
         HttpStatusCode.NotFound,
         "Payment '$uuid' not found"
@@ -303,9 +303,9 @@ fun getPreparedPayment(uuid: Long): InitiatedPaymentEntity {
  * it will be the account whose money will pay the wire transfer being defined
  * by this pain document.
  */
-fun addPreparedPayment(paymentData: Pain001Data, debitorAccount: NexusBankAccountEntity): InitiatedPaymentEntity {
+fun addPreparedPayment(paymentData: Pain001Data, debitorAccount: NexusBankAccountEntity): PaymentInitiationEntity {
     return transaction {
-        InitiatedPaymentEntity.new {
+        PaymentInitiationEntity.new {
             bankAccount = debitorAccount
             subject = paymentData.subject
             sum = paymentData.sum

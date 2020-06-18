@@ -46,7 +46,7 @@ object TalerRequestedPayments : LongIdTable() {
     // in the sense that a "early" prepared payment might
     // get a "high" id because the bank confirmed it "late".
     val abstractId = long("abstractId").nullable()
-    val preparedPayment = reference("payment", InitiatedPaymentsTable)
+    val preparedPayment = reference("payment", PaymentInitiationsTable)
     val requestUId = text("request_uid")
     val amount = text("amount")
     val exchangeBaseUrl = text("exchange_base_url")
@@ -57,7 +57,7 @@ object TalerRequestedPayments : LongIdTable() {
 class TalerRequestedPaymentEntity(id: EntityID<Long>) : LongEntity(id) {
     companion object : LongEntityClass<TalerRequestedPaymentEntity>(TalerRequestedPayments)
     var abstractId by TalerRequestedPayments.abstractId
-    var preparedPayment by InitiatedPaymentEntity referencedOn TalerRequestedPayments.preparedPayment
+    var preparedPayment by PaymentInitiationEntity referencedOn TalerRequestedPayments.preparedPayment
     var requestUId by TalerRequestedPayments.requestUId
     var amount by TalerRequestedPayments.amount
     var exchangeBaseUrl by TalerRequestedPayments.exchangeBaseUrl
@@ -167,7 +167,7 @@ class RawBankTransactionEntity(id: EntityID<Long>) : LongEntity(id) {
 /**
  * Represents a prepared payment.
  */
-object InitiatedPaymentsTable : LongIdTable() {
+object PaymentInitiationsTable : LongIdTable() {
     /**
      * Bank account that wants to initiate the payment.
      */
@@ -193,24 +193,24 @@ object InitiatedPaymentsTable : LongIdTable() {
     val rawConfirmation = reference("rawConfirmation", RawBankTransactionsTable).nullable()
 }
 
-class InitiatedPaymentEntity(id: EntityID<Long>) : LongEntity(id) {
-    companion object : LongEntityClass<InitiatedPaymentEntity>(InitiatedPaymentsTable)
+class PaymentInitiationEntity(id: EntityID<Long>) : LongEntity(id) {
+    companion object : LongEntityClass<PaymentInitiationEntity>(PaymentInitiationsTable)
 
-    var bankAccount by NexusBankAccountEntity referencedOn InitiatedPaymentsTable.bankAccount
-    var preparationDate by InitiatedPaymentsTable.preparationDate
-    var submissionDate by InitiatedPaymentsTable.submissionDate
-    var sum by InitiatedPaymentsTable.sum
-    var currency by InitiatedPaymentsTable.currency
-    var debitorIban by InitiatedPaymentsTable.debitorIban
-    var debitorBic by InitiatedPaymentsTable.debitorBic
-    var debitorName by InitiatedPaymentsTable.debitorName
-    var endToEndId by InitiatedPaymentsTable.endToEndId
-    var subject by InitiatedPaymentsTable.subject
-    var creditorIban by InitiatedPaymentsTable.creditorIban
-    var creditorBic by InitiatedPaymentsTable.creditorBic
-    var creditorName by InitiatedPaymentsTable.creditorName
-    var submitted by InitiatedPaymentsTable.submitted
-    var rawConfirmation by RawBankTransactionEntity optionalReferencedOn InitiatedPaymentsTable.rawConfirmation
+    var bankAccount by NexusBankAccountEntity referencedOn PaymentInitiationsTable.bankAccount
+    var preparationDate by PaymentInitiationsTable.preparationDate
+    var submissionDate by PaymentInitiationsTable.submissionDate
+    var sum by PaymentInitiationsTable.sum
+    var currency by PaymentInitiationsTable.currency
+    var debitorIban by PaymentInitiationsTable.debitorIban
+    var debitorBic by PaymentInitiationsTable.debitorBic
+    var debitorName by PaymentInitiationsTable.debitorName
+    var endToEndId by PaymentInitiationsTable.endToEndId
+    var subject by PaymentInitiationsTable.subject
+    var creditorIban by PaymentInitiationsTable.creditorIban
+    var creditorBic by PaymentInitiationsTable.creditorBic
+    var creditorName by PaymentInitiationsTable.creditorName
+    var submitted by PaymentInitiationsTable.submitted
+    var rawConfirmation by RawBankTransactionEntity optionalReferencedOn PaymentInitiationsTable.rawConfirmation
 }
 
 /**
@@ -345,7 +345,7 @@ fun dbCreateTables(dbName: String) {
         addLogger(StdOutSqlLogger)
         SchemaUtils.create(
             NexusUsersTable,
-            InitiatedPaymentsTable,
+            PaymentInitiationsTable,
             EbicsSubscribersTable,
             NexusBankAccountsTable,
             RawBankTransactionsTable,

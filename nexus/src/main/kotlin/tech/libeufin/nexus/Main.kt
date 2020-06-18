@@ -66,7 +66,8 @@ import org.jetbrains.exposed.sql.transactions.transaction
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 import org.slf4j.event.Level
-import tech.libeufin.nexus.bankaccount.submitPreparedPayments
+import tech.libeufin.nexus.bankaccount.submitAllPreparedPayments
+import tech.libeufin.nexus.bankaccount.submitPreparedPayment
 import tech.libeufin.nexus.ebics.*
 import tech.libeufin.util.*
 import tech.libeufin.util.CryptoUtil.hashpw
@@ -246,7 +247,7 @@ fun moreFrequentBackgroundTasks(httpClient: HttpClient) {
             }
             // FIXME: should be done automatically after raw ingestion
             reportAndIgnoreErrors { ingestTalerTransactions() }
-            reportAndIgnoreErrors { submitPreparedPayments(httpClient) }
+            reportAndIgnoreErrors { submitAllPreparedPayments(httpClient) }
             logger.debug("More frequent background jobs done")
             delay(Duration.ofSeconds(1))
         }
@@ -518,40 +519,9 @@ fun serverMain(dbName: String) {
                 val uuid = ensureLong(call.parameters["uuid"])
                 val accountId = ensureNonNull(call.parameters["accountid"])
                 val res = transaction {
-                    val user = authenticateRequest(call.request)
-                    val preparedPayment = getPreparedPayment(uuid)
-                    if (preparedPayment.submitted) {
-                        throw NexusError(
-                            HttpStatusCode.PreconditionFailed,
-                            "Payment ${uuid} was submitted already"
-                        )
-                    }
-                    val bankAccount = NexusBankAccountEntity.findById(accountId)
-                    if (bankAccount == null) {
-                        throw NexusError(HttpStatusCode.NotFound, "unknown bank account")
-                    }
-                    val defaultBankConnection = bankAccount.defaultBankConnection
-                        ?: throw NexusError(HttpStatusCode.NotFound, "needs a default connection")
-                    return@transaction object {
-                        val pain001document = createPain001document(preparedPayment)
-                        val bankConnectionType = defaultBankConnection.type
-                        val connId = defaultBankConnection.id.value
-                    }
+                    authenticateRequest(call.request)
                 }
-                // type and name aren't null
-                when (res.bankConnectionType) {
-                    "ebics" -> {
-                        submitEbicsPaymentInitiation(client, res.connId, res.pain001document)
-                    }
-                    else -> throw NexusError(
-                        HttpStatusCode.NotFound,
-                        "Transport type '${res.bankConnectionType}' not implemented"
-                    )
-                }
-                transaction {
-                    val preparedPayment = getPreparedPayment(uuid)
-                    preparedPayment.submitted = true
-                }
+                submitPreparedPayment(client, uuid)
                 call.respondText("Payment ${uuid} submitted")
                 return@post
             }

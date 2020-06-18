@@ -17,18 +17,14 @@
  * <http://www.gnu.org/licenses/>
  */
 
-package tech.libeufin.nexus
-
 /**
- * Parse ISO 20022 messages
+ * Parse and generate ISO 20022 messages
  */
+package tech.libeufin.nexus
 
 import com.fasterxml.jackson.annotation.JsonInclude
 import com.fasterxml.jackson.annotation.JsonSubTypes
 import com.fasterxml.jackson.annotation.JsonTypeInfo
-import io.ktor.http.HttpStatusCode
-import org.jetbrains.exposed.sql.and
-import org.jetbrains.exposed.sql.transactions.transaction
 import org.w3c.dom.Document
 import tech.libeufin.util.*
 import java.time.Instant
@@ -224,6 +220,7 @@ class CamtParsingError(msg: String) : Exception(msg)
 data class NexusPaymentInitiationData(
     val debtorIban: String,
     val debtorBic: String,
+    val debtorName: String,
     val messageId: String,
     val paymentInformationId: String,
     val amount: String,
@@ -239,29 +236,17 @@ data class NexusPaymentInitiationData(
  * Needs to be called within a transaction block.
  */
 fun createPain001document(paymentData: NexusPaymentInitiationData): String {
-    /**
-     * Every PAIN.001 document contains at least three IDs:
-     *
-     * 1) MsgId: a unique id for the message itself
-     * 2) PmtInfId: the unique id for the payment's set of information
-     * 3) EndToEndId: a unique id to be shared between the debtor and
-     *    creditor that uniquely identifies the transaction
-     *
-     * For now and for simplicity, since every PAIN entry in the database
-     * has a unique ID, and the three values aren't required to be mutually different,
-     * we'll assign the SAME id (= the row id) to all the three aforementioned
-     * PAIN id types.
-     */
-    val debitorBankAccountLabel = run {
-        val debitorBankAcount = NexusBankAccountEntity.find {
-            NexusBankAccountsTable.iban eq paymentData.debtorIban and
-                    (NexusBankAccountsTable.bankCode eq paymentData.debtorBic)
-        }.firstOrNull() ?: throw NexusError(
-            HttpStatusCode.NotFound,
-            "Please download bank accounts details first (HTD)"
-        )
-        debitorBankAcount.id.value
-    }
+    // Every PAIN.001 document contains at least three IDs:
+    //
+    // 1) MsgId: a unique id for the message itself
+    // 2) PmtInfId: the unique id for the payment's set of information
+    // 3) EndToEndId: a unique id to be shared between the debtor and
+    //    creditor that uniquely identifies the transaction
+    //
+    // For now and for simplicity, since every PAIN entry in the database
+    // has a unique ID, and the three values aren't required to be mutually different,
+    // we'll assign the SAME id (= the row id) to all the three aforementioned
+    // PAIN id types.
 
     val s = constructXml(indent = true) {
         root("Document") {
@@ -287,7 +272,7 @@ fun createPain001document(paymentData: NexusPaymentInitiationData): String {
                         text(paymentData.amount)
                     }
                     element("InitgPty/Nm") {
-                        text(debitorBankAccountLabel)
+                        text(paymentData.debtorName)
                     }
                 }
                 element("PmtInf") {
@@ -314,7 +299,7 @@ fun createPain001document(paymentData: NexusPaymentInitiationData): String {
                         text(importDateFromMillis(dateMillis).toDashedDate())
                     }
                     element("Dbtr/Nm") {
-                        text(debitorBankAccountLabel)
+                        text(paymentData.debtorName)
                     }
                     element("DbtrAcct/Id/IBAN") {
                         text(paymentData.debtorIban)
