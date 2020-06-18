@@ -137,7 +137,7 @@ fun processCamtMessage(
         }
         val transactions = getTransactions(camtDoc)
         logger.info("found ${transactions.size} transactions")
-        txloop@for (tx in transactions) {
+        txloop@ for (tx in transactions) {
             val acctSvcrRef = tx.accountServicerReference
             if (acctSvcrRef == null) {
                 // FIXME(dold): Report this!
@@ -164,21 +164,18 @@ fun processCamtMessage(
                 // assuming batches contain always one element, as aren't fully
                 // implemented now.
                 val uniqueBatchElement = tx.details.get(0)
-                markInitiatedAsConfirmed(
-                    // if the user has two initiated payments under the same
-                    // IBAN with the same subject, then this logic will cause
-                    // problems.  But a programmatic user should take care of this.
-                    uniqueBatchElement.unstructuredRemittanceInformation,
-                    if (uniqueBatchElement.relatedParties.debtorAccount !is AccountIdentificationIban) {
-                        throw NexusError(
-                            HttpStatusCode.InternalServerError,
-                            "Parsed CAMT didn't have IBAN in debtor!"
-                        )
-                    } else {
-                        uniqueBatchElement.relatedParties.debtorAccount.iban
-                    },
-                    rawEntity.id.value
-                )
+
+                // if the user has two initiated payments under the same
+                // IBAN with the same subject, then this logic will cause
+                // problems.  But a programmatic user should take care of this.
+                // FIXME(dold): Actually, we should do the matching via the Refs of the camt message.
+                if (uniqueBatchElement.relatedParties.debtorAccount is AccountIdentificationIban) {
+                    markInitiatedAsConfirmed(
+                        uniqueBatchElement.unstructuredRemittanceInformation,
+                        uniqueBatchElement.relatedParties.debtorAccount.iban,
+                        rawEntity.id.value
+                    )
+                }
             }
         }
     }
