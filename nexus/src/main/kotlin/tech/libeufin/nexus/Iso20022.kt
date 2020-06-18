@@ -194,7 +194,9 @@ data class AmountDetails(
 
 @JsonInclude(JsonInclude.Include.NON_NULL)
 data class References(
-    val endToEndIdentification: String?
+    val endToEndIdentification: String? = null,
+    val paymentInformationIdentification: String? = null,
+    val messageIdentification: String? = null
 )
 
 /**
@@ -444,9 +446,11 @@ private fun XmlElementDestructor.extractTransactionDetails(): List<TransactionDe
                 } ?: AmountDetails(null, null),
                 references = maybeUniqueChildNamed("Refs") {
                     References(
-                        endToEndIdentification = maybeUniqueChildNamed("EndToEndId") { it.textContent }
+                        endToEndIdentification = maybeUniqueChildNamed("EndToEndId") { it.textContent },
+                        messageIdentification = maybeUniqueChildNamed("MsgId") { it.textContent },
+                        paymentInformationIdentification = maybeUniqueChildNamed("PmtInfId") { it.textContent }
                     )
-                } ?: References(null),
+                } ?: References(),
                 unstructuredRemittanceInformation = maybeUniqueChildNamed("RmtInf") {
                     requireUniqueChildNamed("Ustrd") { it.textContent }
                 } ?: ""

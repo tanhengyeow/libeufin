@@ -24,7 +24,6 @@ import io.ktor.client.HttpClient
 import io.ktor.http.HttpStatusCode
 import org.jetbrains.exposed.sql.SortOrder
 import org.jetbrains.exposed.sql.and
-import org.jetbrains.exposed.sql.not
 import org.jetbrains.exposed.sql.transactions.transaction
 import org.w3c.dom.Document
 import tech.libeufin.nexus.*
@@ -90,12 +89,12 @@ suspend fun submitAllPreparedPayments(httpClient: HttpClient) {
 /**
  * Check if the transaction is already found in the database.
  */
-private fun findDuplicate(bankAccountId: String, acctSvcrRef: String): RawBankTransactionEntity? {
+private fun findDuplicate(bankAccountId: String, acctSvcrRef: String): NexusBankTransactionEntity? {
     // FIXME: make this generic depending on transaction identification scheme
     val ati = "AcctSvcrRef:$acctSvcrRef"
     return transaction {
-        RawBankTransactionEntity.find {
-            (RawBankTransactionsTable.accountTransactionId eq ati) and (RawBankTransactionsTable.bankAccount eq bankAccountId)
+        NexusBankTransactionEntity.find {
+            (NexusBankTransactionsTable.accountTransactionId eq ati) and (NexusBankTransactionsTable.bankAccount eq bankAccountId)
         }.firstOrNull()
     }
 }
@@ -126,7 +125,7 @@ fun processCamtMessage(
                 break
             }
 
-            val rawEntity = RawBankTransactionEntity.new {
+            val rawEntity = NexusBankTransactionEntity.new {
                 bankAccount = acct
                 accountTransactionId = "AcctSvcrRef:$acctSvcrRef"
                 amount = tx.amount
@@ -135,7 +134,22 @@ fun processCamtMessage(
                 creditDebitIndicator = tx.creditDebitIndicator.name
                 status = tx.status
             }
+            rawEntity.flush()
             if (tx.creditDebitIndicator == CreditDebitIndicator.DBIT) {
+                val t0 = tx.details.getOrNull(0)
+                val msgId = t0?.references?.messageIdentification
+                val pmtInfId = t0?.references?.paymentInformationIdentification
+                if (t0 != null && msgId != null && pmtInfId != null) {
+                    val paymentInitiation = PaymentInitiationEntity.find {
+                        (PaymentInitiationsTable.messageId eq msgId) and
+                                (PaymentInitiationsTable.bankAccount eq acct.id) and
+                                (PaymentInitiationsTable.paymentInformationId eq pmtInfId)
+
+                    }.firstOrNull()
+                    if (paymentInitiation != null) {
+                        paymentInitiation.confirmationTransaction = rawEntity
+                    }
+                }
                 // FIXME: find matching PaymentInitiation by PaymentInformationID, message ID or whatever is present
             }
         }

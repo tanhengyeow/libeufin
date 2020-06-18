@@ -350,7 +350,7 @@ private suspend fun talerAddIncoming(call: ApplicationCall, httpClient: HttpClie
 }
 
 
-private fun ingestIncoming(payment: RawBankTransactionEntity, txDtls: TransactionDetails) {
+private fun ingestIncoming(payment: NexusBankTransactionEntity, txDtls: TransactionDetails) {
     val subject = txDtls.unstructuredRemittanceInformation
     val debtorName = txDtls.relatedParties.debtor?.name
     if (debtorName == null) {
@@ -407,14 +407,14 @@ fun ingestTalerTransactions() {
         logger.debug("Ingesting transactions for Taler facade ${facade.id.value}")
         val facadeState = getTalerFacadeState(facade.id.value)
         var lastId = facadeState.highestSeenMsgID
-        RawBankTransactionEntity.find {
+        NexusBankTransactionEntity.find {
             /** Those with exchange bank account involved */
-            RawBankTransactionsTable.bankAccount eq subscriberAccount.id.value and
+            NexusBankTransactionsTable.bankAccount eq subscriberAccount.id.value and
                     /** Those that are booked */
-                    (RawBankTransactionsTable.status eq TransactionStatus.BOOK) and
+                    (NexusBankTransactionsTable.status eq TransactionStatus.BOOK) and
                     /** Those that came later than the latest processed payment */
-                    (RawBankTransactionsTable.id.greater(lastId))
-        }.orderBy(Pair(RawBankTransactionsTable.id, SortOrder.ASC)).forEach {
+                    (NexusBankTransactionsTable.id.greater(lastId))
+        }.orderBy(Pair(NexusBankTransactionsTable.id, SortOrder.ASC)).forEach {
             // Incoming payment.
             val tx = jacksonObjectMapper().readValue(it.transactionJson, BankTransaction::class.java)
             if (tx.isBatch) {
@@ -464,7 +464,7 @@ private suspend fun historyOutgoing(call: ApplicationCall) {
             startCmpOp
         }.orderTaler(delta)
         reqPaymentsWithUnconfirmed.forEach {
-            if (it.preparedPayment.rawConfirmation != null) {
+            if (it.preparedPayment.confirmationTransaction != null) {
                 reqPayments.add(it)
             }
         }

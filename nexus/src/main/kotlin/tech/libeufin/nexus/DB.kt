@@ -64,7 +64,7 @@ class TalerRequestedPaymentEntity(id: EntityID<Long>) : LongEntity(id) {
  * entries from the raw payments table.  Fixme: name should end with "-table".
  */
 object TalerIncomingPayments : LongIdTable() {
-    val payment = reference("payment", RawBankTransactionsTable)
+    val payment = reference("payment", NexusBankTransactionsTable)
     val reservePublicKey = text("reservePublicKey")
     val timestampMs = long("timestampMs")
     val incomingPaytoUri = text("incomingPaytoUri")
@@ -73,7 +73,7 @@ object TalerIncomingPayments : LongIdTable() {
 class TalerIncomingPaymentEntity(id: EntityID<Long>) : LongEntity(id) {
     companion object : LongEntityClass<TalerIncomingPaymentEntity>(TalerIncomingPayments)
 
-    var payment by RawBankTransactionEntity referencedOn TalerIncomingPayments.payment
+    var payment by NexusBankTransactionEntity referencedOn TalerIncomingPayments.payment
     var reservePublicKey by TalerIncomingPayments.reservePublicKey
     var timestampMs by TalerIncomingPayments.timestampMs
     var incomingPaytoUri by TalerIncomingPayments.incomingPaytoUri
@@ -104,7 +104,7 @@ class NexusBankMessageEntity(id: EntityID<Int>) : IntEntity(id) {
  * This table contains history "elements" as returned by the bank from a
  * CAMT message.
  */
-object RawBankTransactionsTable : LongIdTable() {
+object NexusBankTransactionsTable : LongIdTable() {
     /**
      * Identifier for the transaction that is unique among all transactions of the account.
      * The scheme for this identifier is the accounts transaction identification scheme.
@@ -138,7 +138,7 @@ object RawBankTransactionsTable : LongIdTable() {
     /**
      * Another, later transaction that updates the status of the current transaction.
      */
-    val updatedBy = optReference("updatedBy", RawBankTransactionsTable)
+    val updatedBy = optReference("updatedBy", NexusBankTransactionsTable)
 
     /**
      * Full details of the transaction in JSON format.
@@ -146,16 +146,16 @@ object RawBankTransactionsTable : LongIdTable() {
     val transactionJson = text("transactionJson")
 }
 
-class RawBankTransactionEntity(id: EntityID<Long>) : LongEntity(id) {
-    companion object : LongEntityClass<RawBankTransactionEntity>(RawBankTransactionsTable)
-    var currency by RawBankTransactionsTable.currency
-    var amount by RawBankTransactionsTable.amount
-    var status by RawBankTransactionsTable.status
-    var creditDebitIndicator by RawBankTransactionsTable.creditDebitIndicator
-    var bankAccount by NexusBankAccountEntity referencedOn RawBankTransactionsTable.bankAccount
-    var transactionJson by RawBankTransactionsTable.transactionJson
-    var accountTransactionId by RawBankTransactionsTable.accountTransactionId
-    val updatedBy by RawBankTransactionEntity optionalReferencedOn RawBankTransactionsTable.updatedBy
+class NexusBankTransactionEntity(id: EntityID<Long>) : LongEntity(id) {
+    companion object : LongEntityClass<NexusBankTransactionEntity>(NexusBankTransactionsTable)
+    var currency by NexusBankTransactionsTable.currency
+    var amount by NexusBankTransactionsTable.amount
+    var status by NexusBankTransactionsTable.status
+    var creditDebitIndicator by NexusBankTransactionsTable.creditDebitIndicator
+    var bankAccount by NexusBankAccountEntity referencedOn NexusBankTransactionsTable.bankAccount
+    var transactionJson by NexusBankTransactionsTable.transactionJson
+    var accountTransactionId by NexusBankTransactionsTable.accountTransactionId
+    val updatedBy by NexusBankTransactionEntity optionalReferencedOn NexusBankTransactionsTable.updatedBy
 }
 
 /**
@@ -184,7 +184,7 @@ object PaymentInitiationsTable : LongIdTable() {
      * Points at the raw transaction witnessing that this
      * initiated payment was successfully performed.
      */
-    val rawConfirmation = reference("rawConfirmation", RawBankTransactionsTable).nullable()
+    val confirmationTransaction = reference("rawConfirmation", NexusBankTransactionsTable).nullable()
 }
 
 class PaymentInitiationEntity(id: EntityID<Long>) : LongEntity(id) {
@@ -204,7 +204,7 @@ class PaymentInitiationEntity(id: EntityID<Long>) : LongEntity(id) {
     var paymentInformationId by PaymentInitiationsTable.paymentInformationId
     var messageId by PaymentInitiationsTable.messageId
     var instructionId by PaymentInitiationsTable.instructionId
-    var rawConfirmation by RawBankTransactionEntity optionalReferencedOn PaymentInitiationsTable.rawConfirmation
+    var confirmationTransaction by NexusBankTransactionEntity optionalReferencedOn PaymentInitiationsTable.confirmationTransaction
 }
 
 /**
@@ -343,7 +343,7 @@ fun dbCreateTables(dbName: String) {
             PaymentInitiationsTable,
             EbicsSubscribersTable,
             NexusBankAccountsTable,
-            RawBankTransactionsTable,
+            NexusBankTransactionsTable,
             TalerIncomingPayments,
             TalerRequestedPayments,
             NexusBankConnectionsTable,

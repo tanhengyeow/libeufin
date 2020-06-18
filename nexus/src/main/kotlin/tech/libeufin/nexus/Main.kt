@@ -662,7 +662,7 @@ fun serverMain(dbName: String) {
                 val ret = Transactions()
                 transaction {
                     authenticateRequest(call.request).id.value
-                    RawBankTransactionEntity.all().map {
+                    NexusBankTransactionEntity.all().map {
                         val tx = jacksonObjectMapper().readValue(it.transactionJson, BankTransaction::class.java)
                         ret.transactions.add(tx)
                     }
