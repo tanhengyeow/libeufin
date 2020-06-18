@@ -66,8 +66,7 @@ import org.jetbrains.exposed.sql.transactions.transaction
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 import org.slf4j.event.Level
-import tech.libeufin.nexus.bankaccount.submitAllPreparedPayments
-import tech.libeufin.nexus.bankaccount.submitPreparedPayment
+import tech.libeufin.nexus.bankaccount.*
 import tech.libeufin.nexus.ebics.*
 import tech.libeufin.util.*
 import tech.libeufin.util.CryptoUtil.hashpw
@@ -344,6 +343,39 @@ private suspend fun fetchTransactionsInternal(
             "Connection type '${res.connectionType}' not implemented"
         )
     }
+}
+
+fun ensureNonNull(param: String?): String {
+    return param ?: throw NexusError(
+        HttpStatusCode.BadRequest, "Bad ID given: ${param}"
+    )
+}
+
+fun ensureLong(param: String?): Long {
+    val asString = ensureNonNull(param)
+    return asString.toLongOrNull() ?: throw NexusError(
+        HttpStatusCode.BadRequest, "Parameter is not a number: ${param}"
+    )
+}
+
+/**
+ * This helper function parses a Authorization:-header line, decode the credentials
+ * and returns a pair made of username and hashed (sha256) password.  The hashed value
+ * will then be compared with the one kept into the database.
+ */
+fun extractUserAndPassword(authorizationHeader: String): Pair<String, String> {
+    logger.debug("Authenticating: $authorizationHeader")
+    val (username, password) = try {
+        val split = authorizationHeader.split(" ")
+        val plainUserAndPass = String(base64ToBytes(split[1]), Charsets.UTF_8)
+        plainUserAndPass.split(":")
+    } catch (e: java.lang.Exception) {
+        throw NexusError(
+            HttpStatusCode.BadRequest,
+            "invalid Authorization:-header received"
+        )
+    }
+    return Pair(username, password)
 }
 
 fun serverMain(dbName: String) {
