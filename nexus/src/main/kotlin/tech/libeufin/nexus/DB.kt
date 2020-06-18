@@ -41,11 +41,6 @@ import java.sql.Connection
  * in the PAIN-table.
  */
 object TalerRequestedPayments : LongIdTable() {
-    // this id gets assigned when the bank confirms the
-    // corresponding outgoing payment.  It is "abstract"
-    // in the sense that a "early" prepared payment might
-    // get a "high" id because the bank confirmed it "late".
-    val abstractId = long("abstractId").nullable()
     val preparedPayment = reference("payment", PaymentInitiationsTable)
     val requestUId = text("request_uid")
     val amount = text("amount")
@@ -56,7 +51,6 @@ object TalerRequestedPayments : LongIdTable() {
 
 class TalerRequestedPaymentEntity(id: EntityID<Long>) : LongEntity(id) {
     companion object : LongEntityClass<TalerRequestedPaymentEntity>(TalerRequestedPayments)
-    var abstractId by TalerRequestedPayments.abstractId
     var preparedPayment by PaymentInitiationEntity referencedOn TalerRequestedPayments.preparedPayment
     var requestUId by TalerRequestedPayments.requestUId
     var amount by TalerRequestedPayments.amount
@@ -321,7 +315,6 @@ object TalerFacadeStateTable : IntIdTable() {
     val facade = reference("facade", FacadesTable)
     // highest ID seen in the raw transactions table.
     val highestSeenMsgID = long("highestSeenMsgID").default(0)
-    val highestOutgoingAbstractID = long("highestOutgoingAbstractID").default(0)
 }
 
 class TalerFacadeStateEntity(id: EntityID<Int>) : IntEntity(id) {
@@ -335,7 +328,6 @@ class TalerFacadeStateEntity(id: EntityID<Int>) : IntEntity(id) {
     var intervalIncrement by TalerFacadeStateTable.intervalIncrement
     var facade by FacadeEntity referencedOn TalerFacadeStateTable.facade
     var highestSeenMsgID by TalerFacadeStateTable.highestSeenMsgID
-    var highestOutgoingAbstractID by TalerFacadeStateTable.highestOutgoingAbstractID
 }
 
 fun dbCreateTables(dbName: String) {

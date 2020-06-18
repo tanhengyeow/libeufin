@@ -39,7 +39,6 @@ import org.jetbrains.exposed.dao.id.IdTable
 import org.jetbrains.exposed.sql.*
 import org.jetbrains.exposed.sql.transactions.transaction
 import tech.libeufin.nexus.bankaccount.addPreparedPayment
-import tech.libeufin.nexus.ebics.doEbicsUploadTransaction
 import tech.libeufin.util.*
 import kotlin.math.abs
 import kotlin.math.min
@@ -117,36 +116,6 @@ data class Payto(
     val iban: String,
     val bic: String = "NOTGIVEN"
 )
-
-fun parsePayto(paytoUri: String): Payto {
-    /**
-     * First try to parse a "iban"-type payto URI.  If that fails,
-     * then assume a test is being run under the "x-taler-bank" type.
-     * If that one fails too, throw exception.
-     *
-     * Note: since the Nexus doesn't have the notion of "x-taler-bank",
-     * such URIs must yield a iban-compatible tuple of values.  Therefore,
-     * the plain bank account number maps to a "iban", and the <bank hostname>
-     * maps to a "bic".
-     */
-
-    /**
-     * payto://iban/BIC/IBAN?name=<name>
-     * payto://x-taler-bank/<bank hostname>/<plain account number>
-     */
-    val ibanMatch = Regex("payto://iban/([A-Z0-9]+)/([A-Z0-9]+)\\?receiver-name=(\\w+)").find(paytoUri)
-    if (ibanMatch != null) {
-        val (bic, iban, name) = ibanMatch.destructured
-        return Payto(name, iban, bic.replace("/", ""))
-    }
-    val xTalerBankMatch = Regex("payto://x-taler-bank/localhost/([0-9]+)").find(paytoUri)
-    if (xTalerBankMatch != null) {
-        val xTalerBankAcctNo = xTalerBankMatch.destructured.component1()
-        return Payto("Taler Exchange", xTalerBankAcctNo, "localhost")
-    }
-
-    throw NexusError(HttpStatusCode.BadRequest, "invalid payto URI ($paytoUri)")
-}
 
 /** Sort query results in descending order for negative deltas, and ascending otherwise.  */
 fun <T : Entity<Long>> SizedIterable<T>.orderTaler(delta: Int): List<T> {
@@ -425,29 +394,6 @@ private fun ingestIncoming(payment: RawBankTransactionEntity, txDtls: Transactio
     return
 }
 
-private fun ingestOutgoing(
-    txDtls: TransactionDetails,
-    fcid: String) {
-    val subject = txDtls.unstructuredRemittanceInformation
-    logger.debug("Ingesting outgoing payment: subject")
-    val wtid = extractWtidFromSubject(subject)
-    if (wtid == null) {
-        logger.warn("did not find wire transfer ID in outgoing payment")
-        return
-    }
-    val talerRequested = TalerRequestedPaymentEntity.find {
-        TalerRequestedPayments.wtid eq subject
-    }.firstOrNull()
-    if (talerRequested == null) {
-        logger.info("Payment '${subject}' shows in history, but was never requested!")
-        return
-    }
-    logger.debug("Payment: ${subject} was requested, and gets now marked as 'confirmed'")
-    val fs = getTalerFacadeState(fcid)
-    fs.highestOutgoingAbstractID++
-    talerRequested.abstractId = fs.highestOutgoingAbstractID
-}
-
 /**
  * Crawls the database to find ALL the users that have a Taler
  * facade and process their histories respecting the TWG policy.
@@ -476,9 +422,6 @@ fun ingestTalerTransactions() {
                 logger.warn("batch transactions not supported")
             } else {
                 when (tx.creditDebitIndicator) {
-                    CreditDebitIndicator.DBIT -> ingestOutgoing(
-                        txDtls = tx.details[0], fcid = facade.id.value
-                    )
                     CreditDebitIndicator.CRDT -> ingestIncoming(it, txDtls = tx.details[0])
                 }
             }
@@ -518,9 +461,7 @@ private suspend fun historyOutgoing(call: ApplicationCall) {
         val subscriberBankAccount = getTalerFacadeBankAccount(expectNonNull(call.parameters["fcid"]))
         val reqPayments = mutableListOf<TalerRequestedPaymentEntity>()
         val reqPaymentsWithUnconfirmed = TalerRequestedPaymentEntity.find {
-            if (delta < 0) {
-                TalerRequestedPayments.abstractId less start
-            } else TalerRequestedPayments.abstractId greater start
+            startCmpOp
         }.orderTaler(delta)
         reqPaymentsWithUnconfirmed.forEach {
             if (it.preparedPayment.rawConfirmation != null) {
