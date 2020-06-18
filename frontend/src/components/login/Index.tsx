@@ -20,6 +20,21 @@ const Login = ({ loginConnect }: Props) => {
     wrapperCol: { span: 32 },
   };
 
+  const login = () => {
+    loginConnect(nexusURL, username, password)
+      .then(() => {
+        setAuthenticationFailure(false);
+      })
+      .catch((err) => setAuthenticationFailure(true));
+  };
+
+  const enterPressed = (event) => {
+    let code = event.keyCode || event.which;
+    if (code === 13) {
+      login();
+    }
+  };
+
   return (
     <div className="login">
       {authenticationFailure ? (
@@ -43,25 +58,21 @@ const Login = ({ loginConnect }: Props) => {
           <Input
             placeholder="Username"
             onChange={(e) => setUsername(e.target.value)}
+            onKeyPress={(e) => enterPressed(e)}
           />
         </Form.Item>
         <Form.Item>
           <Input.Password
             placeholder="Password"
             onChange={(e) => setPassword(e.target.value)}
+            onKeyPress={(e) => enterPressed(e)}
           />
         </Form.Item>
         <div className="button">
           <Button
             type="primary"
             icon={<LoginOutlined />}
-            onClick={() =>
-              loginConnect(nexusURL, username, password)
-                .then(() => {
-                  setAuthenticationFailure(false);
-                })
-                .catch((err) => setAuthenticationFailure(true))
-            }
+            onClick={() => login()}
           >
             Login
           </Button>
