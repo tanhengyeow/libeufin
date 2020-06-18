@@ -326,7 +326,9 @@ private suspend fun talerTransfer(call: ApplicationCall) {
     )
 }
 
-// /taler/admin/add-incoming
+/**
+ * Serve a /taler/admin/add-incoming
+ */
 private suspend fun talerAddIncoming(call: ApplicationCall, httpClient: HttpClient): Unit {
     val addIncomingData = call.receive<TalerAdminAddIncoming>()
     val debtor = parsePayto(addIncomingData.debit_account)
@@ -377,9 +379,11 @@ private suspend fun talerAddIncoming(call: ApplicationCall, httpClient: HttpClie
     )
 }
 
-// submits ALL the prepared payments from ALL the Taler facades.
-// FIXME(dold): This should not be done here.
-// -> why?  It crawls the *taler* facade to find payment to submit.
+/**
+ * submits ALL the prepared payments from ALL the Taler facades.
+ * FIXME(dold): This should not be done here.
+ * -> why?  It crawls the *taler* facade to find payment to submit.
+ */
 suspend fun submitPreparedPaymentsViaEbics(httpClient: HttpClient) {
     data class EbicsSubmission(
         val subscriberDetails: EbicsClientSubscriberDetails,

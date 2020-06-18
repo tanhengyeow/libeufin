@@ -110,9 +110,10 @@ private fun findDuplicate(bankAccountId: String, acctSvcrRef: String): RawBankTr
     }
 }
 
-// retrieves the initiated payment and marks it as "performed
-// by the bank".  This avoids to submit it again.  'subject' is
-// the the A.K.A. unstructured remittance information.
+/**
+ * retrieves the initiated payment and marks it as "performed
+ * by the bank".  This avoids to submit it again.
+ */
 fun markInitiatedAsConfirmed(subject: String, debtorIban: String, rawUuid: Long) {
     // not introducing a 'transaction {}' block since
     // this function should be always be invoked from one.
