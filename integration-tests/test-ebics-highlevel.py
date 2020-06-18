@@ -220,7 +220,9 @@ resp = assertResponse(
     )
 )
 
-if len(resp.json().get("transactions")) != 1:
-    fail("Unexpected number of transactions; should be 1")
+transactions = resp.json().get("transactions")
+
+if len(transactions) != 1:
+    fail(f"Unexpected number of transactions ({len(transactions)}); should be 1")
 
 print("Test passed!")
