@@ -66,6 +66,7 @@ import org.jetbrains.exposed.sql.transactions.transaction
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 import org.slf4j.event.Level
+import tech.libeufin.nexus.bankaccount.submitPreparedPayments
 import tech.libeufin.nexus.ebics.*
 import tech.libeufin.util.*
 import tech.libeufin.util.CryptoUtil.hashpw
@@ -245,7 +246,7 @@ fun moreFrequentBackgroundTasks(httpClient: HttpClient) {
             }
             // FIXME: should be done automatically after raw ingestion
             reportAndIgnoreErrors { ingestTalerTransactions() }
-            reportAndIgnoreErrors { submitPreparedPaymentsViaEbics(httpClient) }
+            reportAndIgnoreErrors { submitPreparedPayments(httpClient) }
             logger.debug("More frequent background jobs done")
             delay(Duration.ofSeconds(1))
         }
@@ -362,7 +363,6 @@ fun serverMain(dbName: String) {
                     indentObjectsWith(DefaultIndenter("  ", "\n"))
                 })
                 registerModule(KotlinModule(nullisSameAsDefault = true))
-                //registerModule(JavaTimeModule())
             }
         }
 

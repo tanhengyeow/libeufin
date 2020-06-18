@@ -26,60 +26,11 @@ import org.jetbrains.exposed.sql.and
 import org.jetbrains.exposed.sql.transactions.transaction
 import org.w3c.dom.Document
 import tech.libeufin.util.*
-import tech.libeufin.util.ebics_h004.EbicsTypes
-import java.security.interfaces.RSAPublicKey
 import java.time.Instant
 import java.time.ZoneId
 import java.time.ZonedDateTime
 import java.time.format.DateTimeFormatter
-import java.util.*
 
-/**
- * Skip national only-numeric bank account ids, and return the first IBAN in list
- */
-fun extractFirstIban(bankAccounts: List<EbicsTypes.AbstractAccountNumber>?): String? {
-    if (bankAccounts == null)
-        return null
-
-    for (item in bankAccounts) {
-        if (item is EbicsTypes.GeneralAccountNumber) {
-            if (item.international)
-                return item.value
-        }
-    }
-    return null
-}
-
-
-fun getEbicsSubscriberDetailsInternal(subscriber: EbicsSubscriberEntity): EbicsClientSubscriberDetails {
-    var bankAuthPubValue: RSAPublicKey? = null
-    if (subscriber.bankAuthenticationPublicKey != null) {
-        bankAuthPubValue = CryptoUtil.loadRsaPublicKey(
-            subscriber.bankAuthenticationPublicKey?.bytes!!
-        )
-    }
-    var bankEncPubValue: RSAPublicKey? = null
-    if (subscriber.bankEncryptionPublicKey != null) {
-        bankEncPubValue = CryptoUtil.loadRsaPublicKey(
-            subscriber.bankEncryptionPublicKey?.bytes!!
-        )
-    }
-    return EbicsClientSubscriberDetails(
-        bankAuthPub = bankAuthPubValue,
-        bankEncPub = bankEncPubValue,
-
-        ebicsUrl = subscriber.ebicsURL,
-        hostId = subscriber.hostID,
-        userId = subscriber.userID,
-        partnerId = subscriber.partnerID,
-
-        customerSignPriv = CryptoUtil.loadRsaPrivateKey(subscriber.signaturePrivateKey.bytes),
-        customerAuthPriv = CryptoUtil.loadRsaPrivateKey(subscriber.authenticationPrivateKey.bytes),
-        customerEncPriv = CryptoUtil.loadRsaPrivateKey(subscriber.encryptionPrivateKey.bytes),
-        ebicsIniState = subscriber.ebicsIniState,
-        ebicsHiaState = subscriber.ebicsHiaState
-    )
-}
 
 /**
  * Check if the transaction is already found in the database.
@@ -355,6 +306,7 @@ fun getPreparedPayment(uuid: Long): InitiatedPaymentEntity {
 fun addPreparedPayment(paymentData: Pain001Data, debitorAccount: NexusBankAccountEntity): InitiatedPaymentEntity {
     return transaction {
         InitiatedPaymentEntity.new {
+            bankAccount = debitorAccount
             subject = paymentData.subject
             sum = paymentData.sum
             debitorIban = debitorAccount.iban

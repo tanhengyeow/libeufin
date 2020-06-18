@@ -26,9 +26,15 @@ package tech.libeufin.nexus
 import com.fasterxml.jackson.annotation.JsonInclude
 import com.fasterxml.jackson.annotation.JsonSubTypes
 import com.fasterxml.jackson.annotation.JsonTypeInfo
+import io.ktor.http.HttpStatusCode
+import org.jetbrains.exposed.sql.and
+import org.jetbrains.exposed.sql.transactions.transaction
 import org.w3c.dom.Document
-import tech.libeufin.util.XmlElementDestructor
-import tech.libeufin.util.destructXml
+import tech.libeufin.util.*
+import java.time.Instant
+import java.time.ZoneId
+import java.time.ZonedDateTime
+import java.time.format.DateTimeFormatter
 
 enum class CreditDebitIndicator {
     DBIT, CRDT
@@ -210,6 +216,142 @@ data class RelatedParties(
 )
 
 class CamtParsingError(msg: String) : Exception(msg)
+
+/**
+ * Data that the LibEuFin nexus uses for payment initiation.
+ * Subset of what ISO 20022 allows.
+ */
+data class NexusPaymentInitiationData(
+    val debtorIban: String,
+    val debtorBic: String,
+    val messageId: String,
+    val paymentInformationId: String,
+    val amount: String,
+    val currency: String,
+    val subject: String,
+    val preparationTimestamp: Long,
+    val creditorName: String,
+    val creditorIban: String
+)
+
+/**
+ * Create a PAIN.001 XML document according to the input data.
+ * Needs to be called within a transaction block.
+ */
+fun createPain001document(paymentData: NexusPaymentInitiationData): String {
+    /**
+     * Every PAIN.001 document contains at least three IDs:
+     *
+     * 1) MsgId: a unique id for the message itself
+     * 2) PmtInfId: the unique id for the payment's set of information
+     * 3) EndToEndId: a unique id to be shared between the debtor and
+     *    creditor that uniquely identifies the transaction
+     *
+     * For now and for simplicity, since every PAIN entry in the database
+     * has a unique ID, and the three values aren't required to be mutually different,
+     * we'll assign the SAME id (= the row id) to all the three aforementioned
+     * PAIN id types.
+     */
+    val debitorBankAccountLabel = run {
+        val debitorBankAcount = NexusBankAccountEntity.find {
+            NexusBankAccountsTable.iban eq paymentData.debtorIban and
+                    (NexusBankAccountsTable.bankCode eq paymentData.debtorBic)
+        }.firstOrNull() ?: throw NexusError(
+            HttpStatusCode.NotFound,
+            "Please download bank accounts details first (HTD)"
+        )
+        debitorBankAcount.id.value
+    }
+
+    val s = constructXml(indent = true) {
+        root("Document") {
+            attribute("xmlns", "urn:iso:std:iso:20022:tech:xsd:pain.001.001.03")
+            attribute("xmlns:xsi", "http://www.w3.org/2001/XMLSchema-instance")
+            attribute("xsi:schemaLocation", "urn:iso:std:iso:20022:tech:xsd:pain.001.001.03 pain.001.001.03.xsd")
+            element("CstmrCdtTrfInitn") {
+                element("GrpHdr") {
+                    element("MsgId") {
+                        text(paymentData.messageId)
+                    }
+                    element("CreDtTm") {
+                        val dateMillis = paymentData.preparationTimestamp
+                        val dateFormatter = DateTimeFormatter.ISO_OFFSET_DATE_TIME
+                        val instant = Instant.ofEpochSecond(dateMillis / 1000)
+                        val zoned = ZonedDateTime.ofInstant(instant, ZoneId.systemDefault())
+                        text(dateFormatter.format(zoned))
+                    }
+                    element("NbOfTxs") {
+                        text("1")
+                    }
+                    element("CtrlSum") {
+                        text(paymentData.amount)
+                    }
+                    element("InitgPty/Nm") {
+                        text(debitorBankAccountLabel)
+                    }
+                }
+                element("PmtInf") {
+                    element("PmtInfId") {
+                        text(paymentData.paymentInformationId)
+                    }
+                    element("PmtMtd") {
+                        text("TRF")
+                    }
+                    element("BtchBookg") {
+                        text("true")
+                    }
+                    element("NbOfTxs") {
+                        text("1")
+                    }
+                    element("CtrlSum") {
+                        text(paymentData.amount)
+                    }
+                    element("PmtTpInf/SvcLvl/Cd") {
+                        text("SEPA")
+                    }
+                    element("ReqdExctnDt") {
+                        val dateMillis = paymentData.preparationTimestamp
+                        text(importDateFromMillis(dateMillis).toDashedDate())
+                    }
+                    element("Dbtr/Nm") {
+                        text(debitorBankAccountLabel)
+                    }
+                    element("DbtrAcct/Id/IBAN") {
+                        text(paymentData.debtorIban)
+                    }
+                    element("DbtrAgt/FinInstnId/BIC") {
+                        text(paymentData.debtorBic)
+                    }
+                    element("ChrgBr") {
+                        text("SLEV")
+                    }
+                    element("CdtTrfTxInf") {
+                        element("PmtId") {
+                            element("EndToEndId") {
+                                // text(pain001Entity.id.value.toString())
+                                text("NOTPROVIDED")
+                            }
+                        }
+                        element("Amt/InstdAmt") {
+                            attribute("Ccy", paymentData.currency)
+                            text(paymentData.amount)
+                        }
+                        element("Cdtr/Nm") {
+                            text(paymentData.creditorName)
+                        }
+                        element("CdtrAcct/Id/IBAN") {
+                            text(paymentData.creditorIban)
+                        }
+                        element("RmtInf/Ustrd") {
+                            text(paymentData.subject)
+                        }
+                    }
+                }
+            }
+        }
+    }
+    return s
+}
 
 private fun XmlElementDestructor.extractDateOrDateTime(): DateOrDateTime {
     return requireOnlyChild {

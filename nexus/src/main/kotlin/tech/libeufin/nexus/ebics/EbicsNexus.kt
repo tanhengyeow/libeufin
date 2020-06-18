@@ -49,6 +49,7 @@ import tech.libeufin.util.ebics_h004.EbicsTypes
 import tech.libeufin.util.ebics_h004.HTDResponseOrderData
 import java.io.ByteArrayOutputStream
 import java.security.interfaces.RSAPrivateCrtKey
+import java.security.interfaces.RSAPublicKey
 import java.time.LocalDate
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
@@ -219,6 +220,36 @@ fun createEbicsBankConnectionFromBackup(
     return
 }
 
+private fun getEbicsSubscriberDetailsInternal(subscriber: EbicsSubscriberEntity): EbicsClientSubscriberDetails {
+    var bankAuthPubValue: RSAPublicKey? = null
+    if (subscriber.bankAuthenticationPublicKey != null) {
+        bankAuthPubValue = CryptoUtil.loadRsaPublicKey(
+            subscriber.bankAuthenticationPublicKey?.bytes!!
+        )
+    }
+    var bankEncPubValue: RSAPublicKey? = null
+    if (subscriber.bankEncryptionPublicKey != null) {
+        bankEncPubValue = CryptoUtil.loadRsaPublicKey(
+            subscriber.bankEncryptionPublicKey?.bytes!!
+        )
+    }
+    return EbicsClientSubscriberDetails(
+        bankAuthPub = bankAuthPubValue,
+        bankEncPub = bankEncPubValue,
+
+        ebicsUrl = subscriber.ebicsURL,
+        hostId = subscriber.hostID,
+        userId = subscriber.userID,
+        partnerId = subscriber.partnerID,
+
+        customerSignPriv = CryptoUtil.loadRsaPrivateKey(subscriber.signaturePrivateKey.bytes),
+        customerAuthPriv = CryptoUtil.loadRsaPrivateKey(subscriber.authenticationPrivateKey.bytes),
+        customerEncPriv = CryptoUtil.loadRsaPrivateKey(subscriber.encryptionPrivateKey.bytes),
+        ebicsIniState = subscriber.ebicsIniState,
+        ebicsHiaState = subscriber.ebicsHiaState
+    )
+}
+
 /**
  * Retrieve Ebics subscriber details given a bank connection.
  */
@@ -335,7 +366,8 @@ fun Route.ebicsBankConnectionRoutes(client: HttpClient) {
                     payload.value.partnerInfo.accountInfoList?.forEach {
                         NexusBankAccountEntity.new(id = it.id) {
                             accountHolder = it.accountHolder ?: "NOT-GIVEN"
-                            iban = extractFirstIban(it.accountNumberList)
+                            iban = it.accountNumberList?.filterIsInstance<EbicsTypes.GeneralAccountNumber>()
+                                ?.find { it.international }?.value
                                 ?: throw NexusError(HttpStatusCode.NotFound, reason = "bank gave no IBAN")
                             bankCode = it.bankCodeList?.filterIsInstance<EbicsTypes.GeneralBankCode>()
                                 ?.find { it.international }?.value
@@ -426,17 +458,6 @@ fun exportEbicsKeyBackup(bankConnectionId: String, passphrase: String): Any {
     )
 }
 
-suspend fun submitEbicsPaymentInitiation(client: HttpClient, connId: String, pain001Document: String) {
-    val ebicsSubscriberDetails = transaction { getEbicsSubscriberDetails(connId) }
-    logger.debug("Uploading PAIN.001: ${pain001Document}")
-    doEbicsUploadTransaction(
-        client,
-        ebicsSubscriberDetails,
-        "CCT",
-        pain001Document.toByteArray(Charsets.UTF_8),
-        EbicsStandardOrderParams()
-    )
-}
 
 fun getEbicsConnectionDetails(conn: NexusBankConnectionEntity): Any {
     val ebicsSubscriber = transaction { getEbicsSubscriberDetails(conn.id.value) }
@@ -610,4 +631,40 @@ fun getEbicsKeyLetterPdf(conn: NexusBankConnectionEntity): ByteArray {
     }
     pdfWriter.flush()
     return po.toByteArray()
+}
+
+suspend fun submitEbicsPaymentInitiation(httpClient: HttpClient, paymentInitiationId: Long) {
+    val r = transaction {
+        val paymentInitiation = InitiatedPaymentEntity.findById(paymentInitiationId)
+            ?: throw NexusError(HttpStatusCode.NotFound, "payment initiation not found")
+        val connId = paymentInitiation.bankAccount.defaultBankConnection?.id
+            ?: throw NexusError(HttpStatusCode.NotFound, "no default bank connection available for submission")
+        val subscriberDetails = getEbicsSubscriberDetails(connId.value)
+        val painMessage = createPain001document(
+            NexusPaymentInitiationData(
+                debtorIban = paymentInitiation.debitorIban,
+                currency = paymentInitiation.currency,
+                amount = paymentInitiation.sum.toString(),
+                creditorIban = paymentInitiation.creditorIban,
+                creditorName = paymentInitiation.creditorName,
+                debtorBic = paymentInitiation.creditorBic,
+                // FIXME(dold): Put date in here as well
+                messageId = paymentInitiation.id.toString(),
+                // FIXME(dold): Put date in here as well
+                paymentInformationId = paymentInitiation.id.toString(),
+                preparationTimestamp = paymentInitiation.preparationDate,
+                subject = paymentInitiation.subject
+        ))
+        object {
+            val subscriberDetails = subscriberDetails
+            val painMessage = painMessage
+        }
+    }
+    doEbicsUploadTransaction(
+        httpClient,
+        r.subscriberDetails,
+        "CCT",
+        r.painMessage.toByteArray(Charsets.UTF_8),
+        EbicsStandardOrderParams()
+    )
 }

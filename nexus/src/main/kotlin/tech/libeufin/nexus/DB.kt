@@ -168,12 +168,16 @@ class RawBankTransactionEntity(id: EntityID<Long>) : LongEntity(id) {
  * Represents a prepared payment.
  */
 object InitiatedPaymentsTable : LongIdTable() {
+    /**
+     * Bank account that wants to initiate the payment.
+     */
+    val bankAccount = reference("bankAccount", NexusBankAccountsTable)
     val preparationDate = long("preparationDate")
     val submissionDate = long("submissionDate").nullable()
     val sum = amount("sum")
     val currency = varchar("currency", length = 3).default("EUR")
     val endToEndId = long("EndToEndId")
-    val subject = text("subject")   
+    val subject = text("subject")
     val creditorIban = text("creditorIban")
     val creditorBic = text("creditorBic")
     val creditorName = text("creditorName")
@@ -181,13 +185,18 @@ object InitiatedPaymentsTable : LongIdTable() {
     val debitorBic = text("debitorBic")
     val debitorName = text("debitorName").nullable()
     val submitted = bool("submitted").default(false)
-    // points at the raw transaction witnessing that this
-    // initiated payment was successfully performed.
+
+    /**
+     * Points at the raw transaction witnessing that this
+     * initiated payment was successfully performed.
+     */
     val rawConfirmation = reference("rawConfirmation", RawBankTransactionsTable).nullable()
 }
 
 class InitiatedPaymentEntity(id: EntityID<Long>) : LongEntity(id) {
     companion object : LongEntityClass<InitiatedPaymentEntity>(InitiatedPaymentsTable)
+
+    var bankAccount by NexusBankAccountEntity referencedOn InitiatedPaymentsTable.bankAccount
     var preparationDate by InitiatedPaymentsTable.preparationDate
     var submissionDate by InitiatedPaymentsTable.submissionDate
     var sum by InitiatedPaymentsTable.sum
@@ -201,7 +210,7 @@ class InitiatedPaymentEntity(id: EntityID<Long>) : LongEntity(id) {
     var creditorBic by InitiatedPaymentsTable.creditorBic
     var creditorName by InitiatedPaymentsTable.creditorName
     var submitted by InitiatedPaymentsTable.submitted
-    var rawConfirmation by RawBankTransactionEntity optionalReferencedOn  InitiatedPaymentsTable.rawConfirmation
+    var rawConfirmation by RawBankTransactionEntity optionalReferencedOn InitiatedPaymentsTable.rawConfirmation
 }
 
 /**
