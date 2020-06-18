@@ -225,13 +225,14 @@ data class NexusPaymentInitiationData(
     val debtorName: String,
     val messageId: String,
     val paymentInformationId: String,
+    val endToEndId: String?,
     val amount: String,
     val currency: String,
     val subject: String,
     val preparationTimestamp: Long,
     val creditorName: String,
     val creditorIban: String,
-    val instructionId: String
+    val instructionId: String?
 )
 
 /**
@@ -307,19 +308,21 @@ fun createPain001document(paymentData: NexusPaymentInitiationData): String {
                     element("DbtrAcct/Id/IBAN") {
                         text(paymentData.debtorIban)
                     }
-                    paymentData.debtorBic?.let {
-                        element("DbtrAgt/FinInstnId/BIC") {
-                            text(paymentData.debtorBic)
-                        }
+                    when (val b = paymentData.debtorBic) {
+                        null -> element("DbtrAgt/FinInstnId/Othr/Id") { text("NOTPROVIDED") }
+                        else -> element("DbtrAgt/FinInstnId/BIC") { text(b) }
                     }
                     element("ChrgBr") {
                         text("SLEV")
                     }
                     element("CdtTrfTxInf") {
                         element("PmtId") {
-                            element("EndToEndId") {
-                                // text(pain001Entity.id.value.toString())
-                                text("NOTPROVIDED")
+                            when (val eeid = paymentData.endToEndId) {
+                                null -> element("EndToEndId") { text("NOTPROVIDED") }
+                                else -> element("EndToEndId") { text(eeid) }
+                            }
+                            paymentData.instructionId?.let {
+                                element("InstrId") { text(it) }
                             }
                         }
                         element("Amt/InstdAmt") {
