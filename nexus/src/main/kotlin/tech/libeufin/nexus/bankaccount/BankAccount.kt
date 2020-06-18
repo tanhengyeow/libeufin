@@ -34,14 +34,20 @@ import java.time.Instant
 
 
 suspend fun submitPreparedPayment(httpClient: HttpClient, paymentInitiationId: Long) {
-    val type = transaction {
+    val r = transaction {
         val paymentInitiation = PaymentInitiationEntity.findById(paymentInitiationId)
         if (paymentInitiation == null) {
             throw NexusError(HttpStatusCode.NotFound, "prepared payment not found")
         }
-        paymentInitiation.bankAccount.defaultBankConnection?.type
+        object {
+            val type = paymentInitiation.bankAccount.defaultBankConnection?.type
+            val submitted = paymentInitiation.submitted
+        }
     }
-    when (type) {
+    if (r.submitted) {
+        return
+    }
+    when (r.type) {
         null -> throw NexusError(HttpStatusCode.NotFound, "no default bank connection")
         "ebics" -> submitEbicsPaymentInitiation(httpClient, paymentInitiationId)
     }
