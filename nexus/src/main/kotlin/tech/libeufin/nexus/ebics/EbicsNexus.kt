@@ -45,6 +45,7 @@ import org.jetbrains.exposed.sql.transactions.transaction
 import tech.libeufin.nexus.*
 import tech.libeufin.nexus.logger
 import tech.libeufin.util.*
+import tech.libeufin.util.ebics_h004.EbicsTypes
 import tech.libeufin.util.ebics_h004.HTDResponseOrderData
 import java.io.ByteArrayOutputStream
 import java.security.interfaces.RSAPrivateCrtKey
@@ -332,14 +333,16 @@ fun Route.ebicsBankConnectionRoutes(client: HttpClient) {
                 transaction {
                     val conn = requireBankConnection(call, "connid")
                     payload.value.partnerInfo.accountInfoList?.forEach {
-                        val bankAccount = NexusBankAccountEntity.new(id = it.id) {
+                        NexusBankAccountEntity.new(id = it.id) {
                             accountHolder = it.accountHolder ?: "NOT-GIVEN"
                             iban = extractFirstIban(it.accountNumberList)
                                 ?: throw NexusError(HttpStatusCode.NotFound, reason = "bank gave no IBAN")
-                            bankCode = extractFirstBic(it.bankCodeList) ?: throw NexusError(
-                                HttpStatusCode.NotFound,
-                                reason = "bank gave no BIC"
-                            )
+                            bankCode = it.bankCodeList?.filterIsInstance<EbicsTypes.GeneralBankCode>()
+                                ?.find { it.international }?.value
+                                ?: throw NexusError(
+                                    HttpStatusCode.NotFound,
+                                    reason = "bank gave no BIC"
+                                )
                             defaultBankConnection = conn
                             highestSeenBankMessageId = 0
                         }

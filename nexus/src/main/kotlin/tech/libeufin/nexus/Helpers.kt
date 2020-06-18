@@ -50,22 +50,6 @@ fun extractFirstIban(bankAccounts: List<EbicsTypes.AbstractAccountNumber>?): Str
     return null
 }
 
-/**
- * Skip national only-numeric codes, and returns the first BIC in list
- */
-fun extractFirstBic(bankCodes: List<EbicsTypes.AbstractBankCode>?): String? {
-    if (bankCodes == null)
-        return null
-
-    for (item in bankCodes) {
-        if (item is EbicsTypes.GeneralBankCode) {
-            if (item.international)
-                return item.value
-        }
-    }
-    return null
-}
-
 
 fun getEbicsSubscriberDetailsInternal(subscriber: EbicsSubscriberEntity): EbicsClientSubscriberDetails {
     var bankAuthPubValue: RSAPublicKey? = null
