@@ -668,4 +668,9 @@ suspend fun submitEbicsPaymentInitiation(httpClient: HttpClient, paymentInitiati
         r.painMessage.toByteArray(Charsets.UTF_8),
         EbicsStandardOrderParams()
     )
+    transaction {
+        val paymentInitiation = PaymentInitiationEntity.findById(paymentInitiationId)
+            ?: throw NexusError(HttpStatusCode.NotFound, "payment initiation not found")
+        paymentInitiation.submitted = true
+    }
 }
