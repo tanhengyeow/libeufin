@@ -223,6 +223,7 @@ resp = assertResponse(
 transactions = resp.json().get("transactions")
 
 if len(transactions) != 1:
+    print(transactions)
     fail(f"Unexpected number of transactions ({len(transactions)}); should be 1")
 
 print("Test passed!")
