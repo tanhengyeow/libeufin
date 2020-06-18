@@ -173,7 +173,7 @@ object PaymentInitiationsTable : LongIdTable() {
     val endToEndId = long("EndToEndId")
     val subject = text("subject")
     val creditorIban = text("creditorIban")
-    val creditorBic = text("creditorBic")
+    val creditorBic = text("creditorBic").nullable()
     val creditorName = text("creditorName")
     val debitorIban = text("debitorIban")
     val debitorBic = text("debitorBic")
