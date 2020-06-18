@@ -246,7 +246,7 @@ fun moreFrequentBackgroundTasks(httpClient: HttpClient) {
             }
             // FIXME: should be done automatically after raw ingestion
             reportAndIgnoreErrors { ingestTalerTransactions() }
-            reportAndIgnoreErrors { submitAllPreparedPayments(httpClient) }
+            reportAndIgnoreErrors { submitAllPaymentInitiations(httpClient) }
             logger.debug("More frequent background jobs done")
             delay(Duration.ofSeconds(1))
         }
@@ -548,53 +548,52 @@ fun serverMain(dbName: String) {
             /**
              * Submit one particular payment to the bank.
              */
-            post("/bank-accounts/{accountid}/prepared-payments/{uuid}/submit") {
+            post("/bank-accounts/{accountid}/payment-initiations/{uuid}/submit") {
                 val uuid = ensureLong(call.parameters["uuid"])
                 val accountId = ensureNonNull(call.parameters["accountid"])
                 val res = transaction {
                     authenticateRequest(call.request)
                 }
-                submitPreparedPayment(client, uuid)
+                submitPaymentInitiation(client, uuid)
                 call.respondText("Payment ${uuid} submitted")
                 return@post
             }
 
             /**
-             * Shows information about one particular prepared payment.
+             * Shows information about one particular payment initiation.
              */
-            get("/bank-accounts/{accountid}/prepared-payments/{uuid}") {
+            get("/bank-accounts/{accountid}/payment-initiations/{uuid}") {
                 val res = transaction {
                     val user = authenticateRequest(call.request)
-                    val preparedPayment = getPreparedPayment(ensureLong(call.parameters["uuid"]))
+                    val paymentInitiation = getPaymentInitiation(ensureLong(call.parameters["uuid"]))
                     return@transaction object {
-                        val preparedPayment = preparedPayment
+                        val paymentInitiation = paymentInitiation
                     }
                 }
-                val sd = res.preparedPayment.submissionDate
+                val sd = res.paymentInitiation.submissionDate
                 call.respond(
                     PaymentStatus(
-                        paymentInitiationId = res.preparedPayment.id.value.toString(),
-                        submitted = res.preparedPayment.submitted,
-                        creditorName = res.preparedPayment.creditorName,
-                        creditorBic = res.preparedPayment.creditorBic,
-                        creditorIban = res.preparedPayment.creditorIban,
-                        amount = "${res.preparedPayment.currency}:${res.preparedPayment.sum}",
-                        subject = res.preparedPayment.subject,
+                        paymentInitiationId = res.paymentInitiation.id.value.toString(),
+                        submitted = res.paymentInitiation.submitted,
+                        creditorName = res.paymentInitiation.creditorName,
+                        creditorBic = res.paymentInitiation.creditorBic,
+                        creditorIban = res.paymentInitiation.creditorIban,
+                        amount = "${res.paymentInitiation.currency}:${res.paymentInitiation.sum}",
+                        subject = res.paymentInitiation.subject,
                         submissionDate = if (sd != null) {
                             importDateFromMillis(sd).toDashedDate()
                         } else null,
-                        preparationDate = importDateFromMillis(res.preparedPayment.preparationDate).toDashedDate()
+                        preparationDate = importDateFromMillis(res.paymentInitiation.preparationDate).toDashedDate()
                     )
                 )
                 return@get
             }
-            
 
             /**
-             * Adds a new prepared payment.
+             * Adds a new payment initiation.
              */
-            post("/bank-accounts/{accountid}/prepared-payments") {
-                val body = call.receive<PreparedPaymentRequest>()
+            post("/bank-accounts/{accountid}/payment-initiations") {
+                val body = call.receive<CreatePaymentInitiationRequest>()
                 val accountId = ensureNonNull(call.parameters["accountid"])
                 val res = transaction {
                     authenticateRequest(call.request)
@@ -603,7 +602,7 @@ fun serverMain(dbName: String) {
                         throw NexusError(HttpStatusCode.NotFound, "unknown bank account")
                     }
                     val amount = parseAmount(body.amount)
-                    val paymentEntity = addPreparedPayment(
+                    val paymentEntity = addPaymentInitiation(
                         Pain001Data(
                             creditorIban = body.iban,
                             creditorBic = body.bic,
@@ -620,7 +619,7 @@ fun serverMain(dbName: String) {
                 }
                 call.respond(
                     HttpStatusCode.OK,
-                    PreparedPaymentResponse(uuid = res.uuid.toString())
+                    PaymentInitiationResponse(uuid = res.uuid.toString())
                 )
                 return@post
             }

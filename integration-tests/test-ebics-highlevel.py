@@ -179,7 +179,7 @@ if len(resp.json().get("transactions")) != 0:
 # 5.a, prepare a payment
 resp = assertResponse(
     post(
-        "http://localhost:5001/bank-accounts/{}/prepared-payments".format(
+        "http://localhost:5001/bank-accounts/{}/payment-initiations".format(
             BANK_ACCOUNT_LABEL
         ),
         json=dict(
@@ -196,10 +196,10 @@ PREPARED_PAYMENT_UUID = resp.json().get("uuid")
 if PREPARED_PAYMENT_UUID == None:
     fail("Payment UUID not received")
 
-# 5.b, submit prepared statement
+# 5.b, submit payment initiation
 assertResponse(
     post(
-        f"http://localhost:5001/bank-accounts/{BANK_ACCOUNT_LABEL}/prepared-payments/{PREPARED_PAYMENT_UUID}/submit",
+        f"http://localhost:5001/bank-accounts/{BANK_ACCOUNT_LABEL}/payment-initiations/{PREPARED_PAYMENT_UUID}/submit",
         json=dict(),
         headers=dict(Authorization=USER_AUTHORIZATION_HEADER),
     )

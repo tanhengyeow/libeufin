@@ -207,7 +207,7 @@ if len(resp.json().get("transactions")) != 0:
 # 5.a, prepare a payment
 resp = assertResponse(
     post(
-        "http://localhost:5001/bank-accounts/{}/prepared-payments".format(
+        "http://localhost:5001/bank-accounts/{}/payment-initiations".format(
             BANK_ACCOUNT_LABEL
         ),
         json=dict(
@@ -227,7 +227,7 @@ if PREPARED_PAYMENT_UUID == None:
 # 5.b, submit prepared statement
 assertResponse(
     post(
-        f"http://localhost:5001/bank-accounts/{BANK_ACCOUNT_LABEL}/prepared-payments/{PREPARED_PAYMENT_UUID}/submit",
+        f"http://localhost:5001/bank-accounts/{BANK_ACCOUNT_LABEL}/payment-initiations/{PREPARED_PAYMENT_UUID}/submit",
         json=dict(),
         headers=dict(Authorization=USER_AUTHORIZATION_HEADER),
     )

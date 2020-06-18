@@ -32,7 +32,7 @@ import tech.libeufin.util.XMLUtil
 import java.time.Instant
 
 
-suspend fun submitPreparedPayment(httpClient: HttpClient, paymentInitiationId: Long) {
+suspend fun submitPaymentInitiation(httpClient: HttpClient, paymentInitiationId: Long) {
     val r = transaction {
         val paymentInitiation = PaymentInitiationEntity.findById(paymentInitiationId)
         if (paymentInitiation == null) {
@@ -55,7 +55,7 @@ suspend fun submitPreparedPayment(httpClient: HttpClient, paymentInitiationId: L
 /**
  * Submit all pending prepared payments.
  */
-suspend fun submitAllPreparedPayments(httpClient: HttpClient) {
+suspend fun submitAllPaymentInitiations(httpClient: HttpClient) {
     data class Submission(
         val id: Long
     )
@@ -81,7 +81,7 @@ suspend fun submitAllPreparedPayments(httpClient: HttpClient) {
         }
     }
     workQueue.forEach {
-        submitPreparedPayment(httpClient, it.id)
+        submitPaymentInitiation(httpClient, it.id)
     }
 }
 
@@ -188,10 +188,9 @@ fun ingestBankMessagesIntoAccount(
 }
 
 /**
- * Retrieve prepared payment from database, raising exception
- * if not found.
+ * Retrieve payment initiation from database, raising exception if not found.
  */
-fun getPreparedPayment(uuid: Long): PaymentInitiationEntity {
+fun getPaymentInitiation(uuid: Long): PaymentInitiationEntity {
     return transaction {
         PaymentInitiationEntity.findById(uuid)
     } ?: throw NexusError(
@@ -208,7 +207,7 @@ fun getPreparedPayment(uuid: Long): PaymentInitiationEntity {
  * it will be the account whose money will pay the wire transfer being defined
  * by this pain document.
  */
-fun addPreparedPayment(paymentData: Pain001Data, debitorAccount: NexusBankAccountEntity): PaymentInitiationEntity {
+fun addPaymentInitiation(paymentData: Pain001Data, debitorAccount: NexusBankAccountEntity): PaymentInitiationEntity {
     return transaction {
         val now = Instant.now().toEpochMilli()
         val nowHex = now.toString(16)

@@ -38,7 +38,7 @@ import org.jetbrains.exposed.dao.Entity
 import org.jetbrains.exposed.dao.id.IdTable
 import org.jetbrains.exposed.sql.*
 import org.jetbrains.exposed.sql.transactions.transaction
-import tech.libeufin.nexus.bankaccount.addPreparedPayment
+import tech.libeufin.nexus.bankaccount.addPaymentInitiation
 import tech.libeufin.util.*
 import kotlin.math.abs
 import kotlin.math.min
@@ -256,7 +256,7 @@ private suspend fun talerTransfer(call: ApplicationCall) {
             }
         }
         val exchangeBankAccount = getTalerFacadeBankAccount(expectNonNull(call.parameters["fcid"]))
-        val pain001 = addPreparedPayment(
+        val pain001 = addPaymentInitiation(
             Pain001Data(
                 creditorIban = creditorData.iban,
                 creditorBic = creditorData.bic,

@@ -210,7 +210,7 @@ data class BankProtocolsResponse(
 )
 
 /** Request type of "POST /prepared-payments" */
-data class PreparedPaymentRequest(
+data class CreatePaymentInitiationRequest(
     val iban: String,
     val bic: String?,
     val name: String,
@@ -219,7 +219,7 @@ data class PreparedPaymentRequest(
 )
 
 /** Response type of "POST /prepared-payments" */
-data class PreparedPaymentResponse(
+data class PaymentInitiationResponse(
     val uuid: String
 )
 
