@@ -572,7 +572,7 @@ fun serverMain(dbName: String) {
                 val sd = res.preparedPayment.submissionDate
                 call.respond(
                     PaymentStatus(
-                        uuid = res.preparedPayment.id.value.toString(),
+                        paymentInitiationId = res.preparedPayment.id.value.toString(),
                         submitted = res.preparedPayment.submitted,
                         creditorName = res.preparedPayment.creditorName,
                         creditorBic = res.preparedPayment.creditorBic,
@@ -587,6 +587,8 @@ fun serverMain(dbName: String) {
                 )
                 return@get
             }
+            
+
             /**
              * Adds a new prepared payment.
              */

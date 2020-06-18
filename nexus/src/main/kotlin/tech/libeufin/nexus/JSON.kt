@@ -190,10 +190,10 @@ data class EbicsNewTransport(
 
 /** Response type of "GET /prepared-payments/{uuid}" */
 data class PaymentStatus(
-    val uuid: String,
+    val paymentInitiationId: String,
     val submitted: Boolean,
     val creditorIban: String,
-    val creditorBic: String,
+    val creditorBic: String?,
     val creditorName: String,
     val amount: String,
     val subject: String,

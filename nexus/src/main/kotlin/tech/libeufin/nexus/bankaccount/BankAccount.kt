@@ -63,26 +63,22 @@ suspend fun submitAllPreparedPayments(httpClient: HttpClient) {
     logger.debug("auto-submitter started")
     val workQueue = mutableListOf<Submission>()
     transaction {
-        NexusBankAccountEntity.all().forEach {
-            val defaultBankConnectionId = it.defaultBankConnection?.id ?: throw NexusError(
+        PaymentInitiationEntity.find {
+            PaymentInitiationsTable.submitted eq false
+        }.forEach {
+            val defaultBankConnectionId = it.bankAccount.defaultBankConnection?.id ?: throw NexusError(
                 HttpStatusCode.BadRequest,
                 "needs default bank connection"
             )
             val bankConnection = NexusBankConnectionEntity.findById(defaultBankConnectionId) ?: throw NexusError(
                 HttpStatusCode.InternalServerError,
-                "Bank account '${it.id.value}' doesn't map to any bank connection (named '${it.defaultBankConnection}')"
+                "Bank account '${it.id.value}' doesn't map to any bank connection (named '${defaultBankConnectionId}')"
             )
             if (bankConnection.type != "ebics") {
                 logger.info("Skipping non-implemented bank connection '${bankConnection.type}'")
                 return@forEach
             }
-            val bankAccount: NexusBankAccountEntity = it
-            PaymentInitiationEntity.find {
-                PaymentInitiationsTable.debitorIban eq bankAccount.iban and
-                        not(PaymentInitiationsTable.submitted)
-            }.forEach {
-                workQueue.add(Submission(it.id.value))
-            }
+            workQueue.add(Submission(it.id.value))
         }
     }
     workQueue.forEach {
@@ -102,27 +98,6 @@ private fun findDuplicate(bankAccountId: String, acctSvcrRef: String): RawBankTr
             (RawBankTransactionsTable.accountTransactionId eq ati) and (RawBankTransactionsTable.bankAccount eq bankAccountId)
         }.firstOrNull()
     }
-}
-
-/**
- * retrieves the initiated payment and marks it as "performed
- * by the bank".  This avoids to submit it again.
- */
-fun markInitiatedAsConfirmed(subject: String, debtorIban: String, rawUuid: Long) {
-    // not introducing a 'transaction {}' block since
-    // this function should be always be invoked from one.
-    val initiatedPayment = PaymentInitiationEntity.find {
-        PaymentInitiationsTable.subject eq subject and
-                (PaymentInitiationsTable.debitorIban eq debtorIban)
-    }.firstOrNull()
-    if (initiatedPayment == null) {
-        logger.info("Payment '$subject' was never programmatically prepared")
-        return
-    }
-    val rawEntity = RawBankTransactionEntity.findById(rawUuid) ?: throw NexusError(
-        HttpStatusCode.InternalServerError, "Raw payment '$rawUuid' disappeared from database"
-    )
-    initiatedPayment.rawConfirmation = rawEntity
 }
 
 fun processCamtMessage(
@@ -161,21 +136,7 @@ fun processCamtMessage(
                 status = tx.status
             }
             if (tx.creditDebitIndicator == CreditDebitIndicator.DBIT) {
-                // assuming batches contain always one element, as aren't fully
-                // implemented now.
-                val uniqueBatchElement = tx.details.get(0)
-
-                // if the user has two initiated payments under the same
-                // IBAN with the same subject, then this logic will cause
-                // problems.  But a programmatic user should take care of this.
-                // FIXME(dold): Actually, we should do the matching via the Refs of the camt message.
-                if (uniqueBatchElement.relatedParties.debtorAccount is AccountIdentificationIban) {
-                    markInitiatedAsConfirmed(
-                        uniqueBatchElement.unstructuredRemittanceInformation,
-                        uniqueBatchElement.relatedParties.debtorAccount.iban,
-                        rawEntity.id.value
-                    )
-                }
+                // FIXME: find matching PaymentInitiation by PaymentInformationID, message ID or whatever is present
             }
         }
     }
@@ -234,19 +195,21 @@ fun getPreparedPayment(uuid: Long): PaymentInitiationEntity {
  * by this pain document.
  */
 fun addPreparedPayment(paymentData: Pain001Data, debitorAccount: NexusBankAccountEntity): PaymentInitiationEntity {
+    val now = Instant.now().toEpochMilli()
+    val nowHex = now.toString(16)
     return transaction {
         PaymentInitiationEntity.new {
             bankAccount = debitorAccount
             subject = paymentData.subject
             sum = paymentData.sum
-            debitorIban = debitorAccount.iban
-            debitorBic = debitorAccount.bankCode
-            debitorName = debitorAccount.accountHolder
             creditorName = paymentData.creditorName
             creditorBic = paymentData.creditorBic
             creditorIban = paymentData.creditorIban
-            preparationDate = Instant.now().toEpochMilli()
-            endToEndId = 0
+            preparationDate = now
+            messageId = "leuf-m-pain1-$nowHex"
+            endToEndId = "leuf-e-$nowHex"
+            paymentInformationId = "leuf-p-$nowHex"
+            instructionId = "leuf-i-$nowHex"
         }
     }
 }

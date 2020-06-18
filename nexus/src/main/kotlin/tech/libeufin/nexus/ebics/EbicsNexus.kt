@@ -642,19 +642,18 @@ suspend fun submitEbicsPaymentInitiation(httpClient: HttpClient, paymentInitiati
         val subscriberDetails = getEbicsSubscriberDetails(connId.value)
         val painMessage = createPain001document(
             NexusPaymentInitiationData(
-                debtorIban = paymentInitiation.debitorIban,
+                debtorIban = paymentInitiation.bankAccount.iban,
+                debtorBic = paymentInitiation.bankAccount.bankCode,
+                debtorName = paymentInitiation.bankAccount.accountHolder,
                 currency = paymentInitiation.currency,
                 amount = paymentInitiation.sum.toString(),
                 creditorIban = paymentInitiation.creditorIban,
                 creditorName = paymentInitiation.creditorName,
-                debtorBic = paymentInitiation.creditorBic,
-                // FIXME(dold): Put date in here as well
-                messageId = paymentInitiation.id.toString(),
-                // FIXME(dold): Put date in here as well
-                paymentInformationId = paymentInitiation.id.toString(),
+                messageId = paymentInitiation.messageId,
+                paymentInformationId = paymentInitiation.paymentInformationId,
                 preparationTimestamp = paymentInitiation.preparationDate,
                 subject = paymentInitiation.subject,
-                debtorName = paymentInitiation.bankAccount.accountHolder
+                instructionId = paymentInitiation.instructionId
         ))
         object {
             val subscriberDetails = subscriberDetails

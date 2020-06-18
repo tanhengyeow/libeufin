@@ -170,14 +170,14 @@ object PaymentInitiationsTable : LongIdTable() {
     val submissionDate = long("submissionDate").nullable()
     val sum = amount("sum")
     val currency = varchar("currency", length = 3).default("EUR")
-    val endToEndId = long("EndToEndId")
+    val endToEndId = text("endToEndId")
+    val messageId = text("messageId")
+    val paymentInformationId = text("paymentInformationId")
+    val instructionId = text("instructionId")
     val subject = text("subject")
     val creditorIban = text("creditorIban")
     val creditorBic = text("creditorBic").nullable()
     val creditorName = text("creditorName")
-    val debitorIban = text("debitorIban")
-    val debitorBic = text("debitorBic")
-    val debitorName = text("debitorName").nullable()
     val submitted = bool("submitted").default(false)
 
     /**
@@ -195,15 +195,15 @@ class PaymentInitiationEntity(id: EntityID<Long>) : LongEntity(id) {
     var submissionDate by PaymentInitiationsTable.submissionDate
     var sum by PaymentInitiationsTable.sum
     var currency by PaymentInitiationsTable.currency
-    var debitorIban by PaymentInitiationsTable.debitorIban
-    var debitorBic by PaymentInitiationsTable.debitorBic
-    var debitorName by PaymentInitiationsTable.debitorName
     var endToEndId by PaymentInitiationsTable.endToEndId
     var subject by PaymentInitiationsTable.subject
     var creditorIban by PaymentInitiationsTable.creditorIban
     var creditorBic by PaymentInitiationsTable.creditorBic
     var creditorName by PaymentInitiationsTable.creditorName
     var submitted by PaymentInitiationsTable.submitted
+    var paymentInformationId by PaymentInitiationsTable.paymentInformationId
+    var messageId by PaymentInitiationsTable.messageId
+    var instructionId by PaymentInitiationsTable.instructionId
     var rawConfirmation by RawBankTransactionEntity optionalReferencedOn PaymentInitiationsTable.rawConfirmation
 }
 
