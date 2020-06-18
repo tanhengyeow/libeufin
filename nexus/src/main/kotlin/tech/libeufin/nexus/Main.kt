@@ -577,7 +577,7 @@ fun serverMain(dbName: String) {
                         creditorName = res.preparedPayment.creditorName,
                         creditorBic = res.preparedPayment.creditorBic,
                         creditorIban = res.preparedPayment.creditorIban,
-                        amount = "${res.preparedPayment.sum}:${res.preparedPayment.currency}",
+                        amount = "${res.preparedPayment.currency}:${res.preparedPayment.sum}",
                         subject = res.preparedPayment.subject,
                         submissionDate = if (sd != null) {
                             importDateFromMillis(sd).toDashedDate()
