@@ -56,24 +56,37 @@ def ktor_version = "1.3.2"
 def exposed_version = "0.25.1"
 
 dependencies {
+    // Core language libraries
     implementation "org.jetbrains.kotlin:kotlin-stdlib-jdk8"
+    implementation 'org.jetbrains.kotlinx:kotlinx-coroutines-core:1.3.7'
+
+    // LibEuFin util library
+    implementation project(":util")
+
+    // Logging
     implementation "ch.qos.logback:logback-classic:1.2.3"
+
+    // XML parsing/binding and encryption
     implementation group: 'javax.xml.bind', name: 'jaxb-api', version: '2.3.1'
     implementation "javax.xml.bind:jaxb-api:2.3.0"
     implementation group: 'xerces', name: 'xercesImpl', version: '2.6.2-jaxb-1.0.6'
-    implementation "javax.activation:activation:1.1"
     implementation "org.glassfish.jaxb:jaxb-runtime:2.3.1"
     implementation 'org.apache.santuario:xmlsec:2.1.4'
+
+    //implementation "javax.activation:activation:1.1"
+    // Compression
     implementation group: 'org.apache.commons', name: 'commons-compress', version: '1.20'
+
+    // Command line parsing
     implementation("com.github.ajalt:clikt:2.7.0")
-    implementation project(":util")
-    implementation 'org.jetbrains.kotlinx:kotlinx-coroutines-core:1.3.7'
-    implementation group: 'org.xerial', name: 'sqlite-jdbc', version: '3.28.0'
 
     // Exposed, an SQL library
     implementation "org.jetbrains.exposed:exposed-core:$exposed_version"
     implementation "org.jetbrains.exposed:exposed-dao:$exposed_version"
     implementation "org.jetbrains.exposed:exposed-jdbc:$exposed_version"
+
+    // Database connection driver
+    implementation group: 'org.xerial', name: 'sqlite-jdbc', version: '3.28.0'
 
     // Ktor, an HTTP client and server library
     implementation "io.ktor:ktor-server-core:$ktor_version"
@@ -85,6 +98,10 @@ dependencies {
     // PDF generation
     implementation 'com.itextpdf:itext7-core:7.1.11'
 
+    // Cron syntax
+    implementation "com.cronutils:cron-utils:9.0.2"
+
+    // Unit testing
     testImplementation group: 'junit', name: 'junit', version: '4.12'
 }
 
