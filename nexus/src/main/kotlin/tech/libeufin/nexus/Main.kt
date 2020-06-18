@@ -449,8 +449,9 @@ fun serverMain(dbName: String) {
             return@intercept
         }
 
-        //lessFrequentBackgroundTasks(client)
-        //moreFrequentBackgroundTasks(client)
+        lessFrequentBackgroundTasks(client)
+        moreFrequentBackgroundTasks(client)
+
         routing {
             /**
              * Shows information about the requesting user.
