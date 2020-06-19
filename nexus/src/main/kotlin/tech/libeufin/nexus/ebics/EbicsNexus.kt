@@ -423,7 +423,31 @@ fun Route.ebicsBankConnectionRoutes(client: HttpClient) {
     }
     get("/accounts") {
         val ret = BankAccounts()
-        call.respond(object {})
+        transaction {
+            val conn = requireBankConnection(call, "connid")
+            val hasXml = RawHTDResponseEntity.findById(conn.id.value) ?: throw NexusError(
+                HttpStatusCode.NotFound, "Bank connection ${conn.id.value} never called HTD"
+            )
+            val payload = XMLUtil.convertStringToJaxb<HTDResponseOrderData>(hasXml.htdResponse)
+            payload.value.partnerInfo.accountInfoList?.forEach {
+                ret.accounts.add(
+                    BankAccount(
+                        holder = it.accountHolder ?: "NOT-GIVEN",
+                        iban = it.accountNumberList?.filterIsInstance<EbicsTypes.GeneralAccountNumber>()
+                            ?.find { it.international }?.value
+                            ?: throw NexusError(HttpStatusCode.NotFound, reason = "bank gave no IBAN"),
+                        bic = it.bankCodeList?.filterIsInstance<EbicsTypes.GeneralBankCode>()
+                            ?.find { it.international }?.value
+                            ?: throw NexusError(
+                                HttpStatusCode.NotFound,
+                                reason = "bank gave no BIC"
+                            ),
+                        account = it.id
+                    )
+                )
+            }
+        }
+        call.respond(ret)
     }
     post("/account/import") {
         call.respond(object {})
