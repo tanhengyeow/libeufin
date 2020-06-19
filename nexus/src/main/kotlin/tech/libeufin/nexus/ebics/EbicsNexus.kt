@@ -653,7 +653,8 @@ suspend fun submitEbicsPaymentInitiation(httpClient: HttpClient, paymentInitiati
                 paymentInformationId = paymentInitiation.paymentInformationId,
                 preparationTimestamp = paymentInitiation.preparationDate,
                 subject = paymentInitiation.subject,
-                instructionId = paymentInitiation.instructionId
+                instructionId = paymentInitiation.instructionId,
+                endToEndId = paymentInitiation.endToEndId
         ))
         object {
             val subscriberDetails = subscriberDetails
