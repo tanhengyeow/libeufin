@@ -513,14 +513,20 @@ private fun XmlElementDestructor.extractInnerTransactions(): List<BankTransactio
     }
 }
 
+data class CamtParseResult(
+    val transactions: List<BankTransaction>,
+    val messageId: String,
+    val creationDateTime: String
+)
+
 /**
  * Extract a list of transactions from an ISO20022 camt.052 / camt.053 message.
  */
-fun getTransactions(doc: Document): List<BankTransaction> {
+fun parseCamtMessage(doc: Document): CamtParseResult {
     return destructXml(doc) {
         requireRootElement("Document") {
             // Either bank to customer statement or report
-            requireOnlyChild {
+            val transactions = requireOnlyChild {
                 when (it.localName) {
                     "BkToCstmrAcctRpt" -> {
                         mapEachChildNamed("Rpt") {
@@ -536,7 +542,18 @@ fun getTransactions(doc: Document): List<BankTransaction> {
                         throw CamtParsingError("expected statement or report")
                     }
                 }
+            }.flatten()
+            val messageId = requireOnlyChild {
+                requireUniqueChildNamed("GrpHdr") {
+                    requireUniqueChildNamed("MsgId") { it.textContent }
+                }
             }
+            val creationDateTime = requireOnlyChild {
+                requireUniqueChildNamed("GrpHdr") {
+                    requireUniqueChildNamed("CreDtTm") { it.textContent }
+                }
+            }
+            CamtParseResult(transactions, messageId, creationDateTime)
         }
-    }.flatten()
+    }
 }

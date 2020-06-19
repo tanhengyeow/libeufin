@@ -33,6 +33,8 @@ import tech.libeufin.nexus.server.FetchSpecJson
 import tech.libeufin.nexus.server.Pain001Data
 import tech.libeufin.util.XMLUtil
 import java.time.Instant
+import java.time.ZonedDateTime
+import java.time.format.DateTimeFormatter
 
 
 suspend fun submitPaymentInitiation(httpClient: HttpClient, paymentInitiationId: Long) {
@@ -104,7 +106,8 @@ private fun findDuplicate(bankAccountId: String, acctSvcrRef: String): NexusBank
 
 fun processCamtMessage(
     bankAccountId: String,
-    camtDoc: Document
+    camtDoc: Document,
+    code: String
 ) {
     logger.info("processing CAMT message")
     transaction {
@@ -112,7 +115,26 @@ fun processCamtMessage(
         if (acct == null) {
             throw NexusError(HttpStatusCode.NotFound, "user not found")
         }
-        val transactions = getTransactions(camtDoc)
+        val res = parseCamtMessage(camtDoc)
+
+        val stamp = ZonedDateTime.parse(res.creationDateTime, DateTimeFormatter.ISO_DATE_TIME).toInstant().toEpochMilli()
+
+        when (code) {
+            "C52" -> {
+                val s = acct.lastReportCreationTimestamp
+                if (s != null && stamp > s) {
+                    acct.lastReportCreationTimestamp = stamp
+                }
+            }
+            "C53" -> {
+                val s = acct.lastStatementCreationTimestamp
+                if (s != null && stamp > s) {
+                    acct.lastStatementCreationTimestamp = stamp
+                }
+            }
+        }
+
+        val transactions = res.transactions
         logger.info("found ${transactions.size} transactions")
         txloop@ for (tx in transactions) {
             val acctSvcrRef = tx.accountServicerReference
@@ -183,7 +205,7 @@ fun ingestBankMessagesIntoAccount(
         }.orderBy(Pair(NexusBankMessagesTable.id, SortOrder.ASC)).forEach {
             // FIXME: check if it's CAMT first!
             val doc = XMLUtil.parseStringIntoDom(it.message.bytes.toString(Charsets.UTF_8))
-            processCamtMessage(bankAccountId, doc)
+            processCamtMessage(bankAccountId, doc, it.code)
             lastId = it.id.value
         }
         acct.highestSeenBankMessageId = lastId

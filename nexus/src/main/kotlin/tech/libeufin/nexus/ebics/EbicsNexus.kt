@@ -82,10 +82,10 @@ suspend fun fetchEbicsBySpec(
         }
         object {
             val lastStatement = acct.lastStatementCreationTimestamp?.let {
-                ZonedDateTime.parse(it, DateTimeFormatter.ISO_DATE_TIME)
+                ZonedDateTime.ofInstant(Instant.ofEpochMilli(it), ZoneOffset.UTC)
             }
             val lastReport = acct.lastReportCreationTimestamp?.let {
-                ZonedDateTime.parse(it, DateTimeFormatter.ISO_DATE_TIME)
+                ZonedDateTime.ofInstant(Instant.ofEpochMilli(it), ZoneOffset.UTC)
             }
         }
     }
