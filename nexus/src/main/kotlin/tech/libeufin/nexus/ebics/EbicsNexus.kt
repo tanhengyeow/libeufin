@@ -44,6 +44,7 @@ import org.jetbrains.exposed.sql.statements.api.ExposedBlob
 import org.jetbrains.exposed.sql.transactions.transaction
 import tech.libeufin.nexus.*
 import tech.libeufin.nexus.logger
+import tech.libeufin.nexus.server.*
 import tech.libeufin.util.*
 import tech.libeufin.util.ebics_h004.EbicsTypes
 import tech.libeufin.util.ebics_h004.HTDResponseOrderData
@@ -422,7 +423,12 @@ fun Route.ebicsBankConnectionRoutes(client: HttpClient) {
             is EbicsDownloadBankErrorResult -> {
                 call.respond(
                     HttpStatusCode.BadGateway,
-                    EbicsErrorJson(EbicsErrorDetailJson("bankError", response.returnCode.errorCode))
+                    EbicsErrorJson(
+                        EbicsErrorDetailJson(
+                            "bankError",
+                            response.returnCode.errorCode
+                        )
+                    )
                 )
             }
         }
@@ -655,7 +661,8 @@ suspend fun submitEbicsPaymentInitiation(httpClient: HttpClient, paymentInitiati
                 subject = paymentInitiation.subject,
                 instructionId = paymentInitiation.instructionId,
                 endToEndId = paymentInitiation.endToEndId
-        ))
+            )
+        )
         object {
             val subscriberDetails = subscriberDetails
             val painMessage = painMessage
@@ -672,5 +679,30 @@ suspend fun submitEbicsPaymentInitiation(httpClient: HttpClient, paymentInitiati
         val paymentInitiation = PaymentInitiationEntity.findById(paymentInitiationId)
             ?: throw NexusError(HttpStatusCode.NotFound, "payment initiation not found")
         paymentInitiation.submitted = true
+    }
+}
+
+
+fun createEbicsBankConnection(bankConnectionName: String, user: NexusUserEntity, data: JsonNode) {
+    val bankConn = NexusBankConnectionEntity.new(bankConnectionName) {
+        owner = user
+        type = "ebics"
+    }
+    val newTransportData = jacksonObjectMapper().treeToValue(data, EbicsNewTransport::class.java)
+    val pairA = CryptoUtil.generateRsaKeyPair(2048)
+    val pairB = CryptoUtil.generateRsaKeyPair(2048)
+    val pairC = CryptoUtil.generateRsaKeyPair(2048)
+    EbicsSubscriberEntity.new {
+        ebicsURL = newTransportData.ebicsURL
+        hostID = newTransportData.hostID
+        partnerID = newTransportData.partnerID
+        userID = newTransportData.userID
+        systemID = newTransportData.systemID
+        signaturePrivateKey = ExposedBlob((pairA.private.encoded))
+        encryptionPrivateKey = ExposedBlob((pairB.private.encoded))
+        authenticationPrivateKey = ExposedBlob((pairC.private.encoded))
+        nexusBankConnection = bankConn
+        ebicsIniState = EbicsInitState.NOT_SENT
+        ebicsHiaState = EbicsInitState.NOT_SENT
     }
 }

@@ -51,6 +51,7 @@ object TalerRequestedPayments : LongIdTable() {
 
 class TalerRequestedPaymentEntity(id: EntityID<Long>) : LongEntity(id) {
     companion object : LongEntityClass<TalerRequestedPaymentEntity>(TalerRequestedPayments)
+
     var preparedPayment by PaymentInitiationEntity referencedOn TalerRequestedPayments.preparedPayment
     var requestUId by TalerRequestedPayments.requestUId
     var amount by TalerRequestedPayments.amount
@@ -148,6 +149,7 @@ object NexusBankTransactionsTable : LongIdTable() {
 
 class NexusBankTransactionEntity(id: EntityID<Long>) : LongEntity(id) {
     companion object : LongEntityClass<NexusBankTransactionEntity>(NexusBankTransactionsTable)
+
     var currency by NexusBankTransactionsTable.currency
     var amount by NexusBankTransactionsTable.amount
     var status by NexusBankTransactionsTable.status
@@ -316,6 +318,7 @@ object TalerFacadeStateTable : IntIdTable() {
     val reserveTransferLevel = text("reserveTransferLevel")
     val intervalIncrement = text("intervalIncrement")
     val facade = reference("facade", FacadesTable)
+
     // highest ID seen in the raw transactions table.
     val highestSeenMsgID = long("highestSeenMsgID").default(0)
 }

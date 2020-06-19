@@ -17,16 +17,16 @@
  * <http://www.gnu.org/licenses/>
  */
 
-package tech.libeufin.nexus
+package tech.libeufin.nexus.server
 
 import com.fasterxml.jackson.annotation.JsonSubTypes
 import com.fasterxml.jackson.annotation.JsonTypeInfo
 import com.fasterxml.jackson.annotation.JsonTypeName
 import com.fasterxml.jackson.annotation.JsonValue
 import com.fasterxml.jackson.databind.JsonNode
+import tech.libeufin.nexus.BankTransaction
 import tech.libeufin.util.*
 import java.time.LocalDate
-import java.time.LocalDateTime
 
 data class BackupRequestJson(
     val passphrase: String
@@ -135,7 +135,7 @@ enum class FetchLevel(@get:JsonValue val jsonName: String) {
 @JsonSubTypes(
     JsonSubTypes.Type(value = FetchSpecLatestJson::class, name = "latest"),
     JsonSubTypes.Type(value = FetchSpecAllJson::class, name = "all"),
-    JsonSubTypes.Type(value = FetchSpecPreviousDaysJson::class, name = "previous-days") ,
+    JsonSubTypes.Type(value = FetchSpecPreviousDaysJson::class, name = "previous-days"),
     JsonSubTypes.Type(value = FetchSpecSinceLastJson::class, name = "since-last")
 )
 abstract class FetchSpecJson(
@@ -145,10 +145,13 @@ abstract class FetchSpecJson(
 
 @JsonTypeName("latest")
 class FetchSpecLatestJson(level: FetchLevel, bankConnection: String?) : FetchSpecJson(level, bankConnection)
+
 @JsonTypeName("all")
 class FetchSpecAllJson(level: FetchLevel, bankConnection: String?) : FetchSpecJson(level, bankConnection)
+
 @JsonTypeName("since-last")
 class FetchSpecSinceLastJson(level: FetchLevel, bankConnection: String?) : FetchSpecJson(level, bankConnection)
+
 @JsonTypeName("previous-days")
 class FetchSpecPreviousDaysJson(level: FetchLevel, bankConnection: String?, val number: Int) :
     FetchSpecJson(level, bankConnection)

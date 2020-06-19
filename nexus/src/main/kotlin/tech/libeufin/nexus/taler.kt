@@ -39,7 +39,14 @@ import org.jetbrains.exposed.dao.id.IdTable
 import org.jetbrains.exposed.sql.*
 import org.jetbrains.exposed.sql.transactions.transaction
 import tech.libeufin.nexus.bankaccount.addPaymentInitiation
-import tech.libeufin.util.*
+import tech.libeufin.nexus.server.Pain001Data
+import tech.libeufin.nexus.server.authenticateRequest
+import tech.libeufin.nexus.server.expectNonNull
+import tech.libeufin.nexus.server.expectUrlParameter
+import tech.libeufin.util.CryptoUtil
+import tech.libeufin.util.EbicsProtocolError
+import tech.libeufin.util.parseAmount
+import tech.libeufin.util.parsePayto
 import kotlin.math.abs
 import kotlin.math.min
 
@@ -183,15 +190,6 @@ fun customConverter(body: Any): String {
  * Tries to extract a valid reserve public key from the raw subject line
  */
 fun extractReservePubFromSubject(rawSubject: String): String? {
-    val re = "\\b[a-z0-9A-Z]{52}\\b".toRegex()
-    val result = re.find(rawSubject) ?: return null
-    return result.value.toUpperCase()
-}
-
-/**
- * Tries to extract a valid wire transfer id from the subject.
- */
-fun extractWtidFromSubject(rawSubject: String): String? {
     val re = "\\b[a-z0-9A-Z]{52}\\b".toRegex()
     val result = re.find(rawSubject) ?: return null
     return result.value.toUpperCase()

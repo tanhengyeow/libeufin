@@ -27,7 +27,10 @@ import org.jetbrains.exposed.sql.and
 import org.jetbrains.exposed.sql.transactions.transaction
 import org.w3c.dom.Document
 import tech.libeufin.nexus.*
+import tech.libeufin.nexus.ebics.fetchEbicsBySpec
 import tech.libeufin.nexus.ebics.submitEbicsPaymentInitiation
+import tech.libeufin.nexus.server.FetchSpecJson
+import tech.libeufin.nexus.server.Pain001Data
 import tech.libeufin.util.XMLUtil
 import java.time.Instant
 
@@ -227,5 +230,49 @@ fun addPaymentInitiation(paymentData: Pain001Data, debitorAccount: NexusBankAcco
             paymentInformationId = "leuf-p-$nowHex-$painHex-$acctHex"
             instructionId = "leuf-i-$nowHex-$painHex-$acctHex"
         }
+    }
+}
+
+suspend fun fetchTransactionsInternal(
+    client: HttpClient,
+    fetchSpec: FetchSpecJson,
+    userId: String,
+    accountid: String
+) {
+    val res = transaction {
+        val acct = NexusBankAccountEntity.findById(accountid)
+        if (acct == null) {
+            throw NexusError(
+                HttpStatusCode.NotFound,
+                "Account not found"
+            )
+        }
+        val conn = acct.defaultBankConnection
+        if (conn == null) {
+            throw NexusError(
+                HttpStatusCode.BadRequest,
+                "No default bank connection (explicit connection not yet supported)"
+            )
+        }
+        return@transaction object {
+            val connectionType = conn.type
+            val connectionName = conn.id.value
+        }
+    }
+    when (res.connectionType) {
+        "ebics" -> {
+            // FIXME(dold): Support fetching not only the latest transactions.
+            // It's not clear what's the nicest way to support this.
+            fetchEbicsBySpec(
+                fetchSpec,
+                client,
+                res.connectionName
+            )
+            ingestBankMessagesIntoAccount(res.connectionName, accountid)
+        }
+        else -> throw NexusError(
+            HttpStatusCode.BadRequest,
+            "Connection type '${res.connectionType}' not implemented"
+        )
     }
 }
