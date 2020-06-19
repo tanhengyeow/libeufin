@@ -19,4 +19,5 @@
 
 package tech.libeufin.nexus
 
+// TODO: define common interface for all bank connection protocols here!
 interface BankConnectionProtocol
