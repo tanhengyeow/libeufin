@@ -19,83 +19,122 @@
 
 package tech.libeufin.nexus
 
+import com.cronutils.model.definition.CronDefinitionBuilder
+import com.cronutils.model.time.ExecutionTime
+import com.cronutils.parser.CronParser
+import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
 import io.ktor.client.HttpClient
 import kotlinx.coroutines.GlobalScope
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.time.delay
 import org.jetbrains.exposed.sql.transactions.transaction
-import tech.libeufin.nexus.bankaccount.fetchTransactionsInternal
+import tech.libeufin.nexus.bankaccount.fetchBankAccountTransactions
 import tech.libeufin.nexus.bankaccount.submitAllPaymentInitiations
-import tech.libeufin.nexus.server.FetchLevel
 import tech.libeufin.nexus.server.FetchSpecJson
-import tech.libeufin.nexus.server.FetchSpecLatestJson
-import java.io.PrintWriter
-import java.io.StringWriter
+import java.lang.IllegalArgumentException
 import java.time.Duration
+import java.time.Instant
+import java.time.ZonedDateTime
 
-/** Crawls all the facades, and requests history for each of its creators. */
-suspend fun downloadTalerFacadesTransactions(httpClient: HttpClient, fetchSpec: FetchSpecJson) {
-    val work = mutableListOf<Pair<String, String>>()
-    transaction {
-        TalerFacadeStateEntity.all().forEach {
-            logger.debug("Fetching history for facade: ${it.id.value}, bank account: ${it.bankAccount}")
-            work.add(Pair(it.facade.creator.id.value, it.bankAccount))
-        }
-    }
-    work.forEach {
-        fetchTransactionsInternal(
-            client = httpClient,
-            fetchSpec = fetchSpec,
-            userId = it.first,
-            accountid = it.second
-        )
-    }
-}
+private data class TaskSchedule(
+    val taskId: Int,
+    val name: String,
+    val type: String,
+    val resourceType: String,
+    val resourceId: String,
+    val params: String
+)
 
-
-private inline fun reportAndIgnoreErrors(f: () -> Unit) {
+private suspend fun runTask(client: HttpClient, sched: TaskSchedule) {
+    logger.info("running task $sched")
     try {
-        f()
-    } catch (e: java.lang.Exception) {
-        logger.error("ignoring exception", e)
-    }
-}
 
-fun moreFrequentBackgroundTasks(httpClient: HttpClient) {
-    GlobalScope.launch {
-        while (true) {
-            logger.debug("Running more frequent background jobs")
-            reportAndIgnoreErrors {
-                downloadTalerFacadesTransactions(
-                    httpClient,
-                    FetchSpecLatestJson(
-                        FetchLevel.ALL,
-                        null
-                    )
-                )
+        when (sched.resourceType) {
+            "bank-account" -> {
+                when (sched.type) {
+                    "fetch" -> {
+                        @Suppress("BlockingMethodInNonBlockingContext")
+                        val fetchSpec = jacksonObjectMapper().readValue(sched.params, FetchSpecJson::class.java)
+                        fetchBankAccountTransactions(client, fetchSpec, sched.resourceId)
+                    }
+                    "submit" -> {
+                        submitAllPaymentInitiations(client, sched.resourceId)
+                    }
+                    else -> {
+                        logger.error("task type ${sched.type} not understood")
+                    }
+                }
             }
-            // FIXME: should be done automatically after raw ingestion
-            reportAndIgnoreErrors { ingestTalerTransactions() }
-            reportAndIgnoreErrors { submitAllPaymentInitiations(httpClient) }
-            logger.debug("More frequent background jobs done")
-            delay(Duration.ofSeconds(1))
+            else -> logger.error("task on resource ${sched.resourceType} not understood")
         }
+    } catch (e: Exception) {
+        logger.error("Exception during task $sched", e)
     }
 }
 
-fun lessFrequentBackgroundTasks(httpClient: HttpClient) {
+object NexusCron {
+    val parser = run {
+        val cronDefinition =
+            CronDefinitionBuilder.defineCron()
+                .withSeconds().and()
+                .withMinutes().optional().and()
+                .withDayOfMonth().optional().and()
+                .withMonth().optional().and()
+                .withDayOfWeek().optional()
+                .and().instance()
+        CronParser(cronDefinition)
+    }
+}
+
+fun startOperationScheduler(httpClient: HttpClient) {
     GlobalScope.launch {
         while (true) {
-            logger.debug("Less frequent background job")
-            try {
-                //downloadTalerFacadesTransactions(httpClient, "C53")
-            } catch (e: Exception) {
-                val sw = StringWriter()
-                val pw = PrintWriter(sw)
-                e.printStackTrace(pw)
-                logger.info("==== Less frequent background task exception ====\n${sw}======")
+            logger.info("running schedule loop")
+
+            // First, assign next execution time stamps to all tasks that need them
+            transaction {
+                NexusScheduledTaskEntity.find {
+                    NexusScheduledTasksTable.nextScheduledExecutionSec.isNull()
+                }.forEach {
+                    val cron = try {
+                        NexusCron.parser.parse(it.taskCronspec)
+                    } catch (e: IllegalArgumentException) {
+                        logger.error("invalid cronspec in schedule ${it.resourceType}/${it.resourceId}/${it.taskName}")
+                        return@forEach
+                    }
+                    val zonedNow = ZonedDateTime.now()
+                    val et = ExecutionTime.forCron(cron)
+                    val next = et.nextExecution(zonedNow)
+                    logger.info("scheduling task ${it.taskName} at $next (now is $zonedNow)")
+                    it.nextScheduledExecutionSec = next.get().toEpochSecond()
+                }
             }
-            delay(Duration.ofSeconds(10))
+
+            val nowSec = Instant.now().epochSecond
+            // Second, find tasks that are due
+            val dueTasks = transaction {
+                NexusScheduledTaskEntity.find {
+                    NexusScheduledTasksTable.nextScheduledExecutionSec lessEq nowSec
+                }.map {
+                    TaskSchedule(it.id.value, it.taskName, it.taskType, it.resourceType, it.resourceId, it.taskParams)
+                }
+            }
+
+            // Execute those due tasks
+            dueTasks.forEach {
+                runTask(httpClient, it)
+                transaction {
+                    val t = NexusScheduledTaskEntity.findById(it.taskId)
+                    if (t != null) {
+                        // Reset next scheduled execution
+                        t.nextScheduledExecutionSec = null
+                        t.prevScheduledExecutionSec = nowSec
+                    }
+                }
+            }
+
+            // Wait a bit
+            delay(Duration.ofSeconds(1))
         }
     }
 }

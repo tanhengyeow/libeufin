@@ -343,6 +343,8 @@ object NexusScheduledTasksTable : IntIdTable() {
     val taskType = text("taskType")
     val taskCronspec = text("taskCronspec")
     val taskParams = text("taskParams")
+    val nextScheduledExecutionSec = long("nextScheduledExecutionSec").nullable()
+    val prevScheduledExecutionSec = long("lastScheduledExecutionSec").nullable()
 }
 
 class NexusScheduledTaskEntity(id: EntityID<Int>) : IntEntity(id) {
@@ -354,6 +356,8 @@ class NexusScheduledTaskEntity(id: EntityID<Int>) : IntEntity(id) {
     var taskType by NexusScheduledTasksTable.taskType
     var taskCronspec by NexusScheduledTasksTable.taskCronspec
     var taskParams by NexusScheduledTasksTable.taskParams
+    var nextScheduledExecutionSec by NexusScheduledTasksTable.nextScheduledExecutionSec
+    var prevScheduledExecutionSec by NexusScheduledTasksTable.prevScheduledExecutionSec
 }
 
 fun dbCreateTables(dbName: String) {

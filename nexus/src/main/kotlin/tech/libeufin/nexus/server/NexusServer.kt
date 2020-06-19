@@ -53,12 +53,13 @@ import org.jetbrains.exposed.sql.transactions.transaction
 import org.slf4j.event.Level
 import tech.libeufin.nexus.*
 import tech.libeufin.nexus.bankaccount.addPaymentInitiation
-import tech.libeufin.nexus.bankaccount.fetchTransactionsInternal
+import tech.libeufin.nexus.bankaccount.fetchBankAccountTransactions
 import tech.libeufin.nexus.bankaccount.getPaymentInitiation
 import tech.libeufin.nexus.bankaccount.submitPaymentInitiation
 import tech.libeufin.nexus.ebics.*
 import tech.libeufin.util.*
 import tech.libeufin.util.logger
+import java.lang.IllegalArgumentException
 import java.net.URLEncoder
 import java.util.zip.InflaterInputStream
 
@@ -260,8 +261,7 @@ fun serverMain(dbName: String) {
             return@intercept
         }
 
-        lessFrequentBackgroundTasks(client)
-        moreFrequentBackgroundTasks(client)
+        startOperationScheduler(client)
 
         routing {
             // Shows information about the requesting user.
@@ -379,6 +379,11 @@ fun serverMain(dbName: String) {
                     if (bankAccount == null) {
                         throw NexusError(HttpStatusCode.NotFound, "unknown bank account")
                     }
+                    try {
+                        NexusCron.parser.parse(schedSpec.cronspec)
+                    } catch (e: IllegalArgumentException) {
+                        throw NexusError(HttpStatusCode.BadRequest, "bad cron spec: ${e.message}")
+                    }
                     when (schedSpec.type) {
                         "fetch" -> {
                             val fetchSpec = jacksonObjectMapper().treeToValue(schedSpec.params, FetchSpecJson::class.java)
@@ -386,7 +391,17 @@ fun serverMain(dbName: String) {
                                 throw NexusError(HttpStatusCode.BadRequest, "bad fetch spec")
                             }
                         }
+                        "submit" -> {}
                         else -> throw NexusError(HttpStatusCode.BadRequest, "unsupported task type")
+                    }
+                    val oldSchedTask = NexusScheduledTaskEntity.find {
+                        (NexusScheduledTasksTable.taskName eq schedSpec.name) and
+                                (NexusScheduledTasksTable.resourceType eq "bank-account") and
+                                (NexusScheduledTasksTable.resourceId eq accountId)
+
+                    }.firstOrNull()
+                    if (oldSchedTask != null) {
+                        throw NexusError(HttpStatusCode.BadRequest, "schedule task already exists")
                     }
                     NexusScheduledTaskEntity.new {
                         resourceType = "bank-account"
@@ -401,12 +416,30 @@ fun serverMain(dbName: String) {
                 call.respond(object { })
             }
 
-            get("/bank-accounts/{accountid}/schedule/{taskid}") {
-
+            get("/bank-accounts/{accountId}/schedule/{taskId}") {
+                call.respond(object { })
             }
 
-            delete("/bank-accounts/{accountid}/schedule/{taskid}") {
+            delete("/bank-accounts/{accountId}/schedule/{taskId}") {
+                logger.info("schedule delete requested")
+                val accountId = ensureNonNull(call.parameters["accountId"])
+                val taskId = ensureNonNull(call.parameters["taskId"])
+                transaction {
+                    val bankAccount = NexusBankAccountEntity.findById(accountId)
+                    if (bankAccount == null) {
+                        throw NexusError(HttpStatusCode.NotFound, "unknown bank account")
+                    }
+                    val oldSchedTask = NexusScheduledTaskEntity.find {
+                        (NexusScheduledTasksTable.taskName eq taskId) and
+                                (NexusScheduledTasksTable.resourceType eq "bank-account") and
+                                (NexusScheduledTasksTable.resourceId eq accountId)
 
+                    }.firstOrNull()
+                    if (oldSchedTask != null) {
+                        oldSchedTask.delete()
+                    }
+                }
+                call.respond(object { })
             }
 
             get("/bank-accounts/{accountid}") {
@@ -517,10 +550,9 @@ fun serverMain(dbName: String) {
                         null
                     )
                 }
-                fetchTransactionsInternal(
+                fetchBankAccountTransactions(
                     client,
                     fetchSpec,
-                    user.id.value,
                     accountid
                 )
                 call.respondText("Collection performed")

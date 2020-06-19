@@ -58,7 +58,7 @@ suspend fun submitPaymentInitiation(httpClient: HttpClient, paymentInitiationId:
 /**
  * Submit all pending prepared payments.
  */
-suspend fun submitAllPaymentInitiations(httpClient: HttpClient) {
+suspend fun submitAllPaymentInitiations(httpClient: HttpClient, accountid: String) {
     data class Submission(
         val id: Long
     )
@@ -233,10 +233,9 @@ fun addPaymentInitiation(paymentData: Pain001Data, debitorAccount: NexusBankAcco
     }
 }
 
-suspend fun fetchTransactionsInternal(
+suspend fun fetchBankAccountTransactions(
     client: HttpClient,
     fetchSpec: FetchSpecJson,
-    userId: String,
     accountid: String
 ) {
     val res = transaction {
@@ -261,18 +260,17 @@ suspend fun fetchTransactionsInternal(
     }
     when (res.connectionType) {
         "ebics" -> {
-            // FIXME(dold): Support fetching not only the latest transactions.
-            // It's not clear what's the nicest way to support this.
             fetchEbicsBySpec(
                 fetchSpec,
                 client,
                 res.connectionName
             )
-            ingestBankMessagesIntoAccount(res.connectionName, accountid)
         }
         else -> throw NexusError(
             HttpStatusCode.BadRequest,
             "Connection type '${res.connectionType}' not implemented"
         )
     }
+    ingestBankMessagesIntoAccount(res.connectionName, accountid)
+    ingestTalerTransactions()
 }
