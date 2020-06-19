@@ -23,18 +23,16 @@ import java.time.*
 import java.time.format.DateTimeFormatter
 
 fun LocalDateTime.toZonedString(): String {
-    val dateFormatter = DateTimeFormatter.ISO_OFFSET_DATE_TIME
-    return dateFormatter.format(this.atZone(ZoneId.systemDefault()))
+    return DateTimeFormatter.ISO_OFFSET_DATE_TIME.format(this.atZone(ZoneId.systemDefault()))
 }
 
 fun LocalDateTime.toDashedDate(): String {
-    val dtf = DateTimeFormatter.ISO_LOCAL_DATE
-    return dtf.format(this)
+    return DateTimeFormatter.ISO_DATE.format(this)
 }
 
 fun parseDashedDate(date: String): LocalDateTime {
-    val dtf = DateTimeFormatter.ISO_LOCAL_DATE
-    val asDate = LocalDate.from(LocalDate.parse(date, dtf))
+    val dtf = DateTimeFormatter.ISO_DATE
+    val asDate = LocalDate.parse(date, dtf)
     return asDate.atStartOfDay()
 }
 

@@ -220,6 +220,10 @@ object NexusBankAccountsTable : IdTable<String>() {
     val bankCode = text("bankCode")
     val defaultBankConnection = reference("defaultBankConnection", NexusBankConnectionsTable).nullable()
 
+    val lastStatementCreationTimestamp = long("lastStatementCreationTimestamp").nullable()
+    val lastReportCreationTimestamp = long("lastReportCreationTimestamp").nullable()
+    val lastNotificationCreationTimestamp = long("lastNotificationCreationTimestamp").nullable()
+
     // Highest bank message ID that this bank account is aware of.
     val highestSeenBankMessageId = integer("highestSeenBankMessageId")
 
