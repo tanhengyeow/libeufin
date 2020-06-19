@@ -1,4 +1,4 @@
-package tech.libeufin.nexus/*
+/*
  * This file is part of LibEuFin.
  * Copyright (C) 2020 Taler Systems S.A.
  *
@@ -16,5 +16,7 @@ package tech.libeufin.nexus/*
  * License along with LibEuFin; see the file COPYING.  If not, see
  * <http://www.gnu.org/licenses/>
  */
+
+package tech.libeufin.nexus
 
 interface BankConnectionProtocol

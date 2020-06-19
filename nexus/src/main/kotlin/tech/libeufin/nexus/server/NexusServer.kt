@@ -1,3 +1,22 @@
+/*
+ * This file is part of LibEuFin.
+ * Copyright (C) 2020 Taler Systems S.A.
+ *
+ * LibEuFin is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU Affero General Public License as
+ * published by the Free Software Foundation; either version 3, or
+ * (at your option) any later version.
+ *
+ * LibEuFin is distributed in the hope that it will be useful, but
+ * WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
+ * or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU Affero General
+ * Public License for more details.
+ *
+ * You should have received a copy of the GNU Affero General Public
+ * License along with LibEuFin; see the file COPYING.  If not, see
+ * <http://www.gnu.org/licenses/>
+ */
+
 package tech.libeufin.nexus.server
 
 import com.fasterxml.jackson.core.util.DefaultIndenter
@@ -230,13 +249,7 @@ fun serverMain(dbName: String) {
             }
         }
 
-        /**
-         * Allow request body compression.  Needed by Taler.
-         */
-
-        /**
-         * Allow request body compression.  Needed by Taler.
-         */
+        // Allow request body compression.  Needed by Taler.
         receivePipeline.intercept(ApplicationReceivePipeline.Before) {
             if (this.context.request.headers["Content-Encoding"] == "deflate") {
                 logger.debug("About to inflate received data")
@@ -253,12 +266,7 @@ fun serverMain(dbName: String) {
         moreFrequentBackgroundTasks(client)
 
         routing {
-            /**
-             * Shows information about the requesting user.
-             */
-            /**
-             * Shows information about the requesting user.
-             */
+            // Shows information about the requesting user.
             get("/user") {
                 val ret = transaction {
                     val currentUser = authenticateRequest(call.request)
@@ -284,13 +292,7 @@ fun serverMain(dbName: String) {
                 return@get
             }
 
-            /**
-             * Add a new ordinary user in the system (requires superuser privileges)
-             */
-
-            /**
-             * Add a new ordinary user in the system (requires superuser privileges)
-             */
+            // Add a new ordinary user in the system (requires superuser privileges)
             post("/users") {
                 val body = call.receiveJson<User>()
                 transaction {
@@ -323,13 +325,7 @@ fun serverMain(dbName: String) {
                 ebicsBankProtocolRoutes(client)
             }
 
-            /**
-             * Shows the bank accounts belonging to the requesting user.
-             */
-
-            /**
-             * Shows the bank accounts belonging to the requesting user.
-             */
+            // Shows the bank accounts belonging to the requesting user.
             get("/bank-accounts") {
                 val bankAccounts = BankAccounts()
                 transaction {
@@ -366,12 +362,8 @@ fun serverMain(dbName: String) {
                 }
                 call.respond(res)
             }
-            /**
-             * Submit one particular payment to the bank.
-             */
-            /**
-             * Submit one particular payment to the bank.
-             */
+
+            // Submit one particular payment to the bank.
             post("/bank-accounts/{accountid}/payment-initiations/{uuid}/submit") {
                 val uuid = ensureLong(call.parameters["uuid"])
                 val accountId = ensureNonNull(call.parameters["accountid"])
@@ -383,13 +375,7 @@ fun serverMain(dbName: String) {
                 return@post
             }
 
-            /**
-             * Shows information about one particular payment initiation.
-             */
-
-            /**
-             * Shows information about one particular payment initiation.
-             */
+            // Shows information about one particular payment initiation.
             get("/bank-accounts/{accountid}/payment-initiations/{uuid}") {
                 val res = transaction {
                     val user = authenticateRequest(call.request)
@@ -417,13 +403,7 @@ fun serverMain(dbName: String) {
                 return@get
             }
 
-            /**
-             * Adds a new payment initiation.
-             */
-
-            /**
-             * Adds a new payment initiation.
-             */
+            // Adds a new payment initiation.
             post("/bank-accounts/{accountid}/payment-initiations") {
                 val body = call.receive<CreatePaymentInitiationRequest>()
                 val accountId = ensureNonNull(call.parameters["accountid"])
@@ -456,13 +436,7 @@ fun serverMain(dbName: String) {
                 return@post
             }
 
-            /**
-             * Downloads new transactions from the bank.
-             */
-
-            /**
-             * Downloads new transactions from the bank.
-             */
+            // Downloads new transactions from the bank.
             post("/bank-accounts/{accountid}/fetch-transactions") {
                 val accountid = call.parameters["accountid"]
                 if (accountid == null) {
@@ -490,13 +464,7 @@ fun serverMain(dbName: String) {
                 return@post
             }
 
-            /**
-             * Asks list of transactions ALREADY downloaded from the bank.
-             */
-
-            /**
-             * Asks list of transactions ALREADY downloaded from the bank.
-             */
+            // Asks list of transactions ALREADY downloaded from the bank.
             get("/bank-accounts/{accountid}/transactions") {
                 val bankAccount = expectNonNull(call.parameters["accountid"])
                 val start = call.request.queryParameters["start"]
@@ -513,13 +481,7 @@ fun serverMain(dbName: String) {
                 return@get
             }
 
-            /**
-             * Adds a new bank transport.
-             */
-
-            /**
-             * Adds a new bank transport.
-             */
+            // Adds a new bank transport.
             post("/bank-connections") {
                 // user exists and is authenticated.
                 val body = call.receive<CreateBankConnectionRequestJson>()
@@ -711,12 +673,8 @@ fun serverMain(dbName: String) {
             route("/facades/{fcid}/taler") {
                 talerFacadeRoutes(this, client)
             }
-            /**
-             * Hello endpoint.
-             */
-            /**
-             * Hello endpoint.
-             */
+
+            // Hello endpoint.
             get("/") {
                 call.respondText("Hello, this is Nexus.\n")
                 return@get
