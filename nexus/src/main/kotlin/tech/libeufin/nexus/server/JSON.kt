@@ -26,7 +26,14 @@ import com.fasterxml.jackson.annotation.JsonValue
 import com.fasterxml.jackson.databind.JsonNode
 import tech.libeufin.nexus.BankTransaction
 import tech.libeufin.util.*
-import java.time.LocalDate
+import java.time.Instant
+import java.time.ZoneId
+import java.time.ZoneOffset
+import java.time.ZonedDateTime
+import java.time.format.DateTimeFormatter
+import java.time.format.DateTimeFormatterBuilder
+import java.time.temporal.ChronoField
+
 
 data class BackupRequestJson(
     val passphrase: String
@@ -62,6 +69,15 @@ class EbicsStandardOrderParamsEmptyJson : EbicsOrderParamsJson() {
     }
 }
 
+object EbicsDateFormat {
+    var fmt = DateTimeFormatterBuilder()
+        .append(DateTimeFormatter.ISO_DATE)
+        .parseDefaulting(ChronoField.HOUR_OF_DAY, 0)
+        .parseDefaulting(ChronoField.MINUTE_OF_HOUR, 0)
+        .parseDefaulting(ChronoField.OFFSET_SECONDS, ZoneId.systemDefault().rules.getOffset(Instant.now()).totalSeconds.toLong())
+        .toFormatter()
+}
+
 @JsonTypeName("standard-date-range")
 class EbicsStandardOrderParamsDateJson(
     val start: String,
@@ -70,8 +86,8 @@ class EbicsStandardOrderParamsDateJson(
     override fun toOrderParams(): EbicsOrderParams {
         val dateRange: EbicsDateRange? =
             EbicsDateRange(
-                LocalDate.parse(this.start),
-                LocalDate.parse(this.end)
+                ZonedDateTime.parse(this.start, EbicsDateFormat.fmt),
+                ZonedDateTime.parse(this.end, EbicsDateFormat.fmt)
             )
         return EbicsStandardOrderParams(dateRange)
     }

@@ -27,11 +27,11 @@ fun LocalDateTime.toZonedString(): String {
 }
 
 fun LocalDateTime.toDashedDate(): String {
-    return DateTimeFormatter.ISO_DATE.format(this)
+    return DateTimeFormatter.ISO_OFFSET_DATE.format(this)
 }
 
 fun parseDashedDate(date: String): LocalDateTime {
-    val dtf = DateTimeFormatter.ISO_DATE
+    val dtf = DateTimeFormatter.ISO_OFFSET_DATE
     val asDate = LocalDate.parse(date, dtf)
     return asDate.atStartOfDay()
 }

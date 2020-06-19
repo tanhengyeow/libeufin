@@ -33,14 +33,15 @@ import java.math.BigInteger
 import java.security.SecureRandom
 import java.security.interfaces.RSAPrivateCrtKey
 import java.security.interfaces.RSAPublicKey
-import java.time.LocalDate
+import java.time.ZonedDateTime
 import java.util.*
 import java.util.zip.DeflaterInputStream
 import javax.xml.datatype.DatatypeFactory
+import javax.xml.datatype.XMLGregorianCalendar
 
 data class EbicsProtocolError(val statusCode: HttpStatusCode, val reason: String) : Exception(reason)
 
-data class EbicsDateRange(val start: LocalDate, val end: LocalDate)
+data class EbicsDateRange(val start: ZonedDateTime, val end: ZonedDateTime)
 
 sealed class EbicsOrderParams
 
@@ -86,6 +87,11 @@ private fun getNonce(size: Int): ByteArray {
     return ret
 }
 
+private fun getXmlDate(d: ZonedDateTime): XMLGregorianCalendar {
+    return DatatypeFactory.newInstance()
+        .newXMLGregorianCalendar(d.year, d.monthValue, d.dayOfMonth, 0, 0, 0, 0, d.offset.totalSeconds / 60)
+}
+
 private fun makeOrderParams(orderParams: EbicsOrderParams): EbicsRequest.OrderParams {
     return when (orderParams) {
         is EbicsStandardOrderParams -> {
@@ -93,8 +99,8 @@ private fun makeOrderParams(orderParams: EbicsOrderParams): EbicsRequest.OrderPa
                 val r = orderParams.dateRange
                 if (r != null) {
                     this.dateRange = EbicsRequest.DateRange().apply {
-                        this.start = DatatypeFactory.newInstance().newXMLGregorianCalendar(r.start.toString())
-                        this.end = DatatypeFactory.newInstance().newXMLGregorianCalendar(r.end.toString())
+                        this.start = getXmlDate(r.start)
+                        this.end = getXmlDate(r.end)
                     }
                 }
             }

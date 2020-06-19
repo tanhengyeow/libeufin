@@ -2,6 +2,7 @@ package tech.libeufin.nexus
 
 import org.junit.Test
 import junit.framework.TestCase.assertEquals
+import tech.libeufin.nexus.server.extractUserAndPassword
 
 class AuthenticationTest {
     @Test

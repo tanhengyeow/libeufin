@@ -220,9 +220,14 @@ object NexusBankAccountsTable : IdTable<String>() {
     val bankCode = text("bankCode")
     val defaultBankConnection = reference("defaultBankConnection", NexusBankConnectionsTable).nullable()
 
-    val lastStatementCreationTimestamp = long("lastStatementCreationTimestamp").nullable()
-    val lastReportCreationTimestamp = long("lastReportCreationTimestamp").nullable()
-    val lastNotificationCreationTimestamp = long("lastNotificationCreationTimestamp").nullable()
+    // ISO-8601 zoned date time
+    val lastStatementCreationTimestamp = text("lastStatementCreationTimestamp").nullable()
+
+    // ISO-8601 zoned date time
+    val lastReportCreationTimestamp = text("lastReportCreationTimestamp").nullable()
+
+    // ISO-8601 zoned date time
+    val lastNotificationCreationTimestamp = text("lastNotificationCreationTimestamp").nullable()
 
     // Highest bank message ID that this bank account is aware of.
     val highestSeenBankMessageId = integer("highestSeenBankMessageId")
@@ -239,6 +244,9 @@ class NexusBankAccountEntity(id: EntityID<String>) : Entity<String>(id) {
     var defaultBankConnection by NexusBankConnectionEntity optionalReferencedOn NexusBankAccountsTable.defaultBankConnection
     var highestSeenBankMessageId by NexusBankAccountsTable.highestSeenBankMessageId
     var pain001Counter by NexusBankAccountsTable.pain001Counter
+    var lastStatementCreationTimestamp by NexusBankAccountsTable.lastStatementCreationTimestamp
+    var lastReportCreationTimestamp by NexusBankAccountsTable.lastReportCreationTimestamp
+    var lastNotificationCreationTimestamp by NexusBankAccountsTable.lastNotificationCreationTimestamp
 }
 
 object EbicsSubscribersTable : IntIdTable() {

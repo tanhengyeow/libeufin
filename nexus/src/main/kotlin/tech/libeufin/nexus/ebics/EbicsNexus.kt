@@ -51,8 +51,10 @@ import tech.libeufin.util.ebics_h004.HTDResponseOrderData
 import java.io.ByteArrayOutputStream
 import java.security.interfaces.RSAPrivateCrtKey
 import java.security.interfaces.RSAPublicKey
-import java.time.LocalDate
+import java.time.Instant
 import java.time.LocalDateTime
+import java.time.ZoneOffset
+import java.time.ZonedDateTime
 import java.time.format.DateTimeFormatter
 import java.util.*
 import javax.crypto.EncryptedPrivateKeyInfo
@@ -63,37 +65,88 @@ private data class EbicsFetchSpec(
     val orderParams: EbicsOrderParams
 )
 
-suspend fun fetchEbicsBySpec(fetchSpec: FetchSpecJson, client: HttpClient, bankConnectionId: String) {
+suspend fun fetchEbicsBySpec(
+    fetchSpec: FetchSpecJson,
+    client: HttpClient,
+    bankConnectionId: String,
+    accountId: String
+) {
     val subscriberDetails = transaction { getEbicsSubscriberDetails(bankConnectionId) }
+    val lastTimes = transaction {
+        val acct = NexusBankAccountEntity.findById(accountId)
+        if (acct == null) {
+            throw NexusError(
+                HttpStatusCode.NotFound,
+                "Account not found"
+            )
+        }
+        object {
+            val lastStatement = acct.lastStatementCreationTimestamp?.let {
+                ZonedDateTime.parse(it, DateTimeFormatter.ISO_DATE_TIME)
+            }
+            val lastReport = acct.lastReportCreationTimestamp?.let {
+                ZonedDateTime.parse(it, DateTimeFormatter.ISO_DATE_TIME)
+            }
+        }
+    }
     val specs = mutableListOf<EbicsFetchSpec>()
+
+    fun addForLevel(l: FetchLevel, p: EbicsOrderParams) {
+        when (fetchSpec.level) {
+            FetchLevel.ALL -> {
+                specs.add(EbicsFetchSpec("C52", p))
+                specs.add(EbicsFetchSpec("C53", p))
+            }
+            FetchLevel.REPORT -> {
+                specs.add(EbicsFetchSpec("C52", p))
+            }
+            FetchLevel.STATEMENT -> {
+                specs.add(EbicsFetchSpec("C53", p))
+            }
+        }
+    }
+
     when (fetchSpec) {
         is FetchSpecLatestJson -> {
             val p = EbicsStandardOrderParams()
-            when (fetchSpec.level) {
-                FetchLevel.ALL -> {
-                    specs.add(EbicsFetchSpec("C52", p))
-                    specs.add(EbicsFetchSpec("C53", p))
-                }
-                FetchLevel.REPORT -> {
-                    specs.add(EbicsFetchSpec("C52", p))
-                }
-                FetchLevel.STATEMENT -> {
-                    specs.add(EbicsFetchSpec("C53", p))
-                }
-            }
+            addForLevel(fetchSpec.level, p)
         }
         is FetchSpecAllJson -> {
-            val p = EbicsStandardOrderParams(EbicsDateRange(LocalDate.EPOCH, LocalDate.now()))
+            val p = EbicsStandardOrderParams(
+                EbicsDateRange(
+                    ZonedDateTime.ofInstant(Instant.EPOCH, ZoneOffset.UTC),
+                    ZonedDateTime.now(ZoneOffset.UTC)
+                )
+            )
+            addForLevel(fetchSpec.level, p)
+        }
+        is FetchSpecSinceLastJson -> {
+            val pRep = EbicsStandardOrderParams(
+                EbicsDateRange(
+                    lastTimes.lastReport ?: ZonedDateTime.ofInstant(
+                        Instant.EPOCH,
+                        ZoneOffset.UTC
+                    ), ZonedDateTime.now(ZoneOffset.UTC)
+                )
+            )
+            val pStmt = EbicsStandardOrderParams(
+                EbicsDateRange(
+                    lastTimes.lastStatement ?: ZonedDateTime.ofInstant(
+                        Instant.EPOCH,
+                        ZoneOffset.UTC
+                    ), ZonedDateTime.now(ZoneOffset.UTC)
+                )
+            )
             when (fetchSpec.level) {
                 FetchLevel.ALL -> {
-                    specs.add(EbicsFetchSpec("C52", p))
-                    specs.add(EbicsFetchSpec("C53", p))
+                    specs.add(EbicsFetchSpec("C52", pRep))
+                    specs.add(EbicsFetchSpec("C53", pStmt))
                 }
                 FetchLevel.REPORT -> {
-                    specs.add(EbicsFetchSpec("C52", p))
+                    specs.add(EbicsFetchSpec("C52", pRep))
                 }
                 FetchLevel.STATEMENT -> {
-                    specs.add(EbicsFetchSpec("C53", p))
+                    specs.add(EbicsFetchSpec("C53", pStmt))
                 }
             }
         }

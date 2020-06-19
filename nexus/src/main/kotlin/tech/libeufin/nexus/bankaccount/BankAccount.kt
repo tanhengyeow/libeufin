@@ -236,10 +236,10 @@ fun addPaymentInitiation(paymentData: Pain001Data, debitorAccount: NexusBankAcco
 suspend fun fetchBankAccountTransactions(
     client: HttpClient,
     fetchSpec: FetchSpecJson,
-    accountid: String
+    accountId: String
 ) {
     val res = transaction {
-        val acct = NexusBankAccountEntity.findById(accountid)
+        val acct = NexusBankAccountEntity.findById(accountId)
         if (acct == null) {
             throw NexusError(
                 HttpStatusCode.NotFound,
@@ -263,7 +263,8 @@ suspend fun fetchBankAccountTransactions(
             fetchEbicsBySpec(
                 fetchSpec,
                 client,
-                res.connectionName
+                res.connectionName,
+                accountId
             )
         }
         else -> throw NexusError(
@@ -271,6 +272,6 @@ suspend fun fetchBankAccountTransactions(
             "Connection type '${res.connectionType}' not implemented"
         )
     }
-    ingestBankMessagesIntoAccount(res.connectionName, accountid)
+    ingestBankMessagesIntoAccount(res.connectionName, accountId)
     ingestTalerTransactions()
 }
