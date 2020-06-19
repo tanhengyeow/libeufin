@@ -39,6 +39,7 @@ import io.ktor.request.receiveOrNull
 import io.ktor.response.respond
 import io.ktor.response.respondText
 import io.ktor.routing.Route
+import io.ktor.routing.get
 import io.ktor.routing.post
 import org.jetbrains.exposed.sql.statements.api.ExposedBlob
 import org.jetbrains.exposed.sql.transactions.transaction
@@ -386,6 +387,45 @@ fun Route.ebicsBankConnectionRoutes(client: HttpClient) {
             subscriber.bankAuthenticationPublicKey = ExposedBlob((hpbData.authenticationPubKey.encoded))
             subscriber.bankEncryptionPublicKey = ExposedBlob((hpbData.encryptionPubKey.encoded))
         }
+        call.respond(object {})
+    }
+    post("/accounts/fetch") {
+        val res = transaction {
+            authenticateRequest(call.request)
+            val conn = requireBankConnection(call, "connid")
+            if (conn.type != "ebics") {
+                throw NexusError(HttpStatusCode.BadRequest, "bank connection is not of type 'ebics'")
+            }
+            object {
+                val subscriberDetails = getEbicsSubscriberDetails(conn.id.value)
+                val connid = conn.id.value
+            }
+        }
+        val response = doEbicsDownloadTransaction(
+            client, res.subscriberDetails, "HTD", EbicsStandardOrderParams()
+        )
+        when (response) {
+            is EbicsDownloadBankErrorResult -> {
+                throw NexusError(
+                    HttpStatusCode.BadGateway,
+                    response.returnCode.errorCode
+                )
+            }
+            is EbicsDownloadSuccessResult -> {
+                transaction {
+                    RawHTDResponseEntity.new(res.connid) {
+                        htdResponse = response.orderData.toString(Charsets.UTF_8)
+                    }
+                }
+            }
+        }
+        call.respond(object {})
+    }
+    get("/accounts") {
+        val ret = BankAccounts()
+        call.respond(object {})
+    }
+    post("/account/import") {
         call.respond(object {})
     }
 

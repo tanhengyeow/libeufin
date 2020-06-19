@@ -30,6 +30,7 @@ import org.jetbrains.exposed.sql.StdOutSqlLogger
 import org.jetbrains.exposed.sql.addLogger
 import org.jetbrains.exposed.sql.transactions.TransactionManager
 import org.jetbrains.exposed.sql.transactions.transaction
+import tech.libeufin.nexus.NexusBankAccountsTable.entityId
 import tech.libeufin.util.EbicsInitState
 import tech.libeufin.util.amount
 import java.sql.Connection
@@ -210,6 +211,22 @@ class PaymentInitiationEntity(id: EntityID<Long>) : LongEntity(id) {
 }
 
 /**
+ * This table associates a bank connection with the raw XML response
+ * coming from a HTD message.  The main purpose here is to store (possibly
+ * temporarily) the bank accounts belonging to one subscriber, in order
+ * to allow this latter to import them using more meaningful labels.
+ */
+object RawHTDResponsesTable : IdTable<String>() {
+    // the bank-connection that was used to download this data.
+    override val id = text("id").entityId()
+    val htdResponse = text("htdResponse")
+}
+class RawHTDResponseEntity(id: EntityID<String>) : Entity<String>(id) {
+    companion object : EntityClass<String, RawHTDResponseEntity>(RawHTDResponsesTable)
+    var htdResponse by RawHTDResponsesTable.htdResponse
+}
+
+/**
  * This table holds triples of <iban, bic, holder name>.
  * FIXME(dold):  Allow other account and bank identifications than IBAN and BIC
  */
@@ -234,7 +251,6 @@ object NexusBankAccountsTable : IdTable<String>() {
 
 class NexusBankAccountEntity(id: EntityID<String>) : Entity<String>(id) {
     companion object : EntityClass<String, NexusBankAccountEntity>(NexusBankAccountsTable)
-
     var accountHolder by NexusBankAccountsTable.accountHolder
     var iban by NexusBankAccountsTable.iban
     var bankCode by NexusBankAccountsTable.bankCode
