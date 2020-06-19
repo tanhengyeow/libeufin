@@ -336,6 +336,26 @@ class TalerFacadeStateEntity(id: EntityID<Int>) : IntEntity(id) {
     var highestSeenMsgID by TalerFacadeStateTable.highestSeenMsgID
 }
 
+object NexusScheduledTasksTable : IntIdTable() {
+    val resourceType = text("resourceType")
+    val resourceId = text("resourceId")
+    val taskName = text("taskName")
+    val taskType = text("taskType")
+    val taskCronspec = text("taskCronspec")
+    val taskParams = text("taskParams")
+}
+
+class NexusScheduledTaskEntity(id: EntityID<Int>) : IntEntity(id) {
+    companion object : IntEntityClass<NexusScheduledTaskEntity>(NexusScheduledTasksTable)
+
+    var resourceType by NexusScheduledTasksTable.resourceType
+    var resourceId by NexusScheduledTasksTable.resourceId
+    var taskName by NexusScheduledTasksTable.taskName
+    var taskType by NexusScheduledTasksTable.taskType
+    var taskCronspec by NexusScheduledTasksTable.taskCronspec
+    var taskParams by NexusScheduledTasksTable.taskParams
+}
+
 fun dbCreateTables(dbName: String) {
     Database.connect("jdbc:sqlite:${dbName}", "org.sqlite.JDBC")
     TransactionManager.manager.defaultIsolationLevel = Connection.TRANSACTION_SERIALIZABLE
@@ -352,7 +372,8 @@ fun dbCreateTables(dbName: String) {
             NexusBankConnectionsTable,
             NexusBankMessagesTable,
             FacadesTable,
-            TalerFacadeStateTable
+            TalerFacadeStateTable,
+            NexusScheduledTasksTable
         )
     }
 }

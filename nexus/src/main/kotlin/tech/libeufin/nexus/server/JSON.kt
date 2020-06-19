@@ -288,10 +288,6 @@ data class TalerWireGatewayFacadeConfig(
     val intervalIncremental: String
 )
 
-/**********************************************************************
- * Convenience types (ONLY used to gather data together in one place) *
- **********************************************************************/
-
 data class Pain001Data(
     val creditorIban: String,
     val creditorBic: String?,
@@ -301,4 +297,9 @@ data class Pain001Data(
     val subject: String
 )
 
-
+data class CreateAccountTaskRequest(
+    val name: String,
+    val cronspec: String,
+    val type: String,
+    val params: JsonNode
+)

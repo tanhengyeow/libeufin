@@ -42,15 +42,13 @@ import io.ktor.request.*
 import io.ktor.response.respond
 import io.ktor.response.respondBytes
 import io.ktor.response.respondText
-import io.ktor.routing.get
-import io.ktor.routing.post
-import io.ktor.routing.route
-import io.ktor.routing.routing
+import io.ktor.routing.*
 import io.ktor.server.engine.embeddedServer
 import io.ktor.server.netty.Netty
 import io.ktor.utils.io.ByteReadChannel
 import io.ktor.utils.io.jvm.javaio.toByteReadChannel
 import io.ktor.utils.io.jvm.javaio.toInputStream
+import org.jetbrains.exposed.sql.and
 import org.jetbrains.exposed.sql.transactions.transaction
 import org.slf4j.event.Level
 import tech.libeufin.nexus.*
@@ -344,6 +342,71 @@ fun serverMain(dbName: String) {
                 }
                 call.respond(bankAccounts)
                 return@get
+            }
+
+            get("/bank-accounts/{accountid}/schedule") {
+                val resp = jacksonObjectMapper().createObjectNode()
+                val ops = jacksonObjectMapper().createObjectNode()
+                val accountId = ensureNonNull(call.parameters["accountid"])
+                resp.set<JsonNode>("schedule", ops)
+                transaction {
+                    val bankAccount = NexusBankAccountEntity.findById(accountId)
+                    if (bankAccount == null) {
+                        throw NexusError(HttpStatusCode.NotFound, "unknown bank account")
+                    }
+                    NexusScheduledTaskEntity.find {
+                        (NexusScheduledTasksTable.resourceType eq "bank-account") and
+                                (NexusScheduledTasksTable.resourceId eq accountId)
+
+                    }.forEach {
+                        val t = jacksonObjectMapper().createObjectNode()
+                        ops.set<JsonNode>(it.taskName, t)
+                        t.put("cronspec", it.taskCronspec)
+                        t.put("type", it.taskType)
+                        t.set<JsonNode>("params", jacksonObjectMapper().readTree(it.taskParams))
+                    }
+                    Unit
+                }
+                call.respond(resp)
+            }
+
+            post("/bank-accounts/{accountid}/schedule") {
+                val schedSpec = call.receive<CreateAccountTaskRequest>()
+                val accountId = ensureNonNull(call.parameters["accountid"])
+                transaction {
+                    authenticateRequest(call.request)
+                    val bankAccount = NexusBankAccountEntity.findById(accountId)
+                    if (bankAccount == null) {
+                        throw NexusError(HttpStatusCode.NotFound, "unknown bank account")
+                    }
+                    when (schedSpec.type) {
+                        "fetch" -> {
+                            val fetchSpec = jacksonObjectMapper().treeToValue(schedSpec.params, FetchSpecJson::class.java)
+                            if (fetchSpec == null) {
+                                throw NexusError(HttpStatusCode.BadRequest, "bad fetch spec")
+                            }
+                        }
+                        else -> throw NexusError(HttpStatusCode.BadRequest, "unsupported task type")
+                    }
+                    NexusScheduledTaskEntity.new {
+                        resourceType = "bank-account"
+                        resourceId = accountId
+                        this.taskCronspec = schedSpec.cronspec
+                        this.taskName = schedSpec.name
+                        this.taskType = schedSpec.type
+                        this.taskParams =
+                            jacksonObjectMapper().writerWithDefaultPrettyPrinter().writeValueAsString(schedSpec.params)
+                    }
+                }
+                call.respond(object { })
+            }
+
+            get("/bank-accounts/{accountid}/schedule/{taskid}") {
+
+            }
+
+            delete("/bank-accounts/{accountid}/schedule/{taskid}") {
+
             }
 
             get("/bank-accounts/{accountid}") {
