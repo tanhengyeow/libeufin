@@ -422,6 +422,18 @@ fun Route.ebicsBankConnectionRoutes(client: HttpClient) {
         }
         call.respond(object {})
     }
+    get("/accounts/imported") {
+        var ret = BankAccounts()
+        transaction {
+            val conn = requireBankConnection(call, "connid")
+            NexusBankAccountEntity.find {
+                NexusBankAccountsTable.defaultBankConnection eq conn.id.value
+            }.forEach { ret.accounts.add(
+                BankAccount(holder = it.accountHolder, iban = it.iban, bic = it.bankCode, account = it.id.value)
+            ) }
+        }
+        call.respond(ret)
+    }
     get("/accounts") {
         val ret = BankAccounts()
         transaction {
@@ -453,7 +465,7 @@ fun Route.ebicsBankConnectionRoutes(client: HttpClient) {
     post("/accounts/import") {
         val body = call.receive<ImportBankAccount>()
         transaction {
-            val conn = requireBankConnection(call, "callid")
+            val conn = requireBankConnection(call, "connid")
             val hasXml = RawHTDResponseEntity.findById(conn.id.value) ?: throw NexusError(
                 HttpStatusCode.NotFound, "Could not found raw bank account data for connection '${conn.id.value}'"
             )

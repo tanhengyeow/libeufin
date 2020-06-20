@@ -175,6 +175,22 @@ def download_bank_accounts(obj, connection_name, nexus_user_id, nexus_password, 
     print(resp.content.decode("utf-8"))
 
 
+@bank_connection.command(help="list imported bank accounts")
+@click.option("--connection-name", help="Connection ID", required=True)
+@click.option("--nexus-user-id", help="Nexus user ID", required=True)
+@click.option("--nexus-password", help="Nexus password", required=True)
+@click.argument("nexus-base-url")
+@click.pass_obj
+def list_imported_bank_accounts(obj, connection_name, nexus_user_id, nexus_password, nexus_base_url):
+    # FIXME/NOTE: the 'ebics' part will soon go away.
+    url = urljoin(nexus_base_url, "/bank-connections/{}/ebics/accounts/imported".format(connection_name))
+    try:
+        resp = get(url, json=dict(), auth = auth.HTTPBasicAuth(nexus_user_id, nexus_password))
+    except Exception:
+        print("Could not reach nexus")
+        return
+    print(resp.content.decode("utf-8"))
+
 @bank_connection.command(help="list raw bank account information locally stored")
 @click.option("--connection-name", help="Connection ID", required=True)
 @click.option("--nexus-user-id", help="Nexus user ID", required=True)
