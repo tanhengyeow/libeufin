@@ -6,15 +6,18 @@ from requests import post, get
 from time import sleep
 import atexit
 from pathlib import Path
+import sys
 
 
 def checkPort(port):
     s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
     try:
         s.bind(("0.0.0.0", port))
         s.close()
     except:
         print(f"Port {port} is not available")
+        print(sys.exc_info()[0])
         exit(77)
 
 def kill(name, s):
