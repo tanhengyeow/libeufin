@@ -319,3 +319,8 @@ data class CreateAccountTaskRequest(
     val type: String,
     val params: JsonNode
 )
+
+data class ImportBankAccount(
+    val accountId: String,
+    val localName: String
+)

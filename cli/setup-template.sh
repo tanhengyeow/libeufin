@@ -90,18 +90,3 @@ echo Bootstrapping the bank connection
       --nexus-user-id $NEXUS_USER \
       --nexus-password $NEXUS_PASSWORD \
       $NEXUS_URL
-sleep 2
-
-# Fetching the bank accounts
-echo Fetching the bank accounts
-./libeufin-cli-new \
-  bank-connection \
-    import-bank-accounts \
-      --connection-name $NEXUS_BANK_CONNECTION_NAME \
-      --nexus-user-id $NEXUS_USER \
-      --nexus-password $NEXUS_PASSWORD \
-      $NEXUS_URL
-sleep 2
-
-echo User is setup, history can be requested, and \
-  new payments can be prepared and submitted.

@@ -35,6 +35,7 @@ import io.ktor.application.call
 import io.ktor.client.HttpClient
 import io.ktor.http.ContentType
 import io.ktor.http.HttpStatusCode
+import io.ktor.request.receive
 import io.ktor.request.receiveOrNull
 import io.ktor.response.respond
 import io.ktor.response.respondText
@@ -449,7 +450,32 @@ fun Route.ebicsBankConnectionRoutes(client: HttpClient) {
         }
         call.respond(ret)
     }
-    post("/account/import") {
+    post("/accounts/import") {
+        val body = call.receive<ImportBankAccount>()
+        transaction {
+            val conn = requireBankConnection(call, "callid")
+            val hasXml = RawHTDResponseEntity.findById(conn.id.value) ?: throw NexusError(
+                HttpStatusCode.NotFound, "Could not found raw bank account data for connection '${conn.id.value}'"
+            )
+            XMLUtil.convertStringToJaxb<HTDResponseOrderData>(hasXml.htdResponse).value.partnerInfo.accountInfoList?.forEach {
+                if (it.id == body.accountId) {
+                    NexusBankAccountEntity.new(body.localName) {
+                        iban = it.accountNumberList?.filterIsInstance<EbicsTypes.GeneralAccountNumber>()
+                            ?.find { it.international }?.value
+                            ?: throw NexusError(HttpStatusCode.NotFound, reason = "bank gave no IBAN")
+                        bankCode = it.bankCodeList?.filterIsInstance<EbicsTypes.GeneralBankCode>()
+                            ?.find { it.international }?.value
+                            ?: throw NexusError(
+                                HttpStatusCode.NotFound,
+                                reason = "bank gave no BIC"
+                            )
+                        defaultBankConnection = conn
+                        highestSeenBankMessageId = 0
+                        accountHolder = it.accountHolder ?: "NOT GIVEN"
+                    }
+                }
+            }
+        }
         call.respond(object {})
     }
 

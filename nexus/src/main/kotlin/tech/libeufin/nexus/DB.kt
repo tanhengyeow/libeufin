@@ -402,7 +402,8 @@ fun dbCreateTables(dbName: String) {
             NexusBankMessagesTable,
             FacadesTable,
             TalerFacadeStateTable,
-            NexusScheduledTasksTable
+            NexusScheduledTasksTable,
+            RawHTDResponsesTable
         )
     }
 }
