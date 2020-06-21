@@ -171,7 +171,6 @@ assertResponse(
 assertResponse(
     post(
         "http://localhost:5001/bank-connections/my-ebics/ebics/download/tsd",
-        json=dict(),
         headers=dict(Authorization=USER_AUTHORIZATION_HEADER),
     )
 )
@@ -189,7 +188,7 @@ assertResponse(
 assertResponse(
     post(
         f"http://localhost:5001/bank-accounts/{BANK_ACCOUNT_LABEL}/fetch-transactions",
-        json=dict(),
+        json=dict(level="all", rangeType="all"),
         headers=dict(Authorization=USER_AUTHORIZATION_HEADER),
     )
 )
@@ -237,7 +236,7 @@ assertResponse(
 assertResponse(
     post(
         f"http://localhost:5001/bank-accounts/{BANK_ACCOUNT_LABEL}/fetch-transactions",
-        json=dict(),
+        json=dict(level="all", rangeType="all"),
         headers=dict(Authorization=USER_AUTHORIZATION_HEADER),
     )
 )
