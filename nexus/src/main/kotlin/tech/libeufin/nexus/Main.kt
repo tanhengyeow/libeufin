@@ -21,11 +21,14 @@ package tech.libeufin.nexus
 
 import com.github.ajalt.clikt.core.CliktCommand
 import com.github.ajalt.clikt.core.ProgramResult
+import com.github.ajalt.clikt.core.context
 import com.github.ajalt.clikt.core.subcommands
+import com.github.ajalt.clikt.output.CliktHelpFormatter
 import com.github.ajalt.clikt.parameters.arguments.argument
 import com.github.ajalt.clikt.parameters.options.default
 import com.github.ajalt.clikt.parameters.options.option
 import com.github.ajalt.clikt.parameters.options.prompt
+import com.github.ajalt.clikt.parameters.types.int
 import org.jetbrains.exposed.sql.transactions.transaction
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
@@ -39,9 +42,15 @@ class NexusCommand : CliktCommand() {
 }
 
 class Serve : CliktCommand("Run nexus HTTP server") {
+    init {
+        context {
+            helpFormatter = CliktHelpFormatter(showDefaultValues = true)
+        }
+    }
     private val dbName by option().default("libeufin-nexus.sqlite3")
+    private val host by option().default("127.0.0.1")
     override fun run() {
-        serverMain(dbName)
+        serverMain(dbName, host)
     }
 }
 
