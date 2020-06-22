@@ -77,7 +77,8 @@ object NexusCron {
         val cronDefinition =
             CronDefinitionBuilder.defineCron()
                 .withSeconds().and()
-                .withMinutes().optional().and()
+                .withMinutes().and()
+                .withHours().and()
                 .withDayOfMonth().optional().and()
                 .withMonth().optional().and()
                 .withDayOfWeek().optional()
