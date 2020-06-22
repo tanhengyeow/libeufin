@@ -218,6 +218,8 @@ class PaymentInitiationEntity(id: EntityID<Long>) : LongEntity(id) {
  */
 object RawHTDResponsesTable : IdTable<String>() {
     // the bank-connection that was used to download this data.
+    // FIXME: this column should be made a foreign key.
+    // FIXME: change this table name to something like "offered bank accounts"
     override val id = text("id").entityId()
     val htdResponse = text("htdResponse")
 }
