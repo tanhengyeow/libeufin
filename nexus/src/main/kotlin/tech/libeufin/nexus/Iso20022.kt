@@ -322,12 +322,12 @@ fun createPain001document(paymentData: NexusPaymentInitiationData): String {
                     }
                     element("CdtTrfTxInf") {
                         element("PmtId") {
+                            paymentData.instructionId?.let {
+                                element("InstrId") { text(it) }
+                            }
                             when (val eeid = paymentData.endToEndId) {
                                 null -> element("EndToEndId") { text("NOTPROVIDED") }
                                 else -> element("EndToEndId") { text(eeid) }
-                            }
-                            paymentData.instructionId?.let {
-                                element("InstrId") { text(it) }
                             }
                         }
                         element("Amt/InstdAmt") {
