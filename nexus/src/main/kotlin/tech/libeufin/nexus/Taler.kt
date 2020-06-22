@@ -513,7 +513,8 @@ private suspend fun historyIncoming(call: ApplicationCall): Unit {
             orderedPayments.subList(0, min(abs(delta), orderedPayments.size)).forEach {
                 history.incoming_transactions.add(
                     TalerIncomingBankTransaction(
-                        date = GnunetTimestamp(it.timestampMs),
+                        // Rounded timestamp
+                        date = GnunetTimestamp((it.timestampMs / 1000) * 1000),
                         row_id = it.id.value,
                         amount = "${it.payment.currency}:${it.payment.amount}",
                         reserve_pub = it.reservePublicKey,
