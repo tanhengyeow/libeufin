@@ -25,6 +25,7 @@ package tech.libeufin.nexus
 import com.fasterxml.jackson.annotation.JsonInclude
 import com.fasterxml.jackson.annotation.JsonSubTypes
 import com.fasterxml.jackson.annotation.JsonTypeInfo
+import com.fasterxml.jackson.annotation.JsonValue
 import org.w3c.dom.Document
 import tech.libeufin.util.*
 import java.time.Instant
@@ -51,6 +52,10 @@ enum class TransactionStatus {
      * Informational
      */
     INFO,
+}
+
+enum class CashManagementResponseType(@get:JsonValue val jsonname: String) {
+    Report("report"), Statement("statement"), Notification("notification")
 }
 
 /**
@@ -516,6 +521,10 @@ private fun XmlElementDestructor.extractInnerTransactions(): List<BankTransactio
 data class CamtParseResult(
     val transactions: List<BankTransaction>,
     val messageId: String,
+    /**
+     * Message type in form of the ISO 20022 message name.
+     */
+    val messageType: CashManagementResponseType,
     val creationDateTime: String
 )
 
@@ -553,7 +562,16 @@ fun parseCamtMessage(doc: Document): CamtParseResult {
                     requireUniqueChildNamed("CreDtTm") { it.textContent }
                 }
             }
-            CamtParseResult(transactions, messageId, creationDateTime)
+            val messageType = requireOnlyChild {
+                when (it.localName) {
+                    "BkToCstmrAcctRpt" -> CashManagementResponseType.Report
+                    "BkToCstmrStmt" -> CashManagementResponseType.Statement
+                    else -> {
+                        throw CamtParsingError("expected statement or report")
+                    }
+                }
+            }
+            CamtParseResult(transactions, messageId, messageType, creationDateTime)
         }
     }
 }
