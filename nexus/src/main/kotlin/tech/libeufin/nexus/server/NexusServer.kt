@@ -741,6 +741,10 @@ fun serverMain(dbName: String, host: String) {
 
             post("/facades") {
                 val body = call.receive<FacadeInfo>()
+                if (body.type != "taler-wire-gateway") throw NexusError(
+                    HttpStatusCode.NotImplemented,
+                    "Facade type '${body.type}' is not implemented"
+                )
                 val newFacade = transaction {
                     val user = authenticateRequest(call.request)
                     FacadeEntity.new(body.name) {

@@ -163,7 +163,7 @@ assertResponse(
             amount="EUR:1",
             exchange_base_url="http//url",
             wtid="nice",
-            credit_account="payto://iban/THEBIC/THEIBAN?name=theName"
+            credit_account="payto://iban/THEBIC/THEIBAN?receiver-name=theName"
         ),
         headers=dict(Authorization=USER_AUTHORIZATION_HEADER)
     )
@@ -178,7 +178,7 @@ assertResponse(
             amount="EUR:2",
             exchange_base_url="http//url",
             wtid="more nice",
-            credit_account="payto://iban/THEBIC/THEIBAN?name=theName"
+            credit_account="payto://iban/THEBIC/THEIBAN?receiver-name=theName"
         ),
         headers=dict(Authorization=USER_AUTHORIZATION_HEADER)
     )
@@ -204,7 +204,7 @@ resp = assertResponse(
         json=dict(
             amount="EUR:1",
             reserve_pub="my-reserve-pub",
-            debit_account="payto://iban/DONATOR/MONEY?name=TheDonator"
+            debit_account="payto://iban/DONATOR/MONEY?sender-name=TheDonator"
         ),
         headers=dict(Authorization=USER_AUTHORIZATION_HEADER)
     )
