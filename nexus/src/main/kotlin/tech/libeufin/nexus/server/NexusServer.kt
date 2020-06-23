@@ -761,7 +761,7 @@ fun serverMain(dbName: String, host: String) {
                 return@post
             }
 
-            route("/bank-connections/{connid}/ebics") {
+            route("/bank-connections/{connid}") {
                 ebicsBankConnectionRoutes(client)
             }
 

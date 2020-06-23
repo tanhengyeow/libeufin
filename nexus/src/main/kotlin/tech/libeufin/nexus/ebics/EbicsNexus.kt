@@ -42,6 +42,8 @@ import io.ktor.response.respondText
 import io.ktor.routing.Route
 import io.ktor.routing.get
 import io.ktor.routing.post
+import org.jetbrains.exposed.sql.and
+import org.jetbrains.exposed.sql.not
 import org.jetbrains.exposed.sql.statements.api.ExposedBlob
 import org.jetbrains.exposed.sql.transactions.transaction
 import tech.libeufin.nexus.*
@@ -335,7 +337,6 @@ fun Route.ebicsBankProtocolRoutes(client: HttpClient) {
 fun Route.ebicsBankConnectionRoutes(client: HttpClient) {
     post("/send-ini") {
         val subscriber = transaction {
-            val user = authenticateRequest(call.request)
             val conn = requireBankConnection(call, "connid")
             if (conn.type != "ebics") {
                 throw NexusError(
@@ -351,7 +352,6 @@ fun Route.ebicsBankConnectionRoutes(client: HttpClient) {
 
     post("/send-hia") {
         val subscriber = transaction {
-            val user = authenticateRequest(call.request)
             val conn = requireBankConnection(call, "connid")
             if (conn.type != "ebics") {
                 throw NexusError(HttpStatusCode.BadRequest, "bank connection is not of type 'ebics'")
@@ -364,7 +364,6 @@ fun Route.ebicsBankConnectionRoutes(client: HttpClient) {
 
     post("/send-hev") {
         val subscriber = transaction {
-            val user = authenticateRequest(call.request)
             val conn = requireBankConnection(call, "connid")
             if (conn.type != "ebics") {
                 throw NexusError(HttpStatusCode.BadRequest, "bank connection is not of type 'ebics'")
@@ -377,7 +376,6 @@ fun Route.ebicsBankConnectionRoutes(client: HttpClient) {
 
     post("/send-hpb") {
         val subscriberDetails = transaction {
-            val user = authenticateRequest(call.request)
             val conn = requireBankConnection(call, "connid")
             if (conn.type != "ebics") {
                 throw NexusError(HttpStatusCode.BadRequest, "bank connection is not of type 'ebics'")
@@ -394,6 +392,7 @@ fun Route.ebicsBankConnectionRoutes(client: HttpClient) {
         }
         call.respond(object {})
     }
+    // persists raw / to-be-imported bank accounts
     post("/accounts/fetch") {
         val res = transaction {
             authenticateRequest(call.request)
@@ -417,80 +416,65 @@ fun Route.ebicsBankConnectionRoutes(client: HttpClient) {
                 )
             }
             is EbicsDownloadSuccessResult -> {
+                val payload = XMLUtil.convertStringToJaxb<HTDResponseOrderData>(
+                    response.orderData.toString(Charsets.UTF_8)
+                )
                 transaction {
-                    RawHTDResponseEntity.new(res.connid) {
-                        htdResponse = response.orderData.toString(Charsets.UTF_8)
+                    val conn = requireBankConnection(call, "connid")
+                    payload.value.partnerInfo.accountInfoList?.forEach {
+                        OfferedBankAccountEntity.new(id = it.id) {
+                            accountHolder = it.accountHolder ?: "NOT-GIVEN"
+                            iban = it.accountNumberList?.filterIsInstance<EbicsTypes.GeneralAccountNumber>()
+                                ?.find { it.international }?.value
+                                ?: throw NexusError(HttpStatusCode.NotFound, reason = "bank gave no IBAN")
+                            bankCode = it.bankCodeList?.filterIsInstance<EbicsTypes.GeneralBankCode>()
+                                ?.find { it.international }?.value
+                                ?: throw NexusError(
+                                    HttpStatusCode.NotFound,
+                                    reason = "bank gave no BIC"
+                                )
+                            bankConnection = conn
+                        }
                     }
                 }
             }
         }
         call.respond(object {})
     }
-    get("/accounts/imported") {
-        var ret = BankAccounts()
-        transaction {
-            val conn = requireBankConnection(call, "connid")
-            NexusBankAccountEntity.find {
-                NexusBankAccountsTable.defaultBankConnection eq conn.id.value
-            }.forEach { ret.accounts.add(
-                BankAccount(holder = it.accountHolder, iban = it.iban, bic = it.bankCode, account = it.id.value)
-            ) }
-        }
-        call.respond(ret)
-    }
+
+    // show only non imported accounts.
     get("/accounts") {
         val ret = BankAccounts()
         transaction {
             val conn = requireBankConnection(call, "connid")
-            val hasXml = RawHTDResponseEntity.findById(conn.id.value) ?: throw NexusError(
-                HttpStatusCode.NotFound, "Bank connection ${conn.id.value} never called HTD"
-            )
-            val payload = XMLUtil.convertStringToJaxb<HTDResponseOrderData>(hasXml.htdResponse)
-            payload.value.partnerInfo.accountInfoList?.forEach {
+            OfferedBankAccountEntity.find {
+                OfferedBankAccountsTable.bankConnection eq conn.id.value and not(OfferedBankAccountsTable.imported)
+            }.forEach {
                 ret.accounts.add(
                     BankAccount(
-                        holder = it.accountHolder ?: "NOT-GIVEN",
-                        iban = it.accountNumberList?.filterIsInstance<EbicsTypes.GeneralAccountNumber>()
-                            ?.find { it.international }?.value
-                            ?: throw NexusError(HttpStatusCode.NotFound, reason = "bank gave no IBAN"),
-                        bic = it.bankCodeList?.filterIsInstance<EbicsTypes.GeneralBankCode>()
-                            ?.find { it.international }?.value
-                            ?: throw NexusError(
-                                HttpStatusCode.NotFound,
-                                reason = "bank gave no BIC"
-                            ),
-                        account = it.id
+                        iban = it.iban, bic = it.bankCode, holder = it.accountHolder, account = it.id.value
                     )
                 )
             }
         }
         call.respond(ret)
     }
+
     post("/accounts/import") {
         val body = call.receive<ImportBankAccount>()
         transaction {
             val conn = requireBankConnection(call, "connid")
-            val hasXml = RawHTDResponseEntity.findById(conn.id.value) ?: throw NexusError(
-                HttpStatusCode.NotFound, "Could not found raw bank account data for connection '${conn.id.value}'"
+            val account = OfferedBankAccountEntity.findById(body.accountId) ?: throw NexusError(
+                HttpStatusCode.NotFound, "Could not found raw bank account '${body.accountId}'"
             )
-            XMLUtil.convertStringToJaxb<HTDResponseOrderData>(hasXml.htdResponse).value.partnerInfo.accountInfoList?.forEach {
-                if (it.id == body.accountId) {
-                    NexusBankAccountEntity.new(body.localName) {
-                        iban = it.accountNumberList?.filterIsInstance<EbicsTypes.GeneralAccountNumber>()
-                            ?.find { it.international }?.value
-                            ?: throw NexusError(HttpStatusCode.NotFound, reason = "bank gave no IBAN")
-                        bankCode = it.bankCodeList?.filterIsInstance<EbicsTypes.GeneralBankCode>()
-                            ?.find { it.international }?.value
-                            ?: throw NexusError(
-                                HttpStatusCode.NotFound,
-                                reason = "bank gave no BIC"
-                            )
-                        defaultBankConnection = conn
-                        highestSeenBankMessageId = 0
-                        accountHolder = it.accountHolder ?: "NOT GIVEN"
-                    }
-                }
+            NexusBankAccountEntity.new(body.localName) {
+                iban = account.iban
+                bankCode = account.bankCode
+                defaultBankConnection = conn
+                highestSeenBankMessageId = 0
+                accountHolder = account.accountHolder
             }
+            account.imported = true
         }
         call.respond(object {})
     }
@@ -558,7 +542,6 @@ fun Route.ebicsBankConnectionRoutes(client: HttpClient) {
             paramsJson.toOrderParams()
         }
         val subscriberDetails = transaction {
-            val user = authenticateRequest(call.request)
             val conn = requireBankConnection(call, "connid")
             if (conn.type != "ebics") {
                 throw NexusError(HttpStatusCode.BadRequest, "bank connection is not of type 'ebics'")

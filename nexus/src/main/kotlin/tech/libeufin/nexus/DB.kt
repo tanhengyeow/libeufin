@@ -24,13 +24,9 @@ import org.jetbrains.exposed.dao.id.EntityID
 import org.jetbrains.exposed.dao.id.IdTable
 import org.jetbrains.exposed.dao.id.IntIdTable
 import org.jetbrains.exposed.dao.id.LongIdTable
-import org.jetbrains.exposed.sql.Database
-import org.jetbrains.exposed.sql.SchemaUtils
-import org.jetbrains.exposed.sql.StdOutSqlLogger
-import org.jetbrains.exposed.sql.addLogger
+import org.jetbrains.exposed.sql.*
 import org.jetbrains.exposed.sql.transactions.TransactionManager
 import org.jetbrains.exposed.sql.transactions.transaction
-import tech.libeufin.nexus.NexusBankAccountsTable.entityId
 import tech.libeufin.util.EbicsInitState
 import tech.libeufin.util.amount
 import java.sql.Connection
@@ -211,21 +207,25 @@ class PaymentInitiationEntity(id: EntityID<Long>) : LongEntity(id) {
 }
 
 /**
- * This table associates a bank connection with the raw XML response
- * coming from a HTD message.  The main purpose here is to store (possibly
- * temporarily) the bank accounts belonging to one subscriber, in order
- * to allow this latter to import them using more meaningful labels.
+ * This table contains the bank accounts that are offered by the bank.
+ * The bank account label (as assigned by the bank) is the primary key.
  */
-object RawHTDResponsesTable : IdTable<String>() {
-    // the bank-connection that was used to download this data.
-    // FIXME: this column should be made a foreign key.
-    // FIXME: change this table name to something like "offered bank accounts"
+object OfferedBankAccountsTable : IdTable<String>() {
     override val id = text("id").entityId()
-    val htdResponse = text("htdResponse")
+    val bankConnection = reference("bankConnection", NexusBankConnectionsTable)
+    val iban = text("iban")
+    val bankCode = text("bankCode")
+    val accountHolder = text("holderName")
+    val imported = bool("imported").default(false)
 }
-class RawHTDResponseEntity(id: EntityID<String>) : Entity<String>(id) {
-    companion object : EntityClass<String, RawHTDResponseEntity>(RawHTDResponsesTable)
-    var htdResponse by RawHTDResponsesTable.htdResponse
+
+class OfferedBankAccountEntity(id: EntityID<String>) : Entity<String>(id) {
+    companion object : EntityClass<String, OfferedBankAccountEntity>(OfferedBankAccountsTable)
+    var bankConnection by NexusBankConnectionEntity referencedOn OfferedBankAccountsTable.bankConnection
+    var iban by OfferedBankAccountsTable.iban
+    var bankCode by OfferedBankAccountsTable.bankCode
+    var accountHolder by OfferedBankAccountsTable.accountHolder
+    var imported by OfferedBankAccountsTable.imported
 }
 
 /**
@@ -405,7 +405,7 @@ fun dbCreateTables(dbName: String) {
             FacadesTable,
             TalerFacadeStateTable,
             NexusScheduledTasksTable,
-            RawHTDResponsesTable
+            OfferedBankAccountsTable
         )
     }
 }
