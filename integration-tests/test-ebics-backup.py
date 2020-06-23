@@ -153,7 +153,7 @@ print("send ini & hia with restored connection")
 
 assertResponse(
     post(
-        "http://localhost:5001/bank-connections/my-ebics-restored/ebics/send-ini",
+        "http://localhost:5001/bank-connections/my-ebics-restored/send-ini",
         json=dict(),
         headers=dict(Authorization=USER_AUTHORIZATION_HEADER),
     )
@@ -161,7 +161,7 @@ assertResponse(
 
 assertResponse(
     post(
-        "http://localhost:5001/bank-connections/my-ebics-restored/ebics/send-hia",
+        "http://localhost:5001/bank-connections/my-ebics-restored/send-hia",
         json=dict(),
         headers=dict(Authorization=USER_AUTHORIZATION_HEADER),
     )

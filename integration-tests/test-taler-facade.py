@@ -128,7 +128,7 @@ assertResponse(
 # fetch bank account information
 assertResponse(
     post(
-        "http://localhost:5001/bank-connections/{}/ebics/import-accounts".format(BANK_CONNECTION_LABEL),
+        "http://localhost:5001/bank-connections/{}/import-accounts".format(BANK_CONNECTION_LABEL),
         json=dict(),
         headers=dict(Authorization=USER_AUTHORIZATION_HEADER),
     )
