@@ -49,6 +49,7 @@ import io.ktor.utils.io.ByteReadChannel
 import io.ktor.utils.io.jvm.javaio.toByteReadChannel
 import io.ktor.utils.io.jvm.javaio.toInputStream
 import org.jetbrains.exposed.sql.and
+import org.jetbrains.exposed.sql.not
 import org.jetbrains.exposed.sql.transactions.transaction
 import org.slf4j.event.Level
 import tech.libeufin.nexus.*
@@ -58,6 +59,8 @@ import tech.libeufin.nexus.bankaccount.getPaymentInitiation
 import tech.libeufin.nexus.bankaccount.submitPaymentInitiation
 import tech.libeufin.nexus.ebics.*
 import tech.libeufin.util.*
+import tech.libeufin.util.ebics_h004.EbicsTypes
+import tech.libeufin.util.ebics_h004.HTDResponseOrderData
 import tech.libeufin.util.logger
 import java.lang.IllegalArgumentException
 import java.net.URLEncoder
@@ -178,17 +181,20 @@ fun createLoopbackBankConnection(bankConnectionName: String, user: NexusUserEnti
     }
 }
 
+fun requireBankConnectionInternal(connId: String): NexusBankConnectionEntity {
+    val conn = transaction { NexusBankConnectionEntity.findById(connId) }
+    if (conn == null) {
+        throw NexusError(HttpStatusCode.NotFound, "bank connection '$connId' not found")
+    }
+    return conn
+}
 
 fun requireBankConnection(call: ApplicationCall, parameterKey: String): NexusBankConnectionEntity {
     val name = call.parameters[parameterKey]
     if (name == null) {
         throw NexusError(HttpStatusCode.InternalServerError, "no parameter for bank connection")
     }
-    val conn = transaction { NexusBankConnectionEntity.findById(name) }
-    if (conn == null) {
-        throw NexusError(HttpStatusCode.NotFound, "bank connection '$name' not found")
-    }
-    return conn
+    return requireBankConnectionInternal(name)
 }
 
 
@@ -700,7 +706,7 @@ fun serverMain(dbName: String, host: String) {
                         val pdfBytes = getEbicsKeyLetterPdf(conn)
                         call.respondBytes(pdfBytes, ContentType("application", "pdf"))
                     }
-                    else -> throw NexusError(HttpStatusCode.NotImplemented, "keyletter not supporte dfor ${conn.type}")
+                    else -> throw NexusError(HttpStatusCode.NotImplemented, "keyletter not supported for ${conn.type}")
                 }
             }
 
@@ -766,7 +772,60 @@ fun serverMain(dbName: String, host: String) {
             }
 
             route("/bank-connections/{connid}") {
-                ebicsBankConnectionRoutes(client)
+                // only ebics specific tasks under this part.
+                route("/ebics") {
+                    ebicsBankConnectionRoutes(client)
+                }
+                post("/accounts/fetch") {
+                    val conn = transaction {
+                        authenticateRequest(call.request)
+                        requireBankConnection(call, "connid")
+                    }
+                    when(conn.type) {
+                        "ebics" -> {
+                            ebicsFetchAccounts(conn.id.value, client)
+                        }
+                        else -> throw NexusError(HttpStatusCode.NotImplemented, "connection not supported for ${conn.type}")
+                    }
+                    call.respond(object {})
+                }
+
+                // show all the offered accounts (both imported and non)
+                get("/accounts") {
+                    val ret = BankAccounts()
+                    transaction {
+                        val conn = requireBankConnection(call, "connid")
+                        OfferedBankAccountEntity.find {
+                            OfferedBankAccountsTable.bankConnection eq conn.id.value
+                        }.forEach {
+                            ret.accounts.add(
+                                BankAccount(
+                                    iban = it.iban, bic = it.bankCode, holder = it.accountHolder, account = it.id.value
+                                )
+                            )
+                        }
+                    }
+                    call.respond(ret)
+                }
+                // import one account into libeufin.
+                post("/accounts/import") {
+                    val body = call.receive<ImportBankAccount>()
+                    transaction {
+                        val conn = requireBankConnection(call, "connid")
+                        val account = OfferedBankAccountEntity.findById(body.accountId) ?: throw NexusError(
+                            HttpStatusCode.NotFound, "Could not found raw bank account '${body.accountId}'"
+                        )
+                        NexusBankAccountEntity.new(body.localName) {
+                            iban = account.iban
+                            bankCode = account.bankCode
+                            defaultBankConnection = conn
+                            highestSeenBankMessageId = 0
+                            accountHolder = account.accountHolder
+                        }
+                        account.imported = true
+                    }
+                    call.respond(object {})
+                }
             }
 
             route("/facades/{fcid}/taler") {

@@ -152,7 +152,7 @@ assertResponse(
 # 2.c, fetch bank account information
 assertResponse(
     post(
-        "http://localhost:5001/bank-connections/my-ebics/import-accounts",
+        "http://localhost:5001/bank-connections/my-ebics/ebics/import-accounts",
         json=dict(),
         headers=dict(Authorization=USER_AUTHORIZATION_HEADER),
     )

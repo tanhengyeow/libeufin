@@ -144,7 +144,7 @@ print("sending ini & hia")
 # 2.a, upload keys to the bank (INI & HIA)
 assertResponse(
     post(
-        "http://localhost:5001/bank-connections/my-ebics/send-ini",
+        "http://localhost:5001/bank-connections/my-ebics/ebics/send-ini",
         json=dict(),
         headers=dict(Authorization=USER_AUTHORIZATION_HEADER),
     )
@@ -152,7 +152,7 @@ assertResponse(
 
 assertResponse(
     post(
-        "http://localhost:5001/bank-connections/my-ebics/send-hia",
+        "http://localhost:5001/bank-connections/my-ebics/ebics/send-hia",
         json=dict(),
         headers=dict(Authorization=USER_AUTHORIZATION_HEADER),
     )
@@ -161,7 +161,7 @@ assertResponse(
 # 2.b, download keys from the bank (HPB)
 assertResponse(
     post(
-        "http://localhost:5001/bank-connections/my-ebics/send-hpb",
+        "http://localhost:5001/bank-connections/my-ebics/ebics/send-hpb",
         json=dict(),
         headers=dict(Authorization=USER_AUTHORIZATION_HEADER),
     )
@@ -170,7 +170,7 @@ assertResponse(
 # Test download transaction (TSD, LibEuFin-specific test order type)
 assertResponse(
     post(
-        "http://localhost:5001/bank-connections/my-ebics/download/tsd",
+        "http://localhost:5001/bank-connections/my-ebics/ebics/download/tsd",
         headers=dict(Authorization=USER_AUTHORIZATION_HEADER),
     )
 )
@@ -178,7 +178,7 @@ assertResponse(
 # 2.c, fetch bank account information
 assertResponse(
     post(
-        "http://localhost:5001/bank-connections/my-ebics/import-accounts",
+        "http://localhost:5001/bank-connections/my-ebics/ebics/import-accounts",
         json=dict(),
         headers=dict(Authorization=USER_AUTHORIZATION_HEADER),
     )

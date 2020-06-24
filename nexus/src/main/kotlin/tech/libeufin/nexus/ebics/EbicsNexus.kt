@@ -325,6 +325,45 @@ private fun getEbicsSubscriberDetails(bankConnectionId: String): EbicsClientSubs
     return getEbicsSubscriberDetailsInternal(subscriber)
 }
 
+suspend fun ebicsFetchAccounts(connId: String, client: HttpClient) {
+    val subscriberDetails = transaction {
+        getEbicsSubscriberDetails(connId)
+    }
+    val response = doEbicsDownloadTransaction(
+        client, subscriberDetails, "HTD", EbicsStandardOrderParams()
+    )
+    when (response) {
+        is EbicsDownloadBankErrorResult -> {
+            throw NexusError(
+                HttpStatusCode.BadGateway,
+                response.returnCode.errorCode
+            )
+        }
+        is EbicsDownloadSuccessResult -> {
+            val payload = XMLUtil.convertStringToJaxb<HTDResponseOrderData>(
+                response.orderData.toString(Charsets.UTF_8)
+            )
+            transaction {
+                payload.value.partnerInfo.accountInfoList?.forEach {
+                    OfferedBankAccountEntity.new(id = it.id) {
+                        accountHolder = it.accountHolder ?: "NOT-GIVEN"
+                        iban = it.accountNumberList?.filterIsInstance<EbicsTypes.GeneralAccountNumber>()
+                            ?.find { it.international }?.value
+                            ?: throw NexusError(HttpStatusCode.NotFound, reason = "bank gave no IBAN")
+                        bankCode = it.bankCodeList?.filterIsInstance<EbicsTypes.GeneralBankCode>()
+                            ?.find { it.international }?.value
+                            ?: throw NexusError(
+                                HttpStatusCode.NotFound,
+                                reason = "bank gave no BIC"
+                            )
+                        bankConnection = requireBankConnectionInternal(connId)
+                    }
+                }
+            }
+        }
+    }
+}
+
 fun Route.ebicsBankProtocolRoutes(client: HttpClient) {
     post("test-host") {
         val r = call.receiveJson<EbicsHostTestRequest>()
@@ -389,92 +428,6 @@ fun Route.ebicsBankConnectionRoutes(client: HttpClient) {
                 EbicsSubscriberEntity.find { EbicsSubscribersTable.nexusBankConnection eq conn.id }.first()
             subscriber.bankAuthenticationPublicKey = ExposedBlob((hpbData.authenticationPubKey.encoded))
             subscriber.bankEncryptionPublicKey = ExposedBlob((hpbData.encryptionPubKey.encoded))
-        }
-        call.respond(object {})
-    }
-    // persists raw / to-be-imported bank accounts
-    post("/accounts/fetch") {
-        val res = transaction {
-            authenticateRequest(call.request)
-            val conn = requireBankConnection(call, "connid")
-            if (conn.type != "ebics") {
-                throw NexusError(HttpStatusCode.BadRequest, "bank connection is not of type 'ebics'")
-            }
-            object {
-                val subscriberDetails = getEbicsSubscriberDetails(conn.id.value)
-                val connid = conn.id.value
-            }
-        }
-        val response = doEbicsDownloadTransaction(
-            client, res.subscriberDetails, "HTD", EbicsStandardOrderParams()
-        )
-        when (response) {
-            is EbicsDownloadBankErrorResult -> {
-                throw NexusError(
-                    HttpStatusCode.BadGateway,
-                    response.returnCode.errorCode
-                )
-            }
-            is EbicsDownloadSuccessResult -> {
-                val payload = XMLUtil.convertStringToJaxb<HTDResponseOrderData>(
-                    response.orderData.toString(Charsets.UTF_8)
-                )
-                transaction {
-                    val conn = requireBankConnection(call, "connid")
-                    payload.value.partnerInfo.accountInfoList?.forEach {
-                        OfferedBankAccountEntity.new(id = it.id) {
-                            accountHolder = it.accountHolder ?: "NOT-GIVEN"
-                            iban = it.accountNumberList?.filterIsInstance<EbicsTypes.GeneralAccountNumber>()
-                                ?.find { it.international }?.value
-                                ?: throw NexusError(HttpStatusCode.NotFound, reason = "bank gave no IBAN")
-                            bankCode = it.bankCodeList?.filterIsInstance<EbicsTypes.GeneralBankCode>()
-                                ?.find { it.international }?.value
-                                ?: throw NexusError(
-                                    HttpStatusCode.NotFound,
-                                    reason = "bank gave no BIC"
-                                )
-                            bankConnection = conn
-                        }
-                    }
-                }
-            }
-        }
-        call.respond(object {})
-    }
-
-    // show only non imported accounts.
-    get("/accounts") {
-        val ret = BankAccounts()
-        transaction {
-            val conn = requireBankConnection(call, "connid")
-            OfferedBankAccountEntity.find {
-                OfferedBankAccountsTable.bankConnection eq conn.id.value and not(OfferedBankAccountsTable.imported)
-            }.forEach {
-                ret.accounts.add(
-                    BankAccount(
-                        iban = it.iban, bic = it.bankCode, holder = it.accountHolder, account = it.id.value
-                    )
-                )
-            }
-        }
-        call.respond(ret)
-    }
-
-    post("/accounts/import") {
-        val body = call.receive<ImportBankAccount>()
-        transaction {
-            val conn = requireBankConnection(call, "connid")
-            val account = OfferedBankAccountEntity.findById(body.accountId) ?: throw NexusError(
-                HttpStatusCode.NotFound, "Could not found raw bank account '${body.accountId}'"
-            )
-            NexusBankAccountEntity.new(body.localName) {
-                iban = account.iban
-                bankCode = account.bankCode
-                defaultBankConnection = conn
-                highestSeenBankMessageId = 0
-                accountHolder = account.accountHolder
-            }
-            account.imported = true
         }
         call.respond(object {})
     }
