@@ -64,13 +64,14 @@ import com.github.ajalt.clikt.parameters.arguments.argument
 import com.github.ajalt.clikt.parameters.options.default
 import com.github.ajalt.clikt.parameters.options.option
 import com.github.ajalt.clikt.parameters.options.prompt
+import tech.libeufin.util.*
 
 class CustomerNotFound(id: String?) : Exception("Customer ${id} not found")
 class BadInputData(inputData: String?) : Exception("Customer provided invalid input data: ${inputData}")
 class UnacceptableFractional(badNumber: BigDecimal) : Exception(
     "Unacceptable fractional part ${badNumber}"
 )
-val LOGGER: Logger = LoggerFactory.getLogger("tech.libeufin.sandbox")
+lateinit var LOGGER: Logger
 
 data class SandboxError(
     val statusCode: HttpStatusCode,
@@ -83,7 +84,10 @@ class SandboxCommand : CliktCommand() {
 
 class Serve : CliktCommand("Run sandbox HTTP server") {
     private val dbName by option().default("libeufin-sandbox.sqlite3")
+    private val logFile by option()
     override fun run() {
+        setLogFile(logFile, "sandboxLogFile", "late-logback.xml")
+        LOGGER = LoggerFactory.getLogger("tech.libeufin.sandbox")
         serverMain(dbName)
     }
 }

@@ -33,7 +33,7 @@ import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 import tech.libeufin.nexus.server.serverMain
 import tech.libeufin.util.CryptoUtil.hashpw
-import setLogFile
+import tech.libeufin.util.*
 
 
 lateinit var logger: Logger

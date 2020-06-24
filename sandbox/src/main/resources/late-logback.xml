@@ -5,8 +5,9 @@
         </encoder>
     </appender>
 
+    <property name="SANDBOX_LOG_FILE" value="${sandboxLogFile}" />
     <appender name="SANDBOX-FILE" class="ch.qos.logback.core.FileAppender">
-        <file>/tmp/sandbox.log</file>
+        <file>${SANDBOX_LOG_FILE}</file>
         <append>false</append>
         <encoder>
             <pattern>%-5relative %-5level %logger{35} - %msg%n</pattern>

@@ -1,3 +1,5 @@
+package tech.libeufin.util
+
 import ch.qos.logback.classic.util.ContextInitializer
 import ch.qos.logback.core.util.Loader
 
