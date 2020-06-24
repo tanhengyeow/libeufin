@@ -216,7 +216,7 @@ object OfferedBankAccountsTable : IdTable<String>() {
     val iban = text("iban")
     val bankCode = text("bankCode")
     val accountHolder = text("holderName")
-    val imported = bool("imported").default(false)
+    val imported = reference("imported", NexusBankAccountsTable).nullable()
 }
 
 class OfferedBankAccountEntity(id: EntityID<String>) : Entity<String>(id) {
@@ -225,7 +225,7 @@ class OfferedBankAccountEntity(id: EntityID<String>) : Entity<String>(id) {
     var iban by OfferedBankAccountsTable.iban
     var bankCode by OfferedBankAccountsTable.bankCode
     var accountHolder by OfferedBankAccountsTable.accountHolder
-    var imported by OfferedBankAccountsTable.imported
+    var imported by NexusBankAccountEntity optionalReferencedOn OfferedBankAccountsTable.imported
 }
 
 /**

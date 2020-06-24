@@ -349,7 +349,6 @@ fun serverMain(dbName: String, host: String) {
                 call.respond(bankAccounts)
                 return@get
             }
-
             get("/bank-accounts/{accountid}/schedule") {
                 val resp = jacksonObjectMapper().createObjectNode()
                 val ops = jacksonObjectMapper().createObjectNode()
@@ -815,14 +814,14 @@ fun serverMain(dbName: String, host: String) {
                         val account = OfferedBankAccountEntity.findById(body.accountId) ?: throw NexusError(
                             HttpStatusCode.NotFound, "Could not found raw bank account '${body.accountId}'"
                         )
-                        NexusBankAccountEntity.new(body.localName) {
+                        val importedBankAccount = NexusBankAccountEntity.new(body.localName) {
                             iban = account.iban
                             bankCode = account.bankCode
                             defaultBankConnection = conn
                             highestSeenBankMessageId = 0
                             accountHolder = account.accountHolder
                         }
-                        account.imported = true
+                        account.imported = importedBankAccount
                     }
                     call.respond(object {})
                 }
