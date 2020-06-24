@@ -81,8 +81,10 @@ class SandboxCommand : CliktCommand() {
 
 class Serve : CliktCommand("Run sandbox HTTP server") {
     private val dbName by option().default("libeufin-sandbox.sqlite3")
+    private val logLevel by option()
     override fun run() {
         LOGGER = LoggerFactory.getLogger("tech.libeufin.sandbox")
+        setLogLevel(logLevel)
         serverMain(dbName)
     }
 }
