@@ -9,8 +9,7 @@
     <logger name="tech.libeufin.nexus" level="DEBUG"  additivity="false">
         <appender-ref ref="STDOUT" />
     </logger>
-
-    <logger name="tech.libeufin" level="TRACE"/>
+    
     <logger name="io.netty" level="WARN"/>
     <logger name="ktor" level="WARN"/>
     <logger name="Exposed" level="WARN"/>
