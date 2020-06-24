@@ -1,7 +1,10 @@
 package tech.libeufin.util
 
+import ch.qos.logback.classic.Level
+import ch.qos.logback.classic.LoggerContext
 import ch.qos.logback.classic.util.ContextInitializer
 import ch.qos.logback.core.util.Loader
+import org.slf4j.LoggerFactory
 
 /**
  * Set system properties to wanted values, and load logback configuration after.
@@ -19,4 +22,22 @@ fun setLogFile(logFile: String?, logFileNameAsProperty: String, configFileName: 
         println("Warning: could not find log config file")
     }
     System.setProperty(ContextInitializer.CONFIG_FILE_PROPERTY, configFilePath.toString())
+}
+
+/**
+ * Set level of any logger belonging to LibEuFin (= has "libeufin" in name)
+ * _and_ found under the calling classpath (= obeying to the same logback.xml)
+ */
+fun setLogLevel(logLevel: String?) {
+    when (val immutable = logLevel) {
+        is String -> {
+            val ctx = LoggerFactory.getILoggerFactory() as LoggerContext
+            val loggers: List<ch.qos.logback.classic.Logger> = ctx.loggerList
+            loggers.forEach {
+                if (it.name.contains("libeufin")) {
+                    it.level = Level.toLevel(immutable)
+                }
+            }
+        }
+    }
 }

@@ -33,10 +33,11 @@ import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 import tech.libeufin.nexus.server.serverMain
 import tech.libeufin.util.CryptoUtil.hashpw
-import tech.libeufin.util.*
+import ch.qos.logback.classic.Level
+import ch.qos.logback.classic.LoggerContext
+import tech.libeufin.util.setLogLevel
 
-
-lateinit var logger: Logger
+val logger: Logger = LoggerFactory.getLogger("tech.libeufin.nexus")
 
 class NexusCommand : CliktCommand() {
     override fun run() = Unit
@@ -50,12 +51,12 @@ class Serve : CliktCommand("Run nexus HTTP server") {
     }
     private val dbName by option().default("libeufin-nexus.sqlite3")
     private val host by option().default("127.0.0.1")
+    private val logLevel by option()
     override fun run() {
-        logger = LoggerFactory.getLogger("tech.libeufin.nexus")
+        setLogLevel(logLevel)
         serverMain(dbName, host)
     }
 }
-
 
 class Superuser : CliktCommand("Add superuser or change pw") {
     private val dbName by option().default("libeufin-nexus.sqlite3")
