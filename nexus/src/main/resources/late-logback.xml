@@ -1,13 +1,14 @@
-<configuration>
+<!-- configuration scan="true" -->
+<configuration scan="true">
     <appender name="STDOUT" class="ch.qos.logback.core.ConsoleAppender">
         <encoder>
             <pattern>%d{HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n</pattern>
         </encoder>
     </appender>
 
-
+    <property name="NEXUS_LOG_FILE" value="${nexusLogFile}" />
     <appender name="NEXUS-FILE" class="ch.qos.logback.core.FileAppender">
-        <file>/tmp/nexus.log</file>
+        <file>${NEXUS_LOG_FILE}</file>
         <append>true</append>
         <encoder>
             <pattern>%d{HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n</pattern>

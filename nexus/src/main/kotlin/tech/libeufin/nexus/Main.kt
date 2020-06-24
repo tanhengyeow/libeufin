@@ -28,14 +28,15 @@ import com.github.ajalt.clikt.parameters.arguments.argument
 import com.github.ajalt.clikt.parameters.options.default
 import com.github.ajalt.clikt.parameters.options.option
 import com.github.ajalt.clikt.parameters.options.prompt
-import com.github.ajalt.clikt.parameters.types.int
 import org.jetbrains.exposed.sql.transactions.transaction
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 import tech.libeufin.nexus.server.serverMain
 import tech.libeufin.util.CryptoUtil.hashpw
+import tech.libeufin.util.*
 
-val logger: Logger = LoggerFactory.getLogger("tech.libeufin.nexus")
+
+lateinit var logger: Logger
 
 class NexusCommand : CliktCommand() {
     override fun run() = Unit
@@ -47,12 +48,16 @@ class Serve : CliktCommand("Run nexus HTTP server") {
             helpFormatter = CliktHelpFormatter(showDefaultValues = true)
         }
     }
+    private val logFile by option()
     private val dbName by option().default("libeufin-nexus.sqlite3")
     private val host by option().default("127.0.0.1")
     override fun run() {
+        setLogFile(logFile, "nexusLogFile","late-logback.xml")
+        logger = LoggerFactory.getLogger("tech.libeufin.nexus")
         serverMain(dbName, host)
     }
 }
+
 
 class Superuser : CliktCommand("Add superuser or change pw") {
     private val dbName by option().default("libeufin-nexus.sqlite3")
