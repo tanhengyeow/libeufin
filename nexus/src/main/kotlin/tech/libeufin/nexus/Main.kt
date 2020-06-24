@@ -48,11 +48,9 @@ class Serve : CliktCommand("Run nexus HTTP server") {
             helpFormatter = CliktHelpFormatter(showDefaultValues = true)
         }
     }
-    private val logFile by option()
     private val dbName by option().default("libeufin-nexus.sqlite3")
     private val host by option().default("127.0.0.1")
     override fun run() {
-        setLogFile(logFile, "nexusLogFile","late-logback.xml")
         logger = LoggerFactory.getLogger("tech.libeufin.nexus")
         serverMain(dbName, host)
     }

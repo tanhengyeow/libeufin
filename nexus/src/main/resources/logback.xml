@@ -6,15 +6,6 @@
         </encoder>
     </appender>
 
-    <property name="NEXUS_LOG_FILE" value="${nexusLogFile}" />
-    <appender name="NEXUS-FILE" class="ch.qos.logback.core.FileAppender">
-        <file>${NEXUS_LOG_FILE}</file>
-        <append>true</append>
-        <encoder>
-            <pattern>%d{HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n</pattern>
-        </encoder>
-    </appender>
-
     <logger name="tech.libeufin" level="TRACE"/>
     <logger name="io.netty" level="WARN"/>
     <logger name="ktor" level="WARN"/>
@@ -22,7 +13,6 @@
 
     <root level="WARN">
         <appender-ref ref="STDOUT"/>
-        <appender-ref ref="NEXUS-FILE"/>
     </root>
 
 </configuration>

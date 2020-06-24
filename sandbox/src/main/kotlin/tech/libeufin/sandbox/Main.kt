@@ -58,12 +58,9 @@ import io.ktor.http.toHttpDateString
 import org.jetbrains.exposed.sql.statements.api.ExposedBlob
 import java.time.Instant
 import com.github.ajalt.clikt.core.CliktCommand
-import com.github.ajalt.clikt.core.ProgramResult
 import com.github.ajalt.clikt.core.subcommands
-import com.github.ajalt.clikt.parameters.arguments.argument
 import com.github.ajalt.clikt.parameters.options.default
 import com.github.ajalt.clikt.parameters.options.option
-import com.github.ajalt.clikt.parameters.options.prompt
 import tech.libeufin.util.*
 
 class CustomerNotFound(id: String?) : Exception("Customer ${id} not found")
@@ -84,9 +81,7 @@ class SandboxCommand : CliktCommand() {
 
 class Serve : CliktCommand("Run sandbox HTTP server") {
     private val dbName by option().default("libeufin-sandbox.sqlite3")
-    private val logFile by option()
     override fun run() {
-        setLogFile(logFile, "sandboxLogFile", "late-logback.xml")
         LOGGER = LoggerFactory.getLogger("tech.libeufin.sandbox")
         serverMain(dbName)
     }
