@@ -290,34 +290,34 @@ assertResponse(
         headers=dict(Authorization=USER_AUTHORIZATION_HEADER),
     )
 )
-assertResponse(
-    post(
-        "http://localhost:5001/bank-connections",
-        json=dict(
-            name="my-ebics-3",
-            source="new",
-            type="ebics",
-            data=dict(
-                ebicsURL=EBICS_URL, hostID=BC3_HOST_ID, partnerID=BC3_PARTNER_ID, userID=BC3_USER_ID
-            ),
-        ),
-        headers=dict(Authorization=USER_AUTHORIZATION_HEADER),
-    )
-)
-assertResponse(
-    post(
-        "http://localhost:5001/bank-connections",
-        json=dict(
-            name="my-ebics-4",
-            source="new",
-            type="ebics",
-            data=dict(
-                ebicsURL=EBICS_URL, hostID=BC4_HOST_ID, partnerID=BC4_PARTNER_ID, userID=BC4_USER_ID
-            ),
-        ),
-        headers=dict(Authorization=USER_AUTHORIZATION_HEADER),
-    )
-)
+# assertResponse(
+#     post(
+#         "http://localhost:5001/bank-connections",
+#         json=dict(
+#             name="my-ebics-3",
+#             source="new",
+#             type="ebics",
+#             data=dict(
+#                 ebicsURL=EBICS_URL, hostID=BC3_HOST_ID, partnerID=BC3_PARTNER_ID, userID=BC3_USER_ID
+#             ),
+#         ),
+#         headers=dict(Authorization=USER_AUTHORIZATION_HEADER),
+#     )
+# )
+# assertResponse(
+#     post(
+#         "http://localhost:5001/bank-connections",
+#         json=dict(
+#             name="my-ebics-4",
+#             source="new",
+#             type="ebics",
+#             data=dict(
+#                 ebicsURL=EBICS_URL, hostID=BC4_HOST_ID, partnerID=BC4_PARTNER_ID, userID=BC4_USER_ID
+#             ),
+#         ),
+#         headers=dict(Authorization=USER_AUTHORIZATION_HEADER),
+#     )
+# )
 
 print("connecting")
 
@@ -335,51 +335,51 @@ assertResponse(
         headers=dict(Authorization=USER_AUTHORIZATION_HEADER),
     )
 )
-assertResponse(
-    post(
-        "http://localhost:5001/bank-connections/my-ebics-3/connect",
-        json=dict(),
-        headers=dict(Authorization=USER_AUTHORIZATION_HEADER),
-    )
-)
-assertResponse(
-    post(
-        "http://localhost:5001/bank-connections/my-ebics-4/connect",
-        json=dict(),
-        headers=dict(Authorization=USER_AUTHORIZATION_HEADER),
-    )
-)
+# assertResponse(
+#     post(
+#         "http://localhost:5001/bank-connections/my-ebics-3/connect",
+#         json=dict(),
+#         headers=dict(Authorization=USER_AUTHORIZATION_HEADER),
+#     )
+# )
+# assertResponse(
+#     post(
+#         "http://localhost:5001/bank-connections/my-ebics-4/connect",
+#         json=dict(),
+#         headers=dict(Authorization=USER_AUTHORIZATION_HEADER),
+#     )
+# )
 
 
-# 2.c, fetch bank account information
+# # 2.c, fetch bank account information
 assertResponse(
     post(
-        "http://localhost:5001/bank-connections/my-ebics-1/import-accounts",
+        "http://localhost:5001/bank-connections/my-ebics-1/accounts/fetch",
         json=dict(),
         headers=dict(Authorization=USER_AUTHORIZATION_HEADER),
     )
 )
 assertResponse(
     post(
-        "http://localhost:5001/bank-connections/my-ebics-2/import-accounts",
+        "http://localhost:5001/bank-connections/my-ebics-2/accounts/fetch",
         json=dict(),
         headers=dict(Authorization=USER_AUTHORIZATION_HEADER),
     )
 )
-assertResponse(
-    post(
-        "http://localhost:5001/bank-connections/my-ebics-3/import-accounts",
-        json=dict(),
-        headers=dict(Authorization=USER_AUTHORIZATION_HEADER),
-    )
-)
-assertResponse(
-    post(
-        "http://localhost:5001/bank-connections/my-ebics-4/import-accounts",
-        json=dict(),
-        headers=dict(Authorization=USER_AUTHORIZATION_HEADER),
-    )
-)
+# assertResponse(
+#     post(
+#         "http://localhost:5001/bank-connections/my-ebics-3/import-accounts",
+#         json=dict(),
+#         headers=dict(Authorization=USER_AUTHORIZATION_HEADER),
+#     )
+# )
+# assertResponse(
+#     post(
+#         "http://localhost:5001/bank-connections/my-ebics-4/import-accounts",
+#         json=dict(),
+#         headers=dict(Authorization=USER_AUTHORIZATION_HEADER),
+#     )
+# )
 
 # # 3, ask nexus to download history
 # assertResponse(
