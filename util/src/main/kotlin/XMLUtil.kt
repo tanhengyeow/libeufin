@@ -63,8 +63,7 @@ import javax.xml.xpath.XPath
 import javax.xml.xpath.XPathConstants
 import javax.xml.xpath.XPathFactory
 
-val logger: Logger = LoggerFactory.getLogger("tech.libeufin.sandbox")
-
+val logger: Logger = LoggerFactory.getLogger("tech.libeufin.util")
 class DefaultNamespaces : NamespacePrefixMapper() {
     override fun getPreferredPrefix(namespaceUri: String?, suggestion: String?, requirePrefix: Boolean): String? {
         if (namespaceUri == "http://www.w3.org/2000/09/xmldsig#") return "ds"

@@ -61,7 +61,7 @@ import tech.libeufin.nexus.ebics.*
 import tech.libeufin.util.*
 import tech.libeufin.util.ebics_h004.EbicsTypes
 import tech.libeufin.util.ebics_h004.HTDResponseOrderData
-import tech.libeufin.util.logger
+import tech.libeufin.nexus.logger
 import java.lang.IllegalArgumentException
 import java.net.URLEncoder
 import java.util.zip.InflaterInputStream

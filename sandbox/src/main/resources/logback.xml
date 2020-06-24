@@ -7,7 +7,6 @@
 
     <logger name="tech.libeufin.sandbox" level="DEBUG"  additivity="false">
         <appender-ref ref="STDOUT" />
-        <appender-ref ref="SANDBOX-FILE" />
     </logger>
 
     <logger name="io.netty" level="WARN" />
