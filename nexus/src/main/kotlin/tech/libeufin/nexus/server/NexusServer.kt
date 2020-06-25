@@ -52,10 +52,7 @@ import org.jetbrains.exposed.sql.and
 import org.jetbrains.exposed.sql.transactions.transaction
 import org.slf4j.event.Level
 import tech.libeufin.nexus.*
-import tech.libeufin.nexus.bankaccount.addPaymentInitiation
-import tech.libeufin.nexus.bankaccount.fetchBankAccountTransactions
-import tech.libeufin.nexus.bankaccount.getPaymentInitiation
-import tech.libeufin.nexus.bankaccount.submitPaymentInitiation
+import tech.libeufin.nexus.bankaccount.*
 import tech.libeufin.nexus.ebics.*
 import tech.libeufin.util.*
 import tech.libeufin.nexus.logger
@@ -810,24 +807,10 @@ fun serverMain(dbName: String, host: String) {
                 // import one account into libeufin.
                 post("/import-account") {
                     val body = call.receive<ImportBankAccount>()
-                    transaction {
-                        val conn = requireBankConnection(call, "connid")
-                        val account = OfferedBankAccountEntity.findById(body.offeredAccountId) ?: throw NexusError(
-                            HttpStatusCode.NotFound, "Could not found raw bank account '${body.offeredAccountId}'"
-                        )
-                        val importedBankAccount = NexusBankAccountEntity.new(body.nexusBankAccountId) {
-                            iban = account.iban
-                            bankCode = account.bankCode
-                            defaultBankConnection = conn
-                            highestSeenBankMessageId = 0
-                            accountHolder = account.accountHolder
-                        }
-                        account.imported = importedBankAccount
-                    }
+                    importBankAccount(call, body.offeredAccountId, body.nexusBankAccountId)
                     call.respond(object {})
                 }
             }
-
             route("/facades/{fcid}/taler") {
                 talerFacadeRoutes(this, client)
             }

@@ -20,6 +20,8 @@
 package tech.libeufin.nexus.bankaccount
 
 import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
+import io.ktor.application.ApplicationCall
+import io.ktor.application.call
 import io.ktor.client.HttpClient
 import io.ktor.http.HttpStatusCode
 import org.jetbrains.exposed.sql.SortOrder
@@ -31,6 +33,8 @@ import tech.libeufin.nexus.ebics.fetchEbicsBySpec
 import tech.libeufin.nexus.ebics.submitEbicsPaymentInitiation
 import tech.libeufin.nexus.server.FetchSpecJson
 import tech.libeufin.nexus.server.Pain001Data
+import tech.libeufin.nexus.server.requireBankConnection
+import tech.libeufin.nexus.server.requireBankConnectionInternal
 import tech.libeufin.util.XMLUtil
 import java.time.Instant
 import java.time.ZonedDateTime
@@ -296,4 +300,42 @@ suspend fun fetchBankAccountTransactions(
     }
     ingestBankMessagesIntoAccount(res.connectionName, accountId)
     ingestTalerTransactions()
+}
+
+fun importBankAccount(call: ApplicationCall, offeredBankAccountId: String, nexusBankAccountId: String) {
+    transaction {
+        val conn = requireBankConnection(call, "connid")
+        val offeredAccount = OfferedBankAccountEntity.findById(offeredBankAccountId) ?: throw NexusError(
+            HttpStatusCode.NotFound, "Could not found raw bank account '${offeredBankAccountId}'"
+        )
+        // detect name collisions first.
+        NexusBankAccountEntity.findById(nexusBankAccountId).run {
+            val importedAccount = when(this) {
+                is NexusBankAccountEntity -> {
+                    if (this.iban != offeredAccount.iban) {
+                        throw NexusError(
+                            HttpStatusCode.Conflict,
+                            "Cannot import two different accounts under one label: ${nexusBankAccountId}"
+                        )
+                    }
+                    this
+                }
+                else -> {
+                    val newImportedAccount = NexusBankAccountEntity.new(nexusBankAccountId) {
+                        iban = offeredAccount.iban
+                        bankCode = offeredAccount.bankCode
+                        defaultBankConnection = conn
+                        highestSeenBankMessageId = 0
+                        accountHolder = offeredAccount.accountHolder
+                    }
+                    offeredAccount.imported = newImportedAccount
+                    newImportedAccount
+                }
+            }
+            AvailableConnectionForAccountEntity.new {
+                bankAccount = importedAccount
+                bankConnection = conn
+            }
+        }
+    }
 }

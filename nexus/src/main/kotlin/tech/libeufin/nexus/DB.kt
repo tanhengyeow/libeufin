@@ -228,6 +228,16 @@ class OfferedBankAccountEntity(id: EntityID<String>) : Entity<String>(id) {
     var imported by NexusBankAccountEntity optionalReferencedOn OfferedBankAccountsTable.imported
 }
 
+object AvailableConnectionsForAccountsTable : IntIdTable() {
+    val bankAccount = reference("bankAccount", NexusBankAccountsTable)
+    val bankConnection = reference("bankConnection", NexusBankConnectionsTable)
+}
+class AvailableConnectionForAccountEntity(id: EntityID<Int>) : IntEntity(id) {
+    companion object : IntEntityClass<AvailableConnectionForAccountEntity>(AvailableConnectionsForAccountsTable)
+    var bankAccount by NexusBankAccountEntity referencedOn AvailableConnectionsForAccountsTable.bankAccount
+    var bankConnection by NexusBankConnectionEntity referencedOn AvailableConnectionsForAccountsTable.bankConnection
+}
+
 /**
  * This table holds triples of <iban, bic, holder name>.
  * FIXME(dold):  Allow other account and bank identifications than IBAN and BIC
