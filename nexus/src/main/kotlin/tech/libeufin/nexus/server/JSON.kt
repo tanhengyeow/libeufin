@@ -330,6 +330,6 @@ data class CreateAccountTaskRequest(
 )
 
 data class ImportBankAccount(
-    val accountId: String,
-    val localName: String
+    val offeredAccountId: String,
+    val nexusBankAccountId: String
 )

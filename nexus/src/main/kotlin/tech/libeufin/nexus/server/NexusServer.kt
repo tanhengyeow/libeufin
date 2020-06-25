@@ -808,14 +808,14 @@ fun serverMain(dbName: String, host: String) {
                     call.respond(ret)
                 }
                 // import one account into libeufin.
-                post("/accounts/import") {
+                post("/import-account") {
                     val body = call.receive<ImportBankAccount>()
                     transaction {
                         val conn = requireBankConnection(call, "connid")
-                        val account = OfferedBankAccountEntity.findById(body.accountId) ?: throw NexusError(
-                            HttpStatusCode.NotFound, "Could not found raw bank account '${body.accountId}'"
+                        val account = OfferedBankAccountEntity.findById(body.offeredAccountId) ?: throw NexusError(
+                            HttpStatusCode.NotFound, "Could not found raw bank account '${body.offeredAccountId}'"
                         )
-                        val importedBankAccount = NexusBankAccountEntity.new(body.localName) {
+                        val importedBankAccount = NexusBankAccountEntity.new(body.nexusBankAccountId) {
                             iban = account.iban
                             bankCode = account.bankCode
                             defaultBankConnection = conn
