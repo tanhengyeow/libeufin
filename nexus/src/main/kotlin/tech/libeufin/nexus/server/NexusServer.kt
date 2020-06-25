@@ -769,7 +769,7 @@ fun serverMain(dbName: String, host: String) {
                 route("/ebics") {
                     ebicsBankConnectionRoutes(client)
                 }
-                post("/accounts/fetch") {
+                post("/fetch-accounts") {
                     val conn = transaction {
                         authenticateRequest(call.request)
                         requireBankConnection(call, "connid")
