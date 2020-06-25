@@ -350,18 +350,19 @@ assertResponse(
 #     )
 # )
 
+print("fetching")
 
-# # 2.c, fetch bank account information
+# 2.c, fetch bank account information
 assertResponse(
     post(
-        "http://localhost:5001/bank-connections/my-ebics-1/accounts/fetch",
+        "http://localhost:5001/bank-connections/my-ebics-1/fetch-accounts",
         json=dict(),
         headers=dict(Authorization=USER_AUTHORIZATION_HEADER),
     )
 )
 assertResponse(
     post(
-        "http://localhost:5001/bank-connections/my-ebics-2/accounts/fetch",
+        "http://localhost:5001/bank-connections/my-ebics-2/fetch-accounts",
         json=dict(),
         headers=dict(Authorization=USER_AUTHORIZATION_HEADER),
     )

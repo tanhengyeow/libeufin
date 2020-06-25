@@ -13,6 +13,7 @@ module.exports = {
             '@menu-item-padding': '0 120px',
             '@menu-bg': 'none',
             '@menu-item-font-size': '16px',
+            '@collapse-content-bg': '#f0f2f5',
           },
           javascriptEnabled: true,
         },
