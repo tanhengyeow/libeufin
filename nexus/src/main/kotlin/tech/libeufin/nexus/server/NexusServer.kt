@@ -49,7 +49,6 @@ import io.ktor.utils.io.ByteReadChannel
 import io.ktor.utils.io.jvm.javaio.toByteReadChannel
 import io.ktor.utils.io.jvm.javaio.toInputStream
 import org.jetbrains.exposed.sql.and
-import org.jetbrains.exposed.sql.not
 import org.jetbrains.exposed.sql.transactions.transaction
 import org.slf4j.event.Level
 import tech.libeufin.nexus.*
@@ -59,8 +58,6 @@ import tech.libeufin.nexus.bankaccount.getPaymentInitiation
 import tech.libeufin.nexus.bankaccount.submitPaymentInitiation
 import tech.libeufin.nexus.ebics.*
 import tech.libeufin.util.*
-import tech.libeufin.util.ebics_h004.EbicsTypes
-import tech.libeufin.util.ebics_h004.HTDResponseOrderData
 import tech.libeufin.nexus.logger
 import java.lang.IllegalArgumentException
 import java.net.URLEncoder
@@ -791,15 +788,19 @@ fun serverMain(dbName: String, host: String) {
 
                 // show all the offered accounts (both imported and non)
                 get("/accounts") {
-                    val ret = BankAccounts()
+                    val ret = mutableListOf<OfferedBankAccount>()
                     transaction {
                         val conn = requireBankConnection(call, "connid")
                         OfferedBankAccountEntity.find {
                             OfferedBankAccountsTable.bankConnection eq conn.id.value
                         }.forEach {
-                            ret.accounts.add(
-                                BankAccount(
-                                    iban = it.iban, bic = it.bankCode, holder = it.accountHolder, account = it.id.value
+                            ret.add(
+                                OfferedBankAccount(
+                                    ownerName = it.accountHolder,
+                                    iban = it.iban,
+                                    bic = it.bankCode,
+                                    offeredAccountId = it.id.value,
+                                    nexusBankAccountId = it.imported?.id?.value
                                 )
                             )
                         }

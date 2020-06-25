@@ -28,7 +28,6 @@ import tech.libeufin.nexus.BankTransaction
 import tech.libeufin.util.*
 import java.time.Instant
 import java.time.ZoneId
-import java.time.ZoneOffset
 import java.time.ZonedDateTime
 import java.time.format.DateTimeFormatter
 import java.time.format.DateTimeFormatterBuilder
@@ -270,6 +269,16 @@ data class BankAccount(
     var bic: String,
     var account: String
 )
+
+data class OfferedBankAccount(
+    var ownerName: String,
+    var iban: String,
+    var bic: String,
+    var offeredAccountId: String,
+    var nexusBankAccountId: String?
+)
+
+
 
 /** Response type of "GET /bank-accounts" */
 data class BankAccounts(
