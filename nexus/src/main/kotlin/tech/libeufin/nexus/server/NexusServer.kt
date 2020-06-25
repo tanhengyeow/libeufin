@@ -332,10 +332,10 @@ fun serverMain(dbName: String, host: String) {
                     NexusBankAccountEntity.all().forEach {
                         bankAccounts.accounts.add(
                             BankAccount(
-                                it.accountHolder,
-                                it.iban,
-                                it.bankCode,
-                                it.id.value
+                                holder = it.accountHolder,
+                                iban = it.iban,
+                                bic = it.bankCode,
+                                account = it.id.value
                             )
                         )
                     }
