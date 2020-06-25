@@ -1,9 +1,9 @@
 #!/bin/bash
 
 # Such template sets an env up using the Python CLI.
+# The setup goes until exchanging keys with the sandbox.
 
-# set -eu
-set -u
+set -eu
 
 EBICS_HOST_ID=ebicshost
 EBICS_PARTNER_ID=ebicspartner
@@ -19,8 +19,7 @@ NEXUS_USER=u
 NEXUS_PASSWORD=p
 NEXUS_BANK_CONNECTION_NAME=b
 
-NEXUS_DB=/tmp/n.sqlite3
-SANDBOX_DB=/tmp/s.sqlite3
+echo Nexus DB: $1
 
 ########## setup sandbox #############
 
@@ -63,7 +62,7 @@ sleep 2
 
 # create a user
 echo "Creating a nexus user (giving time to settle)"
-nexus superuser --db-name=$NEXUS_DB --password $NEXUS_PASSWORD $NEXUS_USER
+nexus superuser --db-name $1 --password $NEXUS_PASSWORD $NEXUS_USER
 sleep 2
 
 # create a bank connection

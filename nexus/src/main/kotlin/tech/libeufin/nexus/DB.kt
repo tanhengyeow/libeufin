@@ -415,7 +415,8 @@ fun dbCreateTables(dbName: String) {
             FacadesTable,
             TalerFacadeStateTable,
             NexusScheduledTasksTable,
-            OfferedBankAccountsTable
+            OfferedBankAccountsTable,
+            AvailableConnectionsForAccountsTable
         )
     }
 }
