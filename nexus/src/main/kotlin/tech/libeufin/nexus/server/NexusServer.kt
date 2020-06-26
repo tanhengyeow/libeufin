@@ -166,10 +166,10 @@ fun createLoopbackBankConnection(bankConnectionName: String, user: NexusUserEnti
         type = "loopback"
     }
     val bankAccount = jacksonObjectMapper().treeToValue(data, BankAccount::class.java)
-    NexusBankAccountEntity.new(bankAccount.account) {
+    NexusBankAccountEntity.new(bankAccount.nexusBankAccountId) {
         iban = bankAccount.iban
         bankCode = bankAccount.bic
-        accountHolder = bankAccount.holder
+        accountHolder = bankAccount.ownerName
         defaultBankConnection = bankConn
         highestSeenBankMessageId = 0
     }
@@ -332,10 +332,10 @@ fun serverMain(dbName: String, host: String) {
                     NexusBankAccountEntity.all().forEach {
                         bankAccounts.accounts.add(
                             BankAccount(
-                                holder = it.accountHolder,
+                                ownerName = it.accountHolder,
                                 iban = it.iban,
                                 bic = it.bankCode,
-                                account = it.id.value
+                                nexusBankAccountId = it.id.value
                             )
                         )
                     }

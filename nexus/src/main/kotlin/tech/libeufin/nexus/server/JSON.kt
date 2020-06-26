@@ -264,10 +264,10 @@ data class UsersResponse(
 
 /** Response (list's element) type of "GET /bank-accounts" */
 data class BankAccount(
-    var holder: String,
+    var ownerName: String,
     var iban: String,
     var bic: String,
-    var account: String
+    var nexusBankAccountId: String
 )
 
 data class OfferedBankAccount(

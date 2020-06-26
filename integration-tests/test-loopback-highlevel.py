@@ -71,8 +71,8 @@ assertResponse(
             data=dict(
                 iban="myIBAN",
                 bic="myBIC",
-                holder="Account Holder Name",
-                account="my-bank-account"
+                ownerName="Account Holder Name",
+                nexusBankAccountId="my-bank-account"
             )
         ),
         headers=dict(Authorization=USER_AUTHORIZATION_HEADER),
