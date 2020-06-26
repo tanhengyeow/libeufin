@@ -1,9 +1,11 @@
 import React, { useState } from 'react';
-import { Button, Card, Col, Row, Tabs } from 'antd';
+import { Button, Card, Col, Collapse, Row, Tabs } from 'antd';
 import './BankAccounts.less';
-// import AddBankConnectionDrawer from './AddBankConnectionDrawer';
+import AddBankConnectionDrawer from './AddBankConnectionDrawer';
+import BankConnectionCard from './BankConnectionCard';
 
 const { TabPane } = Tabs;
+const { Panel } = Collapse;
 
 const BankAccounts = () => {
   const [connectionsList, setConnectionsList] = useState([]);
@@ -17,7 +19,6 @@ const BankAccounts = () => {
       }),
     })
       .then((response) => {
-        console.log(response);
         if (response.ok) {
           return response.json();
         }
@@ -27,7 +28,6 @@ const BankAccounts = () => {
         setConnectionsList(response.bankConnections);
       })
       .catch((err) => {
-        console.log(err);
         throw new Error(err);
       });
   };
@@ -49,7 +49,6 @@ const BankAccounts = () => {
         setAccountsList(response.accounts);
       })
       .catch((err) => {
-        console.log(err);
         throw new Error(err);
       });
   };
@@ -69,61 +68,60 @@ const BankAccounts = () => {
     fetchBankAccounts();
   };
 
+  const bankAccountsContent =
+    accountsList.length > 0 ? (
+      <Row gutter={[40, 40]}>
+        {accountsList.map((bankAccount) => (
+          <Col span={8}>
+            <Card title={bankAccount['account']} bordered={false}>
+              <p>Holder: {bankAccount['holder']}</p>
+              <p>IBAN: {bankAccount['iban']}</p>
+              <p>BIC: {bankAccount['bic']}</p>
+            </Card>
+          </Col>
+        ))}
+      </Row>
+    ) : (
+      <div style={{ display: 'flex', justifyContent: 'center' }}>
+        <b>
+          No bank accounts found. Import your bank accounts from a bank
+          connection.
+        </b>
+      </div>
+    );
+
   return (
     <div className="bank-accounts">
       <Tabs defaultActiveKey="1" type="card" size="large">
-        <TabPane tab="Bank connections" key="1">
-          <div className="buttons-row">
-            <Button type="primary" size="middle" onClick={showDrawer}>
-              Add bank connection
-            </Button>
-            {/* <AddBankConnectionDrawer visible={visible} onClose={onClose} /> */}
-            <Button type="primary" size="middle">
-              Import from backup
-            </Button>
-            <Button type="primary" size="middle">
-              Reload connections
-            </Button>
-          </div>
-          <Row gutter={[40, 40]}>
-            {connectionsList
-              ? connectionsList.map((bankConnection) => (
-                  <Col span={8}>
-                    <Card
-                      title={String(bankConnection['type']).toUpperCase()}
-                      bordered={false}
-                    >
-                      <p>Name: {bankConnection['name']}</p>
-                    </Card>
-                  </Col>
-                ))
-              : null}
-          </Row>
+        <TabPane tab="Your accounts" key="1">
+          <Collapse defaultActiveKey="2">
+            <Panel header="Bank connections" key="1">
+              <div className="buttons-row">
+                <Button type="primary" size="middle" onClick={showDrawer}>
+                  Add bank connection
+                </Button>
+                <AddBankConnectionDrawer visible={visible} onClose={onClose} />
+              </div>
+              <Row gutter={[40, 40]}>
+                {connectionsList
+                  ? connectionsList.map((bankConnection) => (
+                      <Col span={8}>
+                        <BankConnectionCard
+                          type={String(bankConnection['type']).toUpperCase()}
+                          name={bankConnection['name']}
+                          updateBankAccountsTab={() => fetchBankAccounts()}
+                        />
+                      </Col>
+                    ))
+                  : null}
+              </Row>
+            </Panel>
+            <Panel header="Bank accounts" key="2">
+              {bankAccountsContent}
+            </Panel>
+          </Collapse>
         </TabPane>
-        <TabPane tab="Your accounts" key="2">
-          <div className="buttons-row">
-            <Button type="primary" size="middle">
-              Add bank account
-            </Button>
-          </div>
-          <Row gutter={[40, 40]}>
-            {accountsList
-              ? accountsList.map((bankAccount) => (
-                  <Col span={8}>
-                    <Card
-                      title={String(bankAccount['account']).toUpperCase()}
-                      bordered={false}
-                    >
-                      <p>Holder: {bankAccount['holder']}</p>
-                      <p>IBAN: {bankAccount['iban']}</p>
-                      <p>BIC: {bankAccount['bic']}</p>
-                    </Card>
-                  </Col>
-                ))
-              : null}
-          </Row>
-        </TabPane>
-        <TabPane tab="Recipient accounts" key="3">
+        <TabPane tab="Recipient accounts" key="2">
           Placeholder
         </TabPane>
       </Tabs>
