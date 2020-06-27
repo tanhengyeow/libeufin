@@ -1,9 +1,7 @@
 package tech.libeufin.nexus
 
-import org.jetbrains.exposed.sql.Database
-import org.jetbrains.exposed.sql.SchemaUtils
-import org.jetbrains.exposed.sql.StdOutSqlLogger
-import org.jetbrains.exposed.sql.addLogger
+import org.jetbrains.exposed.exceptions.ExposedSQLException
+import org.jetbrains.exposed.sql.*
 import org.jetbrains.exposed.sql.transactions.transaction
 import org.junit.Test
 import java.io.File
@@ -32,8 +30,32 @@ fun withTestDatabase(f: () -> Unit) {
     }
 }
 
+object MyTable : Table() {
+    val col1 = text("col1")
+    val col2 = text("col2")
+    override val primaryKey = PrimaryKey(col1, col2)
+}
 
 class DBTest {
+    @Test(expected = ExposedSQLException::class)
+    fun sqlDslTest() {
+        withTestDatabase {
+            transaction {
+                addLogger(StdOutSqlLogger)
+                SchemaUtils.create(MyTable)
+                MyTable.insert {
+                    it[col1] = "foo"
+                    it[col2] = "bar"
+                }
+                // should throw ExposedSQLException
+                MyTable.insert {
+                    it[col1] = "foo"
+                    it[col2] = "bar"
+                }
+            }
+        }
+    }
+
     @Test
     fun facadeConfigTest() {
         withTestDatabase {
