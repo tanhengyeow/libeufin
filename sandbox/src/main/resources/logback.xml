@@ -1,12 +1,13 @@
 <configuration>
-    <appender name="STDOUT" class="ch.qos.logback.core.ConsoleAppender">
+    <appender name="STDERR" class="ch.qos.logback.core.ConsoleAppender">
+	<target>System.err</target>
         <encoder>
             <pattern>%d{HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n</pattern>
         </encoder>
     </appender>
 
     <logger name="tech.libeufin.sandbox" level="DEBUG"  additivity="false">
-        <appender-ref ref="STDOUT" />
+        <appender-ref ref="STDERR" />
     </logger>
 
     <logger name="io.netty" level="WARN" />
@@ -14,7 +15,7 @@
     <logger name="Exposed" level="WARN" />
 
     <root level="WARN">
-        <appender-ref ref="STDOUT" />
+        <appender-ref ref="STDERR" />
     </root>
 
 </configuration>
