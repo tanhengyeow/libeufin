@@ -210,32 +210,15 @@ class PaymentInitiationEntity(id: EntityID<Long>) : LongEntity(id) {
  * This table contains the bank accounts that are offered by the bank.
  * The bank account label (as assigned by the bank) is the primary key.
  */
-object OfferedBankAccountsTable : IdTable<String>() {
-    override val id = text("id").entityId()
+object OfferedBankAccountsTable : Table() {
+    val offeredAccountId = text("id")
     val bankConnection = reference("bankConnection", NexusBankConnectionsTable)
     val iban = text("iban")
     val bankCode = text("bankCode")
     val accountHolder = text("holderName")
     val imported = reference("imported", NexusBankAccountsTable).nullable()
-}
 
-class OfferedBankAccountEntity(id: EntityID<String>) : Entity<String>(id) {
-    companion object : EntityClass<String, OfferedBankAccountEntity>(OfferedBankAccountsTable)
-    var bankConnection by NexusBankConnectionEntity referencedOn OfferedBankAccountsTable.bankConnection
-    var iban by OfferedBankAccountsTable.iban
-    var bankCode by OfferedBankAccountsTable.bankCode
-    var accountHolder by OfferedBankAccountsTable.accountHolder
-    var imported by NexusBankAccountEntity optionalReferencedOn OfferedBankAccountsTable.imported
-}
-
-object AvailableConnectionsForAccountsTable : IntIdTable() {
-    val bankAccount = reference("bankAccount", NexusBankAccountsTable)
-    val bankConnection = reference("bankConnection", NexusBankConnectionsTable)
-}
-class AvailableConnectionForAccountEntity(id: EntityID<Int>) : IntEntity(id) {
-    companion object : IntEntityClass<AvailableConnectionForAccountEntity>(AvailableConnectionsForAccountsTable)
-    var bankAccount by NexusBankAccountEntity referencedOn AvailableConnectionsForAccountsTable.bankAccount
-    var bankConnection by NexusBankConnectionEntity referencedOn AvailableConnectionsForAccountsTable.bankConnection
+    override val primaryKey = PrimaryKey(offeredAccountId, bankConnection)
 }
 
 /**
@@ -415,8 +398,7 @@ fun dbCreateTables(dbName: String) {
             FacadesTable,
             TalerFacadeStateTable,
             NexusScheduledTasksTable,
-            OfferedBankAccountsTable,
-            AvailableConnectionsForAccountsTable
+            OfferedBankAccountsTable
         )
     }
 }

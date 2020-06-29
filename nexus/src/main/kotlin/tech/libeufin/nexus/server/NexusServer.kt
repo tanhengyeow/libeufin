@@ -49,9 +49,15 @@ import io.ktor.utils.io.ByteReadChannel
 import io.ktor.utils.io.jvm.javaio.toByteReadChannel
 import io.ktor.utils.io.jvm.javaio.toInputStream
 import org.jetbrains.exposed.sql.and
+import org.jetbrains.exposed.sql.select
 import org.jetbrains.exposed.sql.transactions.transaction
 import org.slf4j.event.Level
 import tech.libeufin.nexus.*
+import tech.libeufin.nexus.OfferedBankAccountsTable.accountHolder
+import tech.libeufin.nexus.OfferedBankAccountsTable.bankCode
+import tech.libeufin.nexus.OfferedBankAccountsTable.iban
+import tech.libeufin.nexus.OfferedBankAccountsTable.imported
+import tech.libeufin.nexus.OfferedBankAccountsTable.offeredAccountId
 import tech.libeufin.nexus.bankaccount.*
 import tech.libeufin.nexus.ebics.*
 import tech.libeufin.util.*
@@ -788,16 +794,16 @@ fun serverMain(dbName: String, host: String) {
                     val ret = mutableListOf<OfferedBankAccount>()
                     transaction {
                         val conn = requireBankConnection(call, "connid")
-                        OfferedBankAccountEntity.find {
+                        OfferedBankAccountsTable.select {
                             OfferedBankAccountsTable.bankConnection eq conn.id.value
-                        }.forEach {
+                        }.forEach {resultRow ->
                             ret.add(
                                 OfferedBankAccount(
-                                    ownerName = it.accountHolder,
-                                    iban = it.iban,
-                                    bic = it.bankCode,
-                                    offeredAccountId = it.id.value,
-                                    nexusBankAccountId = it.imported?.id?.value
+                                    ownerName = resultRow[accountHolder],
+                                    iban = resultRow[iban],
+                                    bic = resultRow[bankCode],
+                                    offeredAccountId = resultRow[offeredAccountId],
+                                    nexusBankAccountId = resultRow[imported]?.value // is 'value' the id?
                                 )
                             )
                         }

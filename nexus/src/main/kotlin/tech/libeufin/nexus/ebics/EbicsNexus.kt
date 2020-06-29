@@ -43,6 +43,7 @@ import io.ktor.routing.Route
 import io.ktor.routing.get
 import io.ktor.routing.post
 import org.jetbrains.exposed.sql.and
+import org.jetbrains.exposed.sql.insert
 import org.jetbrains.exposed.sql.not
 import org.jetbrains.exposed.sql.statements.api.ExposedBlob
 import org.jetbrains.exposed.sql.transactions.transaction
@@ -344,19 +345,19 @@ suspend fun ebicsFetchAccounts(connId: String, client: HttpClient) {
                 response.orderData.toString(Charsets.UTF_8)
             )
             transaction {
-                payload.value.partnerInfo.accountInfoList?.forEach {
-                    OfferedBankAccountEntity.new(id = it.id) {
-                        accountHolder = it.accountHolder ?: "NOT-GIVEN"
-                        iban = it.accountNumberList?.filterIsInstance<EbicsTypes.GeneralAccountNumber>()
+                payload.value.partnerInfo.accountInfoList?.forEach { accountInfo ->
+                    OfferedBankAccountsTable.insert { newRow ->
+                        newRow[accountHolder] = accountInfo.accountHolder ?: "NOT GIVEN"
+                        newRow[iban] = accountInfo.accountNumberList?.filterIsInstance<EbicsTypes.GeneralAccountNumber>()
                             ?.find { it.international }?.value
                             ?: throw NexusError(HttpStatusCode.NotFound, reason = "bank gave no IBAN")
-                        bankCode = it.bankCodeList?.filterIsInstance<EbicsTypes.GeneralBankCode>()
+                        newRow[bankCode] = accountInfo.bankCodeList?.filterIsInstance<EbicsTypes.GeneralBankCode>()
                             ?.find { it.international }?.value
                             ?: throw NexusError(
                                 HttpStatusCode.NotFound,
                                 reason = "bank gave no BIC"
                             )
-                        bankConnection = requireBankConnectionInternal(connId)
+                        newRow[bankConnection] = requireBankConnectionInternal(connId).id
                     }
                 }
             }
@@ -372,6 +373,7 @@ fun Route.ebicsBankProtocolRoutes(client: HttpClient) {
         return@post
     }
 }
+
 
 fun Route.ebicsBankConnectionRoutes(client: HttpClient) {
     post("/send-ini") {

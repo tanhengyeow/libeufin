@@ -26,9 +26,11 @@ import io.ktor.client.HttpClient
 import io.ktor.http.HttpStatusCode
 import org.jetbrains.exposed.sql.SortOrder
 import org.jetbrains.exposed.sql.and
+import org.jetbrains.exposed.sql.select
 import org.jetbrains.exposed.sql.transactions.transaction
 import org.w3c.dom.Document
 import tech.libeufin.nexus.*
+import tech.libeufin.nexus.OfferedBankAccountsTable.iban
 import tech.libeufin.nexus.ebics.fetchEbicsBySpec
 import tech.libeufin.nexus.ebics.submitEbicsPaymentInitiation
 import tech.libeufin.nexus.server.FetchSpecJson
@@ -305,16 +307,20 @@ suspend fun fetchBankAccountTransactions(
 fun importBankAccount(call: ApplicationCall, offeredBankAccountId: String, nexusBankAccountId: String) {
     transaction {
         val conn = requireBankConnection(call, "connid")
-        val offeredAccount = OfferedBankAccountEntity.findById(offeredBankAccountId) ?: throw NexusError(
-            HttpStatusCode.NotFound, "Could not found raw bank account '${offeredBankAccountId}'"
+        // first get handle of the offered bank account
+        val offeredAccount = OfferedBankAccountsTable.select {
+            OfferedBankAccountsTable.offeredAccountId eq offeredBankAccountId
+        }.firstOrNull() ?: throw NexusError(
+            HttpStatusCode.NotFound, "Could not find raw bank account '${offeredBankAccountId}'"
         )
         // detect name collisions first.
         NexusBankAccountEntity.findById(nexusBankAccountId).run {
             val importedAccount = when(this) {
                 is NexusBankAccountEntity -> {
-                    if (this.iban != offeredAccount.iban) {
+                    if (this.iban != offeredAccount[OfferedBankAccountsTable.iban]) {
                         throw NexusError(
                             HttpStatusCode.Conflict,
+                            // different accounts == different IBANs
                             "Cannot import two different accounts under one label: ${nexusBankAccountId}"
                         )
                     }
@@ -322,19 +328,15 @@ fun importBankAccount(call: ApplicationCall, offeredBankAccountId: String, nexus
                 }
                 else -> {
                     val newImportedAccount = NexusBankAccountEntity.new(nexusBankAccountId) {
-                        iban = offeredAccount.iban
-                        bankCode = offeredAccount.bankCode
+                        iban = offeredAccount[OfferedBankAccountsTable.iban]
+                        bankCode = offeredAccount[OfferedBankAccountsTable.bankCode]
                         defaultBankConnection = conn
                         highestSeenBankMessageId = 0
-                        accountHolder = offeredAccount.accountHolder
+                        accountHolder = offeredAccount[OfferedBankAccountsTable.accountHolder]
                     }
-                    offeredAccount.imported = newImportedAccount
+                    offeredAccount[OfferedBankAccountsTable.imported] = newImportedAccount
                     newImportedAccount
                 }
-            }
-            AvailableConnectionForAccountEntity.new {
-                bankAccount = importedAccount
-                bankConnection = conn
             }
         }
     }
