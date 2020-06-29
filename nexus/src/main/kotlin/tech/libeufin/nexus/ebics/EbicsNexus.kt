@@ -358,6 +358,7 @@ suspend fun ebicsFetchAccounts(connId: String, client: HttpClient) {
                                 reason = "bank gave no BIC"
                             )
                         newRow[bankConnection] = requireBankConnectionInternal(connId).id
+                        newRow[offeredAccountId] = accountInfo.id
                     }
                 }
             }

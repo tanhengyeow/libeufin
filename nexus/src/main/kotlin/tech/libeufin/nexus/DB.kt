@@ -211,7 +211,7 @@ class PaymentInitiationEntity(id: EntityID<Long>) : LongEntity(id) {
  * The bank account label (as assigned by the bank) is the primary key.
  */
 object OfferedBankAccountsTable : Table() {
-    val offeredAccountId = text("id")
+    val offeredAccountId = text("offeredAccountId")
     val bankConnection = reference("bankConnection", NexusBankConnectionsTable)
     val iban = text("iban")
     val bankCode = text("bankCode")
