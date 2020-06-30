@@ -59,6 +59,27 @@ def export_backup(obj, connection_name, nexus_user_id, nexus_password, passphras
     print("Backup stored in {}".format(output_file))
 
 
+@bank_connection.command(help="delete bank connection")
+@click.option("--connection-name", help="Name of the bank connection to backup", required=True)
+@click.option("--nexus-user-id", help="Nexus user ID", required=True)
+@click.option("--nexus-password", help="Nexus password", required=True)
+@click.argument("nexus-base-url")
+@click.pass_obj
+def delete(obj, connection_name, nexus_user_id, nexus_password, nexus_base_url):
+
+    url = urljoin(nexus_base_url, "/bank-connections/delete-connection".format(connection_name))
+    try:
+        resp = post(
+            url,
+            json=dict(bankConnectionId=connection_name),
+            auth=auth.HTTPBasicAuth(nexus_user_id, nexus_password)
+        )
+    except Exception:
+        print("Could not reach nexus")
+        exit(1)
+
+    print(resp.content.decode("utf-8"))
+
 @bank_connection.command(help="restore backup")
 @click.option("--connection-name", help="Name of the bank connection to backup", required=True)
 @click.option("--nexus-user-id", help="Nexus user ID", required=True)

@@ -624,7 +624,7 @@ fun serverMain(dbName: String, host: String) {
                 call.respond(object {})
             }
 
-            post("/bank-connections/delete") {
+            post("/bank-connections/delete-connection") {
                 val body = call.receive<BankConnectionDeletion>()
                 transaction {
                     val conn = NexusBankConnectionEntity.findById(body.bankConnectionId) ?: throw NexusError(

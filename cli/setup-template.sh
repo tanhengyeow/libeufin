@@ -3,7 +3,7 @@
 # Such template sets an env up using the Python CLI.
 # The setup goes until exchanging keys with the sandbox.
 
-set -eu
+set -e
 
 EBICS_HOST_ID=ebicshost
 EBICS_PARTNER_ID=ebicspartner
@@ -19,14 +19,17 @@ NEXUS_USER=u
 NEXUS_PASSWORD=p
 NEXUS_BANK_CONNECTION_NAME=b
 
-echo Nexus DB: $1
+if test -z $1; then
+  echo usage: ./setup-template.sh PATH-TO-NEXUS-DB
+  exit 1
+fi
 
 ########## setup sandbox #############
 
 # make ebics host at sandbox
 echo Making a ebics host at the sandbox
 sleep 2
-./libeufin-cli-new \
+./libeufin-cli \
   sandbox \
     make-ebics-host \
       --host-id=$EBICS_HOST_ID \
@@ -35,7 +38,7 @@ sleep 2
 # activate a ebics subscriber on that host
 echo Activating the ebics subscriber at the sandbox
 sleep 2
-./libeufin-cli-new \
+./libeufin-cli \
   sandbox \
     activate-ebics-subscriber \
       --host-id=$EBICS_HOST_ID \
@@ -45,7 +48,7 @@ sleep 2
 
 # give a bank account to such user
 echo Giving a bank account to such subscriber
-./libeufin-cli-new \
+./libeufin-cli \
   sandbox \
     associate-bank-account \
       --iban=$IBAN \
@@ -67,7 +70,7 @@ sleep 2
 
 # create a bank connection
 echo Creating a bank connection for such user
-./libeufin-cli-new \
+./libeufin-cli \
   bank-connection \
     new-ebics-connection \
       --connection-name $NEXUS_BANK_CONNECTION_NAME \
@@ -82,7 +85,7 @@ sleep 2
 
 # Bootstrapping such connection
 echo Bootstrapping the bank connection
-./libeufin-cli-new \
+./libeufin-cli \
   bank-connection \
     bootstrap-bank-connection \
       --connection-name $NEXUS_BANK_CONNECTION_NAME \
