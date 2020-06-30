@@ -282,7 +282,9 @@ data class OfferedBankAccount(
     var nexusBankAccountId: String?
 )
 
-
+data class OfferedBankAccounts(
+    val accounts: MutableList<OfferedBankAccount> = mutableListOf()
+)
 
 /** Response type of "GET /bank-accounts" */
 data class BankAccounts(

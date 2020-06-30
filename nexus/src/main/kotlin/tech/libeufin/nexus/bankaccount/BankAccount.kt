@@ -24,13 +24,12 @@ import io.ktor.application.ApplicationCall
 import io.ktor.application.call
 import io.ktor.client.HttpClient
 import io.ktor.http.HttpStatusCode
-import org.jetbrains.exposed.sql.SortOrder
-import org.jetbrains.exposed.sql.and
-import org.jetbrains.exposed.sql.select
+import org.jetbrains.exposed.sql.*
 import org.jetbrains.exposed.sql.transactions.transaction
 import org.w3c.dom.Document
 import tech.libeufin.nexus.*
 import tech.libeufin.nexus.OfferedBankAccountsTable.iban
+import tech.libeufin.nexus.OfferedBankAccountsTable.imported
 import tech.libeufin.nexus.ebics.fetchEbicsBySpec
 import tech.libeufin.nexus.ebics.submitEbicsPaymentInitiation
 import tech.libeufin.nexus.server.FetchSpecJson
@@ -306,12 +305,14 @@ suspend fun fetchBankAccountTransactions(
 
 fun importBankAccount(call: ApplicationCall, offeredBankAccountId: String, nexusBankAccountId: String) {
     transaction {
+        addLogger(StdOutSqlLogger)
         val conn = requireBankConnection(call, "connid")
         // first get handle of the offered bank account
         val offeredAccount = OfferedBankAccountsTable.select {
-            OfferedBankAccountsTable.offeredAccountId eq offeredBankAccountId
+            OfferedBankAccountsTable.offeredAccountId eq offeredBankAccountId and
+                    (OfferedBankAccountsTable.bankConnection eq conn.id.value)
         }.firstOrNull() ?: throw NexusError(
-            HttpStatusCode.NotFound, "Could not find raw bank account '${offeredBankAccountId}'"
+            HttpStatusCode.NotFound, "Could not find offered bank account '${offeredBankAccountId}'"
         )
         // detect name collisions first.
         NexusBankAccountEntity.findById(nexusBankAccountId).run {
@@ -334,9 +335,16 @@ fun importBankAccount(call: ApplicationCall, offeredBankAccountId: String, nexus
                         highestSeenBankMessageId = 0
                         accountHolder = offeredAccount[OfferedBankAccountsTable.accountHolder]
                     }
-                    offeredAccount[OfferedBankAccountsTable.imported] = newImportedAccount
+                    logger.info("Account ${newImportedAccount.id} gets imported")
                     newImportedAccount
                 }
+            }
+            // importedAccount could be now-or-earlier imported.
+            OfferedBankAccountsTable.update(
+                {OfferedBankAccountsTable.offeredAccountId eq offeredBankAccountId and
+                        (OfferedBankAccountsTable.bankConnection eq conn.id.value) }
+            ) {
+                it[imported] = importedAccount.id
             }
         }
     }

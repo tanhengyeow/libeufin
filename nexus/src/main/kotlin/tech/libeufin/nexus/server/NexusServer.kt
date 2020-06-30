@@ -48,6 +48,7 @@ import io.ktor.server.netty.Netty
 import io.ktor.utils.io.ByteReadChannel
 import io.ktor.utils.io.jvm.javaio.toByteReadChannel
 import io.ktor.utils.io.jvm.javaio.toInputStream
+import org.jetbrains.exposed.dao.id.EntityID
 import org.jetbrains.exposed.sql.and
 import org.jetbrains.exposed.sql.select
 import org.jetbrains.exposed.sql.transactions.transaction
@@ -803,19 +804,19 @@ fun serverMain(dbName: String, host: String) {
 
                 // show all the offered accounts (both imported and non)
                 get("/accounts") {
-                    val ret = mutableListOf<OfferedBankAccount>()
+                    val ret = OfferedBankAccounts()
                     transaction {
                         val conn = requireBankConnection(call, "connid")
                         OfferedBankAccountsTable.select {
                             OfferedBankAccountsTable.bankConnection eq conn.id.value
-                        }.forEach {resultRow ->
-                            ret.add(
+                        }.forEach {offeredAccountRow ->
+                            ret.accounts.add(
                                 OfferedBankAccount(
-                                    ownerName = resultRow[accountHolder],
-                                    iban = resultRow[iban],
-                                    bic = resultRow[bankCode],
-                                    offeredAccountId = resultRow[offeredAccountId],
-                                    nexusBankAccountId = resultRow[imported]?.value // is 'value' the id?
+                                    ownerName = offeredAccountRow[accountHolder],
+                                    iban = offeredAccountRow[iban],
+                                    bic = offeredAccountRow[bankCode],
+                                    offeredAccountId = offeredAccountRow[offeredAccountId],
+                                    nexusBankAccountId = offeredAccountRow[imported]?.value
                                 )
                             )
                         }

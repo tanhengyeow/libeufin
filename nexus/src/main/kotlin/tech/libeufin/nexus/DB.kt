@@ -216,6 +216,7 @@ object OfferedBankAccountsTable : Table() {
     val iban = text("iban")
     val bankCode = text("bankCode")
     val accountHolder = text("holderName")
+    // column below gets defined only WHEN the user imports the bank account.
     val imported = reference("imported", NexusBankAccountsTable).nullable()
 
     override val primaryKey = PrimaryKey(offeredAccountId, bankConnection)
