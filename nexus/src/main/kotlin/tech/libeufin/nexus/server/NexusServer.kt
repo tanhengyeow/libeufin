@@ -624,6 +624,18 @@ fun serverMain(dbName: String, host: String) {
                 call.respond(object {})
             }
 
+            post("/bank-connections/delete") {
+                val body = call.receive<BankConnectionDeletion>()
+                transaction {
+                    val conn = NexusBankConnectionEntity.findById(body.bankConnectionId) ?: throw NexusError(
+                        HttpStatusCode.NotFound,
+                        "Bank connection ${body.bankConnectionId}"
+                    )
+                    conn.delete() // temporary, and instead just _mark_ it as deleted?
+                }
+                call.respond(object {})
+            }
+
             get("/bank-connections") {
                 val connList = mutableListOf<BankConnectionInfo>()
                 transaction {

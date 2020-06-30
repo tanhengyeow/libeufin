@@ -110,6 +110,10 @@ data class BankConnectionsList(
     val bankConnections: List<BankConnectionInfo>
 )
 
+data class BankConnectionDeletion(
+    val bankConnectionId: String
+)
+
 data class EbicsHostTestRequest(
     val ebicsBaseUrl: String,
     val ebicsHostId: String
