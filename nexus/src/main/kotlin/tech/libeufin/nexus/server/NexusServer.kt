@@ -642,13 +642,13 @@ fun serverMain(dbName: String, host: String) {
                     NexusBankConnectionEntity.all().forEach {
                         connList.add(
                             BankConnectionInfo(
-                                it.id.value,
-                                it.type
+                                name = it.id.value,
+                                type = it.type
                             )
                         )
                     }
                 }
-                call.respond(BankConnectionsList(connList))
+                call.respond(connList)
             }
 
             get("/bank-connections/{connid}") {
