@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Button, Drawer, Table } from 'antd';
+import { message, Button, Drawer, Table } from 'antd';
 
 const columns = [
   {
@@ -26,6 +26,10 @@ const BankConnectionDrawer = (props) => {
   const [accountsList, setAccountsList] = useState([]);
   const [selectedRowKeys, setSelectedRowKeys] = useState([]);
 
+  const showError = (err) => {
+    message.error(String(err));
+  };
+
   const onSelectChange = (selectedRowKeys) => {
     setSelectedRowKeys(selectedRowKeys);
   };
@@ -46,6 +50,9 @@ const BankConnectionDrawer = (props) => {
       .then(async (blob) => {
         const pdfLink = URL.createObjectURL(blob);
         setPrintLink(pdfLink);
+      })
+      .catch((err) => {
+        showError(err);
       });
   };
 
@@ -65,14 +72,14 @@ const BankConnectionDrawer = (props) => {
       })
       .then((response) => {
         setAccountsList(
-          response.map((account, index) => ({
+          response.accounts.map((account, index) => ({
             ...account,
             key: index,
           }))
         );
       })
       .catch((err) => {
-        throw new Error(err);
+        showError(err);
       });
   };
 
@@ -104,7 +111,7 @@ const BankConnectionDrawer = (props) => {
         }
       })
       .catch((err) => {
-        throw new Error(err);
+        showError(err);
       });
   };
 

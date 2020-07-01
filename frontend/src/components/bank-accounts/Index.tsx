@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Button, Card, Col, Collapse, Row, Tabs } from 'antd';
+import { message, Button, Card, Col, Collapse, Row, Tabs } from 'antd';
 import './BankAccounts.less';
 import AddBankConnectionDrawer from './AddBankConnectionDrawer';
 import BankConnectionCard from './BankConnectionCard';
@@ -10,6 +10,10 @@ const { Panel } = Collapse;
 const BankAccounts = () => {
   const [connectionsList, setConnectionsList] = useState([]);
   const [accountsList, setAccountsList] = useState([]);
+
+  const showError = (err) => {
+    message.error(String(err));
+  };
 
   const fetchBankConnections = async () => {
     const authHeader = await window.localStorage.getItem('authHeader');
@@ -25,10 +29,10 @@ const BankAccounts = () => {
         throw 'Cannot fetch bank connections';
       })
       .then((response) => {
-        setConnectionsList(response.bankConnections);
+        setConnectionsList(response);
       })
       .catch((err) => {
-        throw new Error(err);
+        showError(err);
       });
   };
 
@@ -49,7 +53,7 @@ const BankAccounts = () => {
         setAccountsList(response.accounts);
       })
       .catch((err) => {
-        throw new Error(err);
+        showError(err);
       });
   };
 
@@ -73,7 +77,7 @@ const BankAccounts = () => {
       <Row gutter={[40, 40]}>
         {accountsList.map((bankAccount) => (
           <Col span={8}>
-            <Card title={bankAccount['account']} bordered={false}>
+            <Card title={bankAccount['nexusBankAccountId']} bordered={false}>
               <p>Holder: {bankAccount['holder']}</p>
               <p>IBAN: {bankAccount['iban']}</p>
               <p>BIC: {bankAccount['bic']}</p>
