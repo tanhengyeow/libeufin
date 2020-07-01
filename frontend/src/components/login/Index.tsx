@@ -15,6 +15,10 @@ const Login = ({ loginConnect }: Props) => {
   const [username, setUsername] = useState('admin');
   const [password, setPassword] = useState('x');
   const [authenticationFailure, setAuthenticationFailure] = useState(false);
+  const [
+    authenticationFailureMessage,
+    setAuthenticationFailureMessage,
+  ] = useState('');
 
   const layout = {
     wrapperCol: { span: 32 },
@@ -25,7 +29,10 @@ const Login = ({ loginConnect }: Props) => {
       .then(() => {
         setAuthenticationFailure(false);
       })
-      .catch((err) => setAuthenticationFailure(true));
+      .catch((err) => {
+        setAuthenticationFailure(true);
+        setAuthenticationFailureMessage(err);
+      });
   };
 
   const enterPressed = (event) => {
@@ -40,7 +47,7 @@ const Login = ({ loginConnect }: Props) => {
       {authenticationFailure ? (
         <Alert
           message="Error"
-          description="Invalid credentials"
+          description={String(authenticationFailureMessage)}
           type="error"
           showIcon
         />

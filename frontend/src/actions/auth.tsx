@@ -34,6 +34,8 @@ export const login = (nexusURL: string, username: string, password: string) => {
         .then((response) => {
           if (response.ok) {
             return response.json();
+          } else if (response.status === 401) {
+            throw new Error('Invalid credentials');
           }
           throw new Error('Cannot connect to server');
         })
