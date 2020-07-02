@@ -39,6 +39,7 @@ private suspend inline fun HttpClient.postToBank(url: String, body: String): Str
             }
         )
     } catch (e: Exception) {
+        logger.warn("Exception during request", e)
         throw NexusError(HttpStatusCode.InternalServerError, "Cannot reach the bank")
     }
     logger.debug("Receiving: $response")
