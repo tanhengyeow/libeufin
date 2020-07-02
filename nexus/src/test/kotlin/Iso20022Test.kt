@@ -25,7 +25,7 @@ class Iso20022Test {
         assertEquals(r.reports.size, 1)
         assertEquals(r.reports[0].entries[0].entryAmount.amount, "100.00")
         assertEquals(r.reports[0].entries[0].entryAmount.currency, "EUR")
-        assertEquals(r.reports[0].entries[0].status, TransactionStatus.BOOK)
+        assertEquals(r.reports[0].entries[0].status, EntryStatus.BOOK)
         assertEquals(r.reports[0].entries[0].entryRef, null)
         assertEquals(r.reports[0].entries[0].accountServicerRef, "Bankreferenz")
         assertEquals(r.reports[0].entries[0].bankTransactionCode.domain, "PMNT")

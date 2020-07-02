@@ -136,8 +136,12 @@ fun <T : Entity<Long>> SizedIterable<T>.orderTaler(delta: Int): List<T> {
 /**
  * Build an IBAN payto URI.
  */
-fun buildIbanPaytoUri(iban: String, bic: String, name: String): String {
-    return "payto://iban/$bic/$iban?receiver-name=$name"
+fun buildIbanPaytoUri(iban: String, bic: String?, name: String): String {
+    if (bic != null) {
+        return "payto://iban/$bic/$iban?receiver-name=$name"
+    } else {
+        return "payto://iban/$iban?receiver-name=$name"
+    }
 }
 
 /** Builds the comparison operator for history entries based on the sign of 'delta'  */
@@ -350,23 +354,24 @@ private suspend fun talerAddIncoming(call: ApplicationCall, httpClient: HttpClie
 
 private fun ingestIncoming(payment: NexusBankTransactionEntity, txDtls: TransactionInfo) {
     val subject = txDtls.unstructuredRemittanceInformation
-    val debtorName = txDtls.relatedParties.debtor?.name
+    val debtorName = txDtls.debtor?.name
     if (debtorName == null) {
         logger.warn("empty debtor name")
         return
     }
-    val debtorAcct = txDtls.relatedParties.debtorAccount
+    val debtorAcct = txDtls.debtorAccount
     if (debtorAcct == null) {
         // FIXME: Report payment, we can't even send it back
         logger.warn("empty debitor account")
         return
     }
-    if (debtorAcct !is AccountIdentificationIban) {
+    val debtorIban = debtorAcct.iban
+    if (debtorIban == null) {
         // FIXME: Report payment, we can't even send it back
         logger.warn("non-iban debitor account")
         return
     }
-    val debtorAgent = txDtls.relatedParties.debtorAgent
+    val debtorAgent = txDtls.debtorAgent
     if (debtorAgent == null) {
         // FIXME: Report payment, we can't even send it back
         logger.warn("missing debitor agent")
@@ -387,7 +392,7 @@ private fun ingestIncoming(payment: NexusBankTransactionEntity, txDtls: Transact
         this.payment = payment
         reservePublicKey = reservePub
         timestampMs = System.currentTimeMillis()
-        incomingPaytoUri = buildIbanPaytoUri(debtorAcct.iban, debtorAgent.bic, debtorName)
+        incomingPaytoUri = buildIbanPaytoUri(debtorIban, debtorAgent.bic, debtorName)
     }
     return
 }
@@ -409,7 +414,7 @@ fun ingestTalerTransactions() {
             /** Those with exchange bank account involved */
             NexusBankTransactionsTable.bankAccount eq subscriberAccount.id.value and
                     /** Those that are booked */
-                    (NexusBankTransactionsTable.status eq TransactionStatus.BOOK) and
+                    (NexusBankTransactionsTable.status eq EntryStatus.BOOK) and
                     /** Those that came later than the latest processed payment */
                     (NexusBankTransactionsTable.id.greater(lastId))
         }.orderBy(Pair(NexusBankTransactionsTable.id, SortOrder.ASC)).forEach {
