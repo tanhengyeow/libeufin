@@ -27,6 +27,7 @@ import com.fasterxml.jackson.annotation.JsonSubTypes
 import com.fasterxml.jackson.annotation.JsonTypeInfo
 import com.fasterxml.jackson.annotation.JsonValue
 import org.w3c.dom.Document
+import tech.libeufin.nexus.server.CurrencyAmount
 import tech.libeufin.util.*
 import java.time.Instant
 import java.time.ZoneId
@@ -54,24 +55,30 @@ enum class TransactionStatus {
     INFO,
 }
 
-enum class CashManagementResponseType(@get:JsonValue val jsonname: String) {
+enum class CashManagementResponseType(@get:JsonValue val jsonName: String) {
     Report("report"), Statement("statement"), Notification("notification")
 }
 
-/**
- * Schemes to identify a transaction within an account.
- * An identifier from such a scheme will be used to reconcile transactions
- * from multiple sources.
- * (LibEuFin-specific, not defined by ISO 20022)
- */
-enum class TransactionIdentifierSchemes {
-    /**
-     * Reconcile based on the account servicer reference.
-     */
-    AcctSvcrRef
-}
+data class CamtReport(
+    val account: AccountIdentification,
+    val entries: List<CamtBankAccountEntry>
+)
 
-data class TransactionDetails(
+data class CamtParseResult(
+    val reports: List<CamtReport>,
+    val messageId: String,
+    /**
+     * Message type in form of the ISO 20022 message name.
+     */
+    val messageType: CashManagementResponseType,
+    val creationDateTime: String
+)
+
+@JsonInclude(JsonInclude.Include.NON_NULL)
+data class TransactionInfo(
+    val batchPaymentInformationId: String?,
+    val batchMessageId: String?,
+
     /**
      * Related parties as JSON.
      */
@@ -100,22 +107,15 @@ data class AccountIdentificationGeneric(
     val proprietary: String?
 ) : AccountIdentification()
 
-data class BankTransaction(
-    val account: AccountIdentification,
-    /**
-     * Identifier for the transaction that should be unique within an account.
-     * Prefix by the identifier scheme name followed by a colon.
-     */
-    val transactionIdentifier: String,
-    /**
-     * Scheme used for the account identifier.
-     */
-    val currency: String,
-    val amount: String,
+
+data class CamtBankAccountEntry(
+    val entryAmount: CurrencyAmount,
+
     /**
      * Booked, pending, etc.
      */
     val status: TransactionStatus,
+
     /**
      * Is this transaction debiting or crediting the account
      * it is reported for?
@@ -127,13 +127,13 @@ data class BankTransaction(
      */
     val bankTransactionCode: BankTransactionCode,
     /**
-     * Is this a batch booking?
+     * Transaction details, if this entry contains a single transaction.
      */
-    val isBatch: Boolean,
-    val details: List<TransactionDetails>,
+    val transactionInfos: List<TransactionInfo>,
     val valueDate: DateOrDateTime?,
     val bookingDate: DateOrDateTime?,
-    val accountServicerReference: String?
+    val accountServicerRef: String?,
+    val entryRef: String?
 )
 
 @JsonTypeInfo(
@@ -175,15 +175,11 @@ class DateTime(
 
 @JsonInclude(JsonInclude.Include.NON_NULL)
 data class BankTransactionCode(
-    /**
-     * Standardized bank transaction code, as "$domain/$family/$subfamily"
-     */
-    val iso: String?,
-
-    /**
-     * Proprietary code, as "$issuer/$code".
-     */
-    val proprietary: String?
+    val domain: String?,
+    val family: String?,
+    val subfamily: String?,
+    val proprietaryCode: String?,
+    val proprietaryIssuer: String?
 )
 
 data class AmountAndCurrencyExchangeDetails(
@@ -441,10 +437,12 @@ private fun XmlElementDestructor.extractAmountAndCurrencyExchangeDetails(): Amou
     )
 }
 
-private fun XmlElementDestructor.extractTransactionDetails(): List<TransactionDetails> {
+private fun XmlElementDestructor.extractTransactionInfos(): List<TransactionInfo> {
     return requireUniqueChildNamed("NtryDtls") {
         mapEachChildNamed("TxDtls") {
-            TransactionDetails(
+            TransactionInfo(
+                batchMessageId = null,
+                batchPaymentInformationId = null,
                 relatedParties = extractPartiesAndAgents(),
                 amountDetails = maybeUniqueChildNamed("AmtDtls") {
                     AmountDetails(
@@ -467,9 +465,9 @@ private fun XmlElementDestructor.extractTransactionDetails(): List<TransactionDe
     }
 }
 
-private fun XmlElementDestructor.extractInnerTransactions(): List<BankTransaction> {
+private fun XmlElementDestructor.extractInnerTransactions(): CamtReport {
     val account = requireUniqueChildNamed("Acct") { extractAccount() }
-    return mapEachChildNamed("Ntry") {
+    val entries = mapEachChildNamed("Ntry") {
         val amount = requireUniqueChildNamed("Amt") { it.textContent }
         val currency = requireUniqueChildNamed("Amt") { it.getAttribute("Ccy") }
         val status = requireUniqueChildNamed("Sts") { it.textContent }.let {
@@ -480,53 +478,43 @@ private fun XmlElementDestructor.extractInnerTransactions(): List<BankTransactio
         }
         val btc = requireUniqueChildNamed("BkTxCd") {
             BankTransactionCode(
-                proprietary = maybeUniqueChildNamed("Prtry") {
-                    val cd = requireUniqueChildNamed("Cd") { it.textContent }
-                    val issr = requireUniqueChildNamed("Issr") { it.textContent }
-                    "$issr/$cd"
-                },
-                iso = maybeUniqueChildNamed("Domn") {
-                    val cd = requireUniqueChildNamed("Cd") { it.textContent }
-                    val r = requireUniqueChildNamed("Fmly") {
-                        object {
-                            val fmlyCd = requireUniqueChildNamed("Cd") { it.textContent }
-                            val subFmlyCd = requireUniqueChildNamed("SubFmlyCd") { it.textContent }
-                        }
+                domain = maybeUniqueChildNamed("Domn") { maybeUniqueChildNamed("Cd") { it.textContent} },
+                family = maybeUniqueChildNamed("Domn") {
+                    maybeUniqueChildNamed("Fmly") {
+                        maybeUniqueChildNamed("Cd") { it.textContent }
                     }
-                    "$cd/${r.fmlyCd}/${r.subFmlyCd}"
+                },
+                subfamily = maybeUniqueChildNamed("Domn") {
+                    maybeUniqueChildNamed("Fmly") {
+                        maybeUniqueChildNamed("SubFmlyCd") { it.textContent }
+                    }
+                },
+                proprietaryCode = maybeUniqueChildNamed("Prtry") {
+                    maybeUniqueChildNamed("Cd") { it.textContent }
+                },
+                proprietaryIssuer = maybeUniqueChildNamed("Prtry") {
+                    maybeUniqueChildNamed("Issr") { it.textContent }
                 }
             )
         }
         val acctSvcrRef = maybeUniqueChildNamed("AcctSvcrRef") { it.textContent }
+        val entryRef = maybeUniqueChildNamed("NtryRef") { it.textContent }
         // For now, only support account servicer reference as id
-        val txId = "AcctSvcrRef:" + (acctSvcrRef ?: throw Exception("currently, AcctSvcrRef is mandatory in LibEuFin"))
-        val details = extractTransactionDetails()
-        BankTransaction(
-            account = account,
-            amount = amount,
-            currency = currency,
+        val transactionInfos = extractTransactionInfos()
+        CamtBankAccountEntry(
+            entryAmount = CurrencyAmount(currency, amount),
             status = status,
             creditDebitIndicator = creditDebitIndicator,
             bankTransactionCode = btc,
-            details = details,
-            isBatch = details.size > 1,
+            transactionInfos = transactionInfos,
             bookingDate = maybeUniqueChildNamed("BookgDt") { extractDateOrDateTime() },
             valueDate = maybeUniqueChildNamed("ValDt") { extractDateOrDateTime() },
-            accountServicerReference = acctSvcrRef,
-            transactionIdentifier = txId
+            accountServicerRef = acctSvcrRef,
+            entryRef = entryRef
         )
     }
+    return CamtReport(account, entries);
 }
-
-data class CamtParseResult(
-    val transactions: List<BankTransaction>,
-    val messageId: String,
-    /**
-     * Message type in form of the ISO 20022 message name.
-     */
-    val messageType: CashManagementResponseType,
-    val creationDateTime: String
-)
 
 /**
  * Extract a list of transactions from an ISO20022 camt.052 / camt.053 message.
@@ -535,7 +523,7 @@ fun parseCamtMessage(doc: Document): CamtParseResult {
     return destructXml(doc) {
         requireRootElement("Document") {
             // Either bank to customer statement or report
-            val transactions = requireOnlyChild {
+            val reports = requireOnlyChild {
                 when (it.localName) {
                     "BkToCstmrAcctRpt" -> {
                         mapEachChildNamed("Rpt") {
@@ -551,7 +539,7 @@ fun parseCamtMessage(doc: Document): CamtParseResult {
                         throw CamtParsingError("expected statement or report")
                     }
                 }
-            }.flatten()
+            }
             val messageId = requireOnlyChild {
                 requireUniqueChildNamed("GrpHdr") {
                     requireUniqueChildNamed("MsgId") { it.textContent }
@@ -571,7 +559,7 @@ fun parseCamtMessage(doc: Document): CamtParseResult {
                     }
                 }
             }
-            CamtParseResult(transactions, messageId, messageType, creationDateTime)
+            CamtParseResult(reports, messageId, messageType, creationDateTime)
         }
     }
 }

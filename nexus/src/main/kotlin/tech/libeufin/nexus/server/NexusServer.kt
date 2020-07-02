@@ -48,7 +48,6 @@ import io.ktor.server.netty.Netty
 import io.ktor.utils.io.ByteReadChannel
 import io.ktor.utils.io.jvm.javaio.toByteReadChannel
 import io.ktor.utils.io.jvm.javaio.toInputStream
-import org.jetbrains.exposed.dao.id.EntityID
 import org.jetbrains.exposed.sql.and
 import org.jetbrains.exposed.sql.select
 import org.jetbrains.exposed.sql.transactions.transaction
@@ -574,7 +573,7 @@ fun serverMain(dbName: String, host: String) {
                 transaction {
                     authenticateRequest(call.request).id.value
                     NexusBankTransactionEntity.all().map {
-                        val tx = jacksonObjectMapper().readValue(it.transactionJson, BankTransaction::class.java)
+                        val tx = jacksonObjectMapper().readValue(it.transactionJson, CamtBankAccountEntry::class.java)
                         ret.transactions.add(tx)
                     }
                 }

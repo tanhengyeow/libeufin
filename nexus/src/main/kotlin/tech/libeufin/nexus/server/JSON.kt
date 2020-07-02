@@ -24,7 +24,9 @@ import com.fasterxml.jackson.annotation.JsonTypeInfo
 import com.fasterxml.jackson.annotation.JsonTypeName
 import com.fasterxml.jackson.annotation.JsonValue
 import com.fasterxml.jackson.databind.JsonNode
-import tech.libeufin.nexus.BankTransaction
+import tech.libeufin.nexus.CamtBankAccountEntry
+import tech.libeufin.nexus.CreditDebitIndicator
+import tech.libeufin.nexus.TransactionStatus
 import tech.libeufin.util.*
 import java.time.Instant
 import java.time.ZoneId
@@ -224,7 +226,7 @@ data class PaymentStatus(
 )
 
 data class Transactions(
-    val transactions: MutableList<BankTransaction> = mutableListOf()
+    val transactions: MutableList<CamtBankAccountEntry> = mutableListOf()
 )
 
 data class BankProtocolsResponse(
@@ -338,4 +340,24 @@ data class CreateAccountTaskRequest(
 data class ImportBankAccount(
     val offeredAccountId: String,
     val nexusBankAccountId: String
+)
+
+data class CurrencyAmount(
+    val currency: String,
+    val amount: String
+)
+
+
+/**
+ * Account entry item as returned by the /bank-accounts/{acctId}/transactions API.
+ */
+data class AccountEntryItemJson(
+    val nexusEntryId: String,
+    val nexusStatusSequenceId: Int,
+
+    val entryId: String?,
+    val accountServicerRef: String?,
+    val creditDebitIndicator: CreditDebitIndicator,
+    val entryAmount: CurrencyAmount,
+    val status: TransactionStatus
 )

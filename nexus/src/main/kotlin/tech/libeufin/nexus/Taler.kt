@@ -348,7 +348,7 @@ private suspend fun talerAddIncoming(call: ApplicationCall, httpClient: HttpClie
 }
 
 
-private fun ingestIncoming(payment: NexusBankTransactionEntity, txDtls: TransactionDetails) {
+private fun ingestIncoming(payment: NexusBankTransactionEntity, txDtls: TransactionInfo) {
     val subject = txDtls.unstructuredRemittanceInformation
     val debtorName = txDtls.relatedParties.debtor?.name
     if (debtorName == null) {
@@ -414,13 +414,13 @@ fun ingestTalerTransactions() {
                     (NexusBankTransactionsTable.id.greater(lastId))
         }.orderBy(Pair(NexusBankTransactionsTable.id, SortOrder.ASC)).forEach {
             // Incoming payment.
-            val tx = jacksonObjectMapper().readValue(it.transactionJson, BankTransaction::class.java)
-            if (tx.isBatch) {
+            val tx = jacksonObjectMapper().readValue(it.transactionJson, CamtBankAccountEntry::class.java)
+            if (tx.transactionInfos.size != 1) {
                 // We don't support batch transactions at the moment!
                 logger.warn("batch transactions not supported")
             } else {
                 when (tx.creditDebitIndicator) {
-                    CreditDebitIndicator.CRDT -> ingestIncoming(it, txDtls = tx.details[0])
+                    CreditDebitIndicator.CRDT -> ingestIncoming(it, txDtls = tx.transactionInfos[0])
                 }
             }
             lastId = it.id.value

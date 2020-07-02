@@ -22,11 +22,24 @@ class Iso20022Test {
         assertEquals(r.messageId, "27632364572")
         assertEquals(r.creationDateTime, "2016-05-11T19:30:47.0+01:00")
         assertEquals(r.messageType, CashManagementResponseType.Statement)
-        for (tx in r.transactions) {
-            // Make sure that roundtripping works
-            val txStr = jacksonObjectMapper().writerWithDefaultPrettyPrinter().writeValueAsString(tx)
+        assertEquals(r.reports.size, 1)
+        assertEquals(r.reports[0].entries[0].entryAmount.amount, "100.00")
+        assertEquals(r.reports[0].entries[0].entryAmount.currency, "EUR")
+        assertEquals(r.reports[0].entries[0].status, TransactionStatus.BOOK)
+        assertEquals(r.reports[0].entries[0].entryRef, null)
+        assertEquals(r.reports[0].entries[0].accountServicerRef, "Bankreferenz")
+        assertEquals(r.reports[0].entries[0].bankTransactionCode.domain, "PMNT")
+        assertEquals(r.reports[0].entries[0].bankTransactionCode.family, "RCDT")
+        assertEquals(r.reports[0].entries[0].bankTransactionCode.subfamily, "ESCT")
+        assertEquals(r.reports[0].entries[0].bankTransactionCode.proprietaryCode, "166")
+        assertEquals(r.reports[0].entries[0].bankTransactionCode.proprietaryIssuer, "DK")
+        assertEquals(r.reports[0].entries[0].transactionInfos.size, 1)
+
+        // Make sure that round-tripping of entry CamtBankAccountEntry JSON works
+        for (entry in r.reports.flatMap { it.entries }) {
+            val txStr = jacksonObjectMapper().writerWithDefaultPrettyPrinter().writeValueAsString(entry)
             println(txStr)
-            val tx2 = jacksonObjectMapper().readValue(txStr, BankTransaction::class.java)
+            val tx2 = jacksonObjectMapper().readValue(txStr, CamtBankAccountEntry::class.java)
             val tx2Str = jacksonObjectMapper().writerWithDefaultPrettyPrinter().writeValueAsString(tx2)
             assertEquals(jacksonObjectMapper().readTree(txStr), jacksonObjectMapper().readTree(tx2Str))
         }

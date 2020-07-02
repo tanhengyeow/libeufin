@@ -2,11 +2,15 @@
   <dictionary name="dold">
     <words>
       <w>affero</w>
+      <w>camt</w>
       <w>combinators</w>
+      <w>crdt</w>
       <w>cronspec</w>
+      <w>dbit</w>
       <w>ebics</w>
       <w>libeufin</w>
       <w>payto</w>
+      <w>pdng</w>
       <w>sqlite</w>
     </words>
   </dictionary>

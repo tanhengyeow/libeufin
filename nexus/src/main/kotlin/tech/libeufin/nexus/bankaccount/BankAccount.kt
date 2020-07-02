@@ -21,21 +21,17 @@ package tech.libeufin.nexus.bankaccount
 
 import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
 import io.ktor.application.ApplicationCall
-import io.ktor.application.call
 import io.ktor.client.HttpClient
 import io.ktor.http.HttpStatusCode
 import org.jetbrains.exposed.sql.*
 import org.jetbrains.exposed.sql.transactions.transaction
 import org.w3c.dom.Document
 import tech.libeufin.nexus.*
-import tech.libeufin.nexus.OfferedBankAccountsTable.iban
-import tech.libeufin.nexus.OfferedBankAccountsTable.imported
 import tech.libeufin.nexus.ebics.fetchEbicsBySpec
 import tech.libeufin.nexus.ebics.submitEbicsPaymentInitiation
 import tech.libeufin.nexus.server.FetchSpecJson
 import tech.libeufin.nexus.server.Pain001Data
 import tech.libeufin.nexus.server.requireBankConnection
-import tech.libeufin.nexus.server.requireBankConnectionInternal
 import tech.libeufin.util.XMLUtil
 import java.time.Instant
 import java.time.ZonedDateTime
@@ -139,10 +135,10 @@ fun processCamtMessage(
             }
         }
 
-        val transactions = res.transactions
-        logger.info("found ${transactions.size} transactions")
-        txloop@ for (tx in transactions) {
-            val acctSvcrRef = tx.accountServicerReference
+        val entries = res.reports.map { it.entries }.flatten()
+        logger.info("found ${entries.size} transactions")
+        txloop@ for (tx in entries) {
+            val acctSvcrRef = tx.accountServicerRef
             if (acctSvcrRef == null) {
                 // FIXME(dold): Report this!
                 logger.error("missing account servicer reference in transaction")
@@ -158,15 +154,15 @@ fun processCamtMessage(
             val rawEntity = NexusBankTransactionEntity.new {
                 bankAccount = acct
                 accountTransactionId = "AcctSvcrRef:$acctSvcrRef"
-                amount = tx.amount
-                currency = tx.currency
+                amount = tx.entryAmount.amount
+                currency = tx.entryAmount.currency
                 transactionJson = jacksonObjectMapper().writerWithDefaultPrettyPrinter().writeValueAsString(tx)
                 creditDebitIndicator = tx.creditDebitIndicator.name
                 status = tx.status
             }
             rawEntity.flush()
             if (tx.creditDebitIndicator == CreditDebitIndicator.DBIT) {
-                val t0 = tx.details.getOrNull(0)
+                val t0 = tx.transactionInfos.getOrNull(0)
                 val msgId = t0?.references?.messageIdentification
                 val pmtInfId = t0?.references?.paymentInformationIdentification
                 if (t0 != null && msgId != null && pmtInfId != null) {
