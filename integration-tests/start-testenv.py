@@ -367,6 +367,19 @@ assertResponse(
         headers=dict(Authorization=USER_AUTHORIZATION_HEADER),
     )
 )
+
+# 2.d, import bank account
+assertResponse(
+    post(
+        "http://localhost:5001/bank-connections/my-ebics-1/import-account",
+        json=dict(
+          offeredAccountId=BC1_SUBSCRIBER1_BANK_ACCOUNT_LABEL,
+          nexusBankAccountId=BC1_SUBSCRIBER1_BANK_ACCOUNT_LABEL
+        ),
+        headers=dict(Authorization=USER_AUTHORIZATION_HEADER),
+    )
+)
+
 # assertResponse(
 #     post(
 #         "http://localhost:5001/bank-connections/my-ebics-3/import-accounts",
@@ -382,7 +395,7 @@ assertResponse(
 #     )
 # )
 
-# # 3, ask nexus to download history
+# 3, ask nexus to download history
 # assertResponse(
 #     post(
 #         f"http://localhost:5001/bank-accounts/{BC1_SUBSCRIBER1_BANK_ACCOUNT_LABEL}/fetch-transactions",
@@ -390,7 +403,7 @@ assertResponse(
 #     )
 # )
 
-# # 4, make sure history is empty
+# 4, make sure history is empty
 # resp = assertResponse(
 #     get(
 #         f"http://localhost:5001/bank-accounts/{BC1_SUBSCRIBER1_BANK_ACCOUNT_LABEL}/transactions",
@@ -400,25 +413,25 @@ assertResponse(
 # if len(resp.json().get("transactions")) != 0:
 #     fail("unexpected number of transactions")
 
-# # 5.a, prepare a payment
-# resp = assertResponse(
-#     post(
-#         "http://localhost:5001/bank-accounts/{}/payment-initiations".format(
-#             BC1_SUBSCRIBER1_BANK_ACCOUNT_LABEL
-#         ),
-#         json=dict(
-#             iban="FR7630006000011234567890189",
-#             bic="AGRIFRPP",
-#             name="Jacques La Fayette",
-#             subject="integration test",
-#             amount="EUR:1",
-#         ),
-#         headers=dict(Authorization=USER_AUTHORIZATION_HEADER),
-#     )
-# )
-# PREPARED_PAYMENT_UUID = resp.json().get("uuid")
-# if PREPARED_PAYMENT_UUID == None:
-#     fail("Payment UUID not received")
+# 5.a, prepare a payment
+resp = assertResponse(
+    post(
+        "http://localhost:5001/bank-accounts/{}/payment-initiations".format(
+            BC1_SUBSCRIBER1_BANK_ACCOUNT_LABEL
+        ),
+        json=dict(
+            iban="FR7630006000011234567890189",
+            bic="AGRIFRPP",
+            name="Jacques La Fayette",
+            subject="integration test",
+            amount="EUR:1",
+        ),
+        headers=dict(Authorization=USER_AUTHORIZATION_HEADER),
+    )
+)
+PREPARED_PAYMENT_UUID = resp.json().get("uuid")
+if PREPARED_PAYMENT_UUID == None:
+    fail("Payment UUID not received")
 
 # # 5.b, submit prepared statement
 # assertResponse(
