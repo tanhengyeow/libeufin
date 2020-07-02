@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Button, Drawer, Input, Form, Steps } from 'antd';
+import { message, Button, Drawer, Input, Form, Steps } from 'antd';
 const { Step } = Steps;
 
 const layout = {
@@ -19,6 +19,10 @@ const AddBankConnectionDrawer = (props) => {
   const [systemID, setSystemID] = useState('');
 
   const steps = [{ title: 'Fill up details' }, { title: 'Print document' }];
+
+  const showError = (err) => {
+    message.error(String(err));
+  };
 
   const createBankConnection = async () => {
     const authHeader = await window.localStorage.getItem('authHeader');
@@ -109,17 +113,33 @@ const AddBankConnectionDrawer = (props) => {
   };
 
   const next = async () => {
-    await createBankConnection();
-    await connectBankConnection();
-    await fetchKeyLetter();
-    await updateBankAccounts();
+    let isError = true;
+    await createBankConnection()
+      .then(async () => {
+        await connectBankConnection()
+          .then(async () => {
+            await fetchKeyLetter()
+              .then(async () => {
+                await updateBankAccounts()
+                  .then(() => {
+                    isError = false;
+                  })
+                  .catch((err) => showError(err));
+              })
+              .catch((err) => showError(err));
+          })
+          .catch((err) => showError(err));
+      })
+      .catch((err) => showError(err));
 
-    setServerURL('');
-    setHostID('');
-    setPartnerID('');
-    setUserID('');
-    setSystemID('');
-    setCurrentStep(currentStep + 1);
+    if (!isError) {
+      setServerURL('');
+      setHostID('');
+      setPartnerID('');
+      setUserID('');
+      setSystemID('');
+      setCurrentStep(currentStep + 1);
+    }
   };
 
   const closeDrawer = () => {
