@@ -131,8 +131,8 @@ data class TransactionInfo(
     val paymentInformationId: String? = null,
     val messageId: String? = null,
 
-    val amount: CurrencyAmount?,
-    val creditDebitIndicator: CreditDebitIndicator?,
+    val amount: CurrencyAmount,
+    val creditDebitIndicator: CreditDebitIndicator,
 
     val instructedAmount: CurrencyAmount?,
     val transactionAmount: CurrencyAmount?,
@@ -230,7 +230,10 @@ fun createPain001document(paymentData: NexusPaymentInitiationData): String {
         root("Document") {
             attribute("xmlns", "urn:iso:std:iso:20022:tech:xsd:pain.001.001.03")
             attribute("xmlns:xsi", "http://www.w3.org/2001/XMLSchema-instance")
-            attribute("xsi:schemaLocation", "urn:iso:std:iso:20022:tech:xsd:pain.001.001.03 pain.001.001.03.xsd")
+            attribute(
+                "xsi:schemaLocation",
+                "urn:iso:std:iso:20022:tech:xsd:pain.001.001.03 pain.001.001.03.xsd"
+            )
             element("CstmrCdtTrfInitn") {
                 element("GrpHdr") {
                     element("MsgId") {
@@ -408,21 +411,67 @@ private fun XmlElementDestructor.extractMaybeCurrencyExchange(): CurrencyExchang
 }
 
 
-private fun XmlElementDestructor.extractTransactionInfos(): List<TransactionInfo> {
+private fun XmlElementDestructor.extractTransactionInfos(
+    outerAmount: CurrencyAmount,
+    outerCreditDebitIndicator: CreditDebitIndicator
+): List<TransactionInfo> {
+
+    val numTxDtls = requireUniqueChildNamed("NtryDtls") {
+        mapEachChildNamed("TxDtls") { Unit }
+    }.count()
+
     return requireUniqueChildNamed("NtryDtls") {
         mapEachChildNamed("TxDtls") {
+
+            val instructedAmount = maybeUniqueChildNamed("AmtDtls") {
+                maybeUniqueChildNamed("InstrAmt") { extractCurrencyAmount() }
+            }
+
+            val transactionAmount = maybeUniqueChildNamed("AmtDtls") {
+                maybeUniqueChildNamed("TxAmt") { extractCurrencyAmount() }
+            }
+
+            var amount = maybeExtractCurrencyAmount()
+            var creditDebitIndicator = maybeUniqueChildNamed("CdtDbtInd") { it.textContent }?.let {
+                CreditDebitIndicator.valueOf(it)
+            }
+            if (amount == null) {
+                when {
+                    numTxDtls == 1 -> {
+                        amount = outerAmount
+                        creditDebitIndicator = outerCreditDebitIndicator
+                    }
+                    transactionAmount?.currency == outerAmount.currency -> {
+                        amount = transactionAmount
+                        creditDebitIndicator = outerCreditDebitIndicator
+                    }
+                    instructedAmount?.currency == outerAmount.currency -> {
+                        amount = instructedAmount
+                        creditDebitIndicator = outerCreditDebitIndicator
+                    }
+                    else -> {
+                        throw Error("invalid camt, no amount for transaction details of entry details")
+                    }
+                }
+            }
+
+            if (creditDebitIndicator == null) {
+                throw Error("invalid camt, no credit/debit indicator for transaction details of entry details")
+            }
+
             TransactionInfo(
                 batchMessageId = null,
                 batchPaymentInformationId = null,
-                amount = maybeExtractCurrencyAmount(),
-                creditDebitIndicator = maybeUniqueChildNamed("CdtDbtInd") { it.textContent }?.let {
-                    CreditDebitIndicator.valueOf(it)
+                amount = amount,
+                creditDebitIndicator = creditDebitIndicator,
+                instructedAmount = instructedAmount,
+                instructedAmountCurrencyExchange = maybeUniqueChildNamed("AmtDtls") {
+                    maybeUniqueChildNamed("InstrAmt") { extractMaybeCurrencyExchange() }
                 },
-                instructedAmount = maybeUniqueChildNamed("AmtDtls") { maybeUniqueChildNamed("InstrAmt") { extractCurrencyAmount() } },
-                instructedAmountCurrencyExchange = maybeUniqueChildNamed("AmtDtls") { maybeUniqueChildNamed("InstrAmt") { extractMaybeCurrencyExchange() } },
-                transactionAmount = maybeUniqueChildNamed("AmtDtls") { maybeUniqueChildNamed("TxAmt") { extractCurrencyAmount() } },
-                transactionAmountCurrencyExchange = maybeUniqueChildNamed("AmtDtls") { maybeUniqueChildNamed("TxAmt") { extractMaybeCurrencyExchange() } },
-
+                transactionAmount = transactionAmount,
+                transactionAmountCurrencyExchange = maybeUniqueChildNamed("AmtDtls") {
+                    maybeUniqueChildNamed("TxAmt") { extractMaybeCurrencyExchange() }
+                },
                 endToEndId = maybeUniqueChildNamed("Refs") {
                     maybeUniqueChildNamed("EndToEndId") { it.textContent }
                 },
@@ -434,7 +483,7 @@ private fun XmlElementDestructor.extractTransactionInfos(): List<TransactionInfo
                 },
                 unstructuredRemittanceInformation = maybeUniqueChildNamed("RmtInf") {
                     val chunks = mapEachChildNamed("Ustrd", { it.textContent })
-                    if (chunks.size == 0) {
+                    if (chunks.isEmpty()) {
                         null
                     } else {
                         chunks.joinToString()
@@ -486,7 +535,7 @@ private fun XmlElementDestructor.extractInnerTransactions(): CamtReport {
         val acctSvcrRef = maybeUniqueChildNamed("AcctSvcrRef") { it.textContent }
         val entryRef = maybeUniqueChildNamed("NtryRef") { it.textContent }
         // For now, only support account servicer reference as id
-        val transactionInfos = extractTransactionInfos()
+        val transactionInfos = extractTransactionInfos(CurrencyAmount(currency, amount), creditDebitIndicator)
         CamtBankAccountEntry(
             entryAmount = CurrencyAmount(currency, amount),
             status = status,

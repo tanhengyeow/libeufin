@@ -17,17 +17,17 @@ fun loadXmlResource(name: String): Document {
 class Iso20022Test {
     @Test
     fun testTransactionsImport() {
-        val camt53 = loadXmlResource("iso20022-samples/camt.053.001.02.gesamtbeispiel.xml")
+        val camt53 = loadXmlResource("iso20022-samples/camt.053/de.camt.053.001.02.xml")
         val r = parseCamtMessage(camt53)
-        assertEquals(r.messageId, "27632364572")
-        assertEquals(r.creationDateTime, "2016-05-11T19:30:47.0+01:00")
+        assertEquals(r.messageId, "msg-001")
+        assertEquals(r.creationDateTime, "2020-07-03T12:44:40+05:30")
         assertEquals(r.messageType, CashManagementResponseType.Statement)
         assertEquals(r.reports.size, 1)
         assertEquals(r.reports[0].entries[0].entryAmount.amount, "100.00")
         assertEquals(r.reports[0].entries[0].entryAmount.currency, "EUR")
         assertEquals(r.reports[0].entries[0].status, EntryStatus.BOOK)
         assertEquals(r.reports[0].entries[0].entryRef, null)
-        assertEquals(r.reports[0].entries[0].accountServicerRef, "Bankreferenz")
+        assertEquals(r.reports[0].entries[0].accountServicerRef, "acctsvcrref-001")
         assertEquals(r.reports[0].entries[0].bankTransactionCode.domain, "PMNT")
         assertEquals(r.reports[0].entries[0].bankTransactionCode.family, "RCDT")
         assertEquals(r.reports[0].entries[0].bankTransactionCode.subfamily, "ESCT")

@@ -1,0 +1,195 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- This file has been placed in the public domain -->
+<!-- Sample camt.053 according to the interpretation of the German DK rules -->
+<!-- IBANs have been randomly generated with a BBAN of 12345678 -->
+<Document xmlns="urn:iso:std:iso:20022:tech:xsd:camt.053.001.02" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="urn:iso:std:iso:20022:tech:xsd:camt.053.001.02 camt.053.001.02.xsd">
+    <BkToCstmrStmt>
+        <GrpHdr>
+            <MsgId>msg-001</MsgId>
+            <CreDtTm>2020-07-03T12:44:40+05:30</CreDtTm>
+        </GrpHdr>
+        <Stmt>
+            <Id>stmt-001</Id>
+            <CreDtTm>2020-07-03T11:00:40+05:30</CreDtTm>
+            <Acct>
+                <Id>
+                    <IBAN>DE54123456784713474163</IBAN>
+                </Id>
+            </Acct>
+            <Bal>
+                <Tp>
+                    <CdOrPrtry>
+                        <Cd>PRCD</Cd>
+                    </CdOrPrtry>
+                </Tp>
+                <Amt Ccy="EUR">500</Amt>
+                <CdtDbtInd>CRDT</CdtDbtInd>
+                <Dt>
+                    <Dt>2020-07-03</Dt>
+                </Dt>
+            </Bal>
+            <Ntry>
+                <Amt Ccy="EUR">100.00</Amt>
+                <CdtDbtInd>CRDT</CdtDbtInd>
+                <Sts>BOOK</Sts>
+                <BookgDt>
+                    <Dt>2020-07-02</Dt>
+                </BookgDt>
+                <ValDt>
+                    <Dt>2020-07-04</Dt>
+                </ValDt>
+                <AcctSvcrRef>acctsvcrref-001</AcctSvcrRef>
+                <BkTxCd>
+                    <Domn>
+                        <Cd>PMNT</Cd>
+                        <Fmly>
+                            <Cd>RCDT</Cd>
+                            <SubFmlyCd>ESCT</SubFmlyCd>
+                        </Fmly>
+                    </Domn>
+                    <Prtry>
+                        <Cd>166</Cd>
+                        <Issr>DK</Issr>
+                    </Prtry>
+                </BkTxCd>
+                <!-- Credit due to incoming SCT -->
+                <NtryDtls>
+                    <TxDtls>
+                        <Refs>
+                            <EndToEndId>e2e-001</EndToEndId>
+                        </Refs>
+                        <BkTxCd>
+                            <Domn>
+                                <Cd>PMNT</Cd>
+                                <Fmly>
+                                    <Cd>RCDT</Cd>
+                                    <SubFmlyCd>ESCT</SubFmlyCd>
+                                </Fmly>
+                            </Domn>
+                            <Prtry>
+                                <Cd>NTRF+166</Cd>
+                                <Issr>DK</Issr>
+                            </Prtry>
+                        </BkTxCd>
+                        <RltdPties>
+                            <Dbtr>
+                                <Nm>Debtor One</Nm>
+                            </Dbtr>
+                            <DbtrAcct>
+                                <Id>
+                                    <IBAN>DE52123456789473323175</IBAN>
+                                </Id>
+                            </DbtrAcct>
+                            <UltmtDbtr>
+                                <Nm>Ultimate Debtor One</Nm>
+                            </UltmtDbtr>
+                            <Cdtr>
+                                <Nm>Creditor One</Nm>
+                            </Cdtr>
+                            <UltmtCdtr>
+                                <Nm>Ultimate Creditor One</Nm>
+                            </UltmtCdtr>
+                        </RltdPties>
+                        <Purp>
+                            <Cd>GDDS</Cd>
+                        </Purp>
+                        <RmtInf>
+                            <Ustrd>unstructured info one</Ustrd>
+                        </RmtInf>
+                    </TxDtls>
+                </NtryDtls>
+                <AddtlNtryInf>SEPA GUTSCHRIFT</AddtlNtryInf>
+            </Ntry>
+            <!-- Credit due to incoming USD transfer -->
+            <Ntry>
+                <Amt Ccy="EUR">1000</Amt>
+                <CdtDbtInd>CRDT</CdtDbtInd>
+                <Sts>BOOK</Sts>
+                <BookgDt>
+                    <Dt>2020-07-03</Dt>
+                </BookgDt>
+                <ValDt>
+                    <Dt>2020-07-04</Dt>
+                </ValDt>
+                <AcctSvcrRef>acctsvcrref-002</AcctSvcrRef>
+                <BkTxCd>
+                    <Domn>
+                        <Cd>PMNT</Cd>
+                        <Fmly>
+                            <Cd>RCDT</Cd>
+                            <SubFmlyCd>XBCT</SubFmlyCd>
+                        </Fmly>
+                    </Domn>
+                    <Prtry>
+                        <Cd>NTRF+202</Cd>
+                        <Issr>DK</Issr>
+                    </Prtry>
+                </BkTxCd>
+                <NtryDtls>
+                    <TxDtls>
+                        <AmtDtls>
+                            <InstdAmt>
+                                <Amt Ccy="USD">1500</Amt>
+                            </InstdAmt>
+                            <TxAmt>
+                                <Amt Ccy="EUR">1000</Amt>
+                            </TxAmt>
+                            <CntrValAmt>
+                                <Amt Ccy="EUR">1250.0</Amt>
+                                <CcyXchg>
+                                    <SrcCcy>USD</SrcCcy>
+                                    <TrgtCcy>EUR</TrgtCcy>
+                                    <XchgRate>1.20</XchgRate>
+                                </CcyXchg>
+                            </CntrValAmt>
+                        </AmtDtls>
+                        <BkTxCd>
+                            <Domn>
+                                <Cd>PMNT</Cd>
+                                <Fmly>
+                                    <Cd>RCDT</Cd>
+                                    <SubFmlyCd>XBCT</SubFmlyCd>
+                                </Fmly>
+                            </Domn>
+                            <Prtry>
+                                <Cd>NTRF+202</Cd>
+                                <Issr>DK</Issr>
+                            </Prtry>
+                        </BkTxCd>
+                        <Chrgs>
+                            <Amt Ccy="EUR">250.00</Amt>
+                        </Chrgs>
+                        <RltdPties>
+                            <Dbtr>
+                                <Nm>Some US Bank</Nm>
+                                <PstlAdr>
+                                    <Ctry>US</Ctry>
+                                    <AdrLine>42 Some Street</AdrLine>
+                                    <AdrLine>4242 Somewhere</AdrLine>
+                                </PstlAdr>
+                            </Dbtr>
+                            <DbtrAcct>
+                                <Id>
+                                    <Othr>
+                                        <Id>9876543</Id>
+                                    </Othr>
+                                </Id>
+                            </DbtrAcct>
+                        </RltdPties>
+                        <RltdAgts>
+                            <DbtrAgt>
+                                <FinInstnId>
+                                    <BIC>BANKUSNY</BIC>
+                                </FinInstnId>
+                            </DbtrAgt>
+                        </RltdAgts>
+                        <RmtInf>
+                            <Ustrd>Invoice No. 4242</Ustrd>
+                        </RmtInf>
+                    </TxDtls>
+                </NtryDtls>
+                <AddtlNtryInf>AZV-UEBERWEISUNGSGUTSCHRIFT</AddtlNtryInf>
+            </Ntry>
+        </Stmt>
+    </BkToCstmrStmt>
+</Document>
