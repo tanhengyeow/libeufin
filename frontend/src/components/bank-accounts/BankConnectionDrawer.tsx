@@ -131,8 +131,10 @@ const BankConnectionDrawer = (props) => {
     >
       <div
         style={{
-          position: 'absolute',
-          right: 20,
+          display: 'flex',
+          justifyContent: 'flex-end',
+          marginBottom: 20,
+          fontSize: 18,
         }}
       >
         <a href={printLink} target="_blank">
