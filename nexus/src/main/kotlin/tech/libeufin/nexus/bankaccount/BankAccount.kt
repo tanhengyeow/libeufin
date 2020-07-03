@@ -163,8 +163,8 @@ fun processCamtMessage(
             rawEntity.flush()
             if (tx.creditDebitIndicator == CreditDebitIndicator.DBIT) {
                 val t0 = tx.transactionInfos.getOrNull(0)
-                val msgId = t0?.references?.messageIdentification
-                val pmtInfId = t0?.references?.paymentInformationIdentification
+                val msgId = t0?.messageId
+                val pmtInfId = t0?.paymentInformationId
                 if (t0 != null && msgId != null && pmtInfId != null) {
                     val paymentInitiation = PaymentInitiationEntity.find {
                         (PaymentInitiationsTable.messageId eq msgId) and

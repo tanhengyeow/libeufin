@@ -8,9 +8,11 @@
       <w>cronspec</w>
       <w>dbit</w>
       <w>ebics</w>
+      <w>infos</w>
       <w>libeufin</w>
       <w>payto</w>
       <w>pdng</w>
+      <w>servicer</w>
       <w>sqlite</w>
     </words>
   </dictionary>

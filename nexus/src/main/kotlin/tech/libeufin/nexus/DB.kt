@@ -131,7 +131,7 @@ object NexusBankTransactionsTable : LongIdTable() {
     /**
      * Booked / pending / informational.
      */
-    val status = enumerationByName("status", 16, TransactionStatus::class)
+    val status = enumerationByName("status", 16, EntryStatus::class)
 
     /**
      * Another, later transaction that updates the status of the current transaction.

@@ -26,7 +26,7 @@ import com.fasterxml.jackson.annotation.JsonValue
 import com.fasterxml.jackson.databind.JsonNode
 import tech.libeufin.nexus.CamtBankAccountEntry
 import tech.libeufin.nexus.CreditDebitIndicator
-import tech.libeufin.nexus.TransactionStatus
+import tech.libeufin.nexus.EntryStatus
 import tech.libeufin.util.*
 import java.time.Instant
 import java.time.ZoneId
@@ -359,5 +359,5 @@ data class AccountEntryItemJson(
     val accountServicerRef: String?,
     val creditDebitIndicator: CreditDebitIndicator,
     val entryAmount: CurrencyAmount,
-    val status: TransactionStatus
+    val status: EntryStatus
 )
