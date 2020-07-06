@@ -19,21 +19,33 @@ class Iso20022Test {
     fun testTransactionsImport() {
         val camt53 = loadXmlResource("iso20022-samples/camt.053/de.camt.053.001.02.xml")
         val r = parseCamtMessage(camt53)
-        assertEquals(r.messageId, "msg-001")
-        assertEquals(r.creationDateTime, "2020-07-03T12:44:40+05:30")
-        assertEquals(r.messageType, CashManagementResponseType.Statement)
-        assertEquals(r.reports.size, 1)
-        assertEquals(r.reports[0].entries[0].entryAmount.amount, "100.00")
-        assertEquals(r.reports[0].entries[0].entryAmount.currency, "EUR")
-        assertEquals(r.reports[0].entries[0].status, EntryStatus.BOOK)
-        assertEquals(r.reports[0].entries[0].entryRef, null)
-        assertEquals(r.reports[0].entries[0].accountServicerRef, "acctsvcrref-001")
-        assertEquals(r.reports[0].entries[0].bankTransactionCode.domain, "PMNT")
-        assertEquals(r.reports[0].entries[0].bankTransactionCode.family, "RCDT")
-        assertEquals(r.reports[0].entries[0].bankTransactionCode.subfamily, "ESCT")
-        assertEquals(r.reports[0].entries[0].bankTransactionCode.proprietaryCode, "166")
-        assertEquals(r.reports[0].entries[0].bankTransactionCode.proprietaryIssuer, "DK")
-        assertEquals(r.reports[0].entries[0].transactionInfos.size, 1)
+        assertEquals("msg-001", r.messageId)
+        assertEquals("2020-07-03T12:44:40+05:30", r.creationDateTime)
+        assertEquals(CashManagementResponseType.Statement, r.messageType)
+        assertEquals(1, r.reports.size)
+
+        // First Entry
+        assertEquals("100.00", r.reports[0].entries[0].entryAmount.amount)
+        assertEquals("EUR", r.reports[0].entries[0].entryAmount.currency)
+        assertEquals(CreditDebitIndicator.CRDT, r.reports[0].entries[0].creditDebitIndicator)
+        assertEquals(EntryStatus.BOOK, r.reports[0].entries[0].status)
+        assertEquals(null, r.reports[0].entries[0].entryRef)
+        assertEquals("acctsvcrref-001", r.reports[0].entries[0].accountServicerRef)
+        assertEquals("PMNT", r.reports[0].entries[0].bankTransactionCode.domain)
+        assertEquals("RCDT", r.reports[0].entries[0].bankTransactionCode.family)
+        assertEquals("ESCT", r.reports[0].entries[0].bankTransactionCode.subfamily)
+        assertEquals("166", r.reports[0].entries[0].bankTransactionCode.proprietaryCode)
+        assertEquals("DK", r.reports[0].entries[0].bankTransactionCode.proprietaryIssuer)
+        assertEquals(1, r.reports[0].entries[0].transactionInfos.size)
+        assertEquals("EUR", r.reports[0].entries[0].transactionInfos[0].amount.currency)
+        assertEquals("100.00", r.reports[0].entries[0].transactionInfos[0].amount.amount)
+        assertEquals(CreditDebitIndicator.CRDT, r.reports[0].entries[0].transactionInfos[0].creditDebitIndicator)
+        assertEquals("unstructured info one", r.reports[0].entries[0].transactionInfos[0].unstructuredRemittanceInformation)
+
+        // Second Entry
+        assertEquals("unstructured info across lines", r.reports[0].entries[1].transactionInfos[0].unstructuredRemittanceInformation)
+
+        // Third Entry
 
         // Make sure that round-tripping of entry CamtBankAccountEntry JSON works
         for (entry in r.reports.flatMap { it.entries }) {

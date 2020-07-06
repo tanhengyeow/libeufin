@@ -28,6 +28,8 @@
                     <Dt>2020-07-03</Dt>
                 </Dt>
             </Bal>
+
+            <!-- Credit due to incoming SCT -->
             <Ntry>
                 <Amt Ccy="EUR">100.00</Amt>
                 <CdtDbtInd>CRDT</CdtDbtInd>
@@ -52,7 +54,6 @@
                         <Issr>DK</Issr>
                     </Prtry>
                 </BkTxCd>
-                <!-- Credit due to incoming SCT -->
                 <NtryDtls>
                     <TxDtls>
                         <Refs>
@@ -100,6 +101,174 @@
                 </NtryDtls>
                 <AddtlNtryInf>SEPA GUTSCHRIFT</AddtlNtryInf>
             </Ntry>
+
+            <!-- Entry to illustrate multiple ustrd elements -->
+            <Ntry>
+                <Amt Ccy="EUR">50.00</Amt>
+                <CdtDbtInd>CRDT</CdtDbtInd>
+                <Sts>BOOK</Sts>
+                <BookgDt>
+                    <Dt>2020-07-02</Dt>
+                </BookgDt>
+                <ValDt>
+                    <Dt>2020-07-04</Dt>
+                </ValDt>
+                <AcctSvcrRef>acctsvcrref-002</AcctSvcrRef>
+                <BkTxCd>
+                    <Domn>
+                        <Cd>PMNT</Cd>
+                        <Fmly>
+                            <Cd>RCDT</Cd>
+                            <SubFmlyCd>ESCT</SubFmlyCd>
+                        </Fmly>
+                    </Domn>
+                    <Prtry>
+                        <Cd>166</Cd>
+                        <Issr>DK</Issr>
+                    </Prtry>
+                </BkTxCd>
+                <!-- Credit due to incoming SCT -->
+                <NtryDtls>
+                    <TxDtls>
+                        <Refs>
+                            <EndToEndId>e2e-002</EndToEndId>
+                        </Refs>
+                        <BkTxCd>
+                            <Domn>
+                                <Cd>PMNT</Cd>
+                                <Fmly>
+                                    <Cd>RCDT</Cd>
+                                    <SubFmlyCd>ESCT</SubFmlyCd>
+                                </Fmly>
+                            </Domn>
+                            <Prtry>
+                                <Cd>NTRF+166</Cd>
+                                <Issr>DK</Issr>
+                            </Prtry>
+                        </BkTxCd>
+                        <RltdPties>
+                            <Dbtr>
+                                <Nm>Debtor One</Nm>
+                            </Dbtr>
+                            <DbtrAcct>
+                                <Id>
+                                    <IBAN>DE52123456789473323175</IBAN>
+                                </Id>
+                            </DbtrAcct>
+                            <Cdtr>
+                                <Nm>Creditor One</Nm>
+                            </Cdtr>
+                        </RltdPties>
+                        <RmtInf>
+                            <Ustrd>unstructured </Ustrd>
+                            <Ustrd>info </Ustrd>
+                            <Ustrd>across </Ustrd>
+                            <Ustrd>lines</Ustrd>
+                        </RmtInf>
+                    </TxDtls>
+                </NtryDtls>
+            </Ntry>
+
+            <!--
+            Credit due to a return resulting from a batch payment initiation where only one payment failed.
+            This data was obtained by doing a transaction on a GLS Bank account, but we've replaced
+            the account's IBAN with a random one.
+            Note how the original creditor and debtor are preserved and not flipped.
+            Unfortunately the original payment didn't have an end-to-end ID, so it would be harder
+            to correlate this message to the original payment initiation -->
+            <Ntry>
+                <Amt Ccy="EUR">1.12</Amt>
+                <CdtDbtInd>CRDT</CdtDbtInd>
+                <Sts>BOOK</Sts>
+                <BookgDt>
+                    <Dt>2020-06-30</Dt>
+                </BookgDt>
+                <ValDt>
+                    <Dt>2020-06-30</Dt>
+                </ValDt>
+                <AcctSvcrRef>2020063011423362000</AcctSvcrRef>
+                <BkTxCd>
+                    <Domn>
+                        <Cd>PMNT</Cd>
+                        <Fmly>
+                            <Cd>ICDT</Cd>
+                            <SubFmlyCd>RRTN</SubFmlyCd>
+                        </Fmly>
+                    </Domn>
+                    <Prtry>
+                        <Cd>NRTI+159+00931</Cd>
+                        <Issr>DK</Issr>
+                    </Prtry>
+                </BkTxCd>
+                <NtryDtls>
+                    <TxDtls>
+                        <Refs>
+                            <EndToEndId>NOTPROVIDED</EndToEndId>
+                        </Refs>
+                        <AmtDtls>
+                            <TxAmt>
+                                <Amt Ccy="EUR">1.12</Amt>
+                            </TxAmt>
+                        </AmtDtls>
+                        <BkTxCd>
+                            <Domn>
+                                <Cd>PMNT</Cd>
+                                <Fmly>
+                                    <Cd>ICDT</Cd>
+                                    <SubFmlyCd>RRTN</SubFmlyCd>
+                                </Fmly>
+                            </Domn>
+                            <Prtry>
+                                <Cd>NRTI+159+00931</Cd>
+                                <Issr>DK</Issr>
+                            </Prtry>
+                        </BkTxCd>
+                        <RltdPties>
+                            <Dbtr>
+                                <Nm>Account Owner</Nm>
+                            </Dbtr>
+                            <DbtrAcct>
+                                <Id>
+                                    <IBAN>DE54123456784713474163</IBAN>
+                                </Id>
+                            </DbtrAcct>
+                            <Cdtr>
+                                <Nm>Nonexistant Creditor</Nm>
+                            </Cdtr>
+                            <CdtrAcct>
+                                <Id>
+                                    <IBAN>DE24500105177398216438</IBAN>
+                                </Id>
+                            </CdtrAcct>
+                        </RltdPties>
+                        <RmtInf>
+                            <Ustrd>Retoure SEPA Ueberweisung vom 29.06.2020, Rueckgabegrund: AC01 IBAN fehlerhaft und ungültig SVWZ: RETURN, Sammelposten Nummer Zwei IBAN: DE2</Ustrd>
+                            <Ustrd>4500105177398216438 BIC: INGDDEFFXXX</Ustrd>
+                        </RmtInf>
+                        <RtrInf>
+                            <OrgnlBkTxCd>
+                                <Prtry>
+                                    <Cd>116</Cd>
+                                    <Issr>DK</Issr>
+                                </Prtry>
+                            </OrgnlBkTxCd>
+                            <Orgtr>
+                                <Id>
+                                    <OrgId>
+                                        <BICOrBEI>GENODEM1GLS</BICOrBEI>
+                                    </OrgId>
+                                </Id>
+                            </Orgtr>
+                            <Rsn>
+                                <Cd>AC01</Cd>
+                            </Rsn>
+                            <AddtlInf>IBAN fehlerhaft und ungültig</AddtlInf>
+                        </RtrInf>
+                    </TxDtls>
+                </NtryDtls>
+                <AddtlNtryInf>Retouren</AddtlNtryInf>
+            </Ntry>
+
             <!-- Credit due to incoming USD transfer -->
             <Ntry>
                 <Amt Ccy="EUR">1000</Amt>

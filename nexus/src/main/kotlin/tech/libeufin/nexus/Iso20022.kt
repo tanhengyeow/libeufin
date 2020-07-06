@@ -67,6 +67,7 @@ data class CamtReport(
 data class GenericId(
     val id: String,
     val schemeName: String?,
+    val proprietarySchemeName: String?,
     val issuer: String?
 )
 
@@ -78,8 +79,19 @@ data class CashAccount(
     val otherId: GenericId?
 )
 
+data class Balance(
+    val type: String?,
+    val subtype: String?,
+    val proprietaryType: String?,
+    val proprietarySubtype: String?,
+    val date: String,
+    val creditDebitIndicator: CreditDebitIndicator,
+    val amount: CurrencyAmount
+)
+
 data class CamtParseResult(
     val reports: List<CamtReport>,
+    val balances: List<Balance>,
     val messageId: String,
     /**
      * Message type in form of the ISO 20022 message name.
@@ -88,13 +100,36 @@ data class CamtParseResult(
     val creationDateTime: String
 )
 
-enum class PartyType(@get:JsonValue val jsonName: String) {
-    PRIVATE("private"), ORGANIZATION("organization")
-}
+@JsonInclude(JsonInclude.Include.NON_NULL)
+data class PrivateIdentification(
+    val birthDate: String?,
+    val provinceOfBirth: String?,
+    val cityOfBirth: String?,
+    val countryOfBirth: String?
+)
 
+@JsonInclude(JsonInclude.Include.NON_NULL)
+data class OrganizationIdentification(
+    val bic: String?,
+    val lei: String?
+)
+
+/**
+ * Identification of a party, which can be a private party
+ * or an organiation.
+ *
+ * Mapping of ISO 20022 PartyIdentification135.
+ */
 @JsonInclude(JsonInclude.Include.NON_NULL)
 data class PartyIdentification(
     val name: String?,
+    val countryOfResidence: String?,
+    val privateId: PrivateIdentification?,
+    val organizationId: OrganizationIdentification?,
+
+    /**
+     * Identification that applies to both private parties and organizations.
+     */
     val otherId: GenericId?
 )
 
@@ -144,7 +179,17 @@ data class TransactionInfo(
      * Unstructured remittance information (=subject line) of the transaction,
      * or the empty string if missing.
      */
-    val unstructuredRemittanceInformation: String
+    val unstructuredRemittanceInformation: String,
+    val returnInfo: ReturnInfo?
+)
+
+@JsonInclude(JsonInclude.Include.NON_NULL)
+data class ReturnInfo(
+    val originalBankTransactionCode: BankTransactionCode?,
+    val originator: PartyIdentification?,
+    val reason: String?,
+    val proprietaryReason: String?,
+    val additionalInfo: String?
 )
 
 @JsonInclude(JsonInclude.Include.NON_NULL)
@@ -349,6 +394,19 @@ private fun XmlElementDestructor.extractAgent(): AgentIdentification {
     )
 }
 
+private fun XmlElementDestructor.extractGenericId(): GenericId {
+    return GenericId(
+        id = requireUniqueChildNamed("Id") { it.textContent },
+        schemeName = maybeUniqueChildNamed("SchmeNm") {
+            maybeUniqueChildNamed("Cd") { it.textContent }
+        },
+        issuer = maybeUniqueChildNamed("Issr") { it.textContent },
+        proprietarySchemeName = maybeUniqueChildNamed("SchmeNm") {
+            maybeUniqueChildNamed("Prtry") { it.textContent }
+        }
+    )
+}
+
 private fun XmlElementDestructor.extractAccount(): CashAccount {
     var iban: String? = null
     var otherId: GenericId? = null
@@ -361,11 +419,7 @@ private fun XmlElementDestructor.extractAccount(): CashAccount {
                     iban = it.textContent
                 }
                 "Othr" -> {
-                    otherId = GenericId(
-                        id = requireUniqueChildNamed("Id") { it.textContent },
-                        schemeName = maybeUniqueChildNamed("SchmeNm") { it.textContent },
-                        issuer = maybeUniqueChildNamed("Issr") { it.textContent }
-                    )
+                    otherId = extractGenericId()
                 }
                 else -> throw Error("invalid account identification")
             }
@@ -375,9 +429,43 @@ private fun XmlElementDestructor.extractAccount(): CashAccount {
 }
 
 private fun XmlElementDestructor.extractParty(): PartyIdentification {
+    val otherId: GenericId? = maybeUniqueChildNamed("Id") {
+        (maybeUniqueChildNamed("PrvtId") { it } ?: maybeUniqueChildNamed("OrgId") { it })?.run {
+            maybeUniqueChildNamed("Othr") {
+                extractGenericId()
+            }
+        }
+    }
+
+    val privateId = maybeUniqueChildNamed("Id") {
+        maybeUniqueChildNamed("PrvtId") {
+            maybeUniqueChildNamed("DtAndPlcOfBirth") {
+                PrivateIdentification(
+                    birthDate = maybeUniqueChildNamed("BirthDt") { it.textContent},
+                    cityOfBirth = maybeUniqueChildNamed("CityOfBirth") { it.textContent},
+                    countryOfBirth = maybeUniqueChildNamed("CtryOfBirth") { it.textContent},
+                    provinceOfBirth = maybeUniqueChildNamed("PrvcOfBirth") { it.textContent}
+                )
+            }
+        }
+    }
+
+    val organizationId = maybeUniqueChildNamed("Id") {
+        maybeUniqueChildNamed("OrgId") {
+            OrganizationIdentification(
+                bic = maybeUniqueChildNamed("BICOrBEI") { it.textContent} ?: maybeUniqueChildNamed("AnyBIC") { it.textContent},
+                lei = maybeUniqueChildNamed("LEI") { it.textContent}
+            )
+        }
+    }
+
+
     return PartyIdentification(
         name = maybeUniqueChildNamed("Nm") { it.textContent },
-        otherId = null
+        otherId = otherId,
+        privateId = privateId,
+        organizationId = organizationId,
+        countryOfResidence = maybeUniqueChildNamed("CtryOfRes") { it.textContent }
     )
 }
 
@@ -486,7 +574,7 @@ private fun XmlElementDestructor.extractTransactionInfos(
                     if (chunks.isEmpty()) {
                         null
                     } else {
-                        chunks.joinToString()
+                        chunks.joinToString(separator = "")
                     }
                 } ?: "",
                 creditorAgent = maybeUniqueChildNamed("CdtrAgt") { extractAgent() },
@@ -494,10 +582,43 @@ private fun XmlElementDestructor.extractTransactionInfos(
                 debtorAccount = maybeUniqueChildNamed("DbtrAgt") { extractAccount() },
                 creditorAccount = maybeUniqueChildNamed("CdtrAgt") { extractAccount() },
                 debtor = maybeUniqueChildNamed("Dbtr") { extractParty() },
-                creditor = maybeUniqueChildNamed("Cdtr") { extractParty() }
+                creditor = maybeUniqueChildNamed("Cdtr") { extractParty() },
+                returnInfo = maybeUniqueChildNamed("RtrInf") {
+                    ReturnInfo(
+                        originalBankTransactionCode = maybeUniqueChildNamed("OrgnlBkTxCd") {
+                            extractInnerBkTxCd()
+                        },
+                        originator = maybeUniqueChildNamed("Orgtr") { extractParty() },
+                        reason = maybeUniqueChildNamed("Rsn") { maybeUniqueChildNamed("Cd") { it.textContent } },
+                        proprietaryReason = maybeUniqueChildNamed("Rsn") { maybeUniqueChildNamed("Prtry") { it.textContent } },
+                        additionalInfo = maybeUniqueChildNamed("AddtlInf") { it.textContent }
+                    )
+                }
             )
         }
     }
+}
+
+private fun XmlElementDestructor.extractInnerBkTxCd(): BankTransactionCode {
+    return BankTransactionCode(
+        domain = maybeUniqueChildNamed("Domn") { maybeUniqueChildNamed("Cd") { it.textContent } },
+        family = maybeUniqueChildNamed("Domn") {
+            maybeUniqueChildNamed("Fmly") {
+                maybeUniqueChildNamed("Cd") { it.textContent }
+            }
+        },
+        subfamily = maybeUniqueChildNamed("Domn") {
+            maybeUniqueChildNamed("Fmly") {
+                maybeUniqueChildNamed("SubFmlyCd") { it.textContent }
+            }
+        },
+        proprietaryCode = maybeUniqueChildNamed("Prtry") {
+            maybeUniqueChildNamed("Cd") { it.textContent }
+        },
+        proprietaryIssuer = maybeUniqueChildNamed("Prtry") {
+            maybeUniqueChildNamed("Issr") { it.textContent }
+        }
+    )
 }
 
 private fun XmlElementDestructor.extractInnerTransactions(): CamtReport {
@@ -512,25 +633,7 @@ private fun XmlElementDestructor.extractInnerTransactions(): CamtReport {
             CreditDebitIndicator.valueOf(it)
         }
         val btc = requireUniqueChildNamed("BkTxCd") {
-            BankTransactionCode(
-                domain = maybeUniqueChildNamed("Domn") { maybeUniqueChildNamed("Cd") { it.textContent } },
-                family = maybeUniqueChildNamed("Domn") {
-                    maybeUniqueChildNamed("Fmly") {
-                        maybeUniqueChildNamed("Cd") { it.textContent }
-                    }
-                },
-                subfamily = maybeUniqueChildNamed("Domn") {
-                    maybeUniqueChildNamed("Fmly") {
-                        maybeUniqueChildNamed("SubFmlyCd") { it.textContent }
-                    }
-                },
-                proprietaryCode = maybeUniqueChildNamed("Prtry") {
-                    maybeUniqueChildNamed("Cd") { it.textContent }
-                },
-                proprietaryIssuer = maybeUniqueChildNamed("Prtry") {
-                    maybeUniqueChildNamed("Issr") { it.textContent }
-                }
-            )
+            extractInnerBkTxCd()
         }
         val acctSvcrRef = maybeUniqueChildNamed("AcctSvcrRef") { it.textContent }
         val entryRef = maybeUniqueChildNamed("NtryRef") { it.textContent }
@@ -575,6 +678,23 @@ fun parseCamtMessage(doc: Document): CamtParseResult {
                     }
                 }
             }
+
+            val balances = requireOnlyChild {
+                mapEachChildNamed("Bal") {
+                    Balance(
+                        type = maybeUniqueChildNamed("Tp") { maybeUniqueChildNamed("Cd") { it.textContent } },
+                        proprietaryType = maybeUniqueChildNamed("Tp") { maybeUniqueChildNamed("Prtry") { it.textContent } },
+                        date = extractDateOrDateTime(),
+                        creditDebitIndicator = requireUniqueChildNamed("CdtDbtInd") { it.textContent }.let {
+                            CreditDebitIndicator.valueOf(it)
+                        },
+                        subtype = maybeUniqueChildNamed("SubTp") { maybeUniqueChildNamed("Cd") { it.textContent } },
+                        proprietarySubtype = maybeUniqueChildNamed("SubTp") { maybeUniqueChildNamed("Prtry") { it.textContent } },
+                        amount = extractCurrencyAmount()
+                    )
+                }
+            }
+
             val messageId = requireOnlyChild {
                 requireUniqueChildNamed("GrpHdr") {
                     requireUniqueChildNamed("MsgId") { it.textContent }
@@ -594,7 +714,7 @@ fun parseCamtMessage(doc: Document): CamtParseResult {
                     }
                 }
             }
-            CamtParseResult(reports, messageId, messageType, creationDateTime)
+            CamtParseResult(reports, balances, messageId, messageType, creationDateTime)
         }
     }
 }
