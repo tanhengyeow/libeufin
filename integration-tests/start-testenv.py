@@ -35,6 +35,7 @@ BC1_SUBSCRIBER1_IBAN = "GB33BUKB20201222222222"
 BC1_SUBSCRIBER1_BIC = "BUKBGB11"
 BC1_SUBSCRIBER1_NAME = "Oliver Smith"
 BC1_SUBSCRIBER1_BANK_ACCOUNT_LABEL = "bc1sub1savings"
+BC1_SUBSCRIBER1_BANK_ACCOUNT_LABEL_KONTO = "bc1sub1konto"
 
 BC1_SUBSCRIBER2_IBAN = "GB33BUKB20201333333333"
 BC1_SUBSCRIBER2_BIC = "BUKBGB22"
@@ -173,6 +174,20 @@ assertResponse(
         ),
     )
 )
+
+assertResponse(
+    post(
+        "http://localhost:5000/admin/ebics/bank-accounts",
+        json=dict(
+            subscriber=dict(hostID=BC1_HOST_ID, partnerID=BC1_PARTNER_ID, userID=BC1_USER_ID),
+            iban=BC1_SUBSCRIBER1_IBAN,
+            bic=BC1_SUBSCRIBER1_BIC,
+            name=BC1_SUBSCRIBER1_NAME,
+            label=BC1_SUBSCRIBER1_BANK_ACCOUNT_LABEL_KONTO
+        ),
+    )
+)
+
 assertResponse(
     post(
         "http://localhost:5000/admin/ebics/bank-accounts",
