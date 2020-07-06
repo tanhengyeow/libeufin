@@ -45,7 +45,7 @@ const BankConnectionDrawer = (props) => {
         if (response.ok) {
           return response.blob();
         }
-        throw 'Cannot fetch keyletter';
+        throw 'Cannot retrieve keyletter';
       })
       .then(async (blob) => {
         const pdfLink = URL.createObjectURL(blob);
@@ -66,7 +66,7 @@ const BankConnectionDrawer = (props) => {
     })
       .then((response) => {
         if (!response.ok) {
-          throw 'Cannot fetch bank accounts';
+          throw 'Cannot retrieve bank accounts';
         }
         return response.json();
       })

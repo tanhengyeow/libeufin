@@ -26,7 +26,7 @@ const BankAccounts = () => {
         if (response.ok) {
           return response.json();
         }
-        throw 'Cannot fetch bank connections';
+        throw 'Cannot retrieve bank connections';
       })
       .then((response) => {
         setConnectionsList(response);
@@ -47,7 +47,7 @@ const BankAccounts = () => {
         if (response.ok) {
           return response.json();
         }
-        throw 'Cannot fetch bank accounts';
+        throw 'Cannot retrieve bank accounts';
       })
       .then((response) => {
         setAccountsList(response.accounts);

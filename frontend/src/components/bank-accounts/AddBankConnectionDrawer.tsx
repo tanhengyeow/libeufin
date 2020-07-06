@@ -83,7 +83,7 @@ const AddBankConnectionDrawer = (props) => {
         if (response.ok) {
           return response.blob();
         }
-        throw 'Cannot fetch keyletter';
+        throw 'Cannot retrieve keyletter';
       })
       .then(async (blob) => {
         const pdfLink = URL.createObjectURL(blob);
