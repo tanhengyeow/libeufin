@@ -153,7 +153,13 @@ class XMLUtil private constructor() {
                     return DOMInputImpl(publicId, systemId, baseUri, res, "UTF-8")
                 }
             }
-            val schemaInputs: Array<Source> = listOf("xsd/ebics_H004.xsd", "xsd/ebics_hev.xsd").map {
+            val schemaInputs: Array<Source> = listOf(
+                "xsd/ebics_H004.xsd",
+                "xsd/ebics_hev.xsd",
+                "xsd/camt.052.001.02.xsd",
+                "xsd/camt.053.001.02.xsd",
+                "xsd/camt.054.001.02.xsd"
+            ).map {
                 val stream =
                     classLoader.getResourceAsStream(it) ?: throw FileNotFoundException("Schema file $it not found.")
                 StreamSource(stream)

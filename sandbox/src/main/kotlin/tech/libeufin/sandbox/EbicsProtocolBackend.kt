@@ -212,9 +212,6 @@ fun buildCamtString(type: Int, subscriberIban: String, history: MutableList<RawP
                                     text("Debitor/Owner Name")
                                 }
                                 element("Svcr/FinInstnId") {
-                                    element("BIC") {
-                                        text("Owner Bic")
-                                    }
                                     element("Nm") {
                                         text("Libeufin Bank")
                                     }
@@ -242,7 +239,9 @@ fun buildCamtString(type: Int, subscriberIban: String, history: MutableList<RawP
                                     text(Amount(0).toPlainString())
                                 }
                                 element("CdtDbtInd") {
-                                    text("UNUSED")
+                                    // a temporary value to get the camt to validate.
+                                    // Should be fixed along #6269
+                                    text("CRDT")
                                 }
                                 element("Dt/Dt") {
                                     // date of this balance
@@ -261,8 +260,9 @@ fun buildCamtString(type: Int, subscriberIban: String, history: MutableList<RawP
                                     text(Amount(0).toPlainString())
                                 }
                                 element("CdtDbtInd") {
-                                    // CRDT or DBIT here
-                                    text("UNUSED")
+                                    // a temporary value to get the camt to validate.
+                                    // Should be fixed along #6269
+                                    text("DBIT")
                                 }
                                 element("Dt/Dt") {
                                     text(dashedDate)
@@ -395,9 +395,6 @@ fun buildCamtString(type: Int, subscriberIban: String, history: MutableList<RawP
 //                                    }
                                     element("RmtInf/Ustrd") {
                                         text(it.subject)
-                                    }
-                                    element("AddtlNtryInf") {
-                                        text("additional information not given")
                                     }
                                 }
                             }
