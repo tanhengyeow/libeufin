@@ -233,7 +233,7 @@
                                 </Id>
                             </DbtrAcct>
                             <Cdtr>
-                                <Nm>Nonexistant Creditor</Nm>
+                                <Nm>Nonexistent Creditor</Nm>
                             </Cdtr>
                             <CdtrAcct>
                                 <Id>
@@ -330,7 +330,7 @@
                         </Chrgs>
                         <RltdPties>
                             <Dbtr>
-                                <Nm>Some US Bank</Nm>
+                                <Nm>Mr USA</Nm>
                                 <PstlAdr>
                                     <Ctry>US</Ctry>
                                     <AdrLine>42 Some Street</AdrLine>
@@ -359,6 +359,130 @@
                 </NtryDtls>
                 <AddtlNtryInf>AZV-UEBERWEISUNGSGUTSCHRIFT</AddtlNtryInf>
             </Ntry>
+
+            <Ntry>
+                <Amt Ccy="EUR">48.42</Amt>
+                <CdtDbtInd>DBIT</CdtDbtInd>
+                <Sts>BOOK</Sts>
+                <BookgDt>
+                    <Dt>2020-07-07</Dt>
+                </BookgDt>
+                <ValDt>
+                    <Dt>2020-07-07</Dt>
+                </ValDt>
+                <AcctSvcrRef>acctsvcrref-005</AcctSvcrRef>
+                <BkTxCd>
+                    <Domn>
+                        <Cd>PMNT</Cd>
+                        <Fmly>
+                            <Cd>ICDT</Cd>
+                            <SubFmlyCd>ESCT</SubFmlyCd>
+                        </Fmly>
+                    </Domn>
+                </BkTxCd>
+                <AmtDtls>
+                    <TxAmt>
+                        <Amt Ccy="CHF">46.3</Amt>
+                    </TxAmt>
+                </AmtDtls>
+                <NtryDtls>
+                    <Btch>
+                        <MsgId>UXC20070700006</MsgId>
+                        <PmtInfId>UXC20070700006PI00001</PmtInfId>
+                        <NbOfTxs>2</NbOfTxs>
+                        <TtlAmt Ccy="EUR">46.3</TtlAmt>
+                        <CdtDbtInd>DBIT</CdtDbtInd>
+                    </Btch>
+                    <TxDtls>
+                        <AmtDtls>
+                            <TxAmt>
+                                <Amt Ccy="EUR">23.1</Amt>
+                            </TxAmt>
+                        </AmtDtls>
+                        <BkTxCd>
+                            <Domn>
+                                <Cd>PMNT</Cd>
+                                <Fmly>
+                                    <Cd>ICDT</Cd>
+                                    <SubFmlyCd>ESCT</SubFmlyCd>
+                                </Fmly>
+                            </Domn>
+                        </BkTxCd>
+                        <RltdPties>
+                            <Cdtr>
+                                <Nm>Zahlungsempfaenger 23, ZA 5, DE</Nm>
+                                <PstlAdr>
+                                    <Ctry>DE</Ctry>
+                                    <AdrLine>DE Adresszeile 1</AdrLine>
+                                    <AdrLine>DE Adresszeile 2</AdrLine>
+                                </PstlAdr>
+                            </Cdtr>
+                            <CdtrAcct>
+                                <Id>
+                                    <IBAN>DE32733516350012345678</IBAN>
+                                </Id>
+                            </CdtrAcct>
+                        </RltdPties>
+                        <RltdAgts>
+                            <CdtrAgt>
+                                <FinInstnId>
+                                    <BIC>BYLADEM1ALR</BIC>
+                                </FinInstnId>
+                            </CdtrAgt>
+                        </RltdAgts>
+                    </TxDtls>
+                    <TxDtls>
+                        <Refs>
+                            <MsgId>asdfasdf</MsgId>
+                            <AcctSvcrRef>5j3k453k45</AcctSvcrRef>
+                            <PmtInfId>6j564l56</PmtInfId>
+                            <InstrId>6jl5lj65afasdf</InstrId>
+                            <EndToEndId>jh45k34h5l</EndToEndId>
+                        </Refs>
+                        <AmtDtls>
+                            <TxAmt>
+                                <Amt Ccy="EUR">23.2</Amt>
+                            </TxAmt>
+                        </AmtDtls>
+                        <BkTxCd>
+                            <Domn>
+                                <Cd>PMNT</Cd>
+                                <Fmly>
+                                    <Cd>ICDT</Cd>
+                                    <SubFmlyCd>ESCT</SubFmlyCd>
+                                </Fmly>
+                            </Domn>
+                            <Prtry>
+                                <Cd>K25</Cd>
+                            </Prtry>
+                        </BkTxCd>
+                        <RltdPties>
+                            <Cdtr>
+                                <Nm>Zahlungsempfaenger 23, ZA 5, AT</Nm>
+                                <PstlAdr>
+                                    <Ctry>AT</Ctry>
+                                    <AdrLine>AT Adresszeile 1</AdrLine>
+                                    <AdrLine>AT Adresszeile 2</AdrLine>
+                                </PstlAdr>
+                            </Cdtr>
+                            <CdtrAcct>
+                                <Id>
+                                    <IBAN>AT071100000012345678</IBAN>
+                                </Id>
+                            </CdtrAcct>
+                        </RltdPties>
+                        <RltdAgts>
+                            <CdtrAgt>
+                                <FinInstnId>
+                                    <BIC>BKAUATWW</BIC>
+                                </FinInstnId>
+                            </CdtrAgt>
+                        </RltdAgts>
+                    </TxDtls>
+                </NtryDtls>
+                <AddtlNtryInf>Order</AddtlNtryInf>
+            </Ntry>
+
         </Stmt>
     </BkToCstmrStmt>
 </Document>

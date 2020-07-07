@@ -33,9 +33,11 @@ import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 import tech.libeufin.nexus.server.serverMain
 import tech.libeufin.util.CryptoUtil.hashpw
-import ch.qos.logback.classic.Level
-import ch.qos.logback.classic.LoggerContext
+import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
+import tech.libeufin.nexus.iso20022.parseCamtMessage
+import tech.libeufin.util.XMLUtil
 import tech.libeufin.util.setLogLevel
+import java.io.File
 
 val logger: Logger = LoggerFactory.getLogger("tech.libeufin.nexus")
 
@@ -55,6 +57,17 @@ class Serve : CliktCommand("Run nexus HTTP server") {
     override fun run() {
         setLogLevel(logLevel)
         serverMain(dbName, host)
+    }
+}
+
+class ParseCamt : CliktCommand("Parse a camt file") {
+    private val logLevel by option()
+    private val filename by argument()
+    override fun run() {
+        setLogLevel(logLevel)
+        val camtText = File(filename).readText(Charsets.UTF_8)
+        val res = parseCamtMessage(XMLUtil.parseStringIntoDom(camtText))
+        println(jacksonObjectMapper().writerWithDefaultPrettyPrinter().writeValueAsString(res))
     }
 }
 
@@ -85,6 +98,6 @@ class Superuser : CliktCommand("Add superuser or change pw") {
 
 fun main(args: Array<String>) {
     NexusCommand()
-        .subcommands(Serve(), Superuser())
+        .subcommands(Serve(), Superuser(), ParseCamt())
         .main(args)
 }

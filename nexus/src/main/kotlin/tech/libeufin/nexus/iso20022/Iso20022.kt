@@ -60,7 +60,16 @@ enum class CashManagementResponseType(@get:JsonValue val jsonName: String) {
 
 @JsonInclude(JsonInclude.Include.NON_NULL)
 data class CamtReport(
+    val id: String,
+    val creationDateTime: String?,
+    val legalSequenceNumber: Int?,
+    val electronicSequenceNumber: Int?,
+    val fromDate: String?,
+    val toDate: String?,
+    val reportingSource: String?,
+    val proprietaryReportingSource: String?,
     val account: CashAccount,
+    val balances: List<Balance>,
     val entries: List<CamtBankAccountEntry>
 )
 
@@ -80,6 +89,7 @@ data class CashAccount(
     val otherId: GenericId?
 )
 
+@JsonInclude(JsonInclude.Include.NON_NULL)
 data class Balance(
     val type: String?,
     val subtype: String?,
@@ -97,7 +107,6 @@ data class CamtParseResult(
     val messageType: CashManagementResponseType,
     val messageId: String,
     val creationDateTime: String,
-    val balances: List<Balance>,
     val reports: List<CamtReport>
 )
 
@@ -127,6 +136,7 @@ data class PartyIdentification(
     val countryOfResidence: String?,
     val privateId: PrivateIdentification?,
     val organizationId: OrganizationIdentification?,
+    val postalAddress: PostalAddress?,
 
     /**
      * Identification that applies to both private parties and organizations.
@@ -135,9 +145,47 @@ data class PartyIdentification(
 )
 
 @JsonInclude(JsonInclude.Include.NON_NULL)
+data class PostalAddress(
+    val addressCode: String?,
+    val addressProprietaryId: String?,
+    val addressProprietarySchemeName: String?,
+    val addressProprietaryIssuer: String?,
+    val department: String?,
+    val subDepartment: String?,
+    val streetName: String?,
+    val buildingNumber: String?,
+    val buildingName: String?,
+    val floor: String?,
+    val postBox: String?,
+    val room: String?,
+    val postCode: String?,
+    val townName: String?,
+    val townLocationName: String?,
+    val districtName: String?,
+    val countrySubDivision: String?,
+    val country: String?,
+    val addressLines: List<String>
+)
+
+@JsonInclude(JsonInclude.Include.NON_NULL)
 data class AgentIdentification(
     val name: String?,
+
     val bic: String?,
+
+    /**
+     * Legal entity identification.
+     */
+    val lei: String?,
+
+    val clearingSystemMemberId: String?,
+
+    val clearingSystemCode: String?,
+
+    val proprietaryClearingSystemCode: String?,
+
+    val postalAddress: PostalAddress?,
+
     val otherId: GenericId?
 )
 
@@ -159,10 +207,15 @@ data class TransactionDetails(
     val creditor: PartyIdentification?,
     val creditorAccount: CashAccount?,
     val creditorAgent: AgentIdentification?,
+    val ultimateCreditor: PartyIdentification?,
+    val ultimateDebtor: PartyIdentification?,
 
     val endToEndId: String? = null,
     val paymentInformationId: String? = null,
     val messageId: String? = null,
+
+    val purpose: String?,
+    val proprietaryPurpose: String?,
 
     /**
      * Currency exchange information for the transaction's amount.
@@ -219,11 +272,11 @@ data class BatchTransaction(
     val details: TransactionDetails
 )
 
-
+@JsonInclude(JsonInclude.Include.NON_NULL)
 data class Batch(
-    val batchTransactions: List<BatchTransaction>,
     val messageId: String?,
-    val paymentInformationId: String?
+    val paymentInformationId: String?,
+    val batchTransactions: List<BatchTransaction>
 )
 
 @JsonInclude(JsonInclude.Include.NON_NULL)
@@ -263,8 +316,15 @@ data class CamtBankAccountEntry(
 
     /**
      * Value before/after currency exchange before charges have been applied.
+     * Only present if currency exchange happened at the entry level.
      */
     val counterValueAmount: CurrencyAmount?,
+
+    /**
+     * Instructed amount.
+     * Only present if currency exchange happens at the entry level.
+     */
+    val instructedAmount: CurrencyAmount?,
 
     /**
      * Details of the underlying transaction for type=Simple.
@@ -419,19 +479,74 @@ private fun XmlElementDestructor.extractDateOrDateTime(): String {
     }
 }
 
+private fun XmlElementDestructor.extractInnerPostalAddress(): PostalAddress {
+    return PostalAddress(
+        addressCode = maybeUniqueChildNamed("AdrTp") { maybeUniqueChildNamed("Cd") { it.textContent } },
+        addressProprietaryIssuer = maybeUniqueChildNamed("AdrTp") {
+            maybeUniqueChildNamed("Prtry") {
+                maybeUniqueChildNamed("Issr") { it.textContent }
+            }
+        },
+        addressProprietarySchemeName = maybeUniqueChildNamed("AdrTp") {
+            maybeUniqueChildNamed("Prtry") {
+                maybeUniqueChildNamed("SchmeNm") { it.textContent }
+            }
+        },
+        addressProprietaryId = maybeUniqueChildNamed("AdrTp") {
+            maybeUniqueChildNamed("Prtry") {
+                maybeUniqueChildNamed("Id") { it.textContent }
+            }
+        },
+        buildingName = maybeUniqueChildNamed("BldgNm") { it.textContent },
+        buildingNumber = maybeUniqueChildNamed("BldgNb") { it.textContent },
+        country = maybeUniqueChildNamed("Ctry") { it.textContent },
+        countrySubDivision = maybeUniqueChildNamed("CtrySubDvsn") { it.textContent },
+        department = maybeUniqueChildNamed("Dept") { it.textContent },
+        districtName = maybeUniqueChildNamed("DstrctNm") { it.textContent },
+        floor = maybeUniqueChildNamed("Flr") { it.textContent },
+        postBox = maybeUniqueChildNamed("PstBx") { it.textContent },
+        postCode = maybeUniqueChildNamed("PstCd") { it.textContent },
+        room = maybeUniqueChildNamed("Room") { it.textContent },
+        streetName = maybeUniqueChildNamed("StrtNm") { it.textContent },
+        subDepartment = maybeUniqueChildNamed("SubDept") { it.textContent },
+        townLocationName = maybeUniqueChildNamed("TwnLctnNm") { it.textContent },
+        townName = maybeUniqueChildNamed("TwnNm") { it.textContent },
+        addressLines = mapEachChildNamed("AdrLine") { it.textContent }
+    )
+}
+
 private fun XmlElementDestructor.extractAgent(): AgentIdentification {
     return AgentIdentification(
         name = maybeUniqueChildNamed("FinInstnId") {
-            maybeUniqueChildNamed("Nm") {
-                it.textContent
-            }
+            maybeUniqueChildNamed("Nm") { it.textContent }
         },
         bic = requireUniqueChildNamed("FinInstnId") {
-            requireUniqueChildNamed("BIC") {
-                it.textContent
+            maybeUniqueChildNamed("BIC") { it.textContent }
+        },
+        lei = requireUniqueChildNamed("FinInstnId") {
+            maybeUniqueChildNamed("LEI") { it.textContent }
+        },
+        clearingSystemCode = requireUniqueChildNamed("FinInstnId") {
+            maybeUniqueChildNamed("ClrSysMmbId") {
+                maybeUniqueChildNamed("ClrSysId") {
+                    maybeUniqueChildNamed("Cd") { it.textContent }
+                }
             }
         },
-        otherId = null
+        proprietaryClearingSystemCode = requireUniqueChildNamed("FinInstnId") {
+            maybeUniqueChildNamed("ClrSysMmbId") {
+                maybeUniqueChildNamed("ClrSysId") {
+                    maybeUniqueChildNamed("Prtry") { it.textContent }
+                }
+            }
+        },
+        clearingSystemMemberId = requireUniqueChildNamed("FinInstnId") {
+            maybeUniqueChildNamed("ClrSysMmbId") {
+                maybeUniqueChildNamed("MmbId") { it.textContent }
+            }
+        },
+        otherId = requireUniqueChildNamed("FinInstnId") { maybeUniqueChildNamed("Othr") { extractGenericId() } },
+        postalAddress = requireUniqueChildNamed("FinInstnId") { maybeUniqueChildNamed("PstlAdr") { extractInnerPostalAddress() } }
     )
 }
 
@@ -506,7 +621,8 @@ private fun XmlElementDestructor.extractParty(): PartyIdentification {
         otherId = otherId,
         privateId = privateId,
         organizationId = organizationId,
-        countryOfResidence = maybeUniqueChildNamed("CtryOfRes") { it.textContent }
+        countryOfResidence = maybeUniqueChildNamed("CtryOfRes") { it.textContent },
+        postalAddress = maybeUniqueChildNamed("PstlAdr") { extractInnerPostalAddress() }
     )
 }
 
@@ -548,10 +664,27 @@ private fun XmlElementDestructor.extractBatches(
         var amount = maybeExtractCurrencyAmount()
         var creditDebitIndicator = maybeExtractCreditDebitIndicator()
 
-        if (amount == null && numDtls == 1) {
+        val ttlAmt = maybeUniqueChildNamed("Btch") {
+            maybeUniqueChildNamed("TtlAmt") {
+                CurrencyAmount(
+                    value =  BigDecimal(it.textContent),
+                    currency = it.getAttribute("Ccy")
+                )
+            }
+        }
+
+        val ttlCreditDebitIndicator = maybeUniqueChildNamed("Btch") {
+            maybeExtractCreditDebitIndicator()
+        }
+
+        if (amount == null && ttlAmt != null && ttlCreditDebitIndicator != null) {
+            amount = ttlAmt
+            creditDebitIndicator = ttlCreditDebitIndicator
+        } else if (amount == null && numDtls == 1) {
             amount = outerAmount
             creditDebitIndicator = outerCreditDebitIndicator
         }
+
         if (amount == null || creditDebitIndicator == null) {
             throw Error("no amount for inner transaction")
         }
@@ -559,7 +692,7 @@ private fun XmlElementDestructor.extractBatches(
             val details = extractTransactionDetails(outerAmount, outerCreditDebitIndicator, false)
             BatchTransaction(amount, creditDebitIndicator, details)
         }
-        Batch(txs, null, null)
+        Batch(null, null, txs)
     }
 }
 
@@ -581,8 +714,8 @@ private fun XmlElementDestructor.extractTransactionDetails(
     val creditDebitIndicator = maybeExtractCreditDebitIndicator() ?: outerCreditDebitIndicator
 
     val currencyExchange = maybeUniqueChildNamed("AmtDtls") {
-        val cxCntrVal =  maybeUniqueChildNamed("CntrValAmt") { extractMaybeCurrencyExchange() }
-        val cxTx =  maybeUniqueChildNamed("TxAmt") { extractMaybeCurrencyExchange() }
+        val cxCntrVal = maybeUniqueChildNamed("CntrValAmt") { extractMaybeCurrencyExchange() }
+        val cxTx = maybeUniqueChildNamed("TxAmt") { extractMaybeCurrencyExchange() }
         val cxInstr = maybeUniqueChildNamed("InstdAmt") { extractMaybeCurrencyExchange() }
         cxCntrVal ?: cxTx ?: cxInstr
     }
@@ -605,7 +738,7 @@ private fun XmlElementDestructor.extractTransactionDetails(
             maybeUniqueChildNamed("PmtInfId") { it.textContent }
         },
         unstructuredRemittanceInformation = maybeUniqueChildNamed("RmtInf") {
-            val chunks = mapEachChildNamed("Ustrd", { it.textContent })
+            val chunks = mapEachChildNamed("Ustrd") { it.textContent }
             if (chunks.isEmpty()) {
                 null
             } else {
@@ -614,10 +747,14 @@ private fun XmlElementDestructor.extractTransactionDetails(
         } ?: "",
         creditorAgent = maybeUniqueChildNamed("RltdAgts") { maybeUniqueChildNamed("CdtrAgt") { extractAgent() } },
         debtorAgent = maybeUniqueChildNamed("RltdAgts") { maybeUniqueChildNamed("DbtrAgt") { extractAgent() } },
-        debtorAccount = maybeUniqueChildNamed("RltdPties") { maybeUniqueChildNamed("DbtrAgt") { extractAccount() } },
-        creditorAccount = maybeUniqueChildNamed("RltdPties") { maybeUniqueChildNamed("CdtrAgt") { extractAccount() } },
+        debtorAccount = maybeUniqueChildNamed("RltdPties") { maybeUniqueChildNamed("DbtrAcct") { extractAccount() } },
+        creditorAccount = maybeUniqueChildNamed("RltdPties") { maybeUniqueChildNamed("CdtrAcct") { extractAccount() } },
         debtor = maybeUniqueChildNamed("RltdPties") { maybeUniqueChildNamed("Dbtr") { extractParty() } },
         creditor = maybeUniqueChildNamed("RltdPties") { maybeUniqueChildNamed("Cdtr") { extractParty() } },
+        proprietaryPurpose = maybeUniqueChildNamed("Purp") { maybeUniqueChildNamed("Prtry") { it.textContent } },
+        purpose = maybeUniqueChildNamed("Purp") { maybeUniqueChildNamed("Cd") { it.textContent } },
+        ultimateCreditor = maybeUniqueChildNamed("RltdPties") { maybeUniqueChildNamed("UltmtCdtr") { extractParty() } },
+        ultimateDebtor = maybeUniqueChildNamed("RltdPties") { maybeUniqueChildNamed("UltmtDbtr") { extractParty() } },
         returnInfo = maybeUniqueChildNamed("RtrInf") {
             ReturnInfo(
                 originalBankTransactionCode = maybeUniqueChildNamed("OrgnlBkTxCd") {
@@ -636,7 +773,6 @@ private fun XmlElementDestructor.extractTransactionDetails(
         }
     )
 }
-
 
 private fun XmlElementDestructor.extractSingleDetails(
     outerAmount: CurrencyAmount,
@@ -687,6 +823,33 @@ private fun XmlElementDestructor.extractInnerBkTxCd(creditDebitIndicator: Credit
 
 private fun XmlElementDestructor.extractInnerTransactions(): CamtReport {
     val account = requireUniqueChildNamed("Acct") { extractAccount() }
+
+    val balances = mapEachChildNamed("Bal") {
+        Balance(
+            type = maybeUniqueChildNamed("Tp") {
+                maybeUniqueChildNamed("CdOrPrtry") {
+                    maybeUniqueChildNamed("Cd") { it.textContent }
+                }
+            },
+            proprietaryType = maybeUniqueChildNamed("Tp") {
+                maybeUniqueChildNamed("CdOrPrtry") {
+                    maybeUniqueChildNamed("Prtry") { it.textContent }
+                }
+            },
+            date = requireUniqueChildNamed("Dt") { extractDateOrDateTime() },
+            creditDebitIndicator = requireUniqueChildNamed("CdtDbtInd") { it.textContent }.let {
+                CreditDebitIndicator.valueOf(it)
+            },
+            subtype = maybeUniqueChildNamed("Tp") {
+                maybeUniqueChildNamed("SubTp") { maybeUniqueChildNamed("Cd") { it.textContent } }
+            },
+            proprietarySubtype = maybeUniqueChildNamed("Tp") {
+                maybeUniqueChildNamed("SubTp") { maybeUniqueChildNamed("Prtry") { it.textContent } }
+            },
+            amount = extractCurrencyAmount()
+        )
+    }
+
     val entries = mapEachChildNamed("Ntry") {
         val amount = extractCurrencyAmount()
         val status = requireUniqueChildNamed("Sts") { it.textContent }.let {
@@ -701,19 +864,29 @@ private fun XmlElementDestructor.extractInnerTransactions(): CamtReport {
         val acctSvcrRef = maybeUniqueChildNamed("AcctSvcrRef") { it.textContent }
         val entryRef = maybeUniqueChildNamed("NtryRef") { it.textContent }
 
-        val numNtryDtls = mapEachChildNamed("NtryDtls") {
-            Unit
-        }.count()
+        val numInnerTxs = mapEachChildNamed("NtryDtls") {
+            mapEachChildNamed("TxDtls") { Unit }
+        }.flatten().count()
+
+        val numBatches = mapEachChildNamed("NtryDtls") {
+            mapEachChildNamed("Btch") { Unit }
+        }.flatten().count()
+
+        val isBatch = numBatches > 0 || numInnerTxs > 1
 
         val currencyExchange = maybeUniqueChildNamed("AmtDtls") {
-            val cxCntrVal =  maybeUniqueChildNamed("CntrValAmt") { extractMaybeCurrencyExchange() }
-            val cxTx =  maybeUniqueChildNamed("TxAmt") { extractMaybeCurrencyExchange() }
+            val cxCntrVal = maybeUniqueChildNamed("CntrValAmt") { extractMaybeCurrencyExchange() }
+            val cxTx = maybeUniqueChildNamed("TxAmt") { extractMaybeCurrencyExchange() }
             val cxInstr = maybeUniqueChildNamed("InstrAmt") { extractMaybeCurrencyExchange() }
             cxCntrVal ?: cxTx ?: cxInstr
         }
 
         val counterValueAmount = maybeUniqueChildNamed("AmtDtls") {
             maybeUniqueChildNamed("CntrValAmt") { extractCurrencyAmount() }
+        }
+
+        val instructedAmount = maybeUniqueChildNamed("AmtDtls") {
+            maybeUniqueChildNamed("InstdAmt") { extractCurrencyAmount() }
         }
 
         // For now, only support account servicer reference as id
@@ -723,14 +896,15 @@ private fun XmlElementDestructor.extractInnerTransactions(): CamtReport {
             status = status,
             currencyExchange = currencyExchange,
             counterValueAmount = counterValueAmount,
+            instructedAmount = instructedAmount,
             creditDebitIndicator = creditDebitIndicator,
             bankTransactionCode = btc,
-            details = if (numNtryDtls == 1) {
-                extractSingleDetails(amount, creditDebitIndicator)
-            } else {
+            details = if (isBatch) {
                 null
+            } else {
+                extractSingleDetails(amount, creditDebitIndicator)
             },
-            batches = if (numNtryDtls > 1) {
+            batches = if (isBatch) {
                 extractBatches(amount, creditDebitIndicator)
             } else {
                 null
@@ -741,7 +915,19 @@ private fun XmlElementDestructor.extractInnerTransactions(): CamtReport {
             entryRef = entryRef
         )
     }
-    return CamtReport(account, entries)
+    return CamtReport(
+        account = account,
+        entries = entries,
+        creationDateTime = maybeUniqueChildNamed("CreDtTm") { it.textContent },
+        balances = balances,
+        electronicSequenceNumber = maybeUniqueChildNamed("ElctrncSeqNb") { it.textContent.toInt() },
+        legalSequenceNumber = maybeUniqueChildNamed("LglSeqNb") { it.textContent.toInt() },
+        fromDate = maybeUniqueChildNamed("FrToDt") { maybeUniqueChildNamed("FrDtTm") { it.textContent } },
+        toDate = maybeUniqueChildNamed("FrToDt") { maybeUniqueChildNamed("ToDtTm") { it.textContent } },
+        id = requireUniqueChildNamed("Id") { it.textContent },
+        proprietaryReportingSource = maybeUniqueChildNamed("RptgSrc") { maybeUniqueChildNamed("Prtry") { it.textContent } },
+        reportingSource = maybeUniqueChildNamed("RptgSrc") { maybeUniqueChildNamed("Cd") { it.textContent } }
+    )
 }
 
 /**
@@ -769,22 +955,6 @@ fun parseCamtMessage(doc: Document): CamtParseResult {
                 }
             }
 
-            val balances = requireOnlyChild {
-                mapEachChildNamed("Bal") {
-                    Balance(
-                        type = maybeUniqueChildNamed("Tp") { maybeUniqueChildNamed("Cd") { it.textContent } },
-                        proprietaryType = maybeUniqueChildNamed("Tp") { maybeUniqueChildNamed("Prtry") { it.textContent } },
-                        date = extractDateOrDateTime(),
-                        creditDebitIndicator = requireUniqueChildNamed("CdtDbtInd") { it.textContent }.let {
-                            CreditDebitIndicator.valueOf(it)
-                        },
-                        subtype = maybeUniqueChildNamed("SubTp") { maybeUniqueChildNamed("Cd") { it.textContent } },
-                        proprietarySubtype = maybeUniqueChildNamed("SubTp") { maybeUniqueChildNamed("Prtry") { it.textContent } },
-                        amount = extractCurrencyAmount()
-                    )
-                }
-            }
-
             val messageId = requireOnlyChild {
                 requireUniqueChildNamed("GrpHdr") {
                     requireUniqueChildNamed("MsgId") { it.textContent }
@@ -806,7 +976,6 @@ fun parseCamtMessage(doc: Document): CamtParseResult {
             }
             CamtParseResult(
                 reports = reports,
-                balances = balances,
                 messageId = messageId,
                 messageType = messageType,
                 creationDateTime = creationDateTime
