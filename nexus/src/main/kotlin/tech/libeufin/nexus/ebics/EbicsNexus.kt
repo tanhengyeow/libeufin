@@ -763,6 +763,9 @@ suspend fun submitEbicsPaymentInitiation(httpClient: HttpClient, paymentInitiati
                 endToEndId = paymentInitiation.endToEndId
             )
         )
+        if (!XMLUtil.validateFromString(painMessage)) throw NexusError(
+            HttpStatusCode.InternalServerError, "Pain.001 message is invalid."
+        )
         object {
             val subscriberDetails = subscriberDetails
             val painMessage = painMessage
