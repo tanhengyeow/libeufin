@@ -7,7 +7,7 @@ import kotlin.test.assertTrue
 class CamtTest {
 
     @Test
-    fun camtTest() {
+    fun validationTest() {
         val payment = RawPayment(
             creditorIban = "GB33BUKB20201222222222",
             creditorName = "Oliver Smith",
