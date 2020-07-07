@@ -4,7 +4,9 @@ import org.junit.Test
 import org.w3c.dom.Document
 import tech.libeufin.nexus.iso20022.*
 import tech.libeufin.util.XMLUtil
+import java.math.BigDecimal
 import kotlin.test.assertEquals
+import kotlin.test.assertTrue
 
 fun loadXmlResource(name: String): Document {
     val classLoader = ClassLoader.getSystemClassLoader()
@@ -26,7 +28,7 @@ class Iso20022Test {
         assertEquals(1, r.reports.size)
 
         // First Entry
-        assertEquals("100.00", r.reports[0].entries[0].entryAmount.amount)
+        assertTrue(BigDecimal(100).compareTo(r.reports[0].entries[0].entryAmount.value) == 0)
         assertEquals("EUR", r.reports[0].entries[0].entryAmount.currency)
         assertEquals(CreditDebitIndicator.CRDT, r.reports[0].entries[0].creditDebitIndicator)
         assertEquals(EntryStatus.BOOK, r.reports[0].entries[0].status)
@@ -39,7 +41,7 @@ class Iso20022Test {
         assertEquals("DK", r.reports[0].entries[0].bankTransactionCode.proprietaryIssuer)
         assertEquals(1, r.reports[0].entries[0].transactionInfos.size)
         assertEquals("EUR", r.reports[0].entries[0].transactionInfos[0].amount.currency)
-        assertEquals("100.00", r.reports[0].entries[0].transactionInfos[0].amount.amount)
+        assertTrue(BigDecimal(100).compareTo(r.reports[0].entries[0].transactionInfos[0].amount.value) == 0)
         assertEquals(CreditDebitIndicator.CRDT, r.reports[0].entries[0].transactionInfos[0].creditDebitIndicator)
         assertEquals("unstructured info one", r.reports[0].entries[0].transactionInfos[0].unstructuredRemittanceInformation)
 

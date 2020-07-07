@@ -23,11 +23,21 @@ import com.fasterxml.jackson.annotation.JsonSubTypes
 import com.fasterxml.jackson.annotation.JsonTypeInfo
 import com.fasterxml.jackson.annotation.JsonTypeName
 import com.fasterxml.jackson.annotation.JsonValue
+import com.fasterxml.jackson.core.JsonGenerator
+import com.fasterxml.jackson.core.JsonParser
+import com.fasterxml.jackson.databind.DeserializationContext
 import com.fasterxml.jackson.databind.JsonNode
+import com.fasterxml.jackson.databind.SerializerProvider
+import com.fasterxml.jackson.databind.annotation.JsonDeserialize
+import com.fasterxml.jackson.databind.annotation.JsonSerialize
+import com.fasterxml.jackson.databind.deser.std.StdDeserializer
+import com.fasterxml.jackson.databind.ser.std.StdSerializer
 import tech.libeufin.nexus.iso20022.CamtBankAccountEntry
 import tech.libeufin.nexus.iso20022.CreditDebitIndicator
 import tech.libeufin.nexus.iso20022.EntryStatus
 import tech.libeufin.util.*
+import java.lang.UnsupportedOperationException
+import java.math.BigDecimal
 import java.time.Instant
 import java.time.ZoneId
 import java.time.ZonedDateTime
@@ -342,11 +352,38 @@ data class ImportBankAccount(
     val nexusBankAccountId: String
 )
 
+
+class CurrencyAmountDeserializer(jc: Class<*> = CurrencyAmount::class.java) : StdDeserializer<CurrencyAmount>(jc) {
+    override fun deserialize(p: JsonParser?, ctxt: DeserializationContext?): CurrencyAmount {
+        if (p == null) {
+            throw UnsupportedOperationException();
+        }
+        val s = p.valueAsString
+        val components = s.split(":")
+        // FIXME: error handling!
+        return CurrencyAmount(components[0], BigDecimal(components[1]))
+    }
+}
+
+class CurrencyAmountSerializer(jc: Class<CurrencyAmount> = CurrencyAmount::class.java) : StdSerializer<CurrencyAmount>(jc) {
+    override fun serialize(value: CurrencyAmount?, gen: JsonGenerator?, provider: SerializerProvider?) {
+        if (gen == null) {
+            throw UnsupportedOperationException()
+        }
+        if (value == null) {
+            gen.writeNull()
+        } else {
+            gen.writeString("${value.currency}:${value.value.toPlainString()}")
+        }
+    }
+}
+
+@JsonDeserialize(using = CurrencyAmountDeserializer::class)
+@JsonSerialize(using = CurrencyAmountSerializer::class)
 data class CurrencyAmount(
     val currency: String,
-    val amount: String
+    val value: BigDecimal
 )
-
 
 /**
  * Account entry item as returned by the /bank-accounts/{acctId}/transactions API.

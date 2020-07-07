@@ -27,6 +27,7 @@ import com.fasterxml.jackson.annotation.JsonValue
 import org.w3c.dom.Document
 import tech.libeufin.nexus.server.CurrencyAmount
 import tech.libeufin.util.*
+import java.math.BigDecimal
 import java.time.Instant
 import java.time.ZoneId
 import java.time.ZonedDateTime
@@ -471,7 +472,7 @@ private fun XmlElementDestructor.extractParty(): PartyIdentification {
 
 private fun XmlElementDestructor.extractCurrencyAmount(): CurrencyAmount {
     return CurrencyAmount(
-        amount = requireUniqueChildNamed("Amt") { it.textContent },
+        value = BigDecimal(requireUniqueChildNamed("Amt") { it.textContent }),
         currency = requireUniqueChildNamed("Amt") { it.getAttribute("Ccy") }
     )
 }
@@ -479,8 +480,8 @@ private fun XmlElementDestructor.extractCurrencyAmount(): CurrencyAmount {
 private fun XmlElementDestructor.maybeExtractCurrencyAmount(): CurrencyAmount? {
     return maybeUniqueChildNamed("Amt") {
         CurrencyAmount(
-            it.textContent,
-            it.getAttribute("Ccy")
+            it.getAttribute("Ccy"),
+            BigDecimal(it.textContent)
         )
     }
 }
@@ -624,8 +625,7 @@ private fun XmlElementDestructor.extractInnerBkTxCd(): BankTransactionCode {
 private fun XmlElementDestructor.extractInnerTransactions(): CamtReport {
     val account = requireUniqueChildNamed("Acct") { extractAccount() }
     val entries = mapEachChildNamed("Ntry") {
-        val amount = requireUniqueChildNamed("Amt") { it.textContent }
-        val currency = requireUniqueChildNamed("Amt") { it.getAttribute("Ccy") }
+        val amount = extractCurrencyAmount()
         val status = requireUniqueChildNamed("Sts") { it.textContent }.let {
             EntryStatus.valueOf(it)
         }
@@ -638,9 +638,9 @@ private fun XmlElementDestructor.extractInnerTransactions(): CamtReport {
         val acctSvcrRef = maybeUniqueChildNamed("AcctSvcrRef") { it.textContent }
         val entryRef = maybeUniqueChildNamed("NtryRef") { it.textContent }
         // For now, only support account servicer reference as id
-        val transactionInfos = extractTransactionInfos(CurrencyAmount(currency, amount), creditDebitIndicator)
+        val transactionInfos = extractTransactionInfos(amount, creditDebitIndicator)
         CamtBankAccountEntry(
-            entryAmount = CurrencyAmount(currency, amount),
+            entryAmount = amount,
             status = status,
             creditDebitIndicator = creditDebitIndicator,
             bankTransactionCode = btc,
