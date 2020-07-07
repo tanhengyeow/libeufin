@@ -156,15 +156,15 @@ fun processCamtMessage(
             val rawEntity = NexusBankTransactionEntity.new {
                 bankAccount = acct
                 accountTransactionId = "AcctSvcrRef:$acctSvcrRef"
-                amount = tx.entryAmount.value.toPlainString()
-                currency = tx.entryAmount.currency
+                amount = tx.amount.value.toPlainString()
+                currency = tx.amount.currency
                 transactionJson = jacksonObjectMapper().writerWithDefaultPrettyPrinter().writeValueAsString(tx)
                 creditDebitIndicator = tx.creditDebitIndicator.name
                 status = tx.status
             }
             rawEntity.flush()
             if (tx.creditDebitIndicator == CreditDebitIndicator.DBIT) {
-                val t0 = tx.transactionInfos.getOrNull(0)
+                val t0 = tx.details
                 val msgId = t0?.messageId
                 val pmtInfId = t0?.paymentInformationId
                 if (t0 != null && msgId != null && pmtInfId != null) {

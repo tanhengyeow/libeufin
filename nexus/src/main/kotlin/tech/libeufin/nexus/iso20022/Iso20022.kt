@@ -91,14 +91,14 @@ data class Balance(
 )
 
 data class CamtParseResult(
-    val reports: List<CamtReport>,
-    val balances: List<Balance>,
-    val messageId: String,
     /**
      * Message type in form of the ISO 20022 message name.
      */
     val messageType: CashManagementResponseType,
-    val creationDateTime: String
+    val messageId: String,
+    val creationDateTime: String,
+    val balances: List<Balance>,
+    val reports: List<CamtReport>
 )
 
 @JsonInclude(JsonInclude.Include.NON_NULL)
@@ -117,7 +117,7 @@ data class OrganizationIdentification(
 
 /**
  * Identification of a party, which can be a private party
- * or an organiation.
+ * or an organization.
  *
  * Mapping of ISO 20022 PartyIdentification135.
  */
@@ -152,10 +152,7 @@ data class CurrencyExchange(
 )
 
 @JsonInclude(JsonInclude.Include.NON_NULL)
-data class TransactionInfo(
-    val batchPaymentInformationId: String?,
-    val batchMessageId: String?,
-
+data class TransactionDetails(
     val debtor: PartyIdentification?,
     val debtorAccount: CashAccount?,
     val debtorAgent: AgentIdentification?,
@@ -167,14 +164,31 @@ data class TransactionInfo(
     val paymentInformationId: String? = null,
     val messageId: String? = null,
 
-    val amount: CurrencyAmount,
-    val creditDebitIndicator: CreditDebitIndicator,
+    /**
+     * Currency exchange information for the transaction's amount.
+     */
+    val currencyExchange: CurrencyExchange?,
 
+    /**
+     * Amount as given in the payment initiation.
+     * Can be same or different currency as account currency.
+     */
     val instructedAmount: CurrencyAmount?,
-    val transactionAmount: CurrencyAmount?,
 
-    val instructedAmountCurrencyExchange: CurrencyExchange?,
-    val transactionAmountCurrencyExchange: CurrencyExchange?,
+    /**
+     * Raw amount used for currency exchange, before extra charges.
+     * Can be same or different currency as account currency.
+     */
+    val counterValueAmount: CurrencyAmount?,
+
+    /**
+     * Money that was moved between banks.
+     *
+     * For CH, we use the "TxAmt".
+     * For EPC, this amount is either blank or taken
+     * from the "IBC" proprietary amount.
+     */
+    val interBankSettlementAmount: CurrencyAmount?,
 
     /**
      * Unstructured remittance information (=subject line) of the transaction,
@@ -193,9 +207,28 @@ data class ReturnInfo(
     val additionalInfo: String?
 )
 
+data class BatchTransaction(
+    val amount: CurrencyAmount,
+
+    /**
+     * Is this entry debiting or crediting the account
+     * it is reported for?
+     */
+    val creditDebitIndicator: CreditDebitIndicator,
+
+    val details: TransactionDetails
+)
+
+
+data class Batch(
+    val batchTransactions: List<BatchTransaction>,
+    val messageId: String?,
+    val paymentInformationId: String?
+)
+
 @JsonInclude(JsonInclude.Include.NON_NULL)
 data class CamtBankAccountEntry(
-    val entryAmount: CurrencyAmount,
+    val amount: CurrencyAmount,
 
     /**
      * Is this entry debiting or crediting the account
@@ -212,18 +245,33 @@ data class CamtBankAccountEntry(
      * Code that describes the type of bank transaction
      * in more detail
      */
-
     val bankTransactionCode: String,
-    /**
-     * Transaction details, if this entry contains a single transaction.
-     */
-    val transactionInfos: List<TransactionInfo>,
-    val valueDate: String?,
-    val bookingDate: String?,
-    val accountServicerRef: String?,
-    val entryRef: String?
-)
 
+    val valueDate: String?,
+
+    val bookingDate: String?,
+
+    val accountServicerRef: String?,
+
+    val entryRef: String?,
+
+    /**
+     * Currency exchange information for the entry's amount.
+     * Only present if currency exchange happened at the entry level.
+     */
+    val currencyExchange: CurrencyExchange?,
+
+    /**
+     * Value before/after currency exchange before charges have been applied.
+     */
+    val counterValueAmount: CurrencyAmount?,
+
+    /**
+     * Details of the underlying transaction for type=Simple.
+     */
+    val details: TransactionDetails?,
+    val batches: List<Batch>?
+)
 
 class CamtParsingError(msg: String) : Exception(msg)
 
@@ -434,10 +482,10 @@ private fun XmlElementDestructor.extractParty(): PartyIdentification {
         maybeUniqueChildNamed("PrvtId") {
             maybeUniqueChildNamed("DtAndPlcOfBirth") {
                 PrivateIdentification(
-                    birthDate = maybeUniqueChildNamed("BirthDt") { it.textContent},
-                    cityOfBirth = maybeUniqueChildNamed("CityOfBirth") { it.textContent},
-                    countryOfBirth = maybeUniqueChildNamed("CtryOfBirth") { it.textContent},
-                    provinceOfBirth = maybeUniqueChildNamed("PrvcOfBirth") { it.textContent}
+                    birthDate = maybeUniqueChildNamed("BirthDt") { it.textContent },
+                    cityOfBirth = maybeUniqueChildNamed("CityOfBirth") { it.textContent },
+                    countryOfBirth = maybeUniqueChildNamed("CtryOfBirth") { it.textContent },
+                    provinceOfBirth = maybeUniqueChildNamed("PrvcOfBirth") { it.textContent }
                 )
             }
         }
@@ -446,12 +494,12 @@ private fun XmlElementDestructor.extractParty(): PartyIdentification {
     val organizationId = maybeUniqueChildNamed("Id") {
         maybeUniqueChildNamed("OrgId") {
             OrganizationIdentification(
-                bic = maybeUniqueChildNamed("BICOrBEI") { it.textContent} ?: maybeUniqueChildNamed("AnyBIC") { it.textContent},
-                lei = maybeUniqueChildNamed("LEI") { it.textContent}
+                bic = maybeUniqueChildNamed("BICOrBEI") { it.textContent }
+                    ?: maybeUniqueChildNamed("AnyBIC") { it.textContent },
+                lei = maybeUniqueChildNamed("LEI") { it.textContent }
             )
         }
     }
-
 
     return PartyIdentification(
         name = maybeUniqueChildNamed("Nm") { it.textContent },
@@ -482,7 +530,7 @@ private fun XmlElementDestructor.extractMaybeCurrencyExchange(): CurrencyExchang
     return maybeUniqueChildNamed("CcyXchg") {
         CurrencyExchange(
             sourceCurrency = requireUniqueChildNamed("SrcCcy") { it.textContent },
-            targetCurrency = requireUniqueChildNamed("TgtCcy") { it.textContent },
+            targetCurrency = requireUniqueChildNamed("TrgtCcy") { it.textContent },
             contractId = maybeUniqueChildNamed("CtrctId") { it.textContent },
             exchangeRate = requireUniqueChildNamed("XchgRate") { it.textContent },
             quotationDate = maybeUniqueChildNamed("QtnDt") { it.textContent },
@@ -491,107 +539,112 @@ private fun XmlElementDestructor.extractMaybeCurrencyExchange(): CurrencyExchang
     }
 }
 
-
-private fun XmlElementDestructor.extractTransactionInfos(
+private fun XmlElementDestructor.extractBatches(
     outerAmount: CurrencyAmount,
     outerCreditDebitIndicator: CreditDebitIndicator
-): List<TransactionInfo> {
+): List<Batch> {
+    return mapEachChildNamed("NtryDtls") {
+        val numDtls = mapEachChildNamed("TxDtls") { Unit }.count()
+        var amount = maybeExtractCurrencyAmount()
+        var creditDebitIndicator = maybeExtractCreditDebitIndicator()
 
-    val numTxDtls = requireUniqueChildNamed("NtryDtls") {
-        mapEachChildNamed("TxDtls") { Unit }
-    }.count()
+        if (amount == null && numDtls == 1) {
+            amount = outerAmount
+            creditDebitIndicator = outerCreditDebitIndicator
+        }
+        if (amount == null || creditDebitIndicator == null) {
+            throw Error("no amount for inner transaction")
+        }
+        val txs = mapEachChildNamed("TxDtls") {
+            val details = extractTransactionDetails(outerAmount, outerCreditDebitIndicator, false)
+            BatchTransaction(amount, creditDebitIndicator, details)
+        }
+        Batch(txs, null, null)
+    }
+}
 
-    return requireUniqueChildNamed("NtryDtls") {
-        mapEachChildNamed("TxDtls") {
+private fun XmlElementDestructor.maybeExtractCreditDebitIndicator(): CreditDebitIndicator? {
+    return maybeUniqueChildNamed("CdtDbtInd") { it.textContent }?.let {
+        CreditDebitIndicator.valueOf(it)
+    }
+}
 
-            val instructedAmount = maybeUniqueChildNamed("AmtDtls") {
-                maybeUniqueChildNamed("InstrAmt") { extractCurrencyAmount() }
+private fun XmlElementDestructor.extractTransactionDetails(
+    outerAmount: CurrencyAmount,
+    outerCreditDebitIndicator: CreditDebitIndicator,
+    batch: Boolean
+): TransactionDetails {
+    val instructedAmount = maybeUniqueChildNamed("AmtDtls") {
+        maybeUniqueChildNamed("InstdAmt") { extractCurrencyAmount() }
+    }
+
+    val creditDebitIndicator = maybeExtractCreditDebitIndicator() ?: outerCreditDebitIndicator
+
+    val currencyExchange = maybeUniqueChildNamed("AmtDtls") {
+        val cxCntrVal =  maybeUniqueChildNamed("CntrValAmt") { extractMaybeCurrencyExchange() }
+        val cxTx =  maybeUniqueChildNamed("TxAmt") { extractMaybeCurrencyExchange() }
+        val cxInstr = maybeUniqueChildNamed("InstdAmt") { extractMaybeCurrencyExchange() }
+        cxCntrVal ?: cxTx ?: cxInstr
+    }
+
+    return TransactionDetails(
+        instructedAmount = instructedAmount,
+        counterValueAmount = maybeUniqueChildNamed("AmtDtls") {
+            maybeUniqueChildNamed("CntrValAmt") { extractCurrencyAmount() }
+        },
+        currencyExchange = currencyExchange,
+        // FIXME: implement
+        interBankSettlementAmount = null,
+        endToEndId = maybeUniqueChildNamed("Refs") {
+            maybeUniqueChildNamed("EndToEndId") { it.textContent }
+        },
+        messageId = maybeUniqueChildNamed("Refs") {
+            maybeUniqueChildNamed("MsgId") { it.textContent }
+        },
+        paymentInformationId = maybeUniqueChildNamed("Refs") {
+            maybeUniqueChildNamed("PmtInfId") { it.textContent }
+        },
+        unstructuredRemittanceInformation = maybeUniqueChildNamed("RmtInf") {
+            val chunks = mapEachChildNamed("Ustrd", { it.textContent })
+            if (chunks.isEmpty()) {
+                null
+            } else {
+                chunks.joinToString(separator = "")
             }
-
-            val transactionAmount = maybeUniqueChildNamed("AmtDtls") {
-                maybeUniqueChildNamed("TxAmt") { extractCurrencyAmount() }
-            }
-
-            var amount = maybeExtractCurrencyAmount()
-            var creditDebitIndicator = maybeUniqueChildNamed("CdtDbtInd") { it.textContent }?.let {
-                CreditDebitIndicator.valueOf(it)
-            }
-            if (amount == null) {
-                when {
-                    numTxDtls == 1 -> {
-                        amount = outerAmount
-                        creditDebitIndicator = outerCreditDebitIndicator
-                    }
-                    transactionAmount?.currency == outerAmount.currency -> {
-                        amount = transactionAmount
-                        creditDebitIndicator = outerCreditDebitIndicator
-                    }
-                    instructedAmount?.currency == outerAmount.currency -> {
-                        amount = instructedAmount
-                        creditDebitIndicator = outerCreditDebitIndicator
-                    }
-                    else -> {
-                        throw Error("invalid camt, no amount for transaction details of entry details")
-                    }
-                }
-            }
-
-            if (creditDebitIndicator == null) {
-                throw Error("invalid camt, no credit/debit indicator for transaction details of entry details")
-            }
-
-            TransactionInfo(
-                batchMessageId = null,
-                batchPaymentInformationId = null,
-                amount = amount,
-                creditDebitIndicator = creditDebitIndicator,
-                instructedAmount = instructedAmount,
-                instructedAmountCurrencyExchange = maybeUniqueChildNamed("AmtDtls") {
-                    maybeUniqueChildNamed("InstrAmt") { extractMaybeCurrencyExchange() }
-                },
-                transactionAmount = transactionAmount,
-                transactionAmountCurrencyExchange = maybeUniqueChildNamed("AmtDtls") {
-                    maybeUniqueChildNamed("TxAmt") { extractMaybeCurrencyExchange() }
-                },
-                endToEndId = maybeUniqueChildNamed("Refs") {
-                    maybeUniqueChildNamed("EndToEndId") { it.textContent }
-                },
-                messageId = maybeUniqueChildNamed("Refs") {
-                    maybeUniqueChildNamed("MsgId") { it.textContent }
-                },
-                paymentInformationId = maybeUniqueChildNamed("Refs") {
-                    maybeUniqueChildNamed("PmtInfId") { it.textContent }
-                },
-                unstructuredRemittanceInformation = maybeUniqueChildNamed("RmtInf") {
-                    val chunks = mapEachChildNamed("Ustrd", { it.textContent })
-                    if (chunks.isEmpty()) {
-                        null
-                    } else {
-                        chunks.joinToString(separator = "")
-                    }
-                } ?: "",
-                creditorAgent = maybeUniqueChildNamed("CdtrAgt") { extractAgent() },
-                debtorAgent = maybeUniqueChildNamed("DbtrAgt") { extractAgent() },
-                debtorAccount = maybeUniqueChildNamed("DbtrAgt") { extractAccount() },
-                creditorAccount = maybeUniqueChildNamed("CdtrAgt") { extractAccount() },
-                debtor = maybeUniqueChildNamed("Dbtr") { extractParty() },
-                creditor = maybeUniqueChildNamed("Cdtr") { extractParty() },
-                returnInfo = maybeUniqueChildNamed("RtrInf") {
-                    ReturnInfo(
-                        originalBankTransactionCode = maybeUniqueChildNamed("OrgnlBkTxCd") {
-                            extractInnerBkTxCd(
-                                when (creditDebitIndicator) {
-                                    CreditDebitIndicator.DBIT -> CreditDebitIndicator.CRDT
-                                    CreditDebitIndicator.CRDT -> CreditDebitIndicator.DBIT
-                                })
-                        },
-                        originator = maybeUniqueChildNamed("Orgtr") { extractParty() },
-                        reason = maybeUniqueChildNamed("Rsn") { maybeUniqueChildNamed("Cd") { it.textContent } },
-                        proprietaryReason = maybeUniqueChildNamed("Rsn") { maybeUniqueChildNamed("Prtry") { it.textContent } },
-                        additionalInfo = maybeUniqueChildNamed("AddtlInf") { it.textContent }
+        } ?: "",
+        creditorAgent = maybeUniqueChildNamed("RltdAgts") { maybeUniqueChildNamed("CdtrAgt") { extractAgent() } },
+        debtorAgent = maybeUniqueChildNamed("RltdAgts") { maybeUniqueChildNamed("DbtrAgt") { extractAgent() } },
+        debtorAccount = maybeUniqueChildNamed("RltdPties") { maybeUniqueChildNamed("DbtrAgt") { extractAccount() } },
+        creditorAccount = maybeUniqueChildNamed("RltdPties") { maybeUniqueChildNamed("CdtrAgt") { extractAccount() } },
+        debtor = maybeUniqueChildNamed("RltdPties") { maybeUniqueChildNamed("Dbtr") { extractParty() } },
+        creditor = maybeUniqueChildNamed("RltdPties") { maybeUniqueChildNamed("Cdtr") { extractParty() } },
+        returnInfo = maybeUniqueChildNamed("RtrInf") {
+            ReturnInfo(
+                originalBankTransactionCode = maybeUniqueChildNamed("OrgnlBkTxCd") {
+                    extractInnerBkTxCd(
+                        when (creditDebitIndicator) {
+                            CreditDebitIndicator.DBIT -> CreditDebitIndicator.CRDT
+                            CreditDebitIndicator.CRDT -> CreditDebitIndicator.DBIT
+                        }
                     )
-                }
+                },
+                originator = maybeUniqueChildNamed("Orgtr") { extractParty() },
+                reason = maybeUniqueChildNamed("Rsn") { maybeUniqueChildNamed("Cd") { it.textContent } },
+                proprietaryReason = maybeUniqueChildNamed("Rsn") { maybeUniqueChildNamed("Prtry") { it.textContent } },
+                additionalInfo = maybeUniqueChildNamed("AddtlInf") { it.textContent }
             )
+        }
+    )
+}
+
+
+private fun XmlElementDestructor.extractSingleDetails(
+    outerAmount: CurrencyAmount,
+    outerCreditDebitIndicator: CreditDebitIndicator
+): TransactionDetails {
+    return requireUniqueChildNamed("NtryDtls") {
+        requireUniqueChildNamed("TxDtls") {
+            extractTransactionDetails(outerAmount, outerCreditDebitIndicator, false)
         }
     }
 }
@@ -600,21 +653,21 @@ private fun XmlElementDestructor.extractInnerBkTxCd(creditDebitIndicator: Credit
 
     val domain = maybeUniqueChildNamed("Domn") { maybeUniqueChildNamed("Cd") { it.textContent } }
     val family = maybeUniqueChildNamed("Domn") {
-            maybeUniqueChildNamed("Fmly") {
-                maybeUniqueChildNamed("Cd") { it.textContent }
-            }
-        }
-    val subfamily = maybeUniqueChildNamed("Domn") {
-            maybeUniqueChildNamed("Fmly") {
-                maybeUniqueChildNamed("SubFmlyCd") { it.textContent }
-            }
-        }
-    val proprietaryCode = maybeUniqueChildNamed("Prtry") {
+        maybeUniqueChildNamed("Fmly") {
             maybeUniqueChildNamed("Cd") { it.textContent }
         }
-    val proprietaryIssuer = maybeUniqueChildNamed("Prtry") {
-            maybeUniqueChildNamed("Issr") { it.textContent }
+    }
+    val subfamily = maybeUniqueChildNamed("Domn") {
+        maybeUniqueChildNamed("Fmly") {
+            maybeUniqueChildNamed("SubFmlyCd") { it.textContent }
         }
+    }
+    val proprietaryCode = maybeUniqueChildNamed("Prtry") {
+        maybeUniqueChildNamed("Cd") { it.textContent }
+    }
+    val proprietaryIssuer = maybeUniqueChildNamed("Prtry") {
+        maybeUniqueChildNamed("Issr") { it.textContent }
+    }
 
     if (domain != null && family != null && subfamily != null) {
         return "$domain-$family-$subfamily"
@@ -631,6 +684,7 @@ private fun XmlElementDestructor.extractInnerBkTxCd(creditDebitIndicator: Credit
     return "XTND-NTAV-NTAV"
 }
 
+
 private fun XmlElementDestructor.extractInnerTransactions(): CamtReport {
     val account = requireUniqueChildNamed("Acct") { extractAccount() }
     val entries = mapEachChildNamed("Ntry") {
@@ -646,14 +700,41 @@ private fun XmlElementDestructor.extractInnerTransactions(): CamtReport {
         }
         val acctSvcrRef = maybeUniqueChildNamed("AcctSvcrRef") { it.textContent }
         val entryRef = maybeUniqueChildNamed("NtryRef") { it.textContent }
+
+        val numNtryDtls = mapEachChildNamed("NtryDtls") {
+            Unit
+        }.count()
+
+        val currencyExchange = maybeUniqueChildNamed("AmtDtls") {
+            val cxCntrVal =  maybeUniqueChildNamed("CntrValAmt") { extractMaybeCurrencyExchange() }
+            val cxTx =  maybeUniqueChildNamed("TxAmt") { extractMaybeCurrencyExchange() }
+            val cxInstr = maybeUniqueChildNamed("InstrAmt") { extractMaybeCurrencyExchange() }
+            cxCntrVal ?: cxTx ?: cxInstr
+        }
+
+        val counterValueAmount = maybeUniqueChildNamed("AmtDtls") {
+            maybeUniqueChildNamed("CntrValAmt") { extractCurrencyAmount() }
+        }
+
         // For now, only support account servicer reference as id
-        val transactionInfos = extractTransactionInfos(amount, creditDebitIndicator)
+
         CamtBankAccountEntry(
-            entryAmount = amount,
+            amount = amount,
             status = status,
+            currencyExchange = currencyExchange,
+            counterValueAmount = counterValueAmount,
             creditDebitIndicator = creditDebitIndicator,
             bankTransactionCode = btc,
-            transactionInfos = transactionInfos,
+            details = if (numNtryDtls == 1) {
+                extractSingleDetails(amount, creditDebitIndicator)
+            } else {
+                null
+            },
+            batches = if (numNtryDtls > 1) {
+                extractBatches(amount, creditDebitIndicator)
+            } else {
+                null
+            },
             bookingDate = maybeUniqueChildNamed("BookgDt") { extractDateOrDateTime() },
             valueDate = maybeUniqueChildNamed("ValDt") { extractDateOrDateTime() },
             accountServicerRef = acctSvcrRef,
@@ -723,7 +804,13 @@ fun parseCamtMessage(doc: Document): CamtParseResult {
                     }
                 }
             }
-            CamtParseResult(reports, balances, messageId, messageType, creationDateTime)
+            CamtParseResult(
+                reports = reports,
+                balances = balances,
+                messageId = messageId,
+                messageType = messageType,
+                creationDateTime = creationDateTime
+            )
         }
     }
 }

@@ -42,7 +42,7 @@ import tech.libeufin.nexus.bankaccount.addPaymentInitiation
 import tech.libeufin.nexus.iso20022.CamtBankAccountEntry
 import tech.libeufin.nexus.iso20022.CreditDebitIndicator
 import tech.libeufin.nexus.iso20022.EntryStatus
-import tech.libeufin.nexus.iso20022.TransactionInfo
+import tech.libeufin.nexus.iso20022.TransactionDetails
 import tech.libeufin.nexus.server.Pain001Data
 import tech.libeufin.nexus.server.authenticateRequest
 import tech.libeufin.nexus.server.expectNonNull
@@ -356,7 +356,7 @@ private suspend fun talerAddIncoming(call: ApplicationCall, httpClient: HttpClie
 }
 
 
-private fun ingestIncoming(payment: NexusBankTransactionEntity, txDtls: TransactionInfo) {
+private fun ingestIncoming(payment: NexusBankTransactionEntity, txDtls: TransactionDetails) {
     val subject = txDtls.unstructuredRemittanceInformation
     val debtorName = txDtls.debtor?.name
     if (debtorName == null) {
@@ -424,12 +424,13 @@ fun ingestTalerTransactions() {
         }.orderBy(Pair(NexusBankTransactionsTable.id, SortOrder.ASC)).forEach {
             // Incoming payment.
             val tx = jacksonObjectMapper().readValue(it.transactionJson, CamtBankAccountEntry::class.java)
-            if (tx.transactionInfos.size != 1) {
+            val txDetails = tx.details
+            if (txDetails == null) {
                 // We don't support batch transactions at the moment!
                 logger.warn("batch transactions not supported")
             } else {
                 when (tx.creditDebitIndicator) {
-                    CreditDebitIndicator.CRDT -> ingestIncoming(it, txDtls = tx.transactionInfos[0])
+                    CreditDebitIndicator.CRDT -> ingestIncoming(it, txDtls = txDetails)
                 }
             }
             lastId = it.id.value
