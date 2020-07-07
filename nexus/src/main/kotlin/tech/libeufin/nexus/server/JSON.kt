@@ -24,9 +24,9 @@ import com.fasterxml.jackson.annotation.JsonTypeInfo
 import com.fasterxml.jackson.annotation.JsonTypeName
 import com.fasterxml.jackson.annotation.JsonValue
 import com.fasterxml.jackson.databind.JsonNode
-import tech.libeufin.nexus.CamtBankAccountEntry
-import tech.libeufin.nexus.CreditDebitIndicator
-import tech.libeufin.nexus.EntryStatus
+import tech.libeufin.nexus.iso20022.CamtBankAccountEntry
+import tech.libeufin.nexus.iso20022.CreditDebitIndicator
+import tech.libeufin.nexus.iso20022.EntryStatus
 import tech.libeufin.util.*
 import java.time.Instant
 import java.time.ZoneId

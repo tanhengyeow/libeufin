@@ -27,6 +27,7 @@ import org.jetbrains.exposed.dao.id.LongIdTable
 import org.jetbrains.exposed.sql.*
 import org.jetbrains.exposed.sql.transactions.TransactionManager
 import org.jetbrains.exposed.sql.transactions.transaction
+import tech.libeufin.nexus.iso20022.EntryStatus
 import tech.libeufin.util.EbicsInitState
 import tech.libeufin.util.amount
 import java.sql.Connection

@@ -60,6 +60,7 @@ import tech.libeufin.nexus.OfferedBankAccountsTable.imported
 import tech.libeufin.nexus.OfferedBankAccountsTable.offeredAccountId
 import tech.libeufin.nexus.bankaccount.*
 import tech.libeufin.nexus.ebics.*
+import tech.libeufin.nexus.iso20022.CamtBankAccountEntry
 import tech.libeufin.util.*
 import tech.libeufin.nexus.logger
 import java.lang.IllegalArgumentException

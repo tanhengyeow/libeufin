@@ -39,6 +39,10 @@ import org.jetbrains.exposed.dao.id.IdTable
 import org.jetbrains.exposed.sql.*
 import org.jetbrains.exposed.sql.transactions.transaction
 import tech.libeufin.nexus.bankaccount.addPaymentInitiation
+import tech.libeufin.nexus.iso20022.CamtBankAccountEntry
+import tech.libeufin.nexus.iso20022.CreditDebitIndicator
+import tech.libeufin.nexus.iso20022.EntryStatus
+import tech.libeufin.nexus.iso20022.TransactionInfo
 import tech.libeufin.nexus.server.Pain001Data
 import tech.libeufin.nexus.server.authenticateRequest
 import tech.libeufin.nexus.server.expectNonNull

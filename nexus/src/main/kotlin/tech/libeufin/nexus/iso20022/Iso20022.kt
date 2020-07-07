@@ -20,7 +20,7 @@
 /**
  * Parse and generate ISO 20022 messages
  */
-package tech.libeufin.nexus
+package tech.libeufin.nexus.iso20022
 
 import com.fasterxml.jackson.annotation.JsonInclude
 import com.fasterxml.jackson.annotation.JsonValue
