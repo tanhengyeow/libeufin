@@ -186,7 +186,7 @@ data class TransactionInfo(
 
 @JsonInclude(JsonInclude.Include.NON_NULL)
 data class ReturnInfo(
-    val originalBankTransactionCode: BankTransactionCode?,
+    val originalBankTransactionCode: String?,
     val originator: PartyIdentification?,
     val reason: String?,
     val proprietaryReason: String?,
@@ -213,7 +213,7 @@ data class CamtBankAccountEntry(
      * in more detail
      */
 
-    val bankTransactionCode: BankTransactionCode,
+    val bankTransactionCode: String,
     /**
      * Transaction details, if this entry contains a single transaction.
      */
@@ -224,14 +224,6 @@ data class CamtBankAccountEntry(
     val entryRef: String?
 )
 
-@JsonInclude(JsonInclude.Include.NON_NULL)
-data class BankTransactionCode(
-    val domain: String?,
-    val family: String?,
-    val subfamily: String?,
-    val proprietaryCode: String?,
-    val proprietaryIssuer: String?
-)
 
 class CamtParsingError(msg: String) : Exception(msg)
 
@@ -587,7 +579,11 @@ private fun XmlElementDestructor.extractTransactionInfos(
                 returnInfo = maybeUniqueChildNamed("RtrInf") {
                     ReturnInfo(
                         originalBankTransactionCode = maybeUniqueChildNamed("OrgnlBkTxCd") {
-                            extractInnerBkTxCd()
+                            extractInnerBkTxCd(
+                                when (creditDebitIndicator) {
+                                    CreditDebitIndicator.DBIT -> CreditDebitIndicator.CRDT
+                                    CreditDebitIndicator.CRDT -> CreditDebitIndicator.DBIT
+                                })
                         },
                         originator = maybeUniqueChildNamed("Orgtr") { extractParty() },
                         reason = maybeUniqueChildNamed("Rsn") { maybeUniqueChildNamed("Cd") { it.textContent } },
@@ -600,26 +596,39 @@ private fun XmlElementDestructor.extractTransactionInfos(
     }
 }
 
-private fun XmlElementDestructor.extractInnerBkTxCd(): BankTransactionCode {
-    return BankTransactionCode(
-        domain = maybeUniqueChildNamed("Domn") { maybeUniqueChildNamed("Cd") { it.textContent } },
-        family = maybeUniqueChildNamed("Domn") {
+private fun XmlElementDestructor.extractInnerBkTxCd(creditDebitIndicator: CreditDebitIndicator): String {
+
+    val domain = maybeUniqueChildNamed("Domn") { maybeUniqueChildNamed("Cd") { it.textContent } }
+    val family = maybeUniqueChildNamed("Domn") {
             maybeUniqueChildNamed("Fmly") {
                 maybeUniqueChildNamed("Cd") { it.textContent }
             }
-        },
-        subfamily = maybeUniqueChildNamed("Domn") {
+        }
+    val subfamily = maybeUniqueChildNamed("Domn") {
             maybeUniqueChildNamed("Fmly") {
                 maybeUniqueChildNamed("SubFmlyCd") { it.textContent }
             }
-        },
-        proprietaryCode = maybeUniqueChildNamed("Prtry") {
+        }
+    val proprietaryCode = maybeUniqueChildNamed("Prtry") {
             maybeUniqueChildNamed("Cd") { it.textContent }
-        },
-        proprietaryIssuer = maybeUniqueChildNamed("Prtry") {
+        }
+    val proprietaryIssuer = maybeUniqueChildNamed("Prtry") {
             maybeUniqueChildNamed("Issr") { it.textContent }
         }
-    )
+
+    if (domain != null && family != null && subfamily != null) {
+        return "$domain-$family-$subfamily"
+    }
+    if (proprietaryIssuer == "DK" && proprietaryCode != null) {
+        val components = proprietaryCode.split("+")
+        if (components.size == 1) {
+            return GbicRules.getBtcFromGvc(creditDebitIndicator, components[0])
+        } else {
+            return GbicRules.getBtcFromGvc(creditDebitIndicator, components[1])
+        }
+    }
+    // FIXME: log/raise this somewhere?
+    return "XTND-NTAV-NTAV"
 }
 
 private fun XmlElementDestructor.extractInnerTransactions(): CamtReport {
@@ -633,7 +642,7 @@ private fun XmlElementDestructor.extractInnerTransactions(): CamtReport {
             CreditDebitIndicator.valueOf(it)
         }
         val btc = requireUniqueChildNamed("BkTxCd") {
-            extractInnerBkTxCd()
+            extractInnerBkTxCd(creditDebitIndicator)
         }
         val acctSvcrRef = maybeUniqueChildNamed("AcctSvcrRef") { it.textContent }
         val entryRef = maybeUniqueChildNamed("NtryRef") { it.textContent }
