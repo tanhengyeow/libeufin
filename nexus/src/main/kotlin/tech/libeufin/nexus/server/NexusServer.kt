@@ -483,7 +483,24 @@ fun serverMain(dbName: String, host: String) {
                     val bankAccount = requireBankAccount(call, "accountid")
                     PaymentInitiationEntity.find {
                         PaymentInitiationsTable.bankAccount eq bankAccount.id.value
-                    }.forEach { ret.initiatedPayments.add(it.id.toString()) }
+                    }.forEach {
+                        val sd = it.submissionDate
+                        ret.initiatedPayments.add(
+                            PaymentStatus(
+                                paymentInitiationId = it.id.value.toString(),
+                                submitted = it.submitted,
+                                creditorIban = it.creditorIban,
+                                creditorName = it.creditorName,
+                                creditorBic = it.creditorBic,
+                                amount = "${it.currency}:${it.sum}",
+                                subject = it.subject,
+                                submissionDate = if (sd != null) {
+                                    importDateFromMillis(sd).toDashedDate()
+                                } else null,
+                                preparationDate = importDateFromMillis(it.preparationDate).toDashedDate()
+                            )
+                        )
+                    }
                 }
                 call.respond(ret)
                 return@get

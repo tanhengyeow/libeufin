@@ -400,5 +400,5 @@ data class AccountEntryItemJson(
 )
 
 data class InitiatedPayments(
-    val initiatedPayments: MutableList<String> = mutableListOf()
+    val initiatedPayments: MutableList<PaymentStatus> = mutableListOf()
 )
