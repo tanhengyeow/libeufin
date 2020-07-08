@@ -398,3 +398,7 @@ data class AccountEntryItemJson(
     val entryAmount: CurrencyAmount,
     val status: EntryStatus
 )
+
+data class InitiatedPayments(
+    val initiatedPayments: MutableList<String> = mutableListOf()
+)

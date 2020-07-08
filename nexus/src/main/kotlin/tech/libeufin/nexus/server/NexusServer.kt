@@ -477,6 +477,18 @@ fun serverMain(dbName: String, host: String) {
                 return@post
             }
 
+            get("/bank-accounts/{accountid}/payment-initiations") {
+                val ret = InitiatedPayments()
+                transaction {
+                    val bankAccount = requireBankAccount(call, "accountid")
+                    PaymentInitiationEntity.find {
+                        PaymentInitiationsTable.bankAccount eq bankAccount.id.value
+                    }.forEach { ret.initiatedPayments.add(it.id.toString()) }
+                }
+                call.respond(ret)
+                return@get
+            }
+
             // Shows information about one particular payment initiation.
             get("/bank-accounts/{accountid}/payment-initiations/{uuid}") {
                 val res = transaction {

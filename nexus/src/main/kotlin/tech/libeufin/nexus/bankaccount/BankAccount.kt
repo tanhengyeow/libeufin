@@ -39,6 +39,18 @@ import java.time.Instant
 import java.time.ZonedDateTime
 import java.time.format.DateTimeFormatter
 
+fun requireBankAccount(call: ApplicationCall, parameterKey: String): NexusBankAccountEntity {
+    val name = call.parameters[parameterKey]
+    if (name == null) {
+        throw NexusError(HttpStatusCode.InternalServerError, "no parameter for bank account")
+    }
+    val account = transaction { NexusBankAccountEntity.findById(name) }
+    if (account == null) {
+        throw NexusError(HttpStatusCode.NotFound, "bank connection '$name' not found")
+    }
+    return account
+}
+
 
 suspend fun submitPaymentInitiation(httpClient: HttpClient, paymentInitiationId: Long) {
     val r = transaction {
@@ -337,7 +349,6 @@ fun importBankAccount(call: ApplicationCall, offeredBankAccountId: String, nexus
                     newImportedAccount
                 }
             }
-            // importedAccount could be now-or-earlier imported.
             OfferedBankAccountsTable.update(
                 {OfferedBankAccountsTable.offeredAccountId eq offeredBankAccountId and
                         (OfferedBankAccountsTable.bankConnection eq conn.id.value) }
