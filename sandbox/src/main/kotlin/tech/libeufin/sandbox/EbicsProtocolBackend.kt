@@ -124,6 +124,10 @@ private suspend fun ApplicationCall.respondEbicsKeyManagement(
     }
     val text = XMLUtil.convertJaxbToString(responseXml)
     LOGGER.info("responding with:\n${text}")
+    if (!XMLUtil.validateFromString(text)) throw SandboxError(
+        HttpStatusCode.InternalServerError,
+        "Outgoint EBICS key management response is invalid"
+    )
     respondText(text, ContentType.Application.Xml, HttpStatusCode.OK)
 }
 
@@ -515,7 +519,13 @@ private fun handleEbicsC53(requestContext: RequestContext): ByteArray {
         requestContext.requestObject.header,
         requestContext.subscriber
     )
+    // FIXME: this function should be replaced with one that fills only
+    // *one* CAMT document with multiple "Ntry" elements.
     return camt.map {
+        if (!XMLUtil.validateFromString(it)) throw SandboxError(
+            HttpStatusCode.InternalServerError,
+            "CAMT document was generated invalid"
+        )
         it.toByteArray(Charsets.UTF_8)
     }.zip()
 }
@@ -1090,6 +1100,10 @@ suspend fun ApplicationCall.ebicsweb() {
 
             val strResp = XMLUtil.convertJaxbToString(hevResponse)
             LOGGER.debug("HEV response: $strResp")
+            if (!XMLUtil.validateFromString(strResp)) throw SandboxError(
+                HttpStatusCode.InternalServerError,
+                "Outgoing HEV response is invalid"
+            )
             respondText(strResp, ContentType.Application.Xml, HttpStatusCode.OK)
         }
         "ebicsNoPubKeyDigestsRequest" -> {
@@ -1142,6 +1156,10 @@ suspend fun ApplicationCall.ebicsweb() {
                 }
                 signEbicsResponse(ebicsResponse, requestContext.hostAuthPriv)
             }
+            if (!XMLUtil.validateFromString(responseXmlStr)) throw SandboxError(
+                HttpStatusCode.InternalServerError,
+                "Outgoing EBICS XML is invalid"
+            )
             respondText(responseXmlStr, ContentType.Application.Xml, HttpStatusCode.OK)
         }
         else -> {
