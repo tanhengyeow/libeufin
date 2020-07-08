@@ -667,10 +667,10 @@ fun serverMain(dbName: String, host: String) {
             }
 
             get("/bank-connections") {
-                val connList = mutableListOf<BankConnectionInfo>()
+                val connList = BankConnectionsList()
                 transaction {
                     NexusBankConnectionEntity.all().forEach {
-                        connList.add(
+                        connList.bankConnections.add(
                             BankConnectionInfo(
                                 name = it.id.value,
                                 type = it.type

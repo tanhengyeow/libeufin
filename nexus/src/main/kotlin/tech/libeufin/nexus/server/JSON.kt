@@ -119,7 +119,7 @@ data class BankConnectionInfo(
 )
 
 data class BankConnectionsList(
-    val bankConnections: List<BankConnectionInfo>
+    val bankConnections: MutableList<BankConnectionInfo> = mutableListOf()
 )
 
 data class BankConnectionDeletion(
