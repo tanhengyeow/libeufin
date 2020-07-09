@@ -35,16 +35,12 @@ import io.ktor.application.call
 import io.ktor.client.HttpClient
 import io.ktor.http.ContentType
 import io.ktor.http.HttpStatusCode
-import io.ktor.request.receive
 import io.ktor.request.receiveOrNull
 import io.ktor.response.respond
 import io.ktor.response.respondText
 import io.ktor.routing.Route
-import io.ktor.routing.get
 import io.ktor.routing.post
-import org.jetbrains.exposed.sql.and
 import org.jetbrains.exposed.sql.insert
-import org.jetbrains.exposed.sql.not
 import org.jetbrains.exposed.sql.statements.api.ExposedBlob
 import org.jetbrains.exposed.sql.transactions.transaction
 import tech.libeufin.nexus.*
@@ -523,10 +519,10 @@ fun Route.ebicsBankConnectionRoutes(client: HttpClient) {
             is EbicsDownloadBankErrorResult -> {
                 call.respond(
                     HttpStatusCode.BadGateway,
-                    EbicsErrorJson(
-                        EbicsErrorDetailJson(
-                            "bankError",
-                            response.returnCode.errorCode
+                    NexusErrorJson(
+                        error = NexusErrorDetailJson(
+                            type = "bank-error",
+                            description = response.returnCode.errorCode
                         )
                     )
                 )

@@ -104,13 +104,12 @@ class EbicsStandardOrderParamsDateJson(
     }
 }
 
-data class EbicsErrorDetailJson(
+data class NexusErrorDetailJson(
     val type: String,
-    val ebicsReturnCode: String
+    val description: String
 )
-
-data class EbicsErrorJson(
-    val error: EbicsErrorDetailJson
+data class NexusErrorJson(
+    val error: NexusErrorDetailJson
 )
 
 data class BankConnectionInfo(

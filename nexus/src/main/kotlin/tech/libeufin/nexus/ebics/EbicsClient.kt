@@ -85,7 +85,7 @@ suspend fun doEbicsDownloadTransaction(
             // Success, nothing to do!
         }
         else -> {
-            throw NexusError(
+            throw EbicsProtocolError(
                 HttpStatusCode.InternalServerError,
                 "unexpected return code ${initResponse.technicalReturnCode}"
             )

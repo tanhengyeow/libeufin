@@ -82,7 +82,7 @@ fun ensureLong(param: String?): Long {
 }
 
 fun <T> expectNonNull(param: T?): T {
-    return param ?: throw EbicsProtocolError(
+    return param ?: throw NexusError(
         HttpStatusCode.BadRequest,
         "Non-null value expected."
     )
@@ -153,7 +153,7 @@ fun ApplicationRequest.hasBody(): Boolean {
 
 fun ApplicationCall.expectUrlParameter(name: String): String {
     return this.request.queryParameters[name]
-        ?: throw EbicsProtocolError(HttpStatusCode.BadRequest, "Parameter '$name' not provided in URI")
+        ?: throw NexusError(HttpStatusCode.BadRequest, "Parameter '$name' not provided in URI")
 }
 
 suspend inline fun <reified T : Any> ApplicationCall.receiveJson(): T {
@@ -193,11 +193,12 @@ fun requireBankConnectionInternal(connId: String): NexusBankConnectionEntity {
 fun requireBankConnection(call: ApplicationCall, parameterKey: String): NexusBankConnectionEntity {
     val name = call.parameters[parameterKey]
     if (name == null) {
-        throw NexusError(HttpStatusCode.InternalServerError, "no parameter for bank connection")
+        throw NexusError(HttpStatusCode.NotFound,
+            "Parameter '${parameterKey}' wasn't found in URI"
+        )
     }
     return requireBankConnectionInternal(name)
 }
-
 
 fun serverMain(dbName: String, host: String) {
     dbCreateTables(dbName)
@@ -219,35 +220,43 @@ fun serverMain(dbName: String, host: String) {
                 registerModule(KotlinModule(nullisSameAsDefault = true))
             }
         }
-
         install(StatusPages) {
             exception<NexusError> { cause ->
                 logger.error("Exception while handling '${call.request.uri}'", cause)
-                call.respondText(
-                    cause.reason,
-                    ContentType.Text.Plain,
-                    cause.statusCode
+                call.respond(
+                    status = cause.statusCode,
+                    message = NexusErrorJson(
+                        error = NexusErrorDetailJson(
+                            description = cause.reason,
+                            type = "nexus-error"
+                        )
+                    )
                 )
             }
             exception<EbicsProtocolError> { cause ->
                 logger.error("Exception while handling '${call.request.uri}'", cause)
-                call.respondText(
-                    cause.reason,
-                    ContentType.Text.Plain,
-                    cause.statusCode
+                call.respond(
+                    NexusErrorJson(
+                        error = NexusErrorDetailJson(
+                            type = "ebics-protocol-error",
+                            description = cause.reason
+                        )
+                    )
                 )
             }
             exception<Exception> { cause ->
                 logger.error("Uncaught exception while handling '${call.request.uri}'", cause)
                 logger.error(cause.toString())
-                call.respondText(
-                    "Internal server error",
-                    ContentType.Text.Plain,
-                    HttpStatusCode.InternalServerError
+                call.respond(
+                    NexusErrorJson(
+                        error = NexusErrorDetailJson(
+                            type = "nexus-error",
+                            description = "Internal server error"
+                        )
+                    )
                 )
             }
         }
-
         intercept(ApplicationCallPipeline.Fallback) {
             if (this.call.response.status() == null) {
                 call.respondText("Not found (no route matched).\n", ContentType.Text.Plain, HttpStatusCode.NotFound)
@@ -267,9 +276,7 @@ fun serverMain(dbName: String, host: String) {
             proceed()
             return@intercept
         }
-
         startOperationScheduler(client)
-
         routing {
             // Shows information about the requesting user.
             get("/user") {

@@ -39,7 +39,10 @@ import java.util.zip.DeflaterInputStream
 import javax.xml.datatype.DatatypeFactory
 import javax.xml.datatype.XMLGregorianCalendar
 
-data class EbicsProtocolError(val statusCode: HttpStatusCode, val reason: String) : Exception(reason)
+data class EbicsProtocolError(
+    val httpStatusCode: HttpStatusCode,
+    val reason: String
+) : Exception(reason)
 
 data class EbicsDateRange(val start: ZonedDateTime, val end: ZonedDateTime)
 
