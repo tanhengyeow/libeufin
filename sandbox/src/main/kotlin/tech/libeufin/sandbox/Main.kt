@@ -70,10 +70,9 @@ class UnacceptableFractional(badNumber: BigDecimal) : Exception(
 )
 lateinit var LOGGER: Logger
 
-data class SandboxError(
-    val statusCode: HttpStatusCode,
-    val reason: String
-) : java.lang.Exception()
+data class SandboxError(val statusCode: HttpStatusCode, val reason: String) : Exception()
+data class SandboxErrorJson(val error: SandboxErrorDetailJson)
+data class SandboxErrorDetailJson(val type: String, val description: String)
 
 class SandboxCommand : CliktCommand() {
     override fun run() = Unit
@@ -158,16 +157,46 @@ fun serverMain(dbName: String) {
             }
         }
         install(StatusPages) {
+            exception<ArithmeticException> { cause ->
+                LOGGER.error("Exception while handling '${call.request.uri}'", cause)
+                call.respondText(
+                    "Invalid arithmetic attempted.",
+                    ContentType.Text.Plain,
+                    // here is always the bank's fault, as it should always check
+                    // the operands.
+                    HttpStatusCode.InternalServerError
+                )
+            }
+
+            exception<EbicsRequestError> { cause ->
+                LOGGER.info("Client EBICS request was invalid")
+                // fixme: this error should respond with XML!
+                call.respondText(
+                    cause.localizedMessage,
+                    ContentType.Text.Any,
+                    HttpStatusCode.OK
+                )
+            }
+
+            // todo: check that this error is never thrown upon EBICS errors.
+            exception<SandboxError> { cause ->
+                LOGGER.error("Exception while handling '${call.request.uri}'", cause)
+                call.respond(
+                    cause.statusCode,
+                    SandboxErrorJson(
+                        error = SandboxErrorDetailJson(
+                            type = "sandbox-error",
+                            description = cause.reason
+                        )
+                    )
+                )
+            }
+
             exception<Throwable> { cause ->
                 LOGGER.error("Exception while handling '${call.request.uri}'", cause)
                 call.respondText("Internal server error.", ContentType.Text.Plain, HttpStatusCode.InternalServerError)
             }
-            exception<ArithmeticException> { cause ->
-                LOGGER.error("Exception while handling '${call.request.uri}'", cause)
-                call.respondText("Invalid arithmetic attempted.", ContentType.Text.Plain, HttpStatusCode.InternalServerError)
-            }
         }
-        // TODO: add another intercept call that adds schema validation before the response is sent
         intercept(ApplicationCallPipeline.Fallback) {
             if (this.call.response.status() == null) {
                 call.respondText("Not found (no route matched).\n", ContentType.Text.Plain, HttpStatusCode.NotFound)

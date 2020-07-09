@@ -35,5 +35,8 @@ data class RawPayment(
     val currency: String,
     val subject: String,
     val date: String? = null,
+    // this (uid) field is null when RawPayment is a _requested_ payment
+    // over the admin API, and it's not null when RawPayment represent
+    // a database row of a settled payment.
     val uid: Int? = null
 )

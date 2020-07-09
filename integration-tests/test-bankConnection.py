@@ -143,7 +143,6 @@ connectionsList = resp.json().get("bankConnections")
 assert(connectionsList != None)
 
 for el in connectionsList:
-    print(el)
     if el.get("name") == "my-ebics":
         print("fail: account not deleted!")
         exit(1)

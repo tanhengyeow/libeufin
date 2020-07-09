@@ -50,7 +50,6 @@ import java.util.zip.InflaterInputStream
 open class EbicsRequestError(errorText: String, errorCode: String) :
     Exception("EBICS request  error: $errorText ($errorCode)")
 
-
 class EbicsInvalidRequestError : EbicsRequestError(
     "[EBICS_INVALID_REQUEST] Invalid request",
     "060102"
@@ -296,10 +295,13 @@ fun buildCamtString(type: Int, subscriberIban: String, history: MutableList<RawP
                                     text(dashedDate)
                                 } // date of assets' actual (un)availability
                                 element("AcctSvcrRef") {
-                                    val uid = if (it.uid != null) it.uid.toString() else throw SandboxError(
-                                        HttpStatusCode.InternalServerError,
-                                        "Payment ${it.subject} doesn't have a UID!"
-                                    )
+                                    val uid = if (it.uid != null) it.uid.toString() else {
+                                        LOGGER.error("")
+                                        throw EbicsRequestError(
+                                            errorCode = "091116",
+                                            errorText = "EBICS_PROCESSING_ERROR"
+                                        )
+                                    }
                                     text(uid)
                                 }
                                 element("BkTxCd") {
