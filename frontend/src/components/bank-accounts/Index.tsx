@@ -76,9 +76,9 @@ const BankAccounts = () => {
     accountsList.length > 0 ? (
       <Row gutter={[40, 40]}>
         {accountsList.map((bankAccount) => (
-          <Col span={8}>
+          <Col key={bankAccount['nexusBankAccountId']} span={8}>
             <Card title={bankAccount['nexusBankAccountId']} bordered={false}>
-              <p>Holder: {bankAccount['holder']}</p>
+              <p>Holder: {bankAccount['ownerName']}</p>
               <p>IBAN: {bankAccount['iban']}</p>
               <p>BIC: {bankAccount['bic']}</p>
             </Card>
@@ -109,7 +109,7 @@ const BankAccounts = () => {
               <Row gutter={[40, 40]}>
                 {connectionsList
                   ? connectionsList.map((bankConnection) => (
-                      <Col span={8}>
+                      <Col key={bankConnection['name']} span={8}>
                         <BankConnectionCard
                           type={String(bankConnection['type']).toUpperCase()}
                           name={bankConnection['name']}
