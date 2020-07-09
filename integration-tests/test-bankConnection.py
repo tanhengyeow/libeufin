@@ -135,11 +135,14 @@ assertResponse(
     )
 )
 
-connectionsList = assertResponse(
+resp = assertResponse(
     get("http://localhost:5001/bank-connections")
 )
 
-for el in connectionsList.json():
+connectionsList = resp.json().get("bankConnections")
+assert(connectionsList != None)
+
+for el in connectionsList:
     print(el)
     if el.get("name") == "my-ebics":
         print("fail: account not deleted!")

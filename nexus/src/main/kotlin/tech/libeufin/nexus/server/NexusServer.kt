@@ -236,6 +236,7 @@ fun serverMain(dbName: String, host: String) {
             exception<EbicsProtocolError> { cause ->
                 logger.error("Exception while handling '${call.request.uri}'", cause)
                 call.respond(
+                    cause.httpStatusCode,
                     NexusErrorJson(
                         error = NexusErrorDetailJson(
                             type = "ebics-protocol-error",
@@ -287,7 +288,7 @@ fun serverMain(dbName: String, host: String) {
                         superuser = currentUser.superuser
                     )
                 }
-                call.respond(HttpStatusCode.OK, ret)
+                call.respond(ret)
                 return@get
             }
 
@@ -300,7 +301,7 @@ fun serverMain(dbName: String, host: String) {
                     }
                 }
                 val usersResp = UsersResponse(users)
-                call.respond(HttpStatusCode.OK, usersResp)
+                call.respond(usersResp)
                 return@get
             }
 

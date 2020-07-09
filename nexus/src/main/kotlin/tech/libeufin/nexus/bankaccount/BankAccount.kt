@@ -29,6 +29,7 @@ import org.w3c.dom.Document
 import tech.libeufin.nexus.*
 import tech.libeufin.nexus.ebics.fetchEbicsBySpec
 import tech.libeufin.nexus.ebics.submitEbicsPaymentInitiation
+import tech.libeufin.nexus.iso20022.CamtParsingError
 import tech.libeufin.nexus.iso20022.CreditDebitIndicator
 import tech.libeufin.nexus.iso20022.parseCamtMessage
 import tech.libeufin.nexus.server.FetchSpecJson
@@ -130,10 +131,15 @@ fun processCamtMessage(
         if (acct == null) {
             throw NexusError(HttpStatusCode.NotFound, "user not found")
         }
-        val res = parseCamtMessage(camtDoc)
-
+        val res = try {
+            parseCamtMessage(camtDoc)
+        } catch (e: CamtParsingError) {
+            throw NexusError(
+                HttpStatusCode.BadGateway,
+                "Invalid CAMT received from bank"
+            )
+        }
         val stamp = ZonedDateTime.parse(res.creationDateTime, DateTimeFormatter.ISO_DATE_TIME).toInstant().toEpochMilli()
-
         when (code) {
             "C52" -> {
                 val s = acct.lastReportCreationTimestamp

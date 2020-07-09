@@ -319,7 +319,9 @@ private fun getEbicsSubscriberDetails(bankConnectionId: String): EbicsClientSubs
     if (transport == null) {
         throw NexusError(HttpStatusCode.NotFound, "transport not found")
     }
-    val subscriber = EbicsSubscriberEntity.find { EbicsSubscribersTable.nexusBankConnection eq transport.id }.first()
+    val subscriber = EbicsSubscriberEntity.find {
+        EbicsSubscribersTable.nexusBankConnection eq transport.id
+    }.first()
     // transport exists and belongs to caller.
     return getEbicsSubscriberDetailsInternal(subscriber)
 }
@@ -368,7 +370,7 @@ fun Route.ebicsBankProtocolRoutes(client: HttpClient) {
     post("test-host") {
         val r = call.receiveJson<EbicsHostTestRequest>()
         val qr = doEbicsHostVersionQuery(client, r.ebicsBaseUrl, r.ebicsHostId)
-        call.respond(HttpStatusCode.OK, qr)
+        call.respond(qr)
         return@post
     }
 }

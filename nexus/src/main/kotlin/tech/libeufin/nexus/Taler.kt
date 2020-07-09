@@ -285,7 +285,6 @@ private suspend fun talerTransfer(call: ApplicationCall) {
         row.id.value
     }
     return call.respond(
-        HttpStatusCode.OK,
         TextContent(
             customConverter(
                 TalerTransferResponse(
@@ -496,10 +495,7 @@ private suspend fun historyOutgoing(call: ApplicationCall) {
             }
         }
     }
-    call.respond(
-        HttpStatusCode.OK,
-        TextContent(customConverter(history), ContentType.Application.Json)
-    )
+    call.respond(TextContent(customConverter(history), ContentType.Application.Json))
 }
 
 /**
