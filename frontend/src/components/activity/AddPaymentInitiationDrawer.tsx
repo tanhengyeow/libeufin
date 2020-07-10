@@ -16,6 +16,7 @@ const AddPaymentInitiationDrawer = (props) => {
   const [name, setName] = useState('');
   const [IBAN, setIBAN] = useState('');
   const [BIC, setBIC] = useState('');
+  const [currency, setCurrency] = useState('');
   const [amount, setAmount] = useState('');
   const [subject, setSubject] = useState('');
 
@@ -52,7 +53,7 @@ const AddPaymentInitiationDrawer = (props) => {
         name: name,
         iban: IBAN,
         bic: BIC,
-        amount: amount,
+        amount: `${currency}:${amount}`,
         subject: subject,
       }),
     })
@@ -156,6 +157,18 @@ const AddPaymentInitiationDrawer = (props) => {
             ]}
           >
             <Input onChange={(e) => setBIC(e.target.value)} />
+          </Form.Item>
+          <Form.Item
+            label="Currency"
+            name="Currency"
+            rules={[
+              {
+                required: true,
+                message: 'Please input the currency to send!',
+              },
+            ]}
+          >
+            <Input onChange={(e) => setCurrency(e.target.value)} />
           </Form.Item>
           <Form.Item
             label="Amount"
