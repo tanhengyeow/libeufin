@@ -29,7 +29,7 @@ const BankAccounts = () => {
         throw 'Cannot retrieve bank connections';
       })
       .then((response) => {
-        setConnectionsList(response);
+        setConnectionsList(response.bankConnections);
       })
       .catch((err) => {
         showError(err);
