@@ -780,6 +780,7 @@ suspend fun submitEbicsPaymentInitiation(httpClient: HttpClient, paymentInitiati
         val paymentInitiation = PaymentInitiationEntity.findById(paymentInitiationId)
             ?: throw NexusError(HttpStatusCode.NotFound, "payment initiation not found")
         paymentInitiation.submitted = true
+        paymentInitiation.submissionDate = LocalDateTime.now().millis()
     }
 }
 
