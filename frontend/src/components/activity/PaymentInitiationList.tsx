@@ -52,7 +52,6 @@ const PaymentInitiationList = (props) => {
   };
 
   const onSelectChange = (selectedRowKeys) => {
-    console.log(selectedRowKeys);
     setSelectedRowKeys(selectedRowKeys);
   };
 
@@ -113,7 +112,6 @@ const PaymentInitiationList = (props) => {
   const submitPaymentInitiations = async () => {
     for (let selectedRow of selectedRowKeys) {
       const { paymentInitiationId } = paymentInitiationList[selectedRow];
-      console.log(paymentInitiationList[selectedRow], paymentInitiationId);
       await submitPaymentInitiation(Number(paymentInitiationId));
     }
     await fetchPaymentInitiations(); // refresh table
