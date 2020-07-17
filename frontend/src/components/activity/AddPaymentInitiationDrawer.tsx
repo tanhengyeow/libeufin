@@ -8,7 +8,7 @@ const layout = {
 };
 
 const AddPaymentInitiationDrawer = (props) => {
-  const { visible, onClose } = props;
+  const { visible, onClose, updatePaymentInitiations } = props;
 
   const [accountsList, setAccountsList] = useState([]);
 
@@ -85,6 +85,7 @@ const AddPaymentInitiationDrawer = (props) => {
       .then(() => (isError = false))
       .catch((err) => showError(err));
     if (!isError) {
+      await updatePaymentInitiations();
       onClose();
     }
   };
