@@ -31,6 +31,7 @@ import org.jetbrains.exposed.sql.*
 import org.jetbrains.exposed.sql.statements.api.ExposedBlob
 import org.jetbrains.exposed.sql.transactions.transaction
 import org.w3c.dom.Document
+import tech.libeufin.sandbox.PaymentsTable.amount
 import tech.libeufin.util.*
 import tech.libeufin.util.XMLUtil.Companion.signEbicsResponse
 import tech.libeufin.util.ebics_h004.*
@@ -46,6 +47,15 @@ import java.util.*
 import java.util.zip.DeflaterInputStream
 import java.util.zip.InflaterInputStream
 
+data class PainParseResult(
+    val creditorIban: String,
+    val creditorName: String,
+    val debitorIban: String,
+    val debitorName: String,
+    val subject: String,
+    val amount: Amount,
+    val currency: String
+)
 
 open class EbicsRequestError(errorText: String, errorCode: String) :
     Exception("EBICS request  error: $errorText ($errorCode)")
@@ -481,34 +491,65 @@ private fun handleEbicsPTK(requestContext: RequestContext): ByteArray {
     return "Hello I am a dummy PTK response.".toByteArray()
 }
 
+private fun parsePain001(paymentRequest: String, initiatorName: String): PainParseResult {
+    val painDoc = XMLUtil.parseStringIntoDom(paymentRequest)
+    return destructXml(painDoc) {
+        requireRootElement("Document") {
+            requireUniqueChildNamed("CstmrCdtTrfInitn") {
+                requireUniqueChildNamed("PmtInf") {
+                    val creditorIban = requireUniqueChildNamed("CdtTrfTxInf") {
+                        requireUniqueChildNamed("CdtrAcct") {
+                            requireUniqueChildNamed("id") {
+                                requireUniqueChildNamed("IBAN") { focusElement.textContent }
+                            }
+                        }
+                    }
+                    val creditorName = requireUniqueChildNamed("Cdt") {
+                        requireUniqueChildNamed("Nm") { focusElement.textContent }
+                    }
+                    val debitorIban = requireUniqueChildNamed("DbtrAcct") {
+                        requireOnlyChild {
+                            requireOnlyChild { focusElement.textContent }
+                        }
+                    }
+                    val subject = requireUniqueChildNamed("RmtInf") {
+                        requireUniqueChildNamed("Ustrd") { focusElement.textContent }
+                    }
+                    val amt = requireUniqueChildNamed("Amt") {
+                        requireOnlyChild {
+                            focusElement
+                        }
+                    }
+                    PainParseResult(
+                        currency = amt.getAttribute("Ccy"),
+                        amount = Amount(amt.textContent),
+                        subject = subject,
+                        debitorIban = debitorIban,
+                        debitorName = initiatorName,
+                        creditorName = creditorName,
+                        creditorIban = creditorIban
+                    )
+                }
+            }
+        }
+    }
+}
+
 /**
  * Process a payment request in the pain.001 format.
  */
 private fun handleCct(paymentRequest: String, initiatorName: String) {
-    /**
-     * NOTE: this function is ONLY required to store some details
-     * to put then in the camt report.  IBANs / amount / subject / names?
-     */
-    val painDoc = XMLUtil.parseStringIntoDom(paymentRequest)
-    val creditorIban = painDoc.pickString("//*[local-name()='CdtrAcct']//*[local-name()='IBAN']")
-    //val creditorBic = painDoc.pickString("//*[local-name()='CdtrAgt']//*[local-name()='BIC']")
-    val creditorName = painDoc.pickString("//*[local-name()='Cdtr']//*[local-name()='Nm']")
-    val debitorIban = painDoc.pickString("//*[local-name()='DbtrAcct']//*[local-name()='IBAN']")
-    //val debitorBic = painDoc.pickString("//*[local-name()='DbtrAgt']//*[local-name()='BIC']")
-    val debitorName = initiatorName
-    val subject = painDoc.pickString("//*[local-name()='Ustrd']")
-    val amount = painDoc.pickString("//*[local-name()='InstdAmt']")
-    val currency = painDoc.pickString("//*[local-name()='InstdAmt']/@Ccy")
+    val parseResult = parsePain001(paymentRequest, initiatorName)
 
     transaction {
         PaymentEntity.new {
-            this.creditorIban = creditorIban
-            this.creditorName = creditorName
-            this.debitorIban = debitorIban
-            this.debitorName = debitorName
-            this.subject = subject
-            this.amount = amount
-            this.currency = currency
+            this.creditorIban = parseResult.creditorIban
+            this.creditorName = parseResult.creditorName
+            this.debitorIban = parseResult.debitorIban
+            this.debitorName = parseResult.debitorName
+            this.subject = parseResult.subject
+            this.amount = parseResult.amount.toString()
+            this.currency = parseResult.currency
             this.date = Instant.now().toEpochMilli()
         }
     }
