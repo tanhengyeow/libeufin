@@ -129,11 +129,11 @@ private fun Element.getChildElements(ns: String, tag: String): List<Element> {
 
 class XmlElementDestructor internal constructor(val d: Document, val e: Element) {
     fun <T> requireOnlyChild(f: XmlElementDestructor.(e: Element) -> T): T {
-        val child =
-            e.getChildElements("*", "*").elementAtOrNull(0)
-                ?: throw DestructionError("expected singleton child tag")
-        val destr = XmlElementDestructor(d, child)
-        return f(destr, child)
+        val children = e.getChildElements("*", "*")
+        if (children.size != 1) throw DestructionError("expected singleton child tag (2+ found)")
+        if (children[0] == null) throw DestructionError("expected singleton child tag (none found)")
+        val destr = XmlElementDestructor(d, children[0])
+        return f(destr, children[0])
     }
 
     fun <T> mapEachChildNamed(s: String, f: XmlElementDestructor.(e: Element) -> T): List<T> {

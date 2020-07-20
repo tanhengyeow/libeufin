@@ -3,7 +3,9 @@ import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
 import org.junit.Test
 import org.w3c.dom.Document
 import tech.libeufin.nexus.iso20022.*
+import tech.libeufin.util.DestructionError
 import tech.libeufin.util.XMLUtil
+import tech.libeufin.util.destructXml
 import java.math.BigDecimal
 import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
@@ -19,6 +21,23 @@ fun loadXmlResource(name: String): Document {
 }
 
 class Iso20022Test {
+    @Test(expected = DestructionError::class)
+    fun testUniqueChild() {
+        val xml = """
+            <a>
+              <b/>
+              <b/>
+            </a>
+        """.trimIndent()
+        // when XML is invalid, DestructionError is thrown.
+        val doc = XMLUtil.parseStringIntoDom(xml)
+        destructXml(doc) {
+            requireRootElement("a") {
+                requireOnlyChild {  }
+            }
+        }
+
+    }
     @Test
     fun testTransactionsImport() {
         val camt53 = loadXmlResource("iso20022-samples/camt.053/de.camt.053.001.02.xml")
