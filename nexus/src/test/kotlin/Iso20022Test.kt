@@ -36,7 +36,6 @@ class Iso20022Test {
                 requireOnlyChild {  }
             }
         }
-
     }
     @Test
     fun testTransactionsImport() {
