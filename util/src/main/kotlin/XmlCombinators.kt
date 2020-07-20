@@ -127,11 +127,11 @@ private fun Element.getChildElements(ns: String, tag: String): List<Element> {
     return elements
 }
 
-class XmlElementDestructor internal constructor(val d: Document, val e: Element) {
+class XmlElementDestructor internal constructor(val e: Element) {
     fun <T> requireOnlyChild(f: XmlElementDestructor.(e: Element) -> T): T {
         val children = e.getChildElements("*", "*")
         if (children.size != 1) throw DestructionError("expected singleton child tag")
-        val destr = XmlElementDestructor(d, children[0])
+        val destr = XmlElementDestructor(children[0])
         return f(destr, children[0])
     }
 
@@ -139,7 +139,7 @@ class XmlElementDestructor internal constructor(val d: Document, val e: Element)
         val res = mutableListOf<T>()
         val els = e.getChildElements("*", s)
         for (child in els) {
-            val destr = XmlElementDestructor(d, child)
+            val destr = XmlElementDestructor(child)
             res.add(f(destr, child))
         }
         return res
@@ -151,7 +151,7 @@ class XmlElementDestructor internal constructor(val d: Document, val e: Element)
             throw DestructionError("expected exactly one unique $s child, got ${cl.size} instead at ${e}")
         }
         val el = cl[0]
-        val destr = XmlElementDestructor(d, el)
+        val destr = XmlElementDestructor(el)
         return f(destr, el)
     }
 
@@ -162,7 +162,7 @@ class XmlElementDestructor internal constructor(val d: Document, val e: Element)
         }
         if (cl.size == 1) {
             val el = cl[0]
-            val destr = XmlElementDestructor(d, el)
+            val destr = XmlElementDestructor(el)
             return f(destr, el)
         }
         return null
@@ -174,7 +174,7 @@ class XmlDocumentDestructor internal constructor(val d: Document) {
         if (this.d.documentElement.tagName != name) {
             throw DestructionError("expected '$name' tag")
         }
-        val destr = XmlElementDestructor(d, d.documentElement)
+        val destr = XmlElementDestructor(d.documentElement)
         return f(destr, this.d.documentElement)
     }
 }
