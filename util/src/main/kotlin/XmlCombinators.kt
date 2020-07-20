@@ -127,55 +127,55 @@ private fun Element.getChildElements(ns: String, tag: String): List<Element> {
     return elements
 }
 
-class XmlElementDestructor internal constructor(val e: Element) {
+class XmlElementDestructor internal constructor(val focusElement: Element) {
     fun <T> requireOnlyChild(f: XmlElementDestructor.(e: Element) -> T): T {
-        val children = e.getChildElements("*", "*")
+        val children = focusElement.getChildElements("*", "*")
         if (children.size != 1) throw DestructionError("expected singleton child tag")
         val destr = XmlElementDestructor(children[0])
         return f(destr, children[0])
     }
 
-    fun <T> mapEachChildNamed(s: String, f: XmlElementDestructor.(e: Element) -> T): List<T> {
+    fun <T> mapEachChildNamed(s: String, f: XmlElementDestructor.() -> T): List<T> {
         val res = mutableListOf<T>()
-        val els = e.getChildElements("*", s)
+        val els = focusElement.getChildElements("*", s)
         for (child in els) {
             val destr = XmlElementDestructor(child)
-            res.add(f(destr, child))
+            res.add(f(destr))
         }
         return res
     }
 
-    fun <T> requireUniqueChildNamed(s: String, f: XmlElementDestructor.(e: Element) -> T): T {
-        val cl = e.getChildElements("*", s)
+    fun <T> requireUniqueChildNamed(s: String, f: XmlElementDestructor.() -> T): T {
+        val cl = focusElement.getChildElements("*", s)
         if (cl.size != 1) {
-            throw DestructionError("expected exactly one unique $s child, got ${cl.size} instead at ${e}")
+            throw DestructionError("expected exactly one unique $s child, got ${cl.size} instead at ${focusElement}")
         }
         val el = cl[0]
         val destr = XmlElementDestructor(el)
-        return f(destr, el)
+        return f(destr)
     }
 
-    fun <T> maybeUniqueChildNamed(s: String, f: XmlElementDestructor.(e: Element) -> T): T? {
-        val cl = e.getChildElements("*", s)
+    fun <T> maybeUniqueChildNamed(s: String, f: XmlElementDestructor.() -> T): T? {
+        val cl = focusElement.getChildElements("*", s)
         if (cl.size > 1) {
             throw DestructionError("expected at most one unique $s child, got ${cl.size} instead")
         }
         if (cl.size == 1) {
             val el = cl[0]
             val destr = XmlElementDestructor(el)
-            return f(destr, el)
+            return f(destr)
         }
         return null
     }
 }
 
 class XmlDocumentDestructor internal constructor(val d: Document) {
-    fun <T> requireRootElement(name: String, f: XmlElementDestructor.(e: Element) -> T): T {
+    fun <T> requireRootElement(name: String, f: XmlElementDestructor.() -> T): T {
         if (this.d.documentElement.tagName != name) {
             throw DestructionError("expected '$name' tag")
         }
         val destr = XmlElementDestructor(d.documentElement)
-        return f(destr, this.d.documentElement)
+        return f(destr)
     }
 }
 

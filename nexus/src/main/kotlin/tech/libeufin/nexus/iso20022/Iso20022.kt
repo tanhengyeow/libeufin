@@ -471,78 +471,78 @@ fun createPain001document(paymentData: NexusPaymentInitiationData): String {
 
 private fun XmlElementDestructor.extractDateOrDateTime(): String {
     return requireOnlyChild {
-        when (it.localName) {
-            "Dt" -> e.textContent
-            "DtTm" -> e.textContent
-            else -> throw Exception("Invalid date / time: ${e.localName}")
+        when (focusElement.localName) {
+            "Dt" -> focusElement.textContent
+            "DtTm" -> focusElement.textContent
+            else -> throw Exception("Invalid date / time: ${focusElement.localName}")
         }
     }
 }
 
 private fun XmlElementDestructor.extractInnerPostalAddress(): PostalAddress {
     return PostalAddress(
-        addressCode = maybeUniqueChildNamed("AdrTp") { maybeUniqueChildNamed("Cd") { it.textContent } },
+        addressCode = maybeUniqueChildNamed("AdrTp") { maybeUniqueChildNamed("Cd") { focusElement.textContent } },
         addressProprietaryIssuer = maybeUniqueChildNamed("AdrTp") {
             maybeUniqueChildNamed("Prtry") {
-                maybeUniqueChildNamed("Issr") { it.textContent }
+                maybeUniqueChildNamed("Issr") { focusElement.textContent }
             }
         },
         addressProprietarySchemeName = maybeUniqueChildNamed("AdrTp") {
             maybeUniqueChildNamed("Prtry") {
-                maybeUniqueChildNamed("SchmeNm") { it.textContent }
+                maybeUniqueChildNamed("SchmeNm") { focusElement.textContent }
             }
         },
         addressProprietaryId = maybeUniqueChildNamed("AdrTp") {
             maybeUniqueChildNamed("Prtry") {
-                maybeUniqueChildNamed("Id") { it.textContent }
+                maybeUniqueChildNamed("Id") { focusElement.textContent }
             }
         },
-        buildingName = maybeUniqueChildNamed("BldgNm") { it.textContent },
-        buildingNumber = maybeUniqueChildNamed("BldgNb") { it.textContent },
-        country = maybeUniqueChildNamed("Ctry") { it.textContent },
-        countrySubDivision = maybeUniqueChildNamed("CtrySubDvsn") { it.textContent },
-        department = maybeUniqueChildNamed("Dept") { it.textContent },
-        districtName = maybeUniqueChildNamed("DstrctNm") { it.textContent },
-        floor = maybeUniqueChildNamed("Flr") { it.textContent },
-        postBox = maybeUniqueChildNamed("PstBx") { it.textContent },
-        postCode = maybeUniqueChildNamed("PstCd") { it.textContent },
-        room = maybeUniqueChildNamed("Room") { it.textContent },
-        streetName = maybeUniqueChildNamed("StrtNm") { it.textContent },
-        subDepartment = maybeUniqueChildNamed("SubDept") { it.textContent },
-        townLocationName = maybeUniqueChildNamed("TwnLctnNm") { it.textContent },
-        townName = maybeUniqueChildNamed("TwnNm") { it.textContent },
-        addressLines = mapEachChildNamed("AdrLine") { it.textContent }
+        buildingName = maybeUniqueChildNamed("BldgNm") { focusElement.textContent },
+        buildingNumber = maybeUniqueChildNamed("BldgNb") { focusElement.textContent },
+        country = maybeUniqueChildNamed("Ctry") { focusElement.textContent },
+        countrySubDivision = maybeUniqueChildNamed("CtrySubDvsn") { focusElement.textContent },
+        department = maybeUniqueChildNamed("Dept") { focusElement.textContent },
+        districtName = maybeUniqueChildNamed("DstrctNm") { focusElement.textContent },
+        floor = maybeUniqueChildNamed("Flr") { focusElement.textContent },
+        postBox = maybeUniqueChildNamed("PstBx") { focusElement.textContent },
+        postCode = maybeUniqueChildNamed("PstCd") { focusElement.textContent },
+        room = maybeUniqueChildNamed("Room") { focusElement.textContent },
+        streetName = maybeUniqueChildNamed("StrtNm") { focusElement.textContent },
+        subDepartment = maybeUniqueChildNamed("SubDept") { focusElement.textContent },
+        townLocationName = maybeUniqueChildNamed("TwnLctnNm") { focusElement.textContent },
+        townName = maybeUniqueChildNamed("TwnNm") { focusElement.textContent },
+        addressLines = mapEachChildNamed("AdrLine") { focusElement.textContent }
     )
 }
 
 private fun XmlElementDestructor.extractAgent(): AgentIdentification {
     return AgentIdentification(
         name = maybeUniqueChildNamed("FinInstnId") {
-            maybeUniqueChildNamed("Nm") { it.textContent }
+            maybeUniqueChildNamed("Nm") { focusElement.textContent }
         },
         bic = requireUniqueChildNamed("FinInstnId") {
-            maybeUniqueChildNamed("BIC") { it.textContent }
+            maybeUniqueChildNamed("BIC") { focusElement.textContent }
         },
         lei = requireUniqueChildNamed("FinInstnId") {
-            maybeUniqueChildNamed("LEI") { it.textContent }
+            maybeUniqueChildNamed("LEI") { focusElement.textContent }
         },
         clearingSystemCode = requireUniqueChildNamed("FinInstnId") {
             maybeUniqueChildNamed("ClrSysMmbId") {
                 maybeUniqueChildNamed("ClrSysId") {
-                    maybeUniqueChildNamed("Cd") { it.textContent }
+                    maybeUniqueChildNamed("Cd") { focusElement.textContent }
                 }
             }
         },
         proprietaryClearingSystemCode = requireUniqueChildNamed("FinInstnId") {
             maybeUniqueChildNamed("ClrSysMmbId") {
                 maybeUniqueChildNamed("ClrSysId") {
-                    maybeUniqueChildNamed("Prtry") { it.textContent }
+                    maybeUniqueChildNamed("Prtry") { focusElement.textContent }
                 }
             }
         },
         clearingSystemMemberId = requireUniqueChildNamed("FinInstnId") {
             maybeUniqueChildNamed("ClrSysMmbId") {
-                maybeUniqueChildNamed("MmbId") { it.textContent }
+                maybeUniqueChildNamed("MmbId") { focusElement.textContent }
             }
         },
         otherId = requireUniqueChildNamed("FinInstnId") { maybeUniqueChildNamed("Othr") { extractGenericId() } },
@@ -552,13 +552,13 @@ private fun XmlElementDestructor.extractAgent(): AgentIdentification {
 
 private fun XmlElementDestructor.extractGenericId(): GenericId {
     return GenericId(
-        id = requireUniqueChildNamed("Id") { it.textContent },
+        id = requireUniqueChildNamed("Id") { focusElement.textContent },
         schemeName = maybeUniqueChildNamed("SchmeNm") {
-            maybeUniqueChildNamed("Cd") { it.textContent }
+            maybeUniqueChildNamed("Cd") { focusElement.textContent }
         },
-        issuer = maybeUniqueChildNamed("Issr") { it.textContent },
+        issuer = maybeUniqueChildNamed("Issr") { focusElement.textContent },
         proprietarySchemeName = maybeUniqueChildNamed("SchmeNm") {
-            maybeUniqueChildNamed("Prtry") { it.textContent }
+            maybeUniqueChildNamed("Prtry") { focusElement.textContent }
         }
     )
 }
@@ -566,13 +566,13 @@ private fun XmlElementDestructor.extractGenericId(): GenericId {
 private fun XmlElementDestructor.extractAccount(): CashAccount {
     var iban: String? = null
     var otherId: GenericId? = null
-    val currency: String? = maybeUniqueChildNamed("Ccy") { it.textContent }
-    val name: String? = maybeUniqueChildNamed("Nm") { it.textContent }
+    val currency: String? = maybeUniqueChildNamed("Ccy") { focusElement.textContent }
+    val name: String? = maybeUniqueChildNamed("Nm") { focusElement.textContent }
     requireUniqueChildNamed("Id") {
         requireOnlyChild {
-            when (it.localName) {
+            when (focusElement.localName) {
                 "IBAN" -> {
-                    iban = it.textContent
+                    iban = focusElement.textContent
                 }
                 "Othr" -> {
                     otherId = extractGenericId()
@@ -586,7 +586,7 @@ private fun XmlElementDestructor.extractAccount(): CashAccount {
 
 private fun XmlElementDestructor.extractParty(): PartyIdentification {
     val otherId: GenericId? = maybeUniqueChildNamed("Id") {
-        (maybeUniqueChildNamed("PrvtId") { it } ?: maybeUniqueChildNamed("OrgId") { it })?.run {
+        (maybeUniqueChildNamed("PrvtId") { focusElement } ?: maybeUniqueChildNamed("OrgId") { focusElement })?.run {
             maybeUniqueChildNamed("Othr") {
                 extractGenericId()
             }
@@ -597,10 +597,10 @@ private fun XmlElementDestructor.extractParty(): PartyIdentification {
         maybeUniqueChildNamed("PrvtId") {
             maybeUniqueChildNamed("DtAndPlcOfBirth") {
                 PrivateIdentification(
-                    birthDate = maybeUniqueChildNamed("BirthDt") { it.textContent },
-                    cityOfBirth = maybeUniqueChildNamed("CityOfBirth") { it.textContent },
-                    countryOfBirth = maybeUniqueChildNamed("CtryOfBirth") { it.textContent },
-                    provinceOfBirth = maybeUniqueChildNamed("PrvcOfBirth") { it.textContent }
+                    birthDate = maybeUniqueChildNamed("BirthDt") { focusElement.textContent },
+                    cityOfBirth = maybeUniqueChildNamed("CityOfBirth") { focusElement.textContent },
+                    countryOfBirth = maybeUniqueChildNamed("CtryOfBirth") { focusElement.textContent },
+                    provinceOfBirth = maybeUniqueChildNamed("PrvcOfBirth") { focusElement.textContent }
                 )
             }
         }
@@ -609,35 +609,35 @@ private fun XmlElementDestructor.extractParty(): PartyIdentification {
     val organizationId = maybeUniqueChildNamed("Id") {
         maybeUniqueChildNamed("OrgId") {
             OrganizationIdentification(
-                bic = maybeUniqueChildNamed("BICOrBEI") { it.textContent }
-                    ?: maybeUniqueChildNamed("AnyBIC") { it.textContent },
-                lei = maybeUniqueChildNamed("LEI") { it.textContent }
+                bic = maybeUniqueChildNamed("BICOrBEI") { focusElement.textContent }
+                    ?: maybeUniqueChildNamed("AnyBIC") { focusElement.textContent },
+                lei = maybeUniqueChildNamed("LEI") { focusElement.textContent }
             )
         }
     }
 
     return PartyIdentification(
-        name = maybeUniqueChildNamed("Nm") { it.textContent },
+        name = maybeUniqueChildNamed("Nm") { focusElement.textContent },
         otherId = otherId,
         privateId = privateId,
         organizationId = organizationId,
-        countryOfResidence = maybeUniqueChildNamed("CtryOfRes") { it.textContent },
+        countryOfResidence = maybeUniqueChildNamed("CtryOfRes") { focusElement.textContent },
         postalAddress = maybeUniqueChildNamed("PstlAdr") { extractInnerPostalAddress() }
     )
 }
 
 private fun XmlElementDestructor.extractCurrencyAmount(): CurrencyAmount {
     return CurrencyAmount(
-        value = BigDecimal(requireUniqueChildNamed("Amt") { it.textContent }),
-        currency = requireUniqueChildNamed("Amt") { it.getAttribute("Ccy") }
+        value = BigDecimal(requireUniqueChildNamed("Amt") { focusElement.textContent }),
+        currency = requireUniqueChildNamed("Amt") { focusElement.getAttribute("Ccy") }
     )
 }
 
 private fun XmlElementDestructor.maybeExtractCurrencyAmount(): CurrencyAmount? {
     return maybeUniqueChildNamed("Amt") {
         CurrencyAmount(
-            it.getAttribute("Ccy"),
-            BigDecimal(it.textContent)
+            focusElement.getAttribute("Ccy"),
+            BigDecimal(focusElement.textContent)
         )
     }
 }
@@ -645,12 +645,12 @@ private fun XmlElementDestructor.maybeExtractCurrencyAmount(): CurrencyAmount? {
 private fun XmlElementDestructor.extractMaybeCurrencyExchange(): CurrencyExchange? {
     return maybeUniqueChildNamed("CcyXchg") {
         CurrencyExchange(
-            sourceCurrency = requireUniqueChildNamed("SrcCcy") { it.textContent },
-            targetCurrency = requireUniqueChildNamed("TrgtCcy") { it.textContent },
-            contractId = maybeUniqueChildNamed("CtrctId") { it.textContent },
-            exchangeRate = requireUniqueChildNamed("XchgRate") { it.textContent },
-            quotationDate = maybeUniqueChildNamed("QtnDt") { it.textContent },
-            unitCurrency = maybeUniqueChildNamed("UnitCcy") { it.textContent }
+            sourceCurrency = requireUniqueChildNamed("SrcCcy") { focusElement.textContent },
+            targetCurrency = requireUniqueChildNamed("TrgtCcy") { focusElement.textContent },
+            contractId = maybeUniqueChildNamed("CtrctId") { focusElement.textContent },
+            exchangeRate = requireUniqueChildNamed("XchgRate") { focusElement.textContent },
+            quotationDate = maybeUniqueChildNamed("QtnDt") { focusElement.textContent },
+            unitCurrency = maybeUniqueChildNamed("UnitCcy") { focusElement.textContent }
         )
     }
 }
@@ -667,8 +667,8 @@ private fun XmlElementDestructor.extractBatches(
         val ttlAmt = maybeUniqueChildNamed("Btch") {
             maybeUniqueChildNamed("TtlAmt") {
                 CurrencyAmount(
-                    value =  BigDecimal(it.textContent),
-                    currency = it.getAttribute("Ccy")
+                    value =  BigDecimal(focusElement.textContent),
+                    currency = focusElement.getAttribute("Ccy")
                 )
             }
         }
@@ -697,7 +697,7 @@ private fun XmlElementDestructor.extractBatches(
 }
 
 private fun XmlElementDestructor.maybeExtractCreditDebitIndicator(): CreditDebitIndicator? {
-    return maybeUniqueChildNamed("CdtDbtInd") { it.textContent }?.let {
+    return maybeUniqueChildNamed("CdtDbtInd") { focusElement.textContent }?.let {
         CreditDebitIndicator.valueOf(it)
     }
 }
@@ -729,16 +729,16 @@ private fun XmlElementDestructor.extractTransactionDetails(
         // FIXME: implement
         interBankSettlementAmount = null,
         endToEndId = maybeUniqueChildNamed("Refs") {
-            maybeUniqueChildNamed("EndToEndId") { it.textContent }
+            maybeUniqueChildNamed("EndToEndId") { focusElement.textContent }
         },
         messageId = maybeUniqueChildNamed("Refs") {
-            maybeUniqueChildNamed("MsgId") { it.textContent }
+            maybeUniqueChildNamed("MsgId") { focusElement.textContent }
         },
         paymentInformationId = maybeUniqueChildNamed("Refs") {
-            maybeUniqueChildNamed("PmtInfId") { it.textContent }
+            maybeUniqueChildNamed("PmtInfId") { focusElement.textContent }
         },
         unstructuredRemittanceInformation = maybeUniqueChildNamed("RmtInf") {
-            val chunks = mapEachChildNamed("Ustrd") { it.textContent }
+            val chunks = mapEachChildNamed("Ustrd") { focusElement.textContent }
             if (chunks.isEmpty()) {
                 null
             } else {
@@ -751,8 +751,8 @@ private fun XmlElementDestructor.extractTransactionDetails(
         creditorAccount = maybeUniqueChildNamed("RltdPties") { maybeUniqueChildNamed("CdtrAcct") { extractAccount() } },
         debtor = maybeUniqueChildNamed("RltdPties") { maybeUniqueChildNamed("Dbtr") { extractParty() } },
         creditor = maybeUniqueChildNamed("RltdPties") { maybeUniqueChildNamed("Cdtr") { extractParty() } },
-        proprietaryPurpose = maybeUniqueChildNamed("Purp") { maybeUniqueChildNamed("Prtry") { it.textContent } },
-        purpose = maybeUniqueChildNamed("Purp") { maybeUniqueChildNamed("Cd") { it.textContent } },
+        proprietaryPurpose = maybeUniqueChildNamed("Purp") { maybeUniqueChildNamed("Prtry") { focusElement.textContent } },
+        purpose = maybeUniqueChildNamed("Purp") { maybeUniqueChildNamed("Cd") { focusElement.textContent } },
         ultimateCreditor = maybeUniqueChildNamed("RltdPties") { maybeUniqueChildNamed("UltmtCdtr") { extractParty() } },
         ultimateDebtor = maybeUniqueChildNamed("RltdPties") { maybeUniqueChildNamed("UltmtDbtr") { extractParty() } },
         returnInfo = maybeUniqueChildNamed("RtrInf") {
@@ -766,9 +766,9 @@ private fun XmlElementDestructor.extractTransactionDetails(
                     )
                 },
                 originator = maybeUniqueChildNamed("Orgtr") { extractParty() },
-                reason = maybeUniqueChildNamed("Rsn") { maybeUniqueChildNamed("Cd") { it.textContent } },
-                proprietaryReason = maybeUniqueChildNamed("Rsn") { maybeUniqueChildNamed("Prtry") { it.textContent } },
-                additionalInfo = maybeUniqueChildNamed("AddtlInf") { it.textContent }
+                reason = maybeUniqueChildNamed("Rsn") { maybeUniqueChildNamed("Cd") { focusElement.textContent } },
+                proprietaryReason = maybeUniqueChildNamed("Rsn") { maybeUniqueChildNamed("Prtry") { focusElement.textContent } },
+                additionalInfo = maybeUniqueChildNamed("AddtlInf") { focusElement.textContent }
             )
         }
     )
@@ -787,22 +787,22 @@ private fun XmlElementDestructor.extractSingleDetails(
 
 private fun XmlElementDestructor.extractInnerBkTxCd(creditDebitIndicator: CreditDebitIndicator): String {
 
-    val domain = maybeUniqueChildNamed("Domn") { maybeUniqueChildNamed("Cd") { it.textContent } }
+    val domain = maybeUniqueChildNamed("Domn") { maybeUniqueChildNamed("Cd") { focusElement.textContent } }
     val family = maybeUniqueChildNamed("Domn") {
         maybeUniqueChildNamed("Fmly") {
-            maybeUniqueChildNamed("Cd") { it.textContent }
+            maybeUniqueChildNamed("Cd") { focusElement.textContent }
         }
     }
     val subfamily = maybeUniqueChildNamed("Domn") {
         maybeUniqueChildNamed("Fmly") {
-            maybeUniqueChildNamed("SubFmlyCd") { it.textContent }
+            maybeUniqueChildNamed("SubFmlyCd") { focusElement.textContent }
         }
     }
     val proprietaryCode = maybeUniqueChildNamed("Prtry") {
-        maybeUniqueChildNamed("Cd") { it.textContent }
+        maybeUniqueChildNamed("Cd") { focusElement.textContent }
     }
     val proprietaryIssuer = maybeUniqueChildNamed("Prtry") {
-        maybeUniqueChildNamed("Issr") { it.textContent }
+        maybeUniqueChildNamed("Issr") { focusElement.textContent }
     }
 
     if (domain != null && family != null && subfamily != null) {
@@ -828,23 +828,23 @@ private fun XmlElementDestructor.extractInnerTransactions(): CamtReport {
         Balance(
             type = maybeUniqueChildNamed("Tp") {
                 maybeUniqueChildNamed("CdOrPrtry") {
-                    maybeUniqueChildNamed("Cd") { it.textContent }
+                    maybeUniqueChildNamed("Cd") { focusElement.textContent }
                 }
             },
             proprietaryType = maybeUniqueChildNamed("Tp") {
                 maybeUniqueChildNamed("CdOrPrtry") {
-                    maybeUniqueChildNamed("Prtry") { it.textContent }
+                    maybeUniqueChildNamed("Prtry") { focusElement.textContent }
                 }
             },
             date = requireUniqueChildNamed("Dt") { extractDateOrDateTime() },
-            creditDebitIndicator = requireUniqueChildNamed("CdtDbtInd") { it.textContent }.let {
+            creditDebitIndicator = requireUniqueChildNamed("CdtDbtInd") { focusElement.textContent }.let {
                 CreditDebitIndicator.valueOf(it)
             },
             subtype = maybeUniqueChildNamed("Tp") {
-                maybeUniqueChildNamed("SubTp") { maybeUniqueChildNamed("Cd") { it.textContent } }
+                maybeUniqueChildNamed("SubTp") { maybeUniqueChildNamed("Cd") { focusElement.textContent } }
             },
             proprietarySubtype = maybeUniqueChildNamed("Tp") {
-                maybeUniqueChildNamed("SubTp") { maybeUniqueChildNamed("Prtry") { it.textContent } }
+                maybeUniqueChildNamed("SubTp") { maybeUniqueChildNamed("Prtry") { focusElement.textContent } }
             },
             amount = extractCurrencyAmount()
         )
@@ -852,17 +852,17 @@ private fun XmlElementDestructor.extractInnerTransactions(): CamtReport {
 
     val entries = mapEachChildNamed("Ntry") {
         val amount = extractCurrencyAmount()
-        val status = requireUniqueChildNamed("Sts") { it.textContent }.let {
+        val status = requireUniqueChildNamed("Sts") { focusElement.textContent }.let {
             EntryStatus.valueOf(it)
         }
-        val creditDebitIndicator = requireUniqueChildNamed("CdtDbtInd") { it.textContent }.let {
+        val creditDebitIndicator = requireUniqueChildNamed("CdtDbtInd") { focusElement.textContent }.let {
             CreditDebitIndicator.valueOf(it)
         }
         val btc = requireUniqueChildNamed("BkTxCd") {
             extractInnerBkTxCd(creditDebitIndicator)
         }
-        val acctSvcrRef = maybeUniqueChildNamed("AcctSvcrRef") { it.textContent }
-        val entryRef = maybeUniqueChildNamed("NtryRef") { it.textContent }
+        val acctSvcrRef = maybeUniqueChildNamed("AcctSvcrRef") { focusElement.textContent }
+        val entryRef = maybeUniqueChildNamed("NtryRef") { focusElement.textContent }
 
         val numInnerTxs = mapEachChildNamed("NtryDtls") {
             mapEachChildNamed("TxDtls") { Unit }
@@ -918,15 +918,15 @@ private fun XmlElementDestructor.extractInnerTransactions(): CamtReport {
     return CamtReport(
         account = account,
         entries = entries,
-        creationDateTime = maybeUniqueChildNamed("CreDtTm") { it.textContent },
+        creationDateTime = maybeUniqueChildNamed("CreDtTm") { focusElement.textContent },
         balances = balances,
-        electronicSequenceNumber = maybeUniqueChildNamed("ElctrncSeqNb") { it.textContent.toInt() },
-        legalSequenceNumber = maybeUniqueChildNamed("LglSeqNb") { it.textContent.toInt() },
-        fromDate = maybeUniqueChildNamed("FrToDt") { maybeUniqueChildNamed("FrDtTm") { it.textContent } },
-        toDate = maybeUniqueChildNamed("FrToDt") { maybeUniqueChildNamed("ToDtTm") { it.textContent } },
-        id = requireUniqueChildNamed("Id") { it.textContent },
-        proprietaryReportingSource = maybeUniqueChildNamed("RptgSrc") { maybeUniqueChildNamed("Prtry") { it.textContent } },
-        reportingSource = maybeUniqueChildNamed("RptgSrc") { maybeUniqueChildNamed("Cd") { it.textContent } }
+        electronicSequenceNumber = maybeUniqueChildNamed("ElctrncSeqNb") { focusElement.textContent.toInt() },
+        legalSequenceNumber = maybeUniqueChildNamed("LglSeqNb") { focusElement.textContent.toInt() },
+        fromDate = maybeUniqueChildNamed("FrToDt") { maybeUniqueChildNamed("FrDtTm") { focusElement.textContent } },
+        toDate = maybeUniqueChildNamed("FrToDt") { maybeUniqueChildNamed("ToDtTm") { focusElement.textContent } },
+        id = requireUniqueChildNamed("Id") { focusElement.textContent },
+        proprietaryReportingSource = maybeUniqueChildNamed("RptgSrc") { maybeUniqueChildNamed("Prtry") { focusElement.textContent } },
+        reportingSource = maybeUniqueChildNamed("RptgSrc") { maybeUniqueChildNamed("Cd") { focusElement.textContent } }
     )
 }
 
@@ -938,7 +938,7 @@ fun parseCamtMessage(doc: Document): CamtParseResult {
         requireRootElement("Document") {
             // Either bank to customer statement or report
             val reports = requireOnlyChild {
-                when (it.localName) {
+                when (focusElement.localName) {
                     "BkToCstmrAcctRpt" -> {
                         mapEachChildNamed("Rpt") {
                             extractInnerTransactions()
@@ -957,16 +957,16 @@ fun parseCamtMessage(doc: Document): CamtParseResult {
 
             val messageId = requireOnlyChild {
                 requireUniqueChildNamed("GrpHdr") {
-                    requireUniqueChildNamed("MsgId") { it.textContent }
+                    requireUniqueChildNamed("MsgId") { focusElement.textContent }
                 }
             }
             val creationDateTime = requireOnlyChild {
                 requireUniqueChildNamed("GrpHdr") {
-                    requireUniqueChildNamed("CreDtTm") { it.textContent }
+                    requireUniqueChildNamed("CreDtTm") { focusElement.textContent }
                 }
             }
             val messageType = requireOnlyChild {
-                when (it.localName) {
+                when (focusElement.localName) {
                     "BkToCstmrAcctRpt" -> CashManagementResponseType.Report
                     "BkToCstmrStmt" -> CashManagementResponseType.Statement
                     else -> {
