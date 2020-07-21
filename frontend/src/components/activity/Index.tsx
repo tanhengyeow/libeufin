@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Tabs } from 'antd';
-import PaymentInitiationList from './PaymentInitiationList';
+import PaymentInitiationList from './payments/PaymentInitiationList';
+import TransactionsList from './transaction-history/TransactionsList';
 
 import './Activity.less';
 const { TabPane } = Tabs;
@@ -26,7 +27,7 @@ const Activity = () => {
           />
         </TabPane>
         <TabPane tab="Transaction History" key="2">
-          Transaction History
+          <TransactionsList />
         </TabPane>
         <TabPane tab="Taler View" key="3">
           Taler View
