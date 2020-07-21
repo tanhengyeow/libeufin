@@ -279,6 +279,12 @@ fun serverMain(dbName: String, host: String) {
         }
         startOperationScheduler(client)
         routing {
+            get("/config") {
+                 call.respond(
+                     object {val version = "0.0.0"; val currency = "EUR"}
+                 )
+                return@get
+            }
             // Shows information about the requesting user.
             get("/user") {
                 val ret = transaction {
