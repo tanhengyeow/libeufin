@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { message, Button, Select, Table } from 'antd';
 import AddPaymentInitiationDrawer from './AddPaymentInitiationDrawer';
-import './Activity.less';
+import '../Activity.less';
 
 const { Option } = Select;
 
