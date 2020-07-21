@@ -61,6 +61,16 @@ import com.github.ajalt.clikt.core.CliktCommand
 import com.github.ajalt.clikt.core.subcommands
 import com.github.ajalt.clikt.parameters.options.default
 import com.github.ajalt.clikt.parameters.options.option
+import tech.libeufin.sandbox.PaymentsTable
+import tech.libeufin.sandbox.PaymentsTable.amount
+import tech.libeufin.sandbox.PaymentsTable.creditorBic
+import tech.libeufin.sandbox.PaymentsTable.creditorIban
+import tech.libeufin.sandbox.PaymentsTable.creditorName
+import tech.libeufin.sandbox.PaymentsTable.currency
+import tech.libeufin.sandbox.PaymentsTable.date
+import tech.libeufin.sandbox.PaymentsTable.debitorBic
+import tech.libeufin.sandbox.PaymentsTable.debitorIban
+import tech.libeufin.sandbox.PaymentsTable.debitorName
 import tech.libeufin.util.*
 
 class CustomerNotFound(id: String?) : Exception("Customer ${id} not found")
@@ -210,19 +220,19 @@ fun serverMain(dbName: String) {
             get("/admin/payments") {
                 val ret = PaymentsResponse()
                 transaction {
-                    PaymentEntity.all().forEach {
+                    PaymentsTable.selectAll().forEach {
                         ret.payments.add(
                             RawPayment(
-                                creditorIban = it.creditorIban,
-                                debitorIban = it.debitorIban,
-                                subject = it.subject,
-                                date = it.date.toHttpDateString(),
-                                amount = it.amount,
-                                creditorBic = it.creditorBic,
-                                creditorName = it.creditorName,
-                                debitorBic = it.debitorBic,
-                                debitorName = it.debitorName,
-                                currency = it.currency
+                                creditorIban = it[creditorIban],
+                                debitorIban = it[debitorIban],
+                                subject = it[PaymentsTable.subject],
+                                date = it[date].toHttpDateString(),
+                                amount = it[amount],
+                                creditorBic = it[creditorBic],
+                                creditorName = it[creditorName],
+                                debitorBic = it[debitorBic],
+                                debitorName = it[debitorName],
+                                currency = it[currency]
                             )
                         )
                     }
@@ -237,17 +247,17 @@ fun serverMain(dbName: String) {
             post("/admin/payments") {
                 val body = call.receive<RawPayment>()
                 transaction {
-                   PaymentEntity.new {
-                       creditorIban = body.creditorIban
-                       creditorBic = body.creditorBic
-                       creditorName = body.creditorName
-                       debitorIban = body.debitorIban
-                       debitorBic = body.debitorBic
-                       debitorName = body.debitorName
-                       subject = body.subject
-                       amount = body.amount
-                       currency = body.currency
-                       date = Instant.now().toEpochMilli()
+                   PaymentsTable.insert {
+                       it[creditorIban] = body.creditorIban
+                       it[creditorBic] = body.creditorBic
+                       it[creditorName] = body.creditorName
+                       it[debitorIban] = body.debitorIban
+                       it[debitorBic] = body.debitorBic
+                       it[debitorName] = body.debitorName
+                       it[subject] = body.subject
+                       it[amount] = body.amount
+                       it[currency] = body.currency
+                       it[date] = Instant.now().toEpochMilli()
                    }
                 }
                 call.respondText("Payment created")

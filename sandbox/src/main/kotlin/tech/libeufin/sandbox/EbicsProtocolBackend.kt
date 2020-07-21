@@ -32,6 +32,17 @@ import org.jetbrains.exposed.sql.statements.api.ExposedBlob
 import org.jetbrains.exposed.sql.transactions.transaction
 import org.w3c.dom.Document
 import tech.libeufin.sandbox.PaymentsTable.amount
+import tech.libeufin.sandbox.PaymentsTable.creditorBic
+import tech.libeufin.sandbox.PaymentsTable.creditorIban
+import tech.libeufin.sandbox.PaymentsTable.creditorName
+import tech.libeufin.sandbox.PaymentsTable.currency
+import tech.libeufin.sandbox.PaymentsTable.date
+import tech.libeufin.sandbox.PaymentsTable.debitorBic
+import tech.libeufin.sandbox.PaymentsTable.debitorIban
+import tech.libeufin.sandbox.PaymentsTable.debitorName
+import tech.libeufin.sandbox.PaymentsTable.msgId
+import tech.libeufin.sandbox.PaymentsTable.pmtInfId
+import tech.libeufin.sandbox.PaymentsTable.subject
 import tech.libeufin.util.*
 import tech.libeufin.util.XMLUtil.Companion.signEbicsResponse
 import tech.libeufin.util.ebics_h004.*
@@ -54,7 +65,9 @@ data class PainParseResult(
     val debitorName: String,
     val subject: String,
     val amount: Amount,
-    val currency: String
+    val currency: String,
+    val pmtInfId: String,
+    val msgId: String
 )
 
 open class EbicsRequestError(errorText: String, errorCode: String) :
@@ -445,7 +458,7 @@ private fun constructCamtResponse(
     val bankAccount = getBankAccountFromSubscriber(subscriber)
     transaction {
         logger.debug("Querying transactions involving: ${bankAccount.iban}")
-        PaymentEntity.find {
+        PaymentsTable.select {
             PaymentsTable.creditorIban eq bankAccount.iban or
                     (PaymentsTable.debitorIban eq bankAccount.iban)
             /**
@@ -455,17 +468,17 @@ private fun constructCamtResponse(
         }.forEach {
             history.add(
                 RawPayment(
-                    subject = it.subject,
-                    creditorIban = it.creditorIban,
-                    creditorBic = it.creditorBic,
-                    creditorName = it.creditorName,
-                    debitorIban = it.debitorIban,
-                    debitorBic = it.debitorBic,
-                    debitorName = it.debitorName,
-                    date = importDateFromMillis(it.date).toDashedDate(),
-                    amount = it.amount,
-                    currency = it.currency,
-                    uid = it.id.value
+                    subject = it[subject],
+                    creditorIban = it[creditorIban],
+                    creditorBic = it[creditorBic],
+                    creditorName = it[creditorName],
+                    debitorIban = it[debitorIban],
+                    debitorBic = it[debitorBic],
+                    debitorName = it[debitorName],
+                    date = importDateFromMillis(it[date]).toDashedDate(),
+                    amount = it[amount],
+                    currency = it[currency],
+                    uid = "${it[pmtInfId]}-${it[msgId]}"
                 )
             )
         }
@@ -496,7 +509,11 @@ private fun parsePain001(paymentRequest: String, initiatorName: String): PainPar
     return destructXml(painDoc) {
         requireRootElement("Document") {
             requireUniqueChildNamed("CstmrCdtTrfInitn") {
+                val msgId = requireOnlyChild {
+                    requireUniqueChildNamed("MsgId") { focusElement.textContent }
+                }
                 requireUniqueChildNamed("PmtInf") {
+                    val pmtInfId = requireUniqueChildNamed("PmtInfId") { focusElement.textContent }
                     val creditorIban = requireUniqueChildNamed("CdtTrfTxInf") {
                         requireUniqueChildNamed("CdtrAcct") {
                             requireUniqueChildNamed("id") {
@@ -527,7 +544,9 @@ private fun parsePain001(paymentRequest: String, initiatorName: String): PainPar
                         debitorIban = debitorIban,
                         debitorName = initiatorName,
                         creditorName = creditorName,
-                        creditorIban = creditorIban
+                        creditorIban = creditorIban,
+                        pmtInfId = pmtInfId,
+                        msgId = msgId
                     )
                 }
             }
@@ -542,15 +561,17 @@ private fun handleCct(paymentRequest: String, initiatorName: String) {
     val parseResult = parsePain001(paymentRequest, initiatorName)
 
     transaction {
-        PaymentEntity.new {
-            this.creditorIban = parseResult.creditorIban
-            this.creditorName = parseResult.creditorName
-            this.debitorIban = parseResult.debitorIban
-            this.debitorName = parseResult.debitorName
-            this.subject = parseResult.subject
-            this.amount = parseResult.amount.toString()
-            this.currency = parseResult.currency
-            this.date = Instant.now().toEpochMilli()
+        PaymentsTable.insert {
+            it[creditorIban] = parseResult.creditorIban
+            it[creditorName] = parseResult.creditorName
+            it[debitorIban] = parseResult.debitorIban
+            it[debitorName] = parseResult.debitorName
+            it[subject] = parseResult.subject
+            it[amount] = parseResult.amount.toString()
+            it[currency] = parseResult.currency
+            it[date] = Instant.now().toEpochMilli()
+            it[pmtInfId] = parseResult.pmtInfId
+            it[msgId] = parseResult.msgId
         }
     }
 }

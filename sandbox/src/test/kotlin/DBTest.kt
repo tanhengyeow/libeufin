@@ -17,15 +17,13 @@
  * <http://www.gnu.org/licenses/>
  */
 
-import org.jetbrains.exposed.sql.Database
-import org.jetbrains.exposed.sql.SchemaUtils
-import org.jetbrains.exposed.sql.StdOutSqlLogger
-import org.jetbrains.exposed.sql.addLogger
+import org.jetbrains.exposed.sql.*
 import org.jetbrains.exposed.sql.transactions.TransactionManager
 import org.jetbrains.exposed.sql.transactions.transaction
 import org.junit.Test
-import tech.libeufin.sandbox.PaymentEntity
 import tech.libeufin.sandbox.PaymentsTable
+import tech.libeufin.sandbox.PaymentsTable.msgId
+import tech.libeufin.sandbox.PaymentsTable.pmtInfId
 import tech.libeufin.util.millis
 import tech.libeufin.util.parseDashedDate
 import java.io.File
@@ -68,22 +66,24 @@ class DBTest {
         withTestDatabase {
             transaction {
                 SchemaUtils.create(PaymentsTable)
-                PaymentEntity.new {
-                    creditorIban = "earns"
-                    creditorBic = "BIC"
-                    creditorName = "Creditor Name"
-                    debitorIban = "spends"
-                    debitorBic = "BIC"
-                    debitorName = "Debitor Name"
-                    subject = "deal"
-                    amount = "EUR:1"
-                    date = LocalDateTime.now().millis()
-                    currency = "EUR"
+                PaymentsTable.insert {
+                    it[creditorIban] = "earns"
+                    it[creditorBic] = "BIC"
+                    it[creditorName] = "Creditor Name"
+                    it[debitorIban] = "spends"
+                    it[debitorBic] = "BIC"
+                    it[debitorName] = "Debitor Name"
+                    it[subject] = "deal"
+                    it[amount] = "EUR:1"
+                    it[date] = LocalDateTime.now().millis()
+                    it[currency] = "EUR"
+                    it[pmtInfId] = "0"
+                    it[msgId] = "0"
                 }
             }
             val result = transaction {
                 addLogger(StdOutSqlLogger)
-                PaymentEntity.find {
+                PaymentsTable.select {
                     PaymentsTable.date.between(
                         parseDashedDate(
                             "1970-01-01"

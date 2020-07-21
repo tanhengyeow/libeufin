@@ -26,10 +26,7 @@ import org.jetbrains.exposed.dao.IntEntityClass
 import org.jetbrains.exposed.dao.id.EntityID
 import org.jetbrains.exposed.dao.id.IdTable
 import org.jetbrains.exposed.dao.id.IntIdTable
-import org.jetbrains.exposed.sql.Database
-import org.jetbrains.exposed.sql.SchemaUtils
-import org.jetbrains.exposed.sql.StdOutSqlLogger
-import org.jetbrains.exposed.sql.addLogger
+import org.jetbrains.exposed.sql.*
 import org.jetbrains.exposed.sql.transactions.TransactionManager
 import org.jetbrains.exposed.sql.transactions.transaction
 import java.sql.Connection
@@ -249,7 +246,7 @@ class EbicsUploadTransactionChunkEntity(id: EntityID<String>) : Entity<String>(i
 /**
  * Table that keeps all the payments initiated by PAIN.001.
  */
-object PaymentsTable : IntIdTable() {
+object PaymentsTable : Table() {
     val creditorIban = text("creditorIban")
     val creditorBic = text("creditorBic").nullable()
     val creditorName = text("creditorName")
@@ -260,21 +257,10 @@ object PaymentsTable : IntIdTable() {
     val amount = text("amount")
     val currency = text("currency")
     val date = long("date")
-}
+    val pmtInfId = text("pmtInfId")
+    val msgId = text("msgId")
 
-class PaymentEntity(id: EntityID<Int>) : IntEntity(id) {
-    companion object : IntEntityClass<PaymentEntity>(PaymentsTable)
-
-    var creditorIban by PaymentsTable.creditorIban
-    var creditorBic by PaymentsTable.creditorBic
-    var creditorName by PaymentsTable.creditorName
-    var debitorIban by PaymentsTable.debitorIban
-    var debitorBic by PaymentsTable.debitorBic
-    var debitorName by PaymentsTable.debitorName
-    var subject by PaymentsTable.subject
-    var amount by PaymentsTable.amount
-    var currency by PaymentsTable.currency
-    var date by PaymentsTable.date
+    override val primaryKey = PrimaryKey(pmtInfId, msgId)
 }
 
 /**
