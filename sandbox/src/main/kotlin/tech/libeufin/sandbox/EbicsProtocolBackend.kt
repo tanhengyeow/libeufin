@@ -27,6 +27,7 @@ import io.ktor.request.receiveText
 import io.ktor.response.respond
 import io.ktor.response.respondText
 import org.apache.xml.security.binding.xmldsig.RSAKeyValueType
+import org.jetbrains.exposed.exceptions.ExposedSQLException
 import org.jetbrains.exposed.sql.*
 import org.jetbrains.exposed.sql.statements.api.ExposedBlob
 import org.jetbrains.exposed.sql.transactions.transaction
@@ -52,6 +53,7 @@ import tech.libeufin.util.ebics_s001.SignatureTypes
 import tech.libeufin.util.ebics_s001.UserSignatureData
 import java.security.interfaces.RSAPrivateCrtKey
 import java.security.interfaces.RSAPublicKey
+import java.sql.SQLException
 import java.time.Instant
 import java.time.LocalDateTime
 import java.util.*
@@ -70,7 +72,7 @@ data class PainParseResult(
     val msgId: String
 )
 
-open class EbicsRequestError(errorText: String, errorCode: String) :
+open class EbicsRequestError(val errorText: String, val errorCode: String) :
     Exception("EBICS request  error: $errorText ($errorCode)")
 
 class EbicsInvalidRequestError : EbicsRequestError(
@@ -563,19 +565,25 @@ private fun parsePain001(paymentRequest: String, initiatorName: String): PainPar
 private fun handleCct(paymentRequest: String, initiatorName: String) {
     val parseResult = parsePain001(paymentRequest, initiatorName)
 
-    transaction {
-        PaymentsTable.insert {
-            it[creditorIban] = parseResult.creditorIban
-            it[creditorName] = parseResult.creditorName
-            it[debitorIban] = parseResult.debitorIban
-            it[debitorName] = parseResult.debitorName
-            it[subject] = parseResult.subject
-            it[amount] = parseResult.amount.toString()
-            it[currency] = parseResult.currency
-            it[date] = Instant.now().toEpochMilli()
-            it[pmtInfId] = parseResult.pmtInfId
-            it[msgId] = parseResult.msgId
+    try{
+        transaction {
+            PaymentsTable.insert {
+                it[creditorIban] = parseResult.creditorIban
+                it[creditorName] = parseResult.creditorName
+                it[debitorIban] = parseResult.debitorIban
+                it[debitorName] = parseResult.debitorName
+                it[subject] = parseResult.subject
+                it[amount] = parseResult.amount.toString()
+                it[currency] = parseResult.currency
+                it[date] = Instant.now().toEpochMilli()
+                it[pmtInfId] = parseResult.pmtInfId
+                it[msgId] = parseResult.msgId
+            }
         }
+    } catch (e: ExposedSQLException) {
+        // if (e.sqlState == "SQL_CONSTRAINT_FAILED")
+        throw EbicsRequestError("[EBICS_PROCESSING_ERROR] ${e.sqlState}", "091116")
+        logger.warn("DB issue: ${e.sqlState}")
     }
 }
 

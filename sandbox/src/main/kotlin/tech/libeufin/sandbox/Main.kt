@@ -72,6 +72,8 @@ import tech.libeufin.sandbox.PaymentsTable.debitorBic
 import tech.libeufin.sandbox.PaymentsTable.debitorIban
 import tech.libeufin.sandbox.PaymentsTable.debitorName
 import tech.libeufin.util.*
+import tech.libeufin.util.ebics_h004.EbicsResponse
+import tech.libeufin.util.ebics_h004.EbicsTypes
 
 class CustomerNotFound(id: String?) : Exception("Customer ${id} not found")
 class BadInputData(inputData: String?) : Exception("Customer provided invalid input data: ${inputData}")
@@ -180,10 +182,21 @@ fun serverMain(dbName: String) {
 
             exception<EbicsRequestError> { cause ->
                 LOGGER.info("Client EBICS request was invalid")
-                // fixme: this error should respond with XML!
+                /*val response = EbicsResponse().apply {
+                    this.version = "H004"
+                    this.revision = 1
+                    this.header = EbicsResponse.Header().apply {
+                        this.mutable = EbicsResponse.MutableHeaderType().apply {
+                            this.reportText = cause.errorText
+                            this.returnCode = cause.errorCode
+                        }
+                    }
+                }
+
+                 */
                 call.respondText(
                     cause.localizedMessage,
-                    ContentType.Text.Any,
+                    ContentType.Text.Plain,
                     HttpStatusCode.OK
                 )
             }
@@ -201,7 +214,6 @@ fun serverMain(dbName: String) {
                     )
                 )
             }
-
             exception<Throwable> { cause ->
                 LOGGER.error("Exception while handling '${call.request.uri}'", cause)
                 call.respondText("Internal server error.", ContentType.Text.Plain, HttpStatusCode.InternalServerError)
