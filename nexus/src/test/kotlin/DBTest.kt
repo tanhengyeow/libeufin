@@ -37,8 +37,7 @@ object MyTable : Table() {
 }
 
 class DBTest {
-    //  @Test(expected = ExposedSQLException::class)
-    @Test
+    @Test(expected = ExposedSQLException::class)
     fun sqlDslTest() {
         withTestDatabase {
             transaction {
