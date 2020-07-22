@@ -84,11 +84,11 @@ def startNexus(dbname="nexus-test.sqlite3"):
         stderr=open("nexus-stderr.log", "w"),
     )
     atexit.register(lambda: kill("nexus", nexus))
-    for i in range(10):
+    for i in range(80):
         try:
             get("http://localhost:5001/")
         except:
-            if i == 9:
+            if i == 79:
                 nexus.terminate()
                 print("Nexus timed out")
                 exit(77)

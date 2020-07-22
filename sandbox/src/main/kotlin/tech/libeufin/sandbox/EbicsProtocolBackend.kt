@@ -509,41 +509,44 @@ private fun parsePain001(paymentRequest: String, initiatorName: String): PainPar
     return destructXml(painDoc) {
         requireRootElement("Document") {
             requireUniqueChildNamed("CstmrCdtTrfInitn") {
-                val msgId = requireOnlyChild {
+                val msgId = requireUniqueChildNamed("GrpHdr") {
                     requireUniqueChildNamed("MsgId") { focusElement.textContent }
                 }
                 requireUniqueChildNamed("PmtInf") {
                     val pmtInfId = requireUniqueChildNamed("PmtInfId") { focusElement.textContent }
                     val creditorIban = requireUniqueChildNamed("CdtTrfTxInf") {
                         requireUniqueChildNamed("CdtrAcct") {
-                            requireUniqueChildNamed("id") {
+                            requireUniqueChildNamed("Id") {
                                 requireUniqueChildNamed("IBAN") { focusElement.textContent }
                             }
                         }
                     }
-                    val creditorName = requireUniqueChildNamed("Cdt") {
-                        requireUniqueChildNamed("Nm") { focusElement.textContent }
+                    val txInf = requireUniqueChildNamed("CdtTrfTxInf") {
+                        val amt = requireUniqueChildNamed("Amt") {
+                            requireOnlyChild {
+                                focusElement
+                            }
+                        }
+                        val creditorName = requireUniqueChildNamed("Cdtr") {
+                            requireUniqueChildNamed("Nm") { focusElement.textContent }
+                        }
+                        val subject = requireUniqueChildNamed("RmtInf") {
+                            requireUniqueChildNamed("Ustrd") { focusElement.textContent }
+                        }
+                        object {val amt = amt; val subject = subject; val creditorName = creditorName}
                     }
                     val debitorIban = requireUniqueChildNamed("DbtrAcct") {
                         requireOnlyChild {
                             requireOnlyChild { focusElement.textContent }
                         }
                     }
-                    val subject = requireUniqueChildNamed("RmtInf") {
-                        requireUniqueChildNamed("Ustrd") { focusElement.textContent }
-                    }
-                    val amt = requireUniqueChildNamed("Amt") {
-                        requireOnlyChild {
-                            focusElement
-                        }
-                    }
                     PainParseResult(
-                        currency = amt.getAttribute("Ccy"),
-                        amount = Amount(amt.textContent),
-                        subject = subject,
+                        currency = txInf.amt.getAttribute("Ccy"),
+                        amount = Amount(txInf.amt.textContent),
+                        subject = txInf.subject,
                         debitorIban = debitorIban,
                         debitorName = initiatorName,
-                        creditorName = creditorName,
+                        creditorName = txInf.creditorName,
                         creditorIban = creditorIban,
                         pmtInfId = pmtInfId,
                         msgId = msgId

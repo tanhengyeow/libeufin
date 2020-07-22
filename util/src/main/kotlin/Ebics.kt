@@ -435,7 +435,7 @@ fun parseAndValidateEbicsResponse(
     } catch (e: Exception) {
         throw EbicsProtocolError(
             HttpStatusCode.InternalServerError,
-            "Invalid XML (as EbicsResponse) received from bank"
+            "Invalid XML (as EbicsResponse) received from bank: $responseStr"
         )
     }
 
