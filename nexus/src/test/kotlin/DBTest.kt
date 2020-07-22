@@ -38,6 +38,7 @@ object MyTable : Table() {
 
 class DBTest {
     //  @Test(expected = ExposedSQLException::class)
+    @Test
     fun sqlDslTest() {
         withTestDatabase {
             transaction {

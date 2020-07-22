@@ -581,9 +581,8 @@ private fun handleCct(paymentRequest: String, initiatorName: String) {
             }
         }
     } catch (e: ExposedSQLException) {
-        // if (e.sqlState == "SQL_CONSTRAINT_FAILED")
+        logger.warn("Could not insert new payment into the database: ${e}")
         throw EbicsRequestError("[EBICS_PROCESSING_ERROR] ${e.sqlState}", "091116")
-        logger.warn("DB issue: ${e.sqlState}")
     }
 }
 
