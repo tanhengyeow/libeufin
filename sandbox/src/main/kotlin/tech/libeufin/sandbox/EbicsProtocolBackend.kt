@@ -72,8 +72,12 @@ data class PainParseResult(
     val msgId: String
 )
 
-open class EbicsRequestError(val errorText: String, val errorCode: String) :
-    Exception("EBICS request  error: $errorText ($errorCode)")
+open class EbicsRequestError(
+    val errorText: String,
+    val errorCode: String,
+    // needed to sign the (error) response.
+    val hostAuthPriv: RSAPrivateCrtKey? = null
+) : Exception("EBICS request  error: $errorText ($errorCode)")
 
 class EbicsInvalidRequestError : EbicsRequestError(
     "[EBICS_INVALID_REQUEST] Invalid request",
@@ -562,11 +566,10 @@ private fun parsePain001(paymentRequest: String, initiatorName: String): PainPar
 /**
  * Process a payment request in the pain.001 format.
  */
-private fun handleCct(paymentRequest: String, initiatorName: String) {
+private fun handleCct(paymentRequest: String, initiatorName: String, ctx: RequestContext) {
     val parseResult = parsePain001(paymentRequest, initiatorName)
-
-    try{
-        transaction {
+    transaction {
+        try {
             PaymentsTable.insert {
                 it[creditorIban] = parseResult.creditorIban
                 it[creditorName] = parseResult.creditorName
@@ -579,10 +582,14 @@ private fun handleCct(paymentRequest: String, initiatorName: String) {
                 it[pmtInfId] = parseResult.pmtInfId
                 it[msgId] = parseResult.msgId
             }
+        } catch (e: ExposedSQLException) {
+            logger.warn("Could not insert new payment into the database: ${e}")
+            throw EbicsRequestError(
+                "[EBICS_PROCESSING_ERROR] ${e.sqlState}",
+                "091116",
+                ctx.hostAuthPriv
+            )
         }
-    } catch (e: ExposedSQLException) {
-        logger.warn("Could not insert new payment into the database: ${e}")
-        throw EbicsRequestError("[EBICS_PROCESSING_ERROR] ${e.sqlState}", "091116")
     }
 }
 
@@ -1071,7 +1078,7 @@ private fun handleEbicsUploadTransactionTransmission(requestContext: RequestCont
         if (getOrderTypeFromTransactionId(requestTransactionID) == "CCT") {
             logger.debug("Attempting a payment.")
             val involvedBankAccout = getBankAccountFromSubscriber(requestContext.subscriber)
-            handleCct(unzippedData.toString(Charsets.UTF_8), involvedBankAccout.name)
+            handleCct(unzippedData.toString(Charsets.UTF_8), involvedBankAccout.name, requestContext)
         }
         return EbicsResponse.createForUploadTransferPhase(
             requestTransactionID,

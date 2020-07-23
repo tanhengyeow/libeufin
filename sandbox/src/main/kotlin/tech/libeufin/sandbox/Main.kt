@@ -190,8 +190,13 @@ fun serverMain(dbName: String) {
                     // already been caught by the chunking logic.
                     EbicsTypes.TransactionPhaseType.TRANSFER
                 )
+                if (cause.hostAuthPriv == null)
+                    throw SandboxError(
+                        reason = "Cannot sign error response",
+                        statusCode = HttpStatusCode.InternalServerError
+                    )
                 call.respondText(
-                    XMLUtil.convertJaxbToString(resp),
+                    XMLUtil.signEbicsResponse(resp, cause.hostAuthPriv),
                     ContentType.Application.Xml,
                     HttpStatusCode.OK
                 )
