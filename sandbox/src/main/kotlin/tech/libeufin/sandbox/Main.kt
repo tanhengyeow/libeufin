@@ -182,21 +182,17 @@ fun serverMain(dbName: String) {
 
             exception<EbicsRequestError> { cause ->
                 LOGGER.info("Client EBICS request was invalid")
-                /*val response = EbicsResponse().apply {
-                    this.version = "H004"
-                    this.revision = 1
-                    this.header = EbicsResponse.Header().apply {
-                        this.mutable = EbicsResponse.MutableHeaderType().apply {
-                            this.reportText = cause.errorText
-                            this.returnCode = cause.errorCode
-                        }
-                    }
-                }
-
-                 */
+                val resp = EbicsResponse.createForUploadWithError(
+                    cause.errorText,
+                    cause.errorCode,
+                    // assuming that the phase is always transfer,
+                    // as errors during initialization should have
+                    // already been caught by the chunking logic.
+                    EbicsTypes.TransactionPhaseType.TRANSFER
+                )
                 call.respondText(
-                    cause.localizedMessage,
-                    ContentType.Text.Plain,
+                    XMLUtil.convertJaxbToString(resp),
+                    ContentType.Application.Xml,
                     HttpStatusCode.OK
                 )
             }

@@ -1,6 +1,7 @@
 package tech.libeufin.util.ebics_h004
 
 import org.apache.xml.security.binding.xmldsig.SignatureType
+import org.apache.xml.security.binding.xmldsig.SignedInfoType
 import tech.libeufin.util.CryptoUtil
 import tech.libeufin.util.XMLUtil
 import java.math.BigInteger
@@ -133,6 +134,7 @@ class EbicsResponse {
                 this.version = "H004"
                 this.revision = 1
                 this.header = EbicsResponse.Header().apply {
+                    this.authenticate = true
                     this.mutable = EbicsResponse.MutableHeaderType().apply {
                         this.reportText = errorText
                         this.returnCode = errorCode
@@ -143,6 +145,7 @@ class EbicsResponse {
                 this.authSignature = SignatureType()
                 this.body = EbicsResponse.Body().apply {
                     this.returnCode = EbicsResponse.ReturnCode().apply {
+                        this.authenticate = true
                         this.value = errorCode
                     }
                 }
