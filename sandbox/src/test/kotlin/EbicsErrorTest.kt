@@ -13,6 +13,8 @@ class EbicsErrorTest {
             "012345",
             EbicsTypes.TransactionPhaseType.INITIALISATION
         )
-        println(XMLUtil.convertJaxbToString(resp))
+        assert(resp.header.mutable.reportText == "[EBICS_ERROR] abc")
+        assert(resp.header.mutable.returnCode == "012345")
+        assert(resp.body.returnCode.value == "012345")
     }
 }
