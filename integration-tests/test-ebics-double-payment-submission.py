@@ -9,31 +9,6 @@ import base64
 
 from util import startNexus, startSandbox
 
-# Steps implemented in this test.
-#
-# 0 Prepare sandbox.
-#  -> (a) Make a EBICS host, (b) make a EBICS subscriber
-#     for the test runner, and (c) assign a IBAN to such
-#     subscriber.
-#
-# 1 Prepare nexus.
-#  -> (a) Make a Nexus user, (b) make a EBICS subscriber
-#     associated to that user
-#
-# 2 Prepare the Ebics bank connection for the nexus user.
-#  -> (a) Upload keys from Nexus to the Bank (INI & HIA),
-#     (b) Download key from the Bank (HPB) to the Nexus,
-#     and (c) Fetch the bank account owned by that subscriber
-#     at the bank.
-
-# 3 Request history from the Nexus to the Bank (C53).
-# 4 Verify that history is empty.
-# 5 Issue a payment from Nexus
-#  -> (a) Prepare & (b) trigger CCT.
-# 6 Request history after submitting the payment,
-#   from Nexus to Bank.
-# 7 Verify that previous payment shows up.
-
 # Nexus user details
 USERNAME = "person"
 PASSWORD = "y"
@@ -78,27 +53,21 @@ def assertResponse(response):
     # Allows for finer grained checks.
     return response
 
-
 startNexus(NEXUS_DB)
 startSandbox()
 
-# 0.a
 assertResponse(
     post(
         "http://localhost:5000/admin/ebics/host",
         json=dict(hostID=HOST_ID, ebicsVersion=EBICS_VERSION),
     )
 )
-
-# 0.b
 assertResponse(
     post(
         "http://localhost:5000/admin/ebics/subscribers",
         json=dict(hostID=HOST_ID, partnerID=PARTNER_ID, userID=USER_ID),
     )
 )
-
-# 0.c
 assertResponse(
     post(
         "http://localhost:5000/admin/ebics/bank-accounts",
@@ -111,8 +80,6 @@ assertResponse(
         ),
     )
 )
-
-# 1.a, make a new nexus user.
 assertResponse(
     post(
         "http://localhost:5001/users",
@@ -120,10 +87,7 @@ assertResponse(
         json=dict(username=USERNAME, password=PASSWORD),
     )
 )
-
 print("creating bank connection")
-
-# 1.b, make a ebics bank connection for the new user.
 assertResponse(
     post(
         "http://localhost:5001/bank-connections",
@@ -138,9 +102,7 @@ assertResponse(
         headers=dict(Authorization=USER_AUTHORIZATION_HEADER),
     )
 )
-
 print("connecting")
-
 assertResponse(
     post(
         "http://localhost:5001/bank-connections/my-ebics/connect",
@@ -148,9 +110,6 @@ assertResponse(
         headers=dict(Authorization=USER_AUTHORIZATION_HEADER),
     )
 )
-
-
-# 2.c, fetch bank account information
 assertResponse(
     post(
         "http://localhost:5001/bank-connections/my-ebics/ebics/import-accounts",
@@ -158,26 +117,6 @@ assertResponse(
         headers=dict(Authorization=USER_AUTHORIZATION_HEADER),
     )
 )
-
-# 3, ask nexus to download history
-assertResponse(
-    post(
-        f"http://localhost:5001/bank-accounts/{BANK_ACCOUNT_LABEL}/fetch-transactions",
-        headers=dict(Authorization=USER_AUTHORIZATION_HEADER),
-    )
-)
-
-# 4, make sure history is empty
-resp = assertResponse(
-    get(
-        f"http://localhost:5001/bank-accounts/{BANK_ACCOUNT_LABEL}/transactions",
-        headers=dict(Authorization=USER_AUTHORIZATION_HEADER),
-    )
-)
-if len(resp.json().get("transactions")) != 0:
-    fail("unexpected number of transactions")
-
-# 5.a, prepare a payment
 resp = assertResponse(
     post(
         "http://localhost:5001/bank-accounts/{}/payment-initiations".format(
@@ -197,7 +136,6 @@ PREPARED_PAYMENT_UUID = resp.json().get("uuid")
 if PREPARED_PAYMENT_UUID == None:
     fail("Payment UUID not received")
 
-# 5.b, submit payment initiation
 assertResponse(
     post(
         f"http://localhost:5001/bank-accounts/{BANK_ACCOUNT_LABEL}/payment-initiations/{PREPARED_PAYMENT_UUID}/submit",
@@ -205,11 +143,13 @@ assertResponse(
         headers=dict(Authorization=USER_AUTHORIZATION_HEADER),
     )
 )
-
-# hack the database
+# mark the payment as not submitted directly
+# into the database.
 check_call(["sqlite3", NEXUS_DB, f"UPDATE PaymentInitiations SET submitted = false WHERE id = '{PREPARED_PAYMENT_UUID}'"]) 
 
-# 5.b, submit payment initiation AGAIN
+# Re-submission of the same payment.  Fails with 500 now,
+# because nexus doesn't know the EBICS error code reported
+# by the sandbox.
 assertResponse(
     post(
         f"http://localhost:5001/bank-accounts/{BANK_ACCOUNT_LABEL}/payment-initiations/{PREPARED_PAYMENT_UUID}/submit",
