@@ -1,6 +1,28 @@
 import React from 'react';
 import { DatePicker, Table } from 'antd';
+import JSONTree from 'react-json-tree';
+
 const { RangePicker } = DatePicker;
+
+const theme = {
+  scheme: 'monokai',
+  base00: '#272822',
+  base01: '#383830',
+  base02: '#49483e',
+  base03: '#75715e',
+  base04: '#a59f85',
+  base05: '#f8f8f2',
+  base06: '#f5f4f1',
+  base07: '#f9f8f5',
+  base08: '#f92672',
+  base09: '#fd971f',
+  base0A: '#f4bf75',
+  base0B: '#a6e22e',
+  base0C: '#a1efe4',
+  base0D: '#66d9ef',
+  base0E: '#ae81ff',
+  base0F: '#cc6633',
+};
 
 const mainColumns = [
   {
@@ -32,6 +54,7 @@ const mainColumns = [
 const TransactionsList = () => {
   const tempTransactions = [
     {
+      key: 'acctsvcrref-001',
       amount: 'EUR:100.00',
       creditDebitIndicator: 'CRDT',
       status: 'BOOK',
@@ -60,65 +83,66 @@ const TransactionsList = () => {
         unstructuredRemittanceInformation: 'unstructured info one',
       },
     },
-    // {
-    //   amount: 'EUR:50.00',
-    //   creditDebitIndicator: 'CRDT',
-    //   status: 'BOOK',
-    //   bankTransactionCode: 'PMNT-RCDT-ESCT',
-    //   valueDate: '2020-07-04',
-    //   bookingDate: '2020-07-02',
-    //   accountServicerRef: 'acctsvcrref-002',
-    //   details: {
-    //     debtor: {
-    //       name: 'Debtor One',
-    //     },
-    //     debtorAccount: {
-    //       iban: 'DE52123456789473323175',
-    //     },
-    //     creditor: {
-    //       name: 'Creditor One',
-    //     },
-    //     endToEndId: 'e2e-002',
-    //     unstructuredRemittanceInformation: 'unstructured info across lines',
-    //   },
-    // },
-    // {
-    //   amount: 'EUR:1.12',
-    //   creditDebitIndicator: 'CRDT',
-    //   status: 'BOOK',
-    //   isRTransaction: true,
-    //   bankTransactionCode: 'PMNT-ICDT-RRTN', // return transaction (e.g IBAN doesn't exist)
-    //   valueDate: '2020-06-30',
-    //   bookingDate: '2020-06-30',
-    //   accountServicerRef: '2020063011423362000',
-    //   details: {
-    //     debtor: {
-    //       name: 'Account Owner',
-    //     },
-    //     debtorAccount: {
-    //       iban: 'DE54123456784713474163',
-    //     },
-    //     creditor: {
-    //       name: 'Nonexistent Creditor',
-    //     },
-    //     creditorAccount: {
-    //       iban: 'DE24500105177398216438',
-    //     },
-    //     endToEndId: 'NOTPROVIDED',
-    //     unstructuredRemittanceInformation:
-    //       'Retoure SEPA Ueberweisung vom 29.06.2020, Rueckgabegrund: AC01 IBAN fehlerhaft und ungültig SVWZ: RETURN, Sammelposten Nummer Zwei IBAN: DE24500105177398216438 BIC: INGDDEFFXXX', // truncate at some point in table column, show all in details section
-    //     returnInfo: {
-    //       originalBankTransactionCode: 'PMNT-ICDT-ESCT',
-    //       originator: {
-    //         organizationId: {
-    //           bic: 'GENODEM1GLS',
-    //         },
-    //       },
-    //       reason: 'AC01',
-    //       additionalInfo: 'IBAN fehlerhaft und ungültig',
-    //     },
-    //   },
-    // },
+    {
+      amount: 'EUR:50.00',
+      creditDebitIndicator: 'CRDT',
+      status: 'BOOK',
+      bankTransactionCode: 'PMNT-RCDT-ESCT',
+      valueDate: '2020-07-04',
+      bookingDate: '2020-07-02',
+      accountServicerRef: 'acctsvcrref-002',
+      details: {
+        debtor: {
+          name: 'Debtor One',
+        },
+        debtorAccount: {
+          iban: 'DE52123456789473323175',
+        },
+        creditor: {
+          name: 'Creditor One',
+        },
+        endToEndId: 'e2e-002',
+        unstructuredRemittanceInformation: 'unstructured info across lines',
+      },
+    },
+    {
+      key: '2020063011423362000',
+      amount: 'EUR:1.12',
+      creditDebitIndicator: 'CRDT',
+      status: 'BOOK',
+      isRTransaction: true,
+      bankTransactionCode: 'PMNT-ICDT-RRTN', // return transaction (e.g IBAN doesn't exist)
+      valueDate: '2020-06-30',
+      bookingDate: '2020-06-30',
+      accountServicerRef: '2020063011423362000',
+      details: {
+        debtor: {
+          name: 'Account Owner',
+        },
+        debtorAccount: {
+          iban: 'DE54123456784713474163',
+        },
+        creditor: {
+          name: 'Nonexistent Creditor',
+        },
+        creditorAccount: {
+          iban: 'DE24500105177398216438',
+        },
+        endToEndId: 'NOTPROVIDED',
+        unstructuredRemittanceInformation:
+          'Retoure SEPA Ueberweisung vom 29.06.2020, Rueckgabegrund: AC01 IBAN fehlerhaft und ungültig SVWZ: RETURN, Sammelposten Nummer Zwei IBAN: DE24500105177398216438 BIC: INGDDEFFXXX', // truncate at some point in table column, show all in details section
+        returnInfo: {
+          originalBankTransactionCode: 'PMNT-ICDT-ESCT',
+          originator: {
+            organizationId: {
+              bic: 'GENODEM1GLS',
+            },
+          },
+          reason: 'AC01',
+          additionalInfo: 'IBAN fehlerhaft und ungültig',
+        },
+      },
+    },
     // {
     //   amount: 'EUR:1000', // in currency of the account
     //   creditDebitIndicator: 'CRDT',
@@ -228,7 +252,7 @@ const TransactionsList = () => {
         dataSource={tempTransactions}
         expandable={{
           expandedRowRender: (record) => (
-            <div>{JSON.stringify(record.details)}</div>
+            <JSONTree data={record.details} theme={theme} />
           ),
         }}
       />
