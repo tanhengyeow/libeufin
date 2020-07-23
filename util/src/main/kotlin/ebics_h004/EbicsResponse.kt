@@ -2,6 +2,7 @@ package tech.libeufin.util.ebics_h004
 
 import org.apache.xml.security.binding.xmldsig.SignatureType
 import tech.libeufin.util.CryptoUtil
+import tech.libeufin.util.XMLUtil
 import java.math.BigInteger
 import javax.xml.bind.annotation.*
 import javax.xml.bind.annotation.adapters.CollapsedStringAdapter
@@ -124,6 +125,31 @@ class EbicsResponse {
     }
 
     companion object {
+
+        fun createForUploadWithError(
+            errorText: String, errorCode: String, phase: EbicsTypes.TransactionPhaseType
+        ): EbicsResponse {
+            val resp = EbicsResponse().apply {
+                this.version = "H004"
+                this.revision = 1
+                this.header = EbicsResponse.Header().apply {
+                    this.mutable = EbicsResponse.MutableHeaderType().apply {
+                        this.reportText = errorText
+                        this.returnCode = errorCode
+                        this.transactionPhase = phase
+                    }
+                    _static = EbicsResponse.StaticHeaderType()
+                }
+                this.authSignature = SignatureType()
+                this.body = EbicsResponse.Body().apply {
+                    this.returnCode = EbicsResponse.ReturnCode().apply {
+                        this.value = errorCode
+                    }
+                }
+            }
+            return resp
+        }
+
         fun createForUploadInitializationPhase(transactionID: String, orderID: String): EbicsResponse {
             return EbicsResponse().apply {
                 this.version = "H004"
@@ -181,7 +207,6 @@ class EbicsResponse {
                 }
             }
         }
-
 
         fun createForUploadTransferPhase(
             transactionID: String,
