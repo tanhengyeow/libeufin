@@ -1,6 +1,8 @@
 import React from 'react';
 import { DatePicker, Table } from 'antd';
 import JSONTree from 'react-json-tree';
+import _ from 'lodash';
+import mapKeysDeep from 'map-keys-deep-lodash';
 
 const { RangePicker } = DatePicker;
 
@@ -27,32 +29,32 @@ const theme = {
 const mainColumns = [
   {
     title: 'Reference ID',
-    dataIndex: 'accountServicerRef',
+    dataIndex: 'Account Servicer Ref',
   },
   {
     title: 'Status',
-    dataIndex: 'status',
+    dataIndex: 'Status',
   },
   {
     title: 'Creditor Debit Indicator',
-    dataIndex: 'creditDebitIndicator',
+    dataIndex: 'Credit Debit Indicator',
   },
   {
     title: 'Bank Transaction Code',
-    dataIndex: 'bankTransactionCode',
+    dataIndex: 'Bank Transaction Code',
   },
   {
     title: 'Value Date',
-    dataIndex: 'valueDate',
+    dataIndex: 'Value Date',
   },
   {
     title: 'Booking Date',
-    dataIndex: 'bookingDate',
+    dataIndex: 'Booking Date',
   },
 ];
 
 const TransactionsList = () => {
-  const tempTransactions = [
+  let tempTransactions = [
     {
       key: 'acctsvcrref-001',
       amount: 'EUR:100.00',
@@ -84,6 +86,7 @@ const TransactionsList = () => {
       },
     },
     {
+      key: 'acctsvcrref-002',
       amount: 'EUR:50.00',
       creditDebitIndicator: 'CRDT',
       status: 'BOOK',
@@ -143,44 +146,46 @@ const TransactionsList = () => {
         },
       },
     },
-    // {
-    //   amount: 'EUR:1000', // in currency of the account
-    //   creditDebitIndicator: 'CRDT',
-    //   status: 'BOOK',
-    //   bankTransactionCode: 'PMNT-RCDT-XBCT', // cross currency bank xfer
-    //   valueDate: '2020-07-04',
-    //   bookingDate: '2020-07-03',
-    //   accountServicerRef: 'acctsvcrref-002',
-    //   details: {
-    //     debtor: {
-    //       name: 'Mr USA',
-    //       postalAddress: {
-    //         country: 'US',
-    //         addressLines: ['42 Some Street', '4242 Somewhere'],
-    //       },
-    //     },
-    //     debtorAccount: {
-    //       otherId: {
-    //         id: '9876543',
-    //       },
-    //     },
-    //     debtorAgent: {
-    //       bic: 'BANKUSNY', // show in details section
-    //     },
-    //     currencyExchange: {
-    //       sourceCurrency: 'USD',
-    //       targetCurrency: 'EUR',
-    //       exchangeRate: '1.20', // depends on when currency switches over
-    //     },
-    //     instructedAmount: 'USD:1500', // party that initiated payment
-    //     interBankSettlementAmount: 'EUR:1250.0', // used for cross currency xfer (amount that bank exchanges betweeen each other)
-    //     counterValueAmount: 'EUR:1250.0', // amount before/after currency conversion before fees were applied
-    //     unstructuredRemittanceInformation: 'Invoice No. 4242',
-    //   },
-    // },
+    {
+      key: 'acctsvcrref-002-1',
+      amount: 'EUR:1000', // in currency of the account
+      creditDebitIndicator: 'CRDT',
+      status: 'BOOK',
+      bankTransactionCode: 'PMNT-RCDT-XBCT', // cross currency bank xfer
+      valueDate: '2020-07-04',
+      bookingDate: '2020-07-03',
+      accountServicerRef: 'acctsvcrref-002',
+      details: {
+        debtor: {
+          name: 'Mr USA',
+          postalAddress: {
+            country: 'US',
+            addressLines: ['42 Some Street', '4242 Somewhere'],
+          },
+        },
+        debtorAccount: {
+          otherId: {
+            id: '9876543',
+          },
+        },
+        debtorAgent: {
+          bic: 'BANKUSNY', // show in details section
+        },
+        currencyExchange: {
+          sourceCurrency: 'USD',
+          targetCurrency: 'EUR',
+          exchangeRate: '1.20', // depends on when currency switches over
+        },
+        instructedAmount: 'USD:1500', // party that initiated payment
+        interBankSettlementAmount: 'EUR:1250.0', // used for cross currency xfer (amount that bank exchanges betweeen each other)
+        counterValueAmount: 'EUR:1250.0', // amount before/after currency conversion before fees were applied
+        unstructuredRemittanceInformation: 'Invoice No. 4242',
+      },
+    },
     // {
     //   // ACH transaction (executes at the end of the day)/Most transactions are sent in real time now
     //   // Banks have inner transactions has a list inside the details view
+    //   key: 'acctsvcrref-005',
     //   amount: 'EUR:48.42',
     //   creditDebitIndicator: 'DBIT',
     //   status: 'BOOK',
@@ -242,6 +247,13 @@ const TransactionsList = () => {
     // },
   ];
 
+  let transactions = mapKeysDeep(tempTransactions, (value, key) => {
+    if (key === 'key') {
+      return key;
+    }
+    return _.startCase(key);
+  });
+
   return (
     <>
       <div className="activity-buttons-row">
@@ -249,10 +261,10 @@ const TransactionsList = () => {
       </div>
       <Table
         columns={mainColumns}
-        dataSource={tempTransactions}
+        dataSource={transactions}
         expandable={{
           expandedRowRender: (record) => (
-            <JSONTree data={record.details} theme={theme} />
+            <JSONTree data={record['Details']} theme={theme} />
           ),
         }}
       />

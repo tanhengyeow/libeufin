@@ -21,6 +21,8 @@
     "craco-less": "1.16",
     "history": "^4.10.1",
     "js-base64": "^2.5.2",
+    "lodash": "^4.17.19",
+    "map-keys-deep-lodash": "^1.2.2",
     "prettier": "^2.0.5",
     "react": "^16.13.1",
     "react-dom": "^16.13.1",
