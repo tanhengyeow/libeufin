@@ -207,8 +207,6 @@ fun serverMain(dbName: String) {
                     HttpStatusCode.OK
                 )
             }
-
-            // todo: check that this error is never thrown upon EBICS errors.
             exception<SandboxError> { cause ->
                 LOGGER.error("Exception while handling '${call.request.uri}'", cause)
                 call.respond(

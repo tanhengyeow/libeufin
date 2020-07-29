@@ -789,7 +789,10 @@ private suspend fun ApplicationCall.receiveEbicsXml(): Document {
         throw EbicsInvalidXmlError()
     }
     val requestedHostID = requestDocument.getElementsByTagName("HostID")
-    this.attributes.put(AttributeKey("RequestedEbicsHostID"), requestedHostID.item(0).nodeValue)
+    this.attributes.put(
+        AttributeKey<String>("RequestedEbicsHostID"),
+        requestedHostID.item(0).textContent
+    )
     return requestDocument
 }
 
