@@ -26,6 +26,7 @@ import io.ktor.http.HttpStatusCode
 import io.ktor.request.receiveText
 import io.ktor.response.respond
 import io.ktor.response.respondText
+import io.ktor.util.AttributeKey
 import org.apache.xml.security.binding.xmldsig.RSAKeyValueType
 import org.jetbrains.exposed.exceptions.ExposedSQLException
 import org.jetbrains.exposed.sql.*
@@ -74,9 +75,7 @@ data class PainParseResult(
 
 open class EbicsRequestError(
     val errorText: String,
-    val errorCode: String,
-    // needed to sign the (error) response.
-    val hostAuthPriv: RSAPrivateCrtKey? = null
+    val errorCode: String
 ) : Exception("EBICS request  error: $errorText ($errorCode)")
 
 class EbicsInvalidRequestError : EbicsRequestError(
@@ -586,8 +585,7 @@ private fun handleCct(paymentRequest: String, initiatorName: String, ctx: Reques
             logger.warn("Could not insert new payment into the database: ${e}")
             throw EbicsRequestError(
                 "[EBICS_PROCESSING_ERROR] ${e.sqlState}",
-                "091116",
-                ctx.hostAuthPriv
+                "091116"
             )
         }
     }
@@ -658,7 +656,6 @@ private suspend fun ApplicationCall.handleEbicsHia(header: EbicsUnsecuredRequest
         respondEbicsKeyManagement("[EBICS_INVALID_USER_OR_USER_STATE]", "091002", "000000")
     }
 }
-
 
 private suspend fun ApplicationCall.handleEbicsIni(header: EbicsUnsecuredRequest.Header, orderData: ByteArray) {
     val plainOrderData = InflaterInputStream(orderData.inputStream()).use {
@@ -783,7 +780,6 @@ private fun ApplicationCall.ensureEbicsHost(requestHostID: String): EbicsHostPub
     }
 }
 
-
 private suspend fun ApplicationCall.receiveEbicsXml(): Document {
     val body: String = receiveText()
     LOGGER.debug("Data received: $body")
@@ -792,6 +788,8 @@ private suspend fun ApplicationCall.receiveEbicsXml(): Document {
         println("Problematic document was: $requestDocument")
         throw EbicsInvalidXmlError()
     }
+    val requestedHostID = requestDocument.getElementsByTagName("HostID")
+    this.attributes.put(AttributeKey("RequestedEbicsHostID"), requestedHostID.item(0).nodeValue)
     return requestDocument
 }
 
@@ -1090,7 +1088,7 @@ private fun handleEbicsUploadTransactionTransmission(requestContext: RequestCont
         throw NotImplementedError()
     }
 }
-
+// req.header.static.hostID.
 private fun makeReqestContext(requestObject: EbicsRequest): RequestContext {
     val staticHeader = requestObject.header.static
     val requestedHostId = staticHeader.hostID
@@ -1198,7 +1196,6 @@ suspend fun ApplicationCall.ebicsweb() {
         "ebicsRequest" -> {
             logger.debug("ebicsRequest ${XMLUtil.convertDomToString(requestDocument)}")
             val requestObject = requestDocument.toObject<EbicsRequest>()
-
             val responseXmlStr = transaction {
                 // Step 1 of 3:  Get information about the host and subscriber
                 val requestContext = makeReqestContext(requestObject)

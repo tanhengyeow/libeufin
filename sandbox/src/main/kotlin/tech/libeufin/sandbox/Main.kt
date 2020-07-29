@@ -61,6 +61,7 @@ import com.github.ajalt.clikt.core.CliktCommand
 import com.github.ajalt.clikt.core.subcommands
 import com.github.ajalt.clikt.parameters.options.default
 import com.github.ajalt.clikt.parameters.options.option
+import io.ktor.util.AttributeKey
 import tech.libeufin.sandbox.PaymentsTable
 import tech.libeufin.sandbox.PaymentsTable.amount
 import tech.libeufin.sandbox.PaymentsTable.creditorBic
@@ -181,7 +182,6 @@ fun serverMain(dbName: String) {
             }
 
             exception<EbicsRequestError> { cause ->
-                LOGGER.info("Client EBICS request was invalid")
                 val resp = EbicsResponse.createForUploadWithError(
                     cause.errorText,
                     cause.errorCode,
@@ -190,13 +190,19 @@ fun serverMain(dbName: String) {
                     // already been caught by the chunking logic.
                     EbicsTypes.TransactionPhaseType.TRANSFER
                 )
-                if (cause.hostAuthPriv == null)
-                    throw SandboxError(
-                        reason = "Cannot sign error response",
-                        statusCode = HttpStatusCode.InternalServerError
+
+                val hostAuthPriv = transaction {
+                    val host = EbicsHostEntity.find {
+                        EbicsHostsTable.hostID.upperCase() eq
+                                call.attributes.get<String>(AttributeKey("EbicsHostID")).toUpperCase()
+                    }.firstOrNull() ?: throw SandboxError(
+                        HttpStatusCode.InternalServerError,
+                        "Requested Ebics host ID not found."
                     )
+                    CryptoUtil.loadRsaPrivateKey(host.authenticationPrivateKey.bytes)
+                }
                 call.respondText(
-                    XMLUtil.signEbicsResponse(resp, cause.hostAuthPriv),
+                    XMLUtil.signEbicsResponse(resp, hostAuthPriv),
                     ContentType.Application.Xml,
                     HttpStatusCode.OK
                 )
