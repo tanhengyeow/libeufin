@@ -61,6 +61,8 @@ import java.util.*
 import java.util.zip.DeflaterInputStream
 import java.util.zip.InflaterInputStream
 
+val EbicsHostIdAttribute = AttributeKey<String>("RequestedEbicsHostID")
+
 data class PainParseResult(
     val creditorIban: String,
     val creditorName: String,
@@ -790,7 +792,7 @@ private suspend fun ApplicationCall.receiveEbicsXml(): Document {
     }
     val requestedHostID = requestDocument.getElementsByTagName("HostID")
     this.attributes.put(
-        AttributeKey<String>("RequestedEbicsHostID"),
+        EbicsHostIdAttribute,
         requestedHostID.item(0).textContent
     )
     return requestDocument

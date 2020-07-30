@@ -193,8 +193,7 @@ fun serverMain(dbName: String) {
 
                 val hostAuthPriv = transaction {
                     val host = EbicsHostEntity.find {
-                        EbicsHostsTable.hostID.upperCase() eq
-                                call.attributes.get<String>(AttributeKey("EbicsHostID")).toUpperCase()
+                        EbicsHostsTable.hostID.upperCase() eq call.attributes.get(EbicsHostIdAttribute).toUpperCase()
                     }.firstOrNull() ?: throw SandboxError(
                         HttpStatusCode.InternalServerError,
                         "Requested Ebics host ID not found."
