@@ -246,7 +246,7 @@ class EbicsUploadTransactionChunkEntity(id: EntityID<String>) : Entity<String>(i
 /**
  * Table that keeps all the payments initiated by PAIN.001.
  */
-object PaymentsTable : Table() {
+object BankAccountTransactionsTable : IntIdTable() {
     val creditorIban = text("creditorIban")
     val creditorBic = text("creditorBic").nullable()
     val creditorName = text("creditorName")
@@ -257,10 +257,23 @@ object PaymentsTable : Table() {
     val amount = text("amount")
     val currency = text("currency")
     val date = long("date")
-    val pmtInfId = text("pmtInfId")
-    val msgId = text("msgId")
+    val subscriber = reference("pmtInfId", BankAccountsTable)
+}
 
-    override val primaryKey = PrimaryKey(pmtInfId, msgId)
+class BankAccountTransactionsEntity(id: EntityID<Int>) : IntEntity(id) {
+    companion object : IntEntityClass<BankAccountTransactionsEntity>(BankAccountTransactionsTable)
+
+    var creditorIban by BankAccountTransactionsTable.creditorIban
+    var creditorBic by BankAccountTransactionsTable.creditorBic
+    var creditorName by BankAccountTransactionsTable.creditorName
+    var debitorIban by BankAccountTransactionsTable.debitorIban
+    var debitorBic by BankAccountTransactionsTable.debitorBic
+    var debitorName by BankAccountTransactionsTable.debitorName
+    var subject by BankAccountTransactionsTable.subject
+    var amount by BankAccountTransactionsTable.amount
+    var currency by BankAccountTransactionsTable.currency
+    var date by BankAccountTransactionsTable.date
+    var subscriber by BankAccountEntity referencedOn BankAccountTransactionsTable.subscriber
 }
 
 /**
@@ -297,7 +310,7 @@ fun dbCreateTables(dbName: String) {
             EbicsUploadTransactionsTable,
             EbicsUploadTransactionChunksTable,
             EbicsOrderSignaturesTable,
-            PaymentsTable,
+            BankAccountTransactionsTable,
             BankAccountsTable
         )
     }
