@@ -257,7 +257,9 @@ object BankAccountTransactionsTable : IntIdTable() {
     val amount = text("amount")
     val currency = text("currency")
     val date = long("date")
-    val subscriber = reference("pmtInfId", BankAccountsTable)
+    val pmtInfId = text("pmtInfId")
+    val msgId = text("msgId")
+    val account = reference("account", BankAccountsTable)
 }
 
 class BankAccountTransactionsEntity(id: EntityID<Int>) : IntEntity(id) {
@@ -273,7 +275,9 @@ class BankAccountTransactionsEntity(id: EntityID<Int>) : IntEntity(id) {
     var amount by BankAccountTransactionsTable.amount
     var currency by BankAccountTransactionsTable.currency
     var date by BankAccountTransactionsTable.date
-    var subscriber by BankAccountEntity referencedOn BankAccountTransactionsTable.subscriber
+    var pmtInfId by BankAccountTransactionsTable.pmtInfId
+    var msgId by BankAccountTransactionsTable.msgId
+    var account by BankAccountEntity referencedOn BankAccountTransactionsTable.account
 }
 
 /**
