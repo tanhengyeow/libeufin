@@ -33,18 +33,18 @@ import org.jetbrains.exposed.sql.*
 import org.jetbrains.exposed.sql.statements.api.ExposedBlob
 import org.jetbrains.exposed.sql.transactions.transaction
 import org.w3c.dom.Document
-import tech.libeufin.sandbox.PaymentsTable.amount
-import tech.libeufin.sandbox.PaymentsTable.creditorBic
-import tech.libeufin.sandbox.PaymentsTable.creditorIban
-import tech.libeufin.sandbox.PaymentsTable.creditorName
-import tech.libeufin.sandbox.PaymentsTable.currency
-import tech.libeufin.sandbox.PaymentsTable.date
-import tech.libeufin.sandbox.PaymentsTable.debitorBic
-import tech.libeufin.sandbox.PaymentsTable.debitorIban
-import tech.libeufin.sandbox.PaymentsTable.debitorName
-import tech.libeufin.sandbox.PaymentsTable.msgId
-import tech.libeufin.sandbox.PaymentsTable.pmtInfId
-import tech.libeufin.sandbox.PaymentsTable.subject
+import tech.libeufin.sandbox.BankAccountTransactionsTable.amount
+import tech.libeufin.sandbox.BankAccountTransactionsTable.creditorBic
+import tech.libeufin.sandbox.BankAccountTransactionsTable.creditorIban
+import tech.libeufin.sandbox.BankAccountTransactionsTable.creditorName
+import tech.libeufin.sandbox.BankAccountTransactionsTable.currency
+import tech.libeufin.sandbox.BankAccountTransactionsTable.date
+import tech.libeufin.sandbox.BankAccountTransactionsTable.debitorBic
+import tech.libeufin.sandbox.BankAccountTransactionsTable.debitorIban
+import tech.libeufin.sandbox.BankAccountTransactionsTable.debitorName
+import tech.libeufin.sandbox.BankAccountTransactionsTable.msgId
+import tech.libeufin.sandbox.BankAccountTransactionsTable.pmtInfId
+import tech.libeufin.sandbox.BankAccountTransactionsTable.subject
 import tech.libeufin.util.*
 import tech.libeufin.util.XMLUtil.Companion.signEbicsResponse
 import tech.libeufin.util.ebics_h004.*
@@ -465,12 +465,12 @@ private fun constructCamtResponse(
     val bankAccount = getBankAccountFromSubscriber(subscriber)
     transaction {
         logger.debug("Querying transactions involving: ${bankAccount.iban}")
-        PaymentsTable.select {
-            PaymentsTable.creditorIban eq bankAccount.iban or
-                    (PaymentsTable.debitorIban eq bankAccount.iban)
+        BankAccountTransactionsTable.select {
+            BankAccountTransactionsTable.creditorIban eq bankAccount.iban or
+                    (BankAccountTransactionsTable.debitorIban eq bankAccount.iban)
             /**
             FIXME: add the following condition too:
-            and (PaymentsTable.date.between(start.millis, end.millis))
+            and (BankAccountTransactionsTable.date.between(start.millis, end.millis))
              */
         }.forEach {
             history.add(
@@ -571,7 +571,7 @@ private fun handleCct(paymentRequest: String, initiatorName: String, ctx: Reques
     val parseResult = parsePain001(paymentRequest, initiatorName)
     transaction {
         try {
-            PaymentsTable.insert {
+            BankAccountTransactionsTable.insert {
                 it[creditorIban] = parseResult.creditorIban
                 it[creditorName] = parseResult.creditorName
                 it[debitorIban] = parseResult.debitorIban
