@@ -62,16 +62,16 @@ import com.github.ajalt.clikt.core.subcommands
 import com.github.ajalt.clikt.parameters.options.default
 import com.github.ajalt.clikt.parameters.options.option
 import io.ktor.util.AttributeKey
-import tech.libeufin.sandbox.PaymentsTable
-import tech.libeufin.sandbox.PaymentsTable.amount
-import tech.libeufin.sandbox.PaymentsTable.creditorBic
-import tech.libeufin.sandbox.PaymentsTable.creditorIban
-import tech.libeufin.sandbox.PaymentsTable.creditorName
-import tech.libeufin.sandbox.PaymentsTable.currency
-import tech.libeufin.sandbox.PaymentsTable.date
-import tech.libeufin.sandbox.PaymentsTable.debitorBic
-import tech.libeufin.sandbox.PaymentsTable.debitorIban
-import tech.libeufin.sandbox.PaymentsTable.debitorName
+import tech.libeufin.sandbox.BankAccountTransactionsTable
+import tech.libeufin.sandbox.BankAccountTransactionsTable.amount
+import tech.libeufin.sandbox.BankAccountTransactionsTable.creditorBic
+import tech.libeufin.sandbox.BankAccountTransactionsTable.creditorIban
+import tech.libeufin.sandbox.BankAccountTransactionsTable.creditorName
+import tech.libeufin.sandbox.BankAccountTransactionsTable.currency
+import tech.libeufin.sandbox.BankAccountTransactionsTable.date
+import tech.libeufin.sandbox.BankAccountTransactionsTable.debitorBic
+import tech.libeufin.sandbox.BankAccountTransactionsTable.debitorIban
+import tech.libeufin.sandbox.BankAccountTransactionsTable.debitorName
 import tech.libeufin.util.*
 import tech.libeufin.util.ebics_h004.EbicsResponse
 import tech.libeufin.util.ebics_h004.EbicsTypes
@@ -236,12 +236,12 @@ fun serverMain(dbName: String) {
             get("/admin/payments") {
                 val ret = PaymentsResponse()
                 transaction {
-                    PaymentsTable.selectAll().forEach {
+                    BankAccountTransactionsTable.selectAll().forEach {
                         ret.payments.add(
                             RawPayment(
                                 creditorIban = it[creditorIban],
                                 debitorIban = it[debitorIban],
-                                subject = it[PaymentsTable.subject],
+                                subject = it[BankAccountTransactionsTable.subject],
                                 date = it[date].toHttpDateString(),
                                 amount = it[amount],
                                 creditorBic = it[creditorBic],
@@ -263,7 +263,7 @@ fun serverMain(dbName: String) {
             post("/admin/payments") {
                 val body = call.receive<RawPayment>()
                 transaction {
-                   PaymentsTable.insert {
+                   BankAccountTransactionsTable.insert {
                        it[creditorIban] = body.creditorIban
                        it[creditorBic] = body.creditorBic
                        it[creditorName] = body.creditorName
