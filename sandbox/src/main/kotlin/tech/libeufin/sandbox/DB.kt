@@ -347,7 +347,9 @@ fun dbCreateTables(dbName: String) {
             EbicsUploadTransactionChunksTable,
             EbicsOrderSignaturesTable,
             BankAccountTransactionsTable,
-            BankAccountsTable
+            BankAccountsTable,
+            BankAccountReportsTable,
+            BankAccountStatementsTable
         )
     }
 }
