@@ -302,6 +302,38 @@ class BankAccountEntity(id: EntityID<Int>) : IntEntity(id) {
     var subscriber by EbicsSubscriberEntity referencedOn BankAccountsTable.subscriber
 }
 
+object BankAccountStatementsTable : IntIdTable() {
+    val statementId = text("statementId")
+    val creationTime = long("creationTime")
+    val xmlMessage = text("xmlMessage")
+    val bankAccount = reference("bankAccount", BankAccountsTable)
+}
+
+class BankAccountStatementsEntity(id: EntityID<Int>) : IntEntity(id) {
+    companion object : IntEntityClass<BankAccountStatementsEntity>(BankAccountStatementsTable)
+
+    var statementId by BankAccountStatementsTable.statementId
+    var xmlMessage by BankAccountStatementsTable.xmlMessage
+    var creationTime by BankAccountStatementsTable.creationTime
+    var bankAccount by BankAccountEntity referencedOn BankAccountStatementsTable.bankAccount
+}
+
+object BankAccountReportsTable : IntIdTable() {
+    val reportId = text("reportId")
+    val creationTime = long("creationTime")
+    val xmlMessage = text("xmlMessage")
+    val bankAccount = reference("bankAccount", BankAccountsTable)
+}
+
+class BankAccountReportsTableEntity(id: EntityID<Int>) : IntEntity(id) {
+    companion object : IntEntityClass<BankAccountReportsTableEntity>(BankAccountReportsTable)
+
+    var reportId by BankAccountReportsTable.reportId
+    var xmlMessage by BankAccountReportsTable.xmlMessage
+    var creationTime by BankAccountReportsTable.creationTime
+    var bankAccount by BankAccountEntity referencedOn BankAccountReportsTable.bankAccount
+}
+
 fun dbCreateTables(dbName: String) {
     Database.connect("jdbc:sqlite:${dbName}", "org.sqlite.JDBC")
     TransactionManager.manager.defaultIsolationLevel = Connection.TRANSACTION_SERIALIZABLE
