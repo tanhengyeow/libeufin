@@ -50,7 +50,6 @@ data class PaymentsResponse(
     val payments: MutableList<RawPayment> = mutableListOf()
 )
 
-
 /**
  * Used to create AND show one Ebics subscriber in the system.
  */
@@ -71,4 +70,29 @@ data class BankAccountRequest(
     val bic: String,
     val name: String,
     val label: String
+)
+
+data class DateRange(
+    val startDate: Long,
+    val endDate: Long
+)
+
+data class BankAccountStatements(
+    var bankAccountStatements: MutableList<BankAccountStatement> = mutableListOf()
+)
+
+data class BankAccountReports(
+    var bankAccountReports: MutableList<BankAccountReport> = mutableListOf()
+)
+
+data class BankAccountStatement(
+    var statementId: String,
+    var creationTime: Long,
+    var message: MutableList<String> = mutableListOf()
+)
+
+data class BankAccountReport(
+    var reportId: String,
+    var creationTime: Long,
+    val message: String
 )

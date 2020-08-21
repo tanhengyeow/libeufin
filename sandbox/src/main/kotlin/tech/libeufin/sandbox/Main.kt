@@ -75,6 +75,7 @@ import tech.libeufin.sandbox.BankAccountTransactionsTable.debitorName
 import tech.libeufin.util.*
 import tech.libeufin.util.ebics_h004.EbicsResponse
 import tech.libeufin.util.ebics_h004.EbicsTypes
+import java.util.UUID
 
 class CustomerNotFound(id: String?) : Exception("Customer ${id} not found")
 class BadInputData(inputData: String?) : Exception("Customer provided invalid input data: ${inputData}")
@@ -381,6 +382,56 @@ fun serverMain(dbName: String) {
              */
             post("/ebicsweb") {
                 call.ebicsweb()
+            }
+            /**
+             * Shows all bank account statements.
+             */
+            get("/admin/statements") {
+                var ret = BankAccountStatement()
+                ret.creationTime = Instant.now().toEpochMilli()
+                ret.statementId = "C52-" + Instant.now().toEpochMilli().toHttpDateString() + "-" + UUID.randomUUID().toString()
+                ret.message = mutableListOf<String>()
+                transaction {
+                    BankAccountTransactionsTable.selectAll().forEach {
+                        ret.message.add(
+                            constructXml(indent = true) {
+                                root("Document") {
+                                    attribute("xmlns", "urn:iso:std:iso:20022:tech:xsd:camt.053.001.02")
+                                    attribute("xmlns:xsi", "http://www.w3.org/2001/XMLSchema-instance")
+                                    attribute(
+                                        "xsi:schemaLocation",
+                                        "urn:iso:std:iso:20022:tech:xsd:camt.053.001.02 camt.053.001.02.xsd"
+                                    )
+                                    element("Ntry") {
+                                        element("Amt") {
+                                            attribute("Ccy", it.currency)
+                                            text(it.amount)
+                                        }
+                                    }
+                                }
+                            }
+                        )
+                    }
+                }
+                transaction {
+                    BankAccountStatementsTable.insert {
+                        it[statementId] = ret.statementId
+                        it[creationTime] = ret.creationTime
+                        it[xmlMessage] = ret.message.toString()
+                    }
+                }
+                call.respond(ret)
+                return@get
+            }
+            /**
+             * Shows all bank account reports.
+             */
+            get("/admin/reports") {
+                val body = call.receive<DateRange>()
+                var ret = BankAccountReport()
+
+                call.respond(ret)
+                return@get
             }
         }
     }
