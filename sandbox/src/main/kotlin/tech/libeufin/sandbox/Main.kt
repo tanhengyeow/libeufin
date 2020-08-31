@@ -386,6 +386,9 @@ fun serverMain(dbName: String) {
             /**
              * Shows all bank account statements.
              */
+            /*
+              FIXME: Heng Yeow.
+
             get("/admin/statements") {
                 var ret = BankAccountStatement()
                 ret.creationTime = Instant.now().toEpochMilli()
@@ -423,9 +426,14 @@ fun serverMain(dbName: String) {
                 call.respond(ret)
                 return@get
             }
+
+             */
             /**
              * Shows all bank account reports.
              */
+            /*
+              FIXME: Heng Yeow.
+
             get("/admin/reports") {
                 val body = call.receive<DateRange>()
                 var ret = BankAccountReport()
@@ -433,6 +441,8 @@ fun serverMain(dbName: String) {
                 call.respond(ret)
                 return@get
             }
+            
+             */
         }
     }
     LOGGER.info("Up and running")
